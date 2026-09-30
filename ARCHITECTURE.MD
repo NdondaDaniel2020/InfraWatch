@@ -24,7 +24,7 @@ O **InfraWatch** é estruturado como um **Monólito Modular** orientado a **Doma
 │                                                                                                        │
 │  ┌───────────────────────┐  ┌───────────────────────┐  ┌───────────────────────┐  ┌────────────────┐   │
 │  │    Identity Context   │  │   Inventory Context   │  │    Alert & SLA        │  │  Notification  │   │
-│  │ (Auth, RBAC, Tenants) │  │  (Devices, Orgs, FTS) │  │ (Incidents, Rules)    │  │ (Multi-Canal)   │   │
+│  │ (Auth, RBAC, Tenants) │  │  (Devices, Orgs, FTS) │  │ (Incidents, Rules)    │  │ (Multi-Canal)  │   │
 │  └───────────┬───────────┘  └───────────┬───────────┘  └───────────┬───────────┘  └───────┬────────┘   │
 │              │                          │                          │                      │            │
 │              └──────────────────────────┼──────────────────────────┴──────────────────────┘            │
@@ -47,24 +47,24 @@ O **InfraWatch** é estruturado como um **Monólito Modular** orientado a **Doma
                                           │
                                           ├────────────────────────────┐
                                           ▼                            ▼
-                 ┌─────────────────────────────────┐          ┌──────────────────┐
-                 │          PostgreSQL 16+         │          │     Redis 7+     │
+                 ┌─────────────────────────────────┐          ┌───────────────────┐
+                 │          PostgreSQL 16+         │          │     Redis 7+      │
                  │  • Relational Data & Outbox     │          │ • Streams / PubSub│
-                 │  • Full-Text Search (tsvector)  │          │ • Fast Cache     │
-                 │  • Time-Series Partitioning     │          │ • Token Revoke   │
-                 └────────────────┬────────────────┘          └────────┬─────────┘
+                 │  • Full-Text Search (tsvector)  │          │ • Fast Cache      │
+                 │  • Time-Series Partitioning     │          │ • Token Revoke    │
+                 └────────────────┬────────────────┘          └────────┬──────────┘
                                   ▲                                    ▲
                                   │                                    │
-    ┌─────────────────────────────┴────────────────────────────────────┴─────────────────────────────┐
-    │                                                                                                │
-    │  Processo 2: Dedicated Probe Worker (Python)     Processo 3: Zabbix & GLPI Integration Worker  │
-    │  ┌──────────────────────────────────────────┐    ┌──────────────────────────────────────────┐  │
-    │  │ • In-Memory Scheduling Loop (Zero DB I/O)│    │ • Sync periódico c/ Zabbix (CPU/RAM/SNMP)│  │
-    │  │ • Async Sockets: ICMP Ping, HTTP, TCP    │    │ • Abertura e Fechamento de Chamados GLPI │  │
-    │  │ • Stream Consumer (Atualizações Cadastrais)   │ • Notificações WhatsApp / Telegram / SMS │  │
-    │  │ • Self-healing Reconciliação (5 minutos) │    └──────────────────────────────────────────┘  │
-    │  └──────────────────────────────────────────┘                                                  │
-    └────────────────────────────────────────────────────────────────────────────────────────────────┘
+    ┌─────────────────────────────┴────────────────────────────────────┴───────────────────────────────┐
+    │                                                                                                  │
+    │  Processo 2: Dedicated Probe Worker (Python)     Processo 3: Zabbix & GLPI Integration Worker    │
+    │  ┌────────────────────────────────────────────┐    ┌──────────────────────────────────────────┐  │
+    │  │ • In-Memory Scheduling Loop (Zero DB I/O)  │    │ • Sync periódico c/ Zabbix (CPU/RAM/SNMP)│  │
+    │  │ • Async Sockets: ICMP Ping, HTTP, TCP      │    │ • Abertura e Fechamento de Chamados GLPI │  │
+    │  │ • Stream Consumer (Atualizações Cadastrais)|    │ • Notificações WhatsApp / Telegram / SMS │  │
+    │  │ • Self-healing Reconciliação (5 minutos)   │    └──────────────────────────────────────────┘  │
+    │  └────────────────────────────────────────────┘                                                  │
+    └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
