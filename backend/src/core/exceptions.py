@@ -9,7 +9,14 @@ class InfraWatchException(Exception):
         self.message = message
 
 
-class EntityNotFoundError(InfraWatchException):
+class NotFoundError(InfraWatchException):
+    """Lançada quando um recurso ou entidade não foi encontrado."""
+
+    def __init__(self, message: str = "Recurso não encontrado.") -> None:
+        super().__init__(message)
+
+
+class EntityNotFoundError(NotFoundError):
     """Lançada quando uma entidade solicitada não foi encontrada."""
 
     def __init__(self, entity_name: str, identifier: str | int) -> None:
@@ -101,3 +108,74 @@ class AccountLockedOutError(RateLimitError):
         retry_after: int = 900,
     ) -> None:
         super().__init__(message, retry_after)
+
+
+# Ciclo de Vida de Contas & Verificação
+class EmailAlreadyExistsError(InfraWatchException):
+    """Lançada quando tenta-se registrar um e-mail já existente."""
+
+    def __init__(self, message: str = "Este endereço de e-mail já está cadastrado.") -> None:
+        super().__init__(message)
+
+
+class InvalidOrExpiredTokenError(InfraWatchException):
+    """Lançada quando um token temporário de verificação ou reset é inválido ou expirou."""
+
+    def __init__(self, message: str = "Token inválido ou expirado.") -> None:
+        super().__init__(message)
+
+
+class TokenAlreadyUsedError(InfraWatchException):
+    """Lançada quando um token temporário já foi consumido."""
+
+    def __init__(self, message: str = "Este token já foi utilizado anteriormente.") -> None:
+        super().__init__(message)
+
+
+# MFA / 2FA Exceptions
+class MfaNotSetupError(InfraWatchException):
+    """Lançada quando a configuração de MFA não foi iniciada."""
+
+    def __init__(
+        self, message: str = "Configuração de MFA não iniciada. Execute /setup primeiro."
+    ) -> None:
+        super().__init__(message)
+
+
+class InvalidTotpCodeError(InfraWatchException):
+    """Lançada quando o código TOTP fornecido é incorreto ou expirou."""
+
+    def __init__(self, message: str = "Código TOTP inválido ou expirado.") -> None:
+        super().__init__(message)
+
+
+class MfaNotActiveError(InfraWatchException):
+    """Lançada quando tenta-se operar ou desativar MFA que não está habilitado."""
+
+    def __init__(self, message: str = "MFA não está ativado para este usuário.") -> None:
+        super().__init__(message)
+
+
+class InvalidMfaConfirmationError(InfraWatchException):
+    """Lançada quando a senha ou código de confirmação de desativação é inválido."""
+
+    def __init__(self, message: str = "Código de confirmação de MFA inválido.") -> None:
+        super().__init__(message)
+
+
+class InvalidMfaChallengeError(InfraWatchException):
+    """Lançada quando o código fornecido no desafio de login é inválido."""
+
+    def __init__(
+        self, message: str = "Código de verificação de dois fatores incorreto ou expirado."
+    ) -> None:
+        super().__init__(message)
+
+
+class InvalidMfaPendingTokenError(InfraWatchException):
+    """Lançada quando o token intermediário de desafio MFA é inválido ou expirou."""
+
+    def __init__(
+        self, message: str = "Token de autenticação intermediário inválido ou expirado."
+    ) -> None:
+        super().__init__(message)

@@ -89,6 +89,7 @@ async def seeded_user(
 @pytest.fixture
 def override_db(integration_db: async_sessionmaker[AsyncSession]) -> AsyncGenerator[None, None]:
     """Sobrescreve a dependência get_db_session na aplicação FastAPI."""
+
     async def _get_test_session() -> AsyncGenerator[AsyncSession, None]:
         async with integration_db() as session:
             yield session

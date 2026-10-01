@@ -1,29 +1,44 @@
-"""Serviço de Autenticação com proteção contra Timing Attack e Enumeração de Usuários.
-
-Implementa a ADR-022 / Issue #10:
-- Executa verificação criptográfica em tempo constante neutro (constant_time_verify)
-  tanto para contas existentes quanto inexistentes, eliminando variações de latência.
-- Neutralidade de mensagens de erro: "Credenciais inválidas" uniforme para e-mail incorreto,
-  senha incorreta ou conta inativa.
-- Integração coordenada com DualKeyRateLimiter (pre_login_check e lockout).
-- Emissão atômica de par de tokens de sessão (Access Token JWT + Refresh Token opaco).
-"""
+"""Serviço de Autenticação com proteção contra Timing Attack, MFA, Redefinição de Senha e Verificação."""
 
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.identity.domain.models import UserModel
+from src.contexts.identity.repositories.email_verification_repository import (
+    EmailVerificationRepository,
+)
+from src.contexts.identity.repositories.password_reset_repository import (
+    PasswordResetRepository,
+)
+from src.contexts.identity.repositories.refresh_token_repository import (
+    RefreshTokenRepository,
+)
 from src.contexts.identity.repositories.user_repository import UserRepository
+from src.contexts.identity.security.password import password_hasher
 from src.contexts.identity.security.timing import constant_time_verify
+from src.contexts.identity.security.tokens import (
+    create_mfa_pending_token,
+    decode_mfa_pending_token,
+    generate_opaque_token,
+)
 from src.contexts.identity.services.auth_rate_limit_service import AuthRateLimitService
+from src.contexts.identity.services.mfa_service import MfaService
 from src.contexts.identity.services.token_service import (
     TokenPairResponse,
     TokenService,
 )
-from src.core.exceptions import AuthenticationError
+from src.core.exceptions import (
+    AuthenticationError,
+    InvalidMfaChallengeError,
+    InvalidMfaPendingTokenError,
+    InvalidOrExpiredTokenError,
+    TokenAlreadyUsedError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +47,7 @@ INVALID_CREDENTIALS_MSG = "Credenciais inválidas."
 
 
 class AuthService:
-    """Orquestrador do fluxo completo de autenticação e proteção contra ataques temporais."""
+    """Orquestrador do fluxo completo de autenticação, sessões, MFA e recuperação de senhas."""
 
     def __init__(
         self,
@@ -45,6 +60,9 @@ class AuthService:
         self.user_repo = user_repository or UserRepository(session)
         self.token_service = token_service or TokenService(session)
         self.rate_limit_service = rate_limit_service or AuthRateLimitService()
+        self.password_reset_repo = PasswordResetRepository(session)
+        self.email_token_repo = EmailVerificationRepository(session)
+        self.refresh_token_repo = RefreshTokenRepository(session)
 
     async def authenticate(
         self,
@@ -53,17 +71,11 @@ class AuthService:
         *,
         client_ip: str = "127.0.0.1",
         user_agent: str | None = None,
-    ) -> tuple[UserModel, TokenPairResponse]:
-        """Autentica o usuário de forma neutra e segura contra ataques de temporização.
+    ) -> tuple[UserModel, TokenPairResponse | str]:
+        """Autentica o usuário de forma neutra contra ataques de temporização.
 
-        Passos:
-        1. Pré-checagem de Rate Limiting por IP e Account Lockout (rejeita requisições abusivas sem onerar o banco).
-        2. Busca assíncrona do usuário no PostgreSQL.
-        3. Verificação criptográfica com Argon2id em tempo constante neutro:
-           - Se o usuário não existe ou está inativo, candidate_hash é None -> executa Argon2id contra DUMMY_ARGON2_HASH.
-           - Se o usuário existe e está ativo -> executa Argon2id contra o hash real.
-        4. Tratamento unificado de credenciais inválidas.
-        5. Emissão do par de tokens (JWT + Refresh opaco rotativo).
+        Se MFA estiver ativado, retorna (user, mfa_pending_token).
+        Caso contrário, retorna (user, TokenPairResponse).
         """
         norm_email = email.strip().lower()
 
@@ -91,11 +103,18 @@ class AuthService:
             )
             raise AuthenticationError(INVALID_CREDENTIALS_MSG)
 
-        # 5. Sucesso na autenticação
+        # 5. Sucesso na validação de senha -> reseta tentativas
         await self.rate_limit_service.register_successful_login(
             client_ip=client_ip, email=norm_email
         )
 
+        # 6. Se MFA estiver ativo, emite token intermediário mfa_pending (3 min)
+        if user.mfa_enabled:
+            pending_token = create_mfa_pending_token(user.id)
+            logger.info("Desafio de MFA exigido para usuário: %s", user.email)
+            return user, pending_token
+
+        # 7. Emissão final de tokens
         tokens = await self.token_service.create_token_pair(
             user=user,
             ip_address=client_ip,
@@ -104,3 +123,136 @@ class AuthService:
 
         logger.info("Usuário autenticado com sucesso: %s (ID: %s)", user.email, user.id)
         return user, tokens
+
+    async def authenticate_mfa_challenge(
+        self,
+        *,
+        mfa_pending_token: str,
+        code: str,
+        client_ip: str = "127.0.0.1",
+        user_agent: str | None = None,
+    ) -> tuple[UserModel, TokenPairResponse]:
+        """Valida o código TOTP ou de backup e emite o par final de tokens de sessão."""
+        try:
+            payload = decode_mfa_pending_token(mfa_pending_token)
+        except Exception as exc:
+            raise InvalidMfaPendingTokenError() from exc
+
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            raise InvalidMfaPendingTokenError()
+
+        user_id = UUID(user_id_str)
+        user = await self.user_repo.get_by_id(user_id)
+        if not user or not user.is_active:
+            raise AuthenticationError(INVALID_CREDENTIALS_MSG)
+
+        is_valid = await MfaService.verify_challenge(self.session, user.id, code)
+        if not is_valid:
+            raise InvalidMfaChallengeError()
+
+        tokens = await self.token_service.create_token_pair(
+            user=user,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        return user, tokens
+
+    async def request_password_reset(
+        self,
+        email: str,
+        *,
+        client_ip: str | None = None,
+    ) -> str | None:
+        """Gera token de recuperação de senha se o usuário existir (resposta neutra)."""
+        norm_email = email.strip().lower()
+        user = await self.user_repo.get_by_email(norm_email)
+        if not user or not user.is_active:
+            return None
+
+        raw_token = generate_opaque_token(32)
+        expires_at = datetime.now(UTC) + timedelta(hours=1)
+        await self.password_reset_repo.create(
+            user_id=user.id,
+            token=raw_token,
+            expires_at=expires_at,
+        )
+        return raw_token
+
+    async def reset_password(
+        self,
+        *,
+        token: str,
+        new_password: str,
+        client_ip: str | None = None,
+    ) -> None:
+        """Valida token de redefinição, atualiza a senha e invalida sessões antigas."""
+        record = await self.password_reset_repo.get_by_token(token)
+        if not record:
+            raise InvalidOrExpiredTokenError()
+
+        if record.used:
+            raise TokenAlreadyUsedError()
+
+        now = datetime.now(UTC)
+        if record.expires_at <= now:
+            raise InvalidOrExpiredTokenError("O link de redefinição de senha expirou.")
+
+        user = await self.user_repo.get_by_id(record.user_id)
+        if not user:
+            raise InvalidOrExpiredTokenError()
+
+        # Atualiza a senha
+        user.hashed_password = password_hasher.hash(new_password)
+        await self.password_reset_repo.mark_used(record, used_at=now)
+
+        # Invalida todas as sessões anteriores por segurança
+        await self.refresh_token_repo.revoke_other_sessions(user.id)
+        await self.session.flush()
+
+    async def verify_email(
+        self,
+        token: str,
+        *,
+        client_ip: str | None = None,
+    ) -> None:
+        """Confirma e valida o endereço de e-mail de um novo usuário."""
+        record = await self.email_token_repo.get_by_token(token)
+        if not record:
+            raise InvalidOrExpiredTokenError()
+
+        if record.used:
+            raise TokenAlreadyUsedError()
+
+        now = datetime.now(UTC)
+        if record.expires_at <= now:
+            raise InvalidOrExpiredTokenError("O link de verificação de e-mail expirou.")
+
+        user = await self.user_repo.get_by_id(record.user_id)
+        if not user:
+            raise InvalidOrExpiredTokenError()
+
+        user.is_verified = True
+        await self.email_token_repo.mark_used(record, used_at=now)
+        await self.session.flush()
+
+    async def resend_verification_email(
+        self,
+        email: str,
+        *,
+        client_ip: str | None = None,
+    ) -> str | None:
+        """Reenvia o link de verificação caso a conta não esteja confirmada."""
+        norm_email = email.strip().lower()
+        user = await self.user_repo.get_by_email(norm_email)
+        if not user or user.is_verified:
+            return None
+
+        raw_token = generate_opaque_token(32)
+        expires_at = datetime.now(UTC) + timedelta(hours=24)
+        await self.email_token_repo.create(
+            user_id=user.id,
+            token=raw_token,
+            expires_at=expires_at,
+        )
+        return raw_token

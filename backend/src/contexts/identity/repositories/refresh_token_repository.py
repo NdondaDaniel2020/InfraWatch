@@ -61,12 +61,9 @@ class RefreshTokenRepository:
     ) -> int:
         """Revoga todas as outras sessões ativas do usuário, exceto a atual."""
         now = datetime.now(UTC)
-        stmt = (
-            update(RefreshTokenModel)
-            .where(
-                RefreshTokenModel.user_id == user_id,
-                RefreshTokenModel.is_revoked.is_(False),
-            )
+        stmt = update(RefreshTokenModel).where(
+            RefreshTokenModel.user_id == user_id,
+            RefreshTokenModel.is_revoked.is_(False),
         )
         if current_token_hash:
             stmt = stmt.where(RefreshTokenModel.token_hash != current_token_hash)

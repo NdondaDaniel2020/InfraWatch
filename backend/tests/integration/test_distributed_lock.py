@@ -289,7 +289,9 @@ async def test_token_cleanup_worker_with_database(
     )
 
     deleted_count = await worker.run_once()
-    assert deleted_count == 2, "Devem ter sido expurgados exatamente 2 tokens (o expirado e o revogado antigo)!"
+    assert deleted_count == 2, (
+        "Devem ter sido expurgados exatamente 2 tokens (o expirado e o revogado antigo)!"
+    )
 
     # Verifica os tokens remanescentes no banco
     async with test_db_session_factory() as session:
@@ -331,4 +333,6 @@ async def test_concurrent_token_cleanup_workers(
     skipped_results = [r for r in results if r is None]
 
     assert len(acquired_results) == 1, "Exatamente um worker deve ter adquirido o lock!"
-    assert len(skipped_results) == 2, "Os outros 2 workers devem ter pulado a execução (retornando None)!"
+    assert len(skipped_results) == 2, (
+        "Os outros 2 workers devem ter pulado a execução (retornando None)!"
+    )

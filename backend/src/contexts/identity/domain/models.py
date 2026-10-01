@@ -126,7 +126,9 @@ class RefreshTokenModel(Base):
         index=True,
     )
     token_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     is_revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -142,12 +144,12 @@ class RefreshTokenModel(Base):
     # Relacionamentos
     user: Mapped[UserModel] = relationship("UserModel", back_populates="refresh_tokens")
 
-    __table_args__ = (
-        Index("idx_refresh_tokens_lookup", "token_hash", "is_revoked", "expires_at"),
-    )
+    __table_args__ = (Index("idx_refresh_tokens_lookup", "token_hash", "is_revoked", "expires_at"),)
 
     def __repr__(self) -> str:
-        return f"<RefreshTokenModel id={self.id} user_id={self.user_id} is_revoked={self.is_revoked}>"
+        return (
+            f"<RefreshTokenModel id={self.id} user_id={self.user_id} is_revoked={self.is_revoked}>"
+        )
 
 
 class PasswordResetTokenModel(Base):
