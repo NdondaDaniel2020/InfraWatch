@@ -89,8 +89,13 @@ class UserService:
         await self.session.flush()
         return user
 
-    async def get_by_id(self, user_id: UUID) -> UserModel | None:
-        return await self.user_repo.get_by_id(user_id)
+    async def get_user_by_id(self, user_id: UUID) -> UserModel:
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("Usuário não encontrado.")
+        return user
+
+    get_by_id = get_user_by_id
 
     async def list_users(
         self,
@@ -122,6 +127,8 @@ class UserService:
         user.role = str(role)
         await self.session.flush()
         return user
+
+    update_user_role = update_roles
 
     async def activate_user(self, user_id: UUID) -> UserModel:
         """Ativa a conta do usuário."""

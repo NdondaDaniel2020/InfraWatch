@@ -123,12 +123,11 @@ async def login(
             headers=headers,
         ) from None
 
-    if token_pair is None:
+    if user.mfa_enabled or isinstance(token_pair, str):
         # MFA é obrigatório para este usuário
-        mfa_token = auth_service.create_mfa_pending_token(user.id)
         return AuthResponse(
             mfa_required=True,
-            mfa_pending_token=mfa_token,
+            mfa_pending_token=str(token_pair),
         )
 
     # Registra evento de auditoria via Transactional Outbox

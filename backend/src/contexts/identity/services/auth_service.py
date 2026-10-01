@@ -42,6 +42,16 @@ from src.core.exceptions import (
 
 logger = logging.getLogger(__name__)
 
+
+def _ensure_utc(dt: datetime | None) -> datetime | None:
+    """Garante que o datetime possua fuso horário UTC explicitamente definido."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
+
+
 # Mensagem estritamente neutra para prevenir enumeração de contas
 INVALID_CREDENTIALS_MSG = "Credenciais inválidas."
 
@@ -147,7 +157,8 @@ class AuthService:
         if not user or not user.is_active:
             raise AuthenticationError(INVALID_CREDENTIALS_MSG)
 
-        is_valid = await MfaService.verify_challenge(self.session, user.id, code)
+        mfa_service = MfaService(self.session)
+        is_valid = await mfa_service.verify_challenge(user.id, code)
         if not is_valid:
             raise InvalidMfaChallengeError()
 
@@ -195,7 +206,8 @@ class AuthService:
             raise TokenAlreadyUsedError()
 
         now = datetime.now(UTC)
-        if record.expires_at <= now:
+        expires_at = _ensure_utc(record.expires_at)
+        if expires_at is not None and expires_at <= now:
             raise InvalidOrExpiredTokenError("O link de redefinição de senha expirou.")
 
         user = await self.user_repo.get_by_id(record.user_id)
@@ -225,7 +237,8 @@ class AuthService:
             raise TokenAlreadyUsedError()
 
         now = datetime.now(UTC)
-        if record.expires_at <= now:
+        expires_at = _ensure_utc(record.expires_at)
+        if expires_at is not None and expires_at <= now:
             raise InvalidOrExpiredTokenError("O link de verificação de e-mail expirou.")
 
         user = await self.user_repo.get_by_id(record.user_id)

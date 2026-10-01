@@ -23,9 +23,13 @@ class SessionService:
         """Retorna todas as sessões ativas do usuário."""
         return await self.repo.list_active_by_user(user_id)
 
-    async def revoke_session(self, session_id: UUID, user_id: UUID) -> bool:
+    async def revoke_session(self, user_id: UUID, session_id: UUID) -> bool:
         """Revoga uma sessão específica."""
-        return await self.repo.revoke_by_id_and_user(session_id, user_id)
+        return await self.repo.revoke_by_id_and_user(session_id=session_id, user_id=user_id)
+
+    async def revoke_all_sessions(self, user_id: UUID) -> int:
+        """Revoga todas as sessões ativas do usuário."""
+        return await self.repo.revoke_other_sessions(user_id=user_id, current_token_hash=None)
 
     async def revoke_other_sessions(
         self, user_id: UUID, current_token_hash: str | None = None

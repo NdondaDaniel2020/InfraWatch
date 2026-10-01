@@ -29,6 +29,9 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.strip().encode("utf-8")).hexdigest()
 
 
+hash_opaque_token = hash_token
+
+
 def create_access_token(
     *,
     user_id: UUID | str,
