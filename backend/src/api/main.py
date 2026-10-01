@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.middleware import TrustedProxyMiddleware
 from src.api.routes.sse import router as sse_router
 from src.core.config import get_settings
 
@@ -20,6 +21,9 @@ def create_app() -> FastAPI:
         ),
         debug=settings.DEBUG,
     )
+
+    # Sanitização e resolução segura do IP de clientes contra spoofing (ADR-023)
+    app.add_middleware(TrustedProxyMiddleware)
 
     # Configuração de CORS permissivo para dashboards e clientes web autorizados
     app.add_middleware(
