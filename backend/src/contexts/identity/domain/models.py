@@ -154,6 +154,7 @@ class RefreshTokenModel(Base):
     token_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
