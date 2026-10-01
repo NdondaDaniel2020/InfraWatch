@@ -30,3 +30,43 @@ class AuditImmutabilityError(InfraWatchException):
         message: str = "A tabela audit_logs é append-only. Operações de UPDATE ou DELETE são estritamente proibidas.",
     ) -> None:
         super().__init__(message)
+
+
+# Exceções de Segurança, Autenticação e Ciclo de Vida de Tokens
+class AuthenticationError(InfraWatchException):
+    """Exceção base para falhas de autenticação."""
+
+
+class TokenError(AuthenticationError):
+    """Exceção base para falhas de validação ou processamento de tokens."""
+
+
+class TokenExpiredError(TokenError):
+    """Lançada quando um token JWT ou de sessão expirou."""
+
+    def __init__(self, message: str = "O token fornecido expirou.") -> None:
+        super().__init__(message)
+
+
+class InvalidTokenError(TokenError):
+    """Lançada quando a assinatura, formato ou tipo do token é inválido."""
+
+    def __init__(self, message: str = "O token fornecido é inválido ou malformado.") -> None:
+        super().__init__(message)
+
+
+class TokenRevokedError(TokenError):
+    """Lançada quando um token previamente revogado ou presente na blacklist é apresentado."""
+
+    def __init__(self, message: str = "O token apresentado foi revogado.") -> None:
+        super().__init__(message)
+
+
+class TokenReuseDetectedError(TokenError):
+    """Lançada quando detectada tentativa de reutilização de refresh token já rotacionado."""
+
+    def __init__(
+        self,
+        message: str = "Tentativa de reuso de token detectada. Toda a família de sessões foi invalidada por segurança.",
+    ) -> None:
+        super().__init__(message)
