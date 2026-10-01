@@ -6,13 +6,12 @@ Cobre validações completas de:
 - DomainEvent (serialização UTC, metadados RFC 9562 e imutabilidade)
 - AggregateRoot (acumulação de eventos, exposição imutável e ciclo de limpeza)
 """
-from dataclasses import FrozenInstanceError, dataclass
-from datetime import datetime, timezone
 import unittest
+from dataclasses import FrozenInstanceError, dataclass
+from datetime import UTC, datetime
 from uuid import UUID
 
 from src.core.domain import AggregateRoot, DomainEvent, Entity, ValueObject, generate_uuid7
-
 
 # ---------------------------------------------------------------------------
 # Modelos Concretos de Teste (Stubs de Domínio)
@@ -151,7 +150,7 @@ class TestDomainEventPrimitives(unittest.TestCase):
         self.assertIsInstance(event.event_id, UUID)
         self.assertEqual(event.event_id.version, 7)
         self.assertIsInstance(event.occurred_at, datetime)
-        self.assertEqual(event.occurred_at.tzinfo, timezone.utc)
+        self.assertEqual(event.occurred_at.tzinfo, UTC)
         self.assertEqual(event.event_type, "DeviceCreated")
         self.assertIsNone(event.aggregate_id)
 

@@ -4,7 +4,6 @@ Agregados definem fronteiras de consistência transacional e encapsulam o ciclo 
 das entidades filhas, registrando eventos de domínio que são disparados após persistência atômica.
 """
 from datetime import datetime
-from typing import Sequence
 from uuid import UUID
 
 from src.core.domain.entity import Entity

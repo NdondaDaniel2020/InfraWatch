@@ -5,7 +5,7 @@ sendo imutáveis, cronologicamente ordenados (UUIDv7) e serializáveis para o Tr
 """
 from abc import ABC
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -24,7 +24,7 @@ class DomainEvent(ABC):
     """
 
     event_id: UUID = field(default_factory=generate_uuid7)
-    occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    occurred_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     aggregate_id: UUID | None = field(default=None)
 
     @property

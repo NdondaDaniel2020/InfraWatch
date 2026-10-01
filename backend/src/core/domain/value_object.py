@@ -4,7 +4,7 @@ Objetos de valor são definidos exclusivamente pelo conjunto dos seus atributos,
 sendo estritamente imutáveis (frozen=True) e sem identidade conceitual própria.
 """
 from abc import ABC
-from dataclasses import FrozenInstanceError, dataclass
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -21,4 +21,3 @@ class ValueObject(ABC):
 
     def __post_init__(self) -> None:
         """Ponto de extensão para validações de invariantes de negócio nas subclasses."""
-        pass

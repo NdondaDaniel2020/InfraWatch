@@ -3,10 +3,11 @@
 Garante a presença dos 5 serviços essenciais, healthchecks, redes isoladas
 e volumes persistentes exigidos pela Issue #1.
 """
-from pathlib import Path
 import shutil
 import subprocess
 import unittest
+from pathlib import Path
+
 import yaml
 
 
@@ -115,6 +116,7 @@ class TestDockerComposeConfig(unittest.TestCase):
             ["docker", "compose", "-f", str(self.compose_file), "config"],
             capture_output=True,
             text=True,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, f"Falha na validação do docker compose config: {result.stderr}")
 

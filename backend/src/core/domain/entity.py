@@ -3,11 +3,10 @@
 Entidades possuem identidade única e contínua expressa por um identificador UUIDv7,
 sendo diferenciadas exclusivamente por seu ID e não por seus atributos transitórios.
 """
-from abc import ABC
-from datetime import datetime, timezone
 import os
 import time
-from typing import Any
+from abc import ABC
+from datetime import UTC, datetime
 from uuid import UUID
 
 
@@ -61,7 +60,7 @@ class Entity(ABC):
     def __init__(self, id: UUID | None = None, created_at: datetime | None = None) -> None:
         self._id: UUID = id if id is not None else generate_uuid7()
         self._created_at: datetime = (
-            created_at if created_at is not None else datetime.now(timezone.utc)
+            created_at if created_at is not None else datetime.now(UTC)
         )
 
     @property
@@ -74,7 +73,7 @@ class Entity(ABC):
         """Data e hora de criação da entidade em UTC."""
         return self._created_at
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Duas entidades são consideradas iguais se e somente se possuem o mesmo identificador."""
         if not isinstance(other, Entity):
             return False
