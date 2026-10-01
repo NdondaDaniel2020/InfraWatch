@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from src.config import get_settings
+from src.core.config import get_settings
 from src.core.database.base_model import Base
 from src.core.database.session import build_async_database_url
 

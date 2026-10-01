@@ -262,9 +262,8 @@ InfraWatch/
 │   │   └── versions/
 │   │
 │   ├── src/                             # Código-Fonte Backend
-│   │   ├── config.py                    # Configurações centralizadas via Pydantic Settings
-│   │   │
 │   │   ├── core/                        # Primitivas Transversais e Infraestrutura Compartilhada
+│   │   │   ├── config.py                # Configurações centralizadas via Pydantic Settings
 │   │   │   ├── domain/                  # Base Entity, ValueObject, AggregateRoot, DomainEvent
 │   │   │   ├── database/                # Engine SQLAlchemy async, Session Factory e Unit of Work
 │   │   │   ├── redis/                   # Client Redis, Distributed Lock e Blacklist
