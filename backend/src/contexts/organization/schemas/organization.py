@@ -1,3 +1,5 @@
+"""Schemas Pydantic v2 do contexto de Organizações (Tenants)."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
@@ -5,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.contexts.identity.domain.enums import OrgTier
+from src.contexts.organization.domain.enums import OrgTier
 
 EmailType = Annotated[str, Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)]
 

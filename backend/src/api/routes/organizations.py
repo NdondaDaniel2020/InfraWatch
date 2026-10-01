@@ -6,14 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from src.api.dependencies import CurrentUserDep, enforce_tenant_scope, require_roles
-from src.api.schemas.organization import (
+from src.contexts.identity.domain.enums import UserRole
+from src.contexts.identity.domain.events import OrganizationCreatedEvent
+from src.contexts.organization.domain.models import OrganizationModel
+from src.contexts.organization.schemas.organization import (
     OrganizationCreate,
     OrganizationListResponse,
     OrganizationResponse,
 )
-from src.contexts.identity.domain.enums import UserRole
-from src.contexts.identity.domain.events import OrganizationCreatedEvent
-from src.contexts.identity.domain.models import OrganizationModel
 from src.core.database.session import DbSessionDep
 from src.core.events.outbox_repository import OutboxRepository
 

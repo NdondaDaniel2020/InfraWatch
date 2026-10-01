@@ -2,6 +2,8 @@
 
 from enum import StrEnum
 
+from src.contexts.organization.domain.enums import OrgTier
+
 
 class UserRole(StrEnum):
     """Papéis de controle de acesso baseado em função (RBAC).
@@ -16,14 +18,6 @@ class UserRole(StrEnum):
     NOC_OPERATOR = "NOC_OPERATOR"
     ORG_ADMIN = "ORG_ADMIN"
     CLIENT_VIEWER = "CLIENT_VIEWER"
-
-
-class OrgTier(StrEnum):
-    """Níveis de serviço e prioridade da organização no InfraWatch."""
-
-    ENTERPRISE_GOLD = "ENTERPRISE_GOLD"
-    STANDARD = "STANDARD"
-    INTERNAL = "INTERNAL"
 
 
 class TokenType(StrEnum):
@@ -53,3 +47,12 @@ class AuditResult(StrEnum):
 
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
+
+
+__all__ = [
+    "AuditAction",
+    "AuditResult",
+    "OrgTier",
+    "TokenType",
+    "UserRole",
+]
