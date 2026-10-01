@@ -236,16 +236,11 @@ InfraWatch/
 ├── LICENSE                              # Licença MIT
 ├── .env.example                         # Variáveis de Ambiente Homologadas
 ├── .gitignore
-├── docker-compose.yml                   # Orquestração: API, Workers, Postgres 16, Redis 7
-├── pyproject.toml                       # Dependências Python (FastAPI, SQLAlchemy, uv, Alembic)
-│
-├── docker/                              # Infraestrutura de Containers
-│   ├── Dockerfile.api                   # Imagem multi-stage da API FastAPI (usuário não-root)
-│   ├── Dockerfile.worker                # Imagem multi-stage dos Workers assíncronos (ICMP capabilities)
-│   └── init-db.sql                      # Inicialização das extensões PostgreSQL (uuid-ossp, pgcrypto)
+├── docker-compose.yml                   # Orquestração: API, Workers, Postgres, Redis
+├── Makefile                             # Atalhos de execução e automação
 │
 ├── docs/                                # Documentação Técnica e de Negócio
-│   ├── DECISIONS.md                     # Registro de Decisões de Arquitetura (ADR-001 a ADR-025)
+│   ├── DECISIONS.md                     # Livro de Decisões Técnicas (ADR-001 a ADR-025)
 │   ├── 01-PRD.md                        # Product Requirements Document
 │   ├── 02-TRD.md                        # Technical Requirements Document
 │   ├── 03-APP_FLOW.md                   # Fluxos de uso e ciclos de eventos
@@ -253,54 +248,50 @@ InfraWatch/
 │   ├── 05-BACKEND_SCHEMA.md             # Modelagem de banco, índices e outbox
 │   └── 06-IMPLEMENTATION_PLAN.md        # Roteiro passo a passo de implementação (Fases 1 a 6)
 │
-├── scripts/                             # Utilitários de Automação e DevOps
-│   └── wait-for-services.sh             # Script de checagem de integridade de portas (Postgres, Redis)
+├── backend/                             # Serviço Python 3.12+ (FastAPI + Workers)
+│   ├── pyproject.toml                   # Dependências e metadados Python (uv / pip)
+│   ├── Dockerfile.api                   # Imagem do serviço HTTP FastAPI (usuário não-root)
+│   ├── Dockerfile.worker                # Imagem do Probe Worker / Integration Worker (ICMP capabilities)
+│   ├── alembic/                         # Migrações versionadas do banco de dados
+│   ├── src/
+│   │   ├── main.py                      # Ponto de entrada FastAPI Web API
+│   │   ├── worker_probe.py              # Ponto de entrada do Probe Worker Daemon
+│   │   ├── worker_integration.py        # Ponto de entrada do Worker GLPI/Notif/Zabbix
+│   │   ├── config.py                    # Configurações centralizadas via Pydantic Settings
+│   │   │
+│   │   ├── shared/                      # Componentes transversais
+│   │   │   ├── domain/                  # Base Entity, ValueObject, AggregateRoot, DomainEvent
+│   │   │   ├── infrastructure/
+│   │   │   │   ├── database.py          # SQLAlchemy async session & pool
+│   │   │   │   ├── event_bus.py         # ResilientEventBus (Streams / PubSub / Memory)
+│   │   │   │   └── outbox.py            # Outbox publisher & worker logic
+│   │   │   └── presentation/
+│   │   │       ├── sse.py               # SSE connection manager
+│   │   │       └── dependencies.py      # Autenticação, RBAC e injeção de dependências
+│   │   │
+│   │   └── contexts/                    # Bounded Contexts Modulares
+│   │       ├── identity/                # JWT, Refresh Tokens, RBAC (Baseado no Auth)
+│   │       ├── organization/            # Tenants, Clientes da RCS Angola
+│   │       ├── inventory/               # Ativos, Dispositivos, Full-Text Search
+│   │       ├── monitoring/              # Sondas (ICMP, HTTP, TCP), Zabbix Sync
+│   │       ├── alert/                   # Regras, Incidentes e Cálculo de SLA
+│   │       ├── integration_glpi/        # Cliente REST API do GLPI
+│   │       └── notification/            # Email, Telegram, WhatsApp (número virtual), Webhook
+│   └── tests/                           # Suíte de Testes Automatizados (unit, integration, e2e)
 │
-├── src/                                 # Código-Fonte Backend & Workers (Python 3.12)
-│   ├── core/                            # Primitivas Transversais e Infraestrutura Compartilhada
-│   │   ├── domain/                      # Base Entity, ValueObject, AggregateRoot, DomainEvent
-│   │   ├── database/                    # Engine assíncrona, Unit of Work e Session Factory
-│   │   ├── redis/                       # Client Redis, Distributed Lock e Blacklist
-│   │   └── messaging/                   # ResilientEventBus (Streams, PubSub e InMemory Fallback)
-│   │
-│   ├── contexts/                        # Bounded Contexts Modulares (DDD)
-│   │   ├── identity/                    # JWT, Argon2id, Dual-Key Rate Limit, RBAC, Auditoria
-│   │   ├── inventory/                   # Agregado Device, Value Objects de Rede, Busca Full-Text
-│   │   ├── telemetry/                   # Buffer de Métricas em Lote e Particionamento
-│   │   ├── alerting/                    # Motor de Degradação, Falhas Consecutivas e Incidentes
-│   │   └── sla/                         # Cálculo Matemático de SLA e Janelas de Manutenção
-│   │
-│   ├── integrations/                    # Clientes de Serviços Externos
-│   │   ├── glpi/                        # Cliente REST API do GLPI 10+ (Chamados e Acompanhamentos)
-│   │   ├── zabbix/                      # Conector JSON-RPC para Hardware e SNMP
-│   │   └── notifications/               # Dispatcher Multicanal (Telegram, WhatsApp, SMTP, Webhooks)
-│   │
-│   ├── api/                             # Camada de Apresentação HTTP & SSE (FastAPI)
-│   │   ├── main.py                      # Ponto de entrada Uvicorn/FastAPI
-│   │   ├── routes/                      # Roteadores REST (auth, devices, incidents, sla, etc.)
-│   │   └── dependencies/                # Injeção de dependências (Auth, RBAC, Tenant, Trusted Proxy)
-│   │
-│   └── workers/                         # Daemons Assíncronos Isolados
-│       ├── probe_worker.py              # Engine de Coleta Concorrente (ICMP, HTTP, TCP)
-│       ├── integration_worker.py        # Processador de GLPI, Zabbix e Notificações
-│       ├── outbox_relay_worker.py       # Relay do Transactional Outbox (SKIP LOCKED)
-│       └── partition_manager.py         # Criação preventiva e expurgo de partições de métricas
-│
-├── tests/                               # Suíte de Testes Automatizados
-│   ├── unit/                            # Testes Unitários de Domínio, Criptografia e Probes
-│   ├── integration/                     # Testes de Integração com Postgres, Redis e APIs
-│   ├── resilience/                      # Testes de Caos, Failover do Redis e Idempotência do Outbox
-│   └── e2e/                             # Testes de Ciclo Completo (Queda -> GLPI -> Resolução)
-│
-└── frontend/                            # Single-Page Application (React 18 + Vite + TypeScript)
+└── frontend/                            # Single-Page Application (React 18+ / Vite / TypeScript)
     ├── package.json
     ├── vite.config.ts
     └── src/
-        ├── styles/                      # Design Tokens Obsidian Telemetry (tokens.css)
-        ├── components/ui/               # Primitivos atômicos (Card, Button, Badge, Modal)
-        ├── hooks/                       # useSSE com auto-reconnect, useAutoRotate
-        ├── pages/                       # NocDashboard, NocTvWallboard, ClientPortal, Incidents
-        └── services/                    # Clientes API e exportador de relatórios em PDF
+        ├── shared/                      # Design tokens, hooks (useSSE), componentes UI
+        ├── layouts/                     # Sidebar, Topbar com status global, NOC Fullscreen
+        └── modules/
+            ├── auth/                    # Login, perfil, troca de senha
+            ├── dashboard/               # Grid operacional em tempo real e NOC TV
+            ├── inventory/               # Gestão de ativos com busca FTS
+            ├── incidents/               # Painel de atendimento e integração GLPI
+            ├── sla/                     # Relatórios de SLA por cliente
+            └── settings/                # Configurações de canais e GLPI
 ```
 
 ---
