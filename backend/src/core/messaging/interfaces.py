@@ -20,7 +20,11 @@ class EventHandler(Protocol):
         ...
 
 
-HandlerType = EventHandler | Callable[[dict[str, Any]], Awaitable[None]] | Callable[[str, dict[str, Any]], Awaitable[None]]
+HandlerType = (
+    EventHandler
+    | Callable[[dict[str, Any]], Awaitable[None]]
+    | Callable[[str, dict[str, Any]], Awaitable[None]]
+)
 
 
 class EventBus(ABC):
