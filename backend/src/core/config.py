@@ -64,6 +64,19 @@ class Settings(BaseSettings):
     ARGON2_MEMORY_COST: int = Field(default=65536, alias="ARGON2_MEMORY_COST")  # 64 MB
     ARGON2_PARALLELISM: int = Field(default=4, alias="ARGON2_PARALLELISM")
 
+    # Dual-Key Rate Limiting & Account Lockout
+    RATE_LIMIT_LOGIN_IP_MAX: int = Field(default=10, alias="RATE_LIMIT_LOGIN_IP_MAX")
+    RATE_LIMIT_LOGIN_IP_WINDOW_SECONDS: int = Field(
+        default=60, alias="RATE_LIMIT_LOGIN_IP_WINDOW_SECONDS"
+    )
+    ACCOUNT_LOCKOUT_MAX_FAILURES: int = Field(default=5, alias="ACCOUNT_LOCKOUT_MAX_FAILURES")
+    ACCOUNT_LOCKOUT_WINDOW_SECONDS: int = Field(
+        default=300, alias="ACCOUNT_LOCKOUT_WINDOW_SECONDS"
+    )
+    ACCOUNT_LOCKOUT_DURATION_SECONDS: int = Field(
+        default=900, alias="ACCOUNT_LOCKOUT_DURATION_SECONDS"
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
