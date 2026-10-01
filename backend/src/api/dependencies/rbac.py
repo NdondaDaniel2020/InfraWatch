@@ -11,34 +11,44 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 from src.api.dependencies.auth import AuthenticatedUser
 from src.contexts.identity.domain.enums import UserRole
 from src.core.security.tokens import decode_access_token
 
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login-form",
+    auto_error=False,
+)
+
 
 async def get_current_user(
+    token: Annotated[str | None, Depends(oauth2_scheme)] = None,
     authorization: Annotated[str | None, Header()] = None,
 ) -> AuthenticatedUser:
     """Extrai e valida o usuário autenticado a partir do cabeçalho Authorization: Bearer <token>."""
-    if not authorization or not authorization.startswith("Bearer "):
+    raw_token = token
+    if not raw_token and authorization:
+        if authorization.startswith("Bearer "):
+            raw_token = authorization[7:].strip()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Formato de token inválido. O cabeçalho deve iniciar com 'Bearer '.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    if not raw_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Autenticação necessária. Forneça o token no cabeçalho Authorization: Bearer.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = authorization[7:].strip()
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token de autenticação ausente.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
     try:
-        payload = decode_access_token(token)
+        payload = decode_access_token(raw_token)
     except ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

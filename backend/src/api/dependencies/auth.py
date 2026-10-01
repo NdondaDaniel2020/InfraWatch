@@ -50,6 +50,8 @@ async def get_sse_current_user(
     # 1. Prioriza header Authorization caso fornecido
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:].strip()
+    elif authorization:
+        token = authorization.strip()
     # 2. Caso contrário, utiliza query parameter ?token=
     elif token_query:
         token = token_query.strip()
