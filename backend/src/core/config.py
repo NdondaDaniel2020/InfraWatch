@@ -70,11 +70,15 @@ class Settings(BaseSettings):
         default=60, alias="RATE_LIMIT_LOGIN_IP_WINDOW_SECONDS"
     )
     ACCOUNT_LOCKOUT_MAX_FAILURES: int = Field(default=5, alias="ACCOUNT_LOCKOUT_MAX_FAILURES")
-    ACCOUNT_LOCKOUT_WINDOW_SECONDS: int = Field(
-        default=300, alias="ACCOUNT_LOCKOUT_WINDOW_SECONDS"
-    )
+    ACCOUNT_LOCKOUT_WINDOW_SECONDS: int = Field(default=300, alias="ACCOUNT_LOCKOUT_WINDOW_SECONDS")
     ACCOUNT_LOCKOUT_DURATION_SECONDS: int = Field(
         default=900, alias="ACCOUNT_LOCKOUT_DURATION_SECONDS"
+    )
+
+    # Configuração de Trusted Proxies & Anti-Spoofing de IP (ADR-023)
+    FORWARDED_ALLOW_IPS: str = Field(
+        default="127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16",
+        alias="FORWARDED_ALLOW_IPS",
     )
 
 
