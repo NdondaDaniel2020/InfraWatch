@@ -1,0 +1,57 @@
+"""Configurações centralizadas da aplicação InfraWatch via Pydantic Settings.
+
+Garante validação estrita de variáveis de ambiente, fallback para desenvolvimento e testes,
+e segurança reforçada em ambientes de produção.
+"""
+
+import os
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Configurações gerais do sistema InfraWatch."""
+
+    model_config = SettingsConfigDict(
+        env_file=os.getenv("ENV_FILE", ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    ENVIRONMENT: Literal["development", "test", "staging", "production"] = Field(
+        default="development", alias="ENVIRONMENT"
+    )
+    DEBUG: bool = Field(default=False, alias="DEBUG")
+
+    # Configurações do Banco de Dados Relacional (PostgreSQL 16+)
+    DATABASE_URL: str = Field(
+        default="postgresql+asyncpg://infrawatch_user:infrawatch_secure_password_2026@localhost:5432/infrawatch_db",
+        alias="DATABASE_URL",
+    )
+    DB_POOL_SIZE: int = Field(default=20, alias="DB_POOL_SIZE")
+    DB_MAX_OVERFLOW: int = Field(default=10, alias="DB_MAX_OVERFLOW")
+    DB_POOL_TIMEOUT: int = Field(default=30, alias="DB_POOL_TIMEOUT")
+    DB_POOL_PRE_PING: bool = Field(default=True, alias="DB_POOL_PRE_PING")
+
+    # Redis (Cache, Streams, Lock Distribuído)
+    REDIS_URL: str = Field(
+        default="redis://:redis_secure_password_2026@localhost:6379/0",
+        alias="REDIS_URL",
+    )
+
+    # Segurança & Autenticação
+    SECRET_KEY: str = Field(
+        default="infrawatch_insecure_dev_secret_key_change_in_production",
+        alias="SECRET_KEY",
+    )
+    ALGORITHM: str = Field(default="HS256", alias="ALGORITHM")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Retorna instância singleton das configurações validadas."""
+    return Settings()
