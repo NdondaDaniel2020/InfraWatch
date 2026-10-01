@@ -33,7 +33,7 @@ erDiagram
         varchar email UK
         varchar password_hash
         varchar full_name
-        varchar role "ADMIN, OPERATOR, CLIENT_VIEWER"
+        varchar role "SUPER_ADMIN, NOC_OPERATOR, ORG_ADMIN, CLIENT_VIEWER"
         boolean is_active
         timestamp created_at
     }
@@ -135,8 +135,8 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(150) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'CLIENT_VIEWER' 
-        CHECK (role IN ('ADMIN', 'OPERATOR', 'CLIENT_VIEWER')),
+    role VARCHAR(30) NOT NULL DEFAULT 'CLIENT_VIEWER' 
+        CHECK (role IN ('SUPER_ADMIN', 'NOC_OPERATOR', 'ORG_ADMIN', 'CLIENT_VIEWER')),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

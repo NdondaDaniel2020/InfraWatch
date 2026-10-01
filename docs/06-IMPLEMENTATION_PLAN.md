@@ -76,7 +76,7 @@
 - [ ] **Tarefa 2.4 (Mitigação de Timing Attack - Issue #115):** Garantir respostas em tempo constante neutro em rotas sensíveis de autenticação e recuperação de senha.
 - [ ] **Tarefa 2.5 (Trusted Proxies & Anti-Spoofing - Issue #114):** Configuração segura do Uvicorn com `--proxy-headers` e sanitização de `X-Forwarded-For`.
 - [ ] **Tarefa 2.6 (Distributed Lock Não-Bloqueante - Issue #148):** Implementar lock no Redis (`redis_client.lock("lock:cleanup", timeout=300, blocking=False)`) para garantir que rotinas de limpeza rodem em apenas uma réplica em produção.
-- [ ] **Tarefa 2.7:** Implementar middleware de RBAC com perfis `ADMIN` (RCS Global), `OPERATOR` (RCS NOC) e `CLIENT_VIEWER` (Cliente isolado por `organization_id`).
+- [ ] **Tarefa 2.7:** Implementar middleware de RBAC com perfis `SUPER_ADMIN` (RCS Global), `NOC_OPERATOR` (RCS NOC), `ORG_ADMIN` (Administrador do Cliente) e `CLIENT_VIEWER` (Cliente isolado com visão sanitizada).
 - [ ] **Tarefa 2.8:** Endpoints REST `/api/v1/auth/*` e `/api/v1/organizations/*` sem `BackgroundTasks` (100% orientados a Consumers).
 - [ ] **Tarefa 2.9:** Middleware de trilha de auditoria imutável (`audit_logs`) para conformidade e rastreabilidade.
 
