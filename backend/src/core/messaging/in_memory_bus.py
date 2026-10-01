@@ -85,6 +85,16 @@ class InMemoryEventBus(EventBus):
             logger.exception("Falha ao publicar evento em memória no tópico '%s'", topic)
             return False
 
+    def _get_group_queue(self, topic: str, group: str) -> asyncio.Queue[tuple[str, dict[str, Any]]]:
+        """Obtém ou cria a fila assíncrona do grupo, alimentando com mensagens históricas se for nova."""
+        group_exists = group in self._group_queues[topic]
+        queue = self._group_queues[topic][group]
+        if not group_exists:
+            # Novo grupo: alimenta com todas as mensagens anteriores registradas no stream
+            for msg in self._streams[topic]:
+                queue.put_nowait(msg)
+        return queue
+
     async def consume_batch(
         self,
         topic: str,
@@ -97,17 +107,17 @@ class InMemoryEventBus(EventBus):
         if self._is_closed:
             return []
 
-        # Garante a existência da fila do grupo com sincronização de mensagens anteriores se for nova
-        queue = self._group_queues[topic][group]
+        queue = self._get_group_queue(topic, group)
 
         results: list[tuple[str, dict[str, Any]]] = []
         timeout_seconds = timeout_ms / 1000.0
 
         try:
-            # Tenta pegar a primeira mensagem respeitando o timeout
-            first_msg = await asyncio.wait_for(queue.get(), timeout=timeout_seconds)
-            results.append(first_msg)
-            queue.task_done()
+            # Se a fila estiver vazia e tiver timeout, espera a primeira mensagem
+            if queue.empty() and timeout_seconds > 0:
+                first_msg = await asyncio.wait_for(queue.get(), timeout=timeout_seconds)
+                results.append(first_msg)
+                queue.task_done()
 
             # Pega o restante disponível imediatamente sem bloquear
             while len(results) < batch_size and not queue.empty():
@@ -115,7 +125,7 @@ class InMemoryEventBus(EventBus):
                 results.append(msg)
                 queue.task_done()
         except (TimeoutError, asyncio.QueueEmpty):
-            return []
+            pass
 
         # Registra mensagens consumidas no PEL
         now = datetime.now(UTC)
