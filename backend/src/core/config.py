@@ -47,8 +47,22 @@ class Settings(BaseSettings):
         default="infrawatch_insecure_dev_secret_key_change_in_production",
         alias="SECRET_KEY",
     )
+    REFRESH_SECRET_KEY: str = Field(
+        default="infrawatch_refresh_dev_secret_key_change_in_production",
+        alias="REFRESH_SECRET_KEY",
+    )
     ALGORITHM: str = Field(default="HS256", alias="ALGORITHM")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    JWT_ACCESS_MINUTES: int = Field(default=15, alias="JWT_ACCESS_MINUTES")
+    JWT_REFRESH_DAYS: int = Field(default=7, alias="JWT_REFRESH_DAYS")
+    REFRESH_TOKEN_GRACE_PERIOD_SECONDS: int = Field(
+        default=10, alias="REFRESH_TOKEN_GRACE_PERIOD_SECONDS"
+    )
+
+    # Parâmetros Criptográficos Argon2id (RFC 9106)
+    ARGON2_TIME_COST: int = Field(default=2, alias="ARGON2_TIME_COST")
+    ARGON2_MEMORY_COST: int = Field(default=65536, alias="ARGON2_MEMORY_COST")  # 64 MB
+    ARGON2_PARALLELISM: int = Field(default=4, alias="ARGON2_PARALLELISM")
 
 
 @lru_cache(maxsize=1)
