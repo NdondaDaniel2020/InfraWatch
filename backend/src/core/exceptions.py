@@ -70,3 +70,34 @@ class TokenReuseDetectedError(TokenError):
         message: str = "Tentativa de reuso de token detectada. Toda a família de sessões foi invalidada por segurança.",
     ) -> None:
         super().__init__(message)
+
+
+# Rate Limiting & Account Lockout
+class RateLimitError(InfraWatchException):
+    """Exceção base para bloqueios de taxa de requisições."""
+
+    def __init__(self, message: str, retry_after: int) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class RateLimitExceededError(RateLimitError):
+    """Lançada quando o limite de requisições por IP foi excedido."""
+
+    def __init__(
+        self,
+        message: str = "Limite de tentativas por endereço IP excedido. Tente novamente mais tarde.",
+        retry_after: int = 60,
+    ) -> None:
+        super().__init__(message, retry_after)
+
+
+class AccountLockedOutError(RateLimitError):
+    """Lançada quando a conta foi temporariamente bloqueada por múltiplas falhas consecutivas."""
+
+    def __init__(
+        self,
+        message: str = "Conta temporariamente bloqueada por excesso de tentativas incorretas.",
+        retry_after: int = 900,
+    ) -> None:
+        super().__init__(message, retry_after)
