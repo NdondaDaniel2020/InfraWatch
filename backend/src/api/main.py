@@ -5,8 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.middleware import TrustedProxyMiddleware
 from src.api.routes.auth import router as auth_router
+from src.api.routes.mfa import router as mfa_router
 from src.api.routes.organizations import router as organizations_router
 from src.api.routes.sse import router as sse_router
+from src.api.routes.users import router as users_router
 from src.core.config import get_settings
 
 
@@ -38,6 +40,8 @@ def create_app() -> FastAPI:
 
     # Inclusão de rotas principais
     app.include_router(auth_router)
+    app.include_router(mfa_router)
+    app.include_router(users_router)
     app.include_router(organizations_router)
     app.include_router(sse_router)
 

@@ -166,9 +166,7 @@ class DualKeyRateLimiter:
                 )
 
         now = time.monotonic()
-        return self._fallback.check_ip(
-            ip, self.ip_max_requests, self.ip_window_seconds, now
-        )
+        return self._fallback.check_ip(ip, self.ip_max_requests, self.ip_window_seconds, now)
 
     async def check_account_lockout(self, email: str) -> int | None:
         """Verifica se a conta informada está temporariamente bloqueada por Account Lockout.

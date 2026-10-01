@@ -25,7 +25,9 @@ class OrganizationCreate(BaseModel):
         description="Identificador único em formato URL-friendly",
     )
     contact_email: EmailType | None = Field(default=None, description="E-mail principal de contato")
-    contact_phone: str | None = Field(default=None, max_length=50, description="Telefone de suporte")
+    contact_phone: str | None = Field(
+        default=None, max_length=50, description="Telefone de suporte"
+    )
     tier: OrgTier = Field(default=OrgTier.STANDARD, description="Nível de serviço contratado")
     sla_target_default: Decimal = Field(
         default=Decimal("99.50"),

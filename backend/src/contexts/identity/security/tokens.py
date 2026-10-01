@@ -29,6 +29,9 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.strip().encode("utf-8")).hexdigest()
 
 
+hash_opaque_token = hash_token
+
+
 def create_access_token(
     *,
     user_id: UUID | str,
@@ -88,5 +91,44 @@ def decode_access_token(token: str) -> dict[str, Any]:
 
     if payload.get("type") != "access":
         raise InvalidTokenError("O token apresentado não é um Access Token válido.")
+
+    return payload
+
+
+def create_mfa_pending_token(
+    user_id: UUID | str,
+    expires_delta: timedelta | None = None,
+) -> str:
+    """Cria um token JWT temporário (3 min) para validação intermediária de MFA."""
+    settings = get_settings()
+    now = datetime.now(UTC)
+    expiry = now + (expires_delta or timedelta(minutes=3))
+    payload = {
+        "sub": str(user_id),
+        "type": "mfa_pending",
+        "iat": int(now.timestamp()),
+        "exp": int(expiry.timestamp()),
+        "jti": uuid4().hex,
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def decode_mfa_pending_token(token: str) -> dict[str, Any]:
+    """Decodifica e valida assinatura e expiração de um token intermediário mfa_pending."""
+    settings = get_settings()
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"require": ["exp", "iat", "sub"]},
+        )
+    except jwt.ExpiredSignatureError as exc:
+        raise TokenExpiredError("O token intermediário de MFA expirou.") from exc
+    except jwt.InvalidTokenError as exc:
+        raise InvalidTokenError(f"Token de MFA inválido: {exc}") from exc
+
+    if payload.get("type") != "mfa_pending":
+        raise InvalidTokenError("Tipo de token inválido para validação de MFA.")
 
     return payload

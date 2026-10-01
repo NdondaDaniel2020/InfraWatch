@@ -20,7 +20,9 @@ from src.core.events.outbox_repository import OutboxRepository
 router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
 
 
-@router.get("", response_model=OrganizationListResponse, summary="Listagem paginada de organizações")
+@router.get(
+    "", response_model=OrganizationListResponse, summary="Listagem paginada de organizações"
+)
 async def list_organizations(
     current_user: CurrentUserDep,
     db: DbSessionDep,
@@ -47,7 +49,9 @@ async def list_organizations(
     total_res = await db.execute(count_query)
     total = int(total_res.scalar() or 0)
 
-    items_res = await db.execute(query.order_by(OrganizationModel.name.asc()).offset(offset).limit(size))
+    items_res = await db.execute(
+        query.order_by(OrganizationModel.name.asc()).offset(offset).limit(size)
+    )
     organizations = items_res.scalars().all()
 
     return OrganizationListResponse(
@@ -72,7 +76,9 @@ async def create_organization(
 ) -> OrganizationResponse:
     """Cadastra um novo cliente tenant no sistema e registra evento via Transactional Outbox."""
     # Valida unicidade do slug
-    existing = await db.execute(select(OrganizationModel).where(OrganizationModel.slug == body.slug))
+    existing = await db.execute(
+        select(OrganizationModel).where(OrganizationModel.slug == body.slug)
+    )
     if existing.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

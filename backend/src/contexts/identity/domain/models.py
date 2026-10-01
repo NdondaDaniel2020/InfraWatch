@@ -56,6 +56,9 @@ class UserModel(Base):
         default=UserRole.CLIENT_VIEWER,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    mfa_type: Mapped[str | None] = mapped_column(String(16), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -91,6 +94,21 @@ class UserModel(Base):
         "AuditLogModel",
         back_populates="actor_user",
     )
+    mfa_methods: Mapped[list[MfaMethodModel]] = relationship(
+        "MfaMethodModel",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    password_reset_tokens: Mapped[list[PasswordResetTokenModel]] = relationship(
+        "PasswordResetTokenModel",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    email_verification_tokens: Mapped[list[EmailVerificationTokenModel]] = relationship(
+        "EmailVerificationTokenModel",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<UserModel id={self.id} email={self.email!r} role={self.role!r}>"
@@ -108,7 +126,9 @@ class RefreshTokenModel(Base):
         index=True,
     )
     token_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     is_revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -118,17 +138,108 @@ class RefreshTokenModel(Base):
     )
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    device_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     replaced_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Relacionamentos
     user: Mapped[UserModel] = relationship("UserModel", back_populates="refresh_tokens")
 
-    __table_args__ = (
-        Index("idx_refresh_tokens_lookup", "token_hash", "is_revoked", "expires_at"),
-    )
+    __table_args__ = (Index("idx_refresh_tokens_lookup", "token_hash", "is_revoked", "expires_at"),)
 
     def __repr__(self) -> str:
-        return f"<RefreshTokenModel id={self.id} user_id={self.user_id} is_revoked={self.is_revoked}>"
+        return (
+            f"<RefreshTokenModel id={self.id} user_id={self.user_id} is_revoked={self.is_revoked}>"
+        )
+
+
+class PasswordResetTokenModel(Base):
+    """Token de uso único para recuperação e redefinição de senha."""
+
+    __tablename__ = "password_reset_tokens"
+    __table_args__ = (
+        Index("ix_password_reset_tokens_token_hash", "token_hash", unique=True),
+        Index("ix_password_reset_tokens_user_id", "user_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=generate_uuid7)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+
+    user: Mapped[UserModel] = relationship("UserModel", back_populates="password_reset_tokens")
+
+    def __repr__(self) -> str:
+        return f"<PasswordResetTokenModel user_id={self.user_id} used={self.used}>"
+
+
+class EmailVerificationTokenModel(Base):
+    """Token de uso único para confirmação de endereço de e-mail de novos usuários."""
+
+    __tablename__ = "email_verification_tokens"
+    __table_args__ = (
+        Index("ix_email_verification_tokens_token_hash", "token_hash", unique=True),
+        Index("ix_email_verification_tokens_user_id", "user_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=generate_uuid7)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+
+    user: Mapped[UserModel] = relationship("UserModel", back_populates="email_verification_tokens")
+
+    def __repr__(self) -> str:
+        return f"<EmailVerificationTokenModel user_id={self.user_id} used={self.used}>"
+
+
+class MfaMethodModel(Base):
+    """Método de autenticação de dois fatores (TOTP / Backup Codes)."""
+
+    __tablename__ = "mfa_methods"
+    __table_args__ = (
+        Index("ix_mfa_methods_user_id", "user_id"),
+        Index("ix_mfa_methods_user_type", "user_id", "type"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=generate_uuid7)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    type: Mapped[str] = mapped_column(String(16), nullable=False, default="totp")
+    secret: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    data: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONType, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+
+    user: Mapped[UserModel] = relationship("UserModel", back_populates="mfa_methods")
+
+    def __repr__(self) -> str:
+        return f"<MfaMethodModel id={self.id} user_id={self.user_id} type={self.type} active={self.is_active}>"
 
 
 class AuditLogModel(Base):
@@ -196,7 +307,10 @@ def _block_audit_log_orm_delete(mapper: Any, connection: Any, target: Any) -> No
 
 __all__ = [
     "AuditLogModel",
+    "EmailVerificationTokenModel",
+    "MfaMethodModel",
     "OrganizationModel",
+    "PasswordResetTokenModel",
     "RefreshTokenModel",
     "UserModel",
 ]

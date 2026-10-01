@@ -236,9 +236,15 @@ async def test_token_service_reuse_detection_outside_grace_period_revokes_all(
     token_hash = hash_token(pair1.refresh_token)
     old_record = await async_session.get(
         RefreshTokenModel,
-        (await async_session.execute(
-            RefreshTokenModel.__table__.select().where(RefreshTokenModel.token_hash == token_hash)
-        )).first().id,
+        (
+            await async_session.execute(
+                RefreshTokenModel.__table__.select().where(
+                    RefreshTokenModel.token_hash == token_hash
+                )
+            )
+        )
+        .first()
+        .id,
     )
     assert old_record is not None
     old_record.revoked_at = datetime.now(UTC) - timedelta(seconds=20)
