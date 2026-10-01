@@ -3,6 +3,7 @@
 Objetos de valor são definidos exclusivamente pelo conjunto dos seus atributos,
 sendo estritamente imutáveis (frozen=True) e sem identidade conceitual própria.
 """
+
 from abc import ABC
 from dataclasses import dataclass
 

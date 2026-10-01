@@ -6,6 +6,7 @@ Cobre validações completas de:
 - DomainEvent (serialização UTC, metadados RFC 9562 e imutabilidade)
 - AggregateRoot (acumulação de eventos, exposição imutável e ciclo de limpeza)
 """
+
 import unittest
 from dataclasses import FrozenInstanceError, dataclass
 from datetime import UTC, datetime
@@ -17,10 +18,13 @@ from src.core.domain import AggregateRoot, DomainEvent, Entity, ValueObject, gen
 # Modelos Concretos de Teste (Stubs de Domínio)
 # ---------------------------------------------------------------------------
 
+
 class Device(Entity):
     """Stub de Entidade para testes."""
 
-    def __init__(self, name: str, id: UUID | None = None, created_at: datetime | None = None) -> None:
+    def __init__(
+        self, name: str, id: UUID | None = None, created_at: datetime | None = None
+    ) -> None:
         super().__init__(id=id, created_at=created_at)
         self.name = name
 
@@ -56,6 +60,7 @@ class NetworkSwitch(AggregateRoot):
 # ---------------------------------------------------------------------------
 # Test Cases
 # ---------------------------------------------------------------------------
+
 
 class TestEntityPrimitives(unittest.TestCase):
     """Testes unitários para a classe base Entity."""
@@ -103,7 +108,7 @@ class TestEntityPrimitives(unittest.TestCase):
         shared_id = generate_uuid7()
         device_a = Device(name="Router-A", id=shared_id)
         device_b = Device(name="Router-B", id=shared_id)
-        
+
         device_set = {device_a, device_b}
         self.assertEqual(len(device_set), 1)
         self.assertEqual(hash(device_a), hash(device_b))
@@ -164,7 +169,7 @@ class TestDomainEventPrimitives(unittest.TestCase):
         """Verifica se to_dict() converte adequadamente campos complexos (UUID, Datetime)."""
         event = DeviceCreated(hostname="gw-edge", ip="10.0.0.254")
         serialized = event.to_dict()
-        
+
         self.assertIsInstance(serialized, dict)
         self.assertEqual(serialized["event_type"], "DeviceCreated")
         self.assertEqual(serialized["hostname"], "gw-edge")

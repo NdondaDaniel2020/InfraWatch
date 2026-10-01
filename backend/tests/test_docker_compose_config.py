@@ -3,6 +3,7 @@
 Garante a presença dos 5 serviços essenciais, healthchecks, redes isoladas
 e volumes persistentes exigidos pela Issue #1.
 """
+
 import shutil
 import subprocess
 import unittest
@@ -19,9 +20,11 @@ class TestDockerComposeConfig(unittest.TestCase):
         # O arquivo docker-compose.yml fica na raiz do projeto (um nível acima de backend)
         cls.root_dir = Path(__file__).resolve().parent.parent.parent
         cls.compose_file = cls.root_dir / "docker-compose.yml"
-        
-        assert cls.compose_file.exists(), f"Arquivo docker-compose.yml não encontrado em {cls.compose_file}"
-        
+
+        assert cls.compose_file.exists(), (
+            f"Arquivo docker-compose.yml não encontrado em {cls.compose_file}"
+        )
+
         with open(cls.compose_file, "r", encoding="utf-8") as f:
             cls.compose_data = yaml.safe_load(f)
 
@@ -47,9 +50,11 @@ class TestDockerComposeConfig(unittest.TestCase):
         postgres = self.compose_data["services"]["postgres"]
         self.assertEqual(postgres.get("image"), "postgres:16-alpine")
         self.assertIn("5432:5432", postgres.get("ports", []))
-        
+
         volumes = postgres.get("volumes", [])
-        self.assertTrue(any("postgres_data:" in v for v in volumes), "Volume postgres_data não montado")
+        self.assertTrue(
+            any("postgres_data:" in v for v in volumes), "Volume postgres_data não montado"
+        )
         self.assertTrue(any("init-db.sql" in v for v in volumes), "Script init-db.sql não mapeado")
 
         healthcheck = postgres.get("healthcheck", {})
@@ -118,7 +123,9 @@ class TestDockerComposeConfig(unittest.TestCase):
             text=True,
             check=False,
         )
-        self.assertEqual(result.returncode, 0, f"Falha na validação do docker compose config: {result.stderr}")
+        self.assertEqual(
+            result.returncode, 0, f"Falha na validação do docker compose config: {result.stderr}"
+        )
 
 
 if __name__ == "__main__":

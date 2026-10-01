@@ -3,6 +3,7 @@
 Agregados definem fronteiras de consistência transacional e encapsulam o ciclo de vida
 das entidades filhas, registrando eventos de domínio que são disparados após persistência atômica.
 """
+
 from datetime import datetime
 from uuid import UUID
 

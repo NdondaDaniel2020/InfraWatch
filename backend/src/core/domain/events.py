@@ -3,6 +3,7 @@
 Eventos de domínio representam fatos consumados de negócio relevantes para o sistema,
 sendo imutáveis, cronologicamente ordenados (UUIDv7) e serializáveis para o Transactional Outbox.
 """
+
 from abc import ABC
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
