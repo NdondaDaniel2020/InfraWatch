@@ -1,3 +1,5 @@
+"""Schemas Pydantic v2 do contexto de Identidade e Autenticação."""
+
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID

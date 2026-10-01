@@ -6,17 +6,17 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request, status
 
 from src.api.dependencies import ClientIPDep, CurrentUserDep
-from src.api.schemas.auth import (
-    LoginRequest,
-    RefreshTokenRequest,
-    TokenResponse,
-    UserResponse,
-)
 from src.contexts.identity.domain.events import (
     UserLoggedInEvent,
     UserLoggedOutEvent,
 )
 from src.contexts.identity.repositories.user_repository import UserRepository
+from src.contexts.identity.schemas.auth import (
+    LoginRequest,
+    RefreshTokenRequest,
+    TokenResponse,
+    UserResponse,
+)
 from src.contexts.identity.services.auth_service import AuthService
 from src.contexts.identity.services.token_service import TokenService
 from src.core.database.session import DbSessionDep
