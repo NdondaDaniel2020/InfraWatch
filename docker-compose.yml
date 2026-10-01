@@ -1,0 +1,109 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: infrawatch-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
+      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infrawatch_user} -d ${POSTGRES_DB:-infrawatch_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - infrawatch-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: infrawatch-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_password_2026}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-redis_secure_password_2026} ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - infrawatch-net
+
+  infrawatch-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    container_name: infrawatch-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SECRET_KEY: ${SECRET_KEY:-infrawatch_insecure_dev_secret_key_change_in_production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - infrawatch-net
+
+  infrawatch-probe-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: infrawatch-probe-worker
+    restart: unless-stopped
+    command: ["python", "-m", "src.workers.probe_worker"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - infrawatch-net
+
+  infrawatch-integration-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: infrawatch-integration-worker
+    restart: unless-stopped
+    command: ["python", "-m", "src.workers.integration_worker"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - infrawatch-net
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  infrawatch-net:
+    driver: bridge
