@@ -58,6 +58,15 @@ class TokenPairResponse:
     expires_in: int = 900  # Tempo de vida do access token em segundos
 
 
+def _ensure_utc(dt: datetime | None) -> datetime | None:
+    """Garante que o datetime possua fuso horário UTC explicitamente definido."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
+
+
 class TokenService:
     """Serviço orquestrador do ciclo de vida de tokens de autenticação."""
 
@@ -148,12 +157,14 @@ class TokenService:
             raise InvalidTokenError("Refresh token inválido ou não encontrado.")
 
         # Validação de expiração temporal
-        if token_record.expires_at <= now:
+        token_expires_at = _ensure_utc(token_record.expires_at)
+        if token_expires_at is not None and token_expires_at <= now:
             raise TokenExpiredError("O refresh token fornecido expirou.")
 
         # Tratamento de token já revogado
         if token_record.is_revoked:
-            revoked_at = token_record.revoked_at or token_record.created_at
+            raw_revoked_at = token_record.revoked_at or token_record.created_at
+            revoked_at = _ensure_utc(raw_revoked_at) or now
             elapsed_seconds = (now - revoked_at).total_seconds()
 
             # Caso 1: Dentro da janela de tolerância de concorrência (Grace Period)
