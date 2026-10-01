@@ -22,7 +22,7 @@ from src.contexts.identity.services.token_service import TokenService
 from src.core.database.session import DbSessionDep
 from src.core.events.outbox_repository import OutboxRepository
 from src.core.exceptions import (
-    AccountLockoutError,
+    AccountLockedOutError,
     AuthenticationError,
     RateLimitExceededError,
     TokenExpiredError,
@@ -47,11 +47,13 @@ async def login(
     UserLoggedInEvent registrado na tabela outbox_events para processamento assíncrono.
     """
     auth_service = AuthService(db)
+    user_agent = request.headers.get("user-agent")
     try:
-        user = await auth_service.authenticate(
+        user, token_pair = await auth_service.authenticate(
             email=body.email,
             password=body.password,
             client_ip=client_ip,
+            user_agent=user_agent,
         )
     except AuthenticationError as exc:
         raise HTTPException(
@@ -59,25 +61,13 @@ async def login(
             detail=exc.message,
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
-    except (AccountLockoutError, RateLimitExceededError) as exc:
-        headers = {"Retry-After": str(exc.retry_after_seconds)} if exc.retry_after_seconds else {}
+    except (AccountLockedOutError, RateLimitExceededError) as exc:
+        headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else {}
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=exc.message,
             headers=headers,
         ) from None
-
-    # Cria par de tokens
-    token_service = TokenService(db)
-    user_agent = request.headers.get("user-agent")
-    token_pair = await token_service.create_token_pair(
-        user_id=user.id,
-        email=user.email,
-        role=user.role,
-        organization_id=user.organization_id,
-        ip_address=client_ip,
-        user_agent=user_agent,
-    )
 
     # Registra evento de auditoria via Transactional Outbox (sem BackgroundTasks)
     event = UserLoggedInEvent(
@@ -112,7 +102,7 @@ async def refresh_token_endpoint(
 
     try:
         token_pair = await token_service.rotate_refresh_token(
-            old_refresh_token=body.refresh_token,
+            raw_refresh_token=body.refresh_token,
             ip_address=client_ip,
             user_agent=user_agent,
         )
@@ -141,14 +131,21 @@ async def logout(
 ) -> dict[str, str]:
     """Invalida o refresh token no banco de dados e registra evento de auditoria no outbox."""
     token_service = TokenService(db)
-    await token_service.revoke_refresh_token(body.refresh_token, reason="User logout")
+    await token_service.revoke_refresh_token(raw_refresh_token=body.refresh_token)
 
     # Registra evento no outbox
     user_uuid = UUID(current_user.id)
+    email = current_user.email
+    if not email:
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_id(user_uuid)
+        if user:
+            email = user.email
+
     event = UserLoggedOutEvent(
         aggregate_id=user_uuid,
         user_id=user_uuid,
-        email=current_user.email,
+        email=email,
         reason="User logout",
     )
     OutboxRepository.add_event(db, event, aggregate_type="User")

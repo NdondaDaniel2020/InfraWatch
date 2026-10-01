@@ -64,7 +64,7 @@ async def get_current_user(
         id=str(user_id),
         email=str(payload.get("email", "")),
         role=str(payload.get("role", UserRole.CLIENT_VIEWER)),
-        organization_id=payload.get("organization_id"),
+        organization_id=payload.get("organization_id") or payload.get("org_id"),
     )
 
 

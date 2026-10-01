@@ -1,9 +1,10 @@
-"""Schemas Pydantic v2 para autenticação e gestão de sessões."""
-
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+EmailType = Annotated[str, Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)]
 
 
 class LoginRequest(BaseModel):
@@ -11,7 +12,7 @@ class LoginRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    email: EmailStr
+    email: EmailType
     password: str = Field(min_length=1, description="Senha do usuário em texto plano")
 
     @field_validator("email")
@@ -43,7 +44,7 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    email: EmailStr
+    email: EmailType
     full_name: str
     role: str
     organization_id: UUID | None = None

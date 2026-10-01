@@ -1,12 +1,13 @@
-"""Schemas Pydantic v2 para gestão de organizações (tenants)."""
-
 from datetime import datetime
 from decimal import Decimal
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.contexts.identity.domain.enums import OrgTier
+
+EmailType = Annotated[str, Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)]
 
 
 class OrganizationCreate(BaseModel):
@@ -21,7 +22,7 @@ class OrganizationCreate(BaseModel):
         pattern=r"^[a-z0-9-]+$",
         description="Identificador único em formato URL-friendly",
     )
-    contact_email: EmailStr | None = Field(default=None, description="E-mail principal de contato")
+    contact_email: EmailType | None = Field(default=None, description="E-mail principal de contato")
     contact_phone: str | None = Field(default=None, max_length=50, description="Telefone de suporte")
     tier: OrgTier = Field(default=OrgTier.STANDARD, description="Nível de serviço contratado")
     sla_target_default: Decimal = Field(
