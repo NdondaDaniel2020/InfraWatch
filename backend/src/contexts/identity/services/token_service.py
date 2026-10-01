@@ -100,6 +100,7 @@ class TokenService:
             user_id=user.id,
             role=user.role,
             org_id=user.organization_id,
+            extra_claims={"email": user.email},
         )
 
         # 2. Gerar Refresh Token opaco e seguro
@@ -177,6 +178,7 @@ class TokenService:
                     user_id=token_record.user.id,
                     role=token_record.user.role,
                     org_id=token_record.user.organization_id,
+                    extra_claims={"email": token_record.user.email},
                 )
                 return TokenPairResponse(
                     access_token=access_token,
@@ -210,6 +212,7 @@ class TokenService:
             user_id=token_record.user.id,
             role=token_record.user.role,
             org_id=token_record.user.organization_id,
+            extra_claims={"email": token_record.user.email},
         )
         new_raw_refresh_token = generate_opaque_token(48)
         new_token_hash = hash_token(new_raw_refresh_token)

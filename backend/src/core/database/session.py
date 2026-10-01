@@ -6,8 +6,9 @@ e sessionmaker assíncrono com expire_on_commit=False.
 
 from collections.abc import AsyncGenerator
 from functools import lru_cache
-from typing import Any
+from typing import Annotated, Any
 
+from fastapi import Depends
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -77,3 +78,6 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             yield session
         finally:
             await session.close()
+
+
+DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]

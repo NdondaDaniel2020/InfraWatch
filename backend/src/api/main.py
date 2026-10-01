@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.middleware import TrustedProxyMiddleware
+from src.api.routes.auth import router as auth_router
+from src.api.routes.organizations import router as organizations_router
 from src.api.routes.sse import router as sse_router
 from src.core.config import get_settings
 
@@ -35,6 +37,8 @@ def create_app() -> FastAPI:
     )
 
     # Inclusão de rotas principais
+    app.include_router(auth_router)
+    app.include_router(organizations_router)
     app.include_router(sse_router)
 
     @app.get("/api/health", tags=["Health"])
