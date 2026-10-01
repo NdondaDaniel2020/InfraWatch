@@ -234,13 +234,12 @@ InfraWatch/
 ├── ARCHITECTURE.MD                      # Arquitetura e Decisões de Sistema
 ├── README.md                            # Guia do Projeto e Instruções de Execução
 ├── LICENSE                              # Licença MIT
-├── .env.example                         # Variáveis de Ambiente Homologadas
-├── .gitignore
-├── docker-compose.yml                   # Orquestração: API, Workers, Postgres, Redis
-├── Makefile                             # Atalhos de execução e automação
+├── Makefile                             # Atalhos para Docker, migrações, testes e lint
+├── .gitignore                           # Regras de exclusão Git (Python, Node, segredos)
+├── docker-compose.yml                   # Orquestração: API, Workers, Postgres 16, Redis 7
 │
-├── docs/                                # Documentação Técnica e de Negócio
-│   ├── DECISIONS.md                     # Livro de Decisões Técnicas (ADR-001 a ADR-025)
+├── docs/                                # Documentação Técnica e de Negócio (ADR-001 a ADR-025)
+│   ├── DECISIONS.md                     # Livro de Decisões Técnicas
 │   ├── 01-PRD.md                        # Product Requirements Document
 │   ├── 02-TRD.md                        # Technical Requirements Document
 │   ├── 03-APP_FLOW.md                   # Fluxos de uso e ciclos de eventos
@@ -248,50 +247,76 @@ InfraWatch/
 │   ├── 05-BACKEND_SCHEMA.md             # Modelagem de banco, índices e outbox
 │   └── 06-IMPLEMENTATION_PLAN.md        # Roteiro passo a passo de implementação (Fases 1 a 6)
 │
-├── backend/                             # Serviço Python 3.12+ (FastAPI + Workers)
+├── scripts/                             # Scripts Utilitários, DevOps e Setup
+│   ├── init-db.sql                      # Inicialização das extensões PostgreSQL (uuid-ossp, pgcrypto)
+│   └── wait-for-services.sh             # Validação de prontidão de portas (Postgres, Redis)
+│
+├── backend/                             # Serviço Python 3.12+ (FastAPI + Workers Daemons)
+│   ├── .env.example                     # Modelo de variáveis do servidor (DB, Redis, JWT, GLPI, Zabbix)
 │   ├── pyproject.toml                   # Dependências e metadados Python (uv / pip)
 │   ├── Dockerfile.api                   # Imagem do serviço HTTP FastAPI (usuário não-root)
-│   ├── Dockerfile.worker                # Imagem do Probe Worker / Integration Worker (ICMP capabilities)
+│   ├── Dockerfile.worker                # Imagem dos Workers assíncronos (com capabilities ICMP)
+│   ├── alembic.ini                      # Configuração do Alembic
 │   ├── alembic/                         # Migrações versionadas do banco de dados
-│   ├── src/
-│   │   ├── main.py                      # Ponto de entrada FastAPI Web API
-│   │   ├── worker_probe.py              # Ponto de entrada do Probe Worker Daemon
-│   │   ├── worker_integration.py        # Ponto de entrada do Worker GLPI/Notif/Zabbix
+│   │   ├── env.py
+│   │   └── versions/
+│   │
+│   ├── src/                             # Código-Fonte Backend
 │   │   ├── config.py                    # Configurações centralizadas via Pydantic Settings
 │   │   │
-│   │   ├── shared/                      # Componentes transversais
+│   │   ├── core/                        # Primitivas Transversais e Infraestrutura Compartilhada
 │   │   │   ├── domain/                  # Base Entity, ValueObject, AggregateRoot, DomainEvent
-│   │   │   ├── infrastructure/
-│   │   │   │   ├── database.py          # SQLAlchemy async session & pool
-│   │   │   │   ├── event_bus.py         # ResilientEventBus (Streams / PubSub / Memory)
-│   │   │   │   └── outbox.py            # Outbox publisher & worker logic
-│   │   │   └── presentation/
-│   │   │       ├── sse.py               # SSE connection manager
-│   │   │       └── dependencies.py      # Autenticação, RBAC e injeção de dependências
+│   │   │   ├── database/                # Engine SQLAlchemy async, Session Factory e Unit of Work
+│   │   │   ├── redis/                   # Client Redis, Distributed Lock e Blacklist
+│   │   │   ├── messaging/               # ResilientEventBus (Streams, PubSub e InMemory Fallback)
+│   │   │   └── security/                # Argon2id, JWT, Dual-Key Rate Limiter e Anti-Timing Attack
 │   │   │
-│   │   └── contexts/                    # Bounded Contexts Modulares
-│   │       ├── identity/                # JWT, Refresh Tokens, RBAC (Baseado no Auth)
-│   │       ├── organization/            # Tenants, Clientes da RCS Angola
-│   │       ├── inventory/               # Ativos, Dispositivos, Full-Text Search
-│   │       ├── monitoring/              # Sondas (ICMP, HTTP, TCP), Zabbix Sync
-│   │       ├── alert/                   # Regras, Incidentes e Cálculo de SLA
-│   │       ├── integration_glpi/        # Cliente REST API do GLPI
-│   │       └── notification/            # Email, Telegram, WhatsApp (número virtual), Webhook
-│   └── tests/                           # Suíte de Testes Automatizados (unit, integration, e2e)
+│   │   ├── contexts/                    # Bounded Contexts Modulares (Regras de Domínio DDD)
+│   │   │   ├── identity/                # Usuários, Autenticação, RBAC de 4 Níveis e Auditoria
+│   │   │   ├── organization/            # Tenants, Clientes da RCS Angola e Metas de SLA
+│   │   │   ├── inventory/               # Ativos, Dispositivos, Busca Full-Text e VOs de Rede
+│   │   │   ├── telemetry/               # Sondas de Rede (ICMP, HTTP, TCP), Buffer de Métricas e Partições
+│   │   │   ├── alerting/                # Motor de Degradação P95, Falhas Consecutivas e Incidentes
+│   │   │   └── sla/                     # Cálculo Matemático de SLA e Janelas de Manutenção
+│   │   │
+│   │   ├── integrations/                # Clientes e Conectores de Serviços Externos
+│   │   │   ├── glpi/                    # Cliente REST API do GLPI 10+ (Chamados e Acompanhamentos)
+│   │   │   ├── zabbix/                  # Conector JSON-RPC para Hardware e SNMP
+│   │   │   └── notifications/           # Dispatcher Multicanal (Telegram, WhatsApp/SMS, SMTP, Webhook)
+│   │   │
+│   │   ├── api/                         # Camada de Apresentação HTTP & SSE (FastAPI)
+│   │   │   ├── main.py                  # Ponto de entrada Uvicorn/FastAPI
+│   │   │   ├── routes/                  # Roteadores REST (auth, devices, incidents, sla, etc.)
+│   │   │   ├── dependencies/            # Injeção de dependências (Auth, RBAC, Tenant, Trusted Proxy)
+│   │   │   └── sse/                     # Connection Manager e Distribuidor de Eventos SSE
+│   │   │
+│   │   └── workers/                     # Daemons Assíncronos Isolados
+│   │       ├── probe_worker.py          # Engine de Coleta Concorrente em Memória (ICMP, HTTP, TCP)
+│   │       ├── integration_worker.py    # Processador de GLPI, Zabbix e Notificações com DLQ
+│   │       ├── outbox_relay_worker.py   # Relay do Transactional Outbox (SKIP LOCKED)
+│   │       └── partition_manager.py     # Criação preventiva e expurgo de partições de métricas
+│   │
+│   └── tests/                           # Suíte de Testes Automatizados do Backend
+│       ├── unit/                        # Testes Unitários de Domínio, Criptografia e Probes
+│       ├── integration/                 # Testes de Integração com Postgres, Redis e APIs
+│       ├── resilience/                  # Testes de Caos, Failover do Redis e Idempotência do Outbox
+│       └── e2e/                         # Testes de Ciclo Completo (Queda -> GLPI -> Resolução)
 │
 └── frontend/                            # Single-Page Application (React 18+ / Vite / TypeScript)
-    ├── package.json
-    ├── vite.config.ts
+    ├── .env.example                     # Modelo de variáveis públicas do cliente React (VITE_API_URL)
+    ├── package.json                     # Dependências Node.js
+    ├── vite.config.ts                   # Configuração de build Vite e aliases
+    ├── tsconfig.json                    # Tipagem TypeScript estrita
     └── src/
-        ├── shared/                      # Design tokens, hooks (useSSE), componentes UI
-        ├── layouts/                     # Sidebar, Topbar com status global, NOC Fullscreen
-        └── modules/
-            ├── auth/                    # Login, perfil, troca de senha
-            ├── dashboard/               # Grid operacional em tempo real e NOC TV
-            ├── inventory/               # Gestão de ativos com busca FTS
-            ├── incidents/               # Painel de atendimento e integração GLPI
-            ├── sla/                     # Relatórios de SLA por cliente
-            └── settings/                # Configurações de canais e GLPI
+        ├── shared/                      # Design tokens (Obsidian Theme), hooks (useSSE), componentes base UI
+        ├── layouts/                     # Sidebar, Topbar com status global, NOC Fullscreen Wallboard
+        └── modules/                     # Módulos de Telas e Negócio
+            ├── auth/                    # Login, perfil, troca e recuperação de senha
+            ├── dashboard/               # Grid operacional em tempo real e NOC TV Wallboard
+            ├── inventory/               # Gestão de ativos com busca Full-Text FTS
+            ├── incidents/               # Painel de atendimento de incidentes e integração GLPI
+            ├── sla/                     # Relatórios de SLA por cliente e exportação PDF
+            └── settings/                # Configurações de canais de notificação e GLPI
 ```
 
 ---
