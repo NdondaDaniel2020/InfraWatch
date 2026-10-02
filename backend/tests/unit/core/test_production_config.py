@@ -19,7 +19,9 @@ def test_production_rejects_default_secret_key():
 
 def test_production_rejects_default_refresh_secret_key():
     """Valida que valores padrão de REFRESH_SECRET_KEY são rejeitados em produção."""
-    with pytest.raises(ValidationError, match="REFRESH_SECRET_KEY insegura ou com tamanho insuficiente"):
+    with pytest.raises(
+        ValidationError, match="REFRESH_SECRET_KEY insegura ou com tamanho insuficiente"
+    ):
         Settings(
             ENVIRONMENT="production",
             SECRET_KEY="a" * 32,

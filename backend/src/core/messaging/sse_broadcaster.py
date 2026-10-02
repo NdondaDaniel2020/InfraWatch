@@ -18,7 +18,7 @@ import uuid6
 from src.core.domain.events import DomainEvent
 
 if TYPE_CHECKING:
-    from src.api.dependencies.auth import AuthenticatedUser
+    from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 

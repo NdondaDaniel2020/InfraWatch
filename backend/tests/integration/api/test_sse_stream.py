@@ -12,11 +12,11 @@ import time
 import httpx
 import pytest
 
-from src.api.dependencies.auth import AuthenticatedUser, get_current_user
-from src.api.main import app
-from src.api.routes.sse import sse_event_stream_generator
+from src.contexts.iam.api.dependencies.auth import AuthenticatedUser, get_current_user
+from src.contexts.iam.api.routes.sse import sse_event_stream_generator
+from src.contexts.iam.security.tokens import create_access_token
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
-from src.core.security.tokens import create_access_token
+from src.main import app
 
 
 def generate_token(
@@ -82,7 +82,6 @@ class TestSSEStreamEndpoint:
         )
         assert user_from_query.id == "user-dual"
         assert user_from_query.organization_id == "org-dual"
-
 
     async def test_sse_stream_receives_broadcast_event_under_100ms(self, broadcaster) -> None:
         """Critério de aceite: Cliente conectado recebe eventos publicados em menos de 100ms."""

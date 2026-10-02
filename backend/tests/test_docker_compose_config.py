@@ -89,7 +89,9 @@ class TestDockerComposeConfig(unittest.TestCase):
     def test_api_dockerfile_healthcheck_endpoint(self):
         """Garante que o Dockerfile.api aponta o HEALTHCHECK para /api/health."""
         dockerfile_path = self.root_dir / "backend" / "Dockerfile.api"
-        self.assertTrue(dockerfile_path.exists(), f"Dockerfile.api não encontrado em {dockerfile_path}")
+        self.assertTrue(
+            dockerfile_path.exists(), f"Dockerfile.api não encontrado em {dockerfile_path}"
+        )
         content = dockerfile_path.read_text(encoding="utf-8")
         self.assertIn("HEALTHCHECK", content)
         self.assertIn("http://localhost:8000/api/health", content)
