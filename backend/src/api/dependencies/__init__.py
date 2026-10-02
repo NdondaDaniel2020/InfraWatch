@@ -2,8 +2,8 @@
 
 from src.api.dependencies.auth import (
     AuthenticatedUser,
-    SSECurrentUserDep,
-    get_sse_current_user,
+    CurrentUserDep,
+    get_current_user,
 )
 from src.api.dependencies.ip_resolver import (
     ClientIPDep,
@@ -16,9 +16,7 @@ from src.api.dependencies.pagination import (
     get_pagination_params,
 )
 from src.api.dependencies.rbac import (
-    CurrentUserDep,
     enforce_tenant_scope,
-    get_current_user,
     require_roles,
 )
 
@@ -28,12 +26,10 @@ __all__ = [
     "CurrentUserDep",
     "PaginationParams",
     "PaginationParamsDep",
-    "SSECurrentUserDep",
     "enforce_tenant_scope",
     "get_client_ip",
     "get_current_user",
     "get_pagination_params",
-    "get_sse_current_user",
     "require_roles",
     "verify_metrics_auth",
 ]

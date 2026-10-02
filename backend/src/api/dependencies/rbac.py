@@ -1,84 +1,23 @@
 """Dependências FastAPI de RBAC (Role-Based Access Control) e Isolamento Multi-tenant (ADR-012).
 
 Implementa:
-1. get_current_user: Extração e validação do token JWT Bearer.
-2. require_roles: Restrição de acesso por papéis de usuário.
-3. enforce_tenant_scope: Bloqueio estrito de acesso cruzado entre organizações distintas.
+1. require_roles: Restrição de acesso por papéis de usuário.
+2. enforce_tenant_scope: Bloqueio estrito de acesso cruzado entre organizações distintas.
 """
 
 from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
+from fastapi import Depends, HTTPException, status
 
-from src.api.dependencies.auth import AuthenticatedUser
-from src.contexts.identity.domain.enums import UserRole
-from src.core.security.tokens import decode_access_token
-
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/v1/auth/login-form",
-    auto_error=False,
+from src.api.dependencies.auth import (
+    AuthenticatedUser,
+    CurrentUserDep,
+    get_current_user,
+    oauth2_scheme,
 )
-
-
-async def get_current_user(
-    token: Annotated[str | None, Depends(oauth2_scheme)] = None,
-    authorization: Annotated[str | None, Header()] = None,
-) -> AuthenticatedUser:
-    """Extrai e valida o usuário autenticado a partir do cabeçalho Authorization: Bearer <token>."""
-    raw_token = token
-    if not raw_token and authorization:
-        if authorization.startswith("Bearer "):
-            raw_token = authorization[7:].strip()
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Formato de token inválido. O cabeçalho deve iniciar com 'Bearer '.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-    if not raw_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Autenticação necessária. Forneça o token no cabeçalho Authorization: Bearer.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    try:
-        payload = decode_access_token(raw_token)
-    except ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token de autenticação expirado.",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from None
-    except InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token de autenticação inválido ou corrompido.",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from None
-
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido: identificador de usuário ausente.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return AuthenticatedUser(
-        id=str(user_id),
-        email=str(payload.get("email", "")),
-        role=str(payload.get("role", UserRole.CLIENT_VIEWER)),
-        organization_id=payload.get("organization_id") or payload.get("org_id"),
-    )
-
-
-CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
+from src.contexts.identity.domain.enums import UserRole
 
 
 def require_roles(
@@ -138,3 +77,13 @@ def enforce_tenant_scope(
         )
 
     return target_str
+
+
+__all__ = [
+    "AuthenticatedUser",
+    "CurrentUserDep",
+    "enforce_tenant_scope",
+    "get_current_user",
+    "oauth2_scheme",
+    "require_roles",
+]
