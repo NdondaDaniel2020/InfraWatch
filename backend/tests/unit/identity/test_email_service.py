@@ -187,3 +187,65 @@ async def test_semantic_email_methods() -> None:
     args = service.send_email.call_args[0]
     assert "Bem-vindo ao InfraWatch!" in args[1]
     assert "João Silva" in args[2]
+
+    # 7. Conta desativada
+    await service.send_account_deactivated_email("user@example.com", reason="Violação de termos")
+    assert service.send_email.call_count == 7
+    args = service.send_email.call_args[0]
+    assert "conta no InfraWatch foi desativada" in args[1]
+    assert "Violação de termos" in args[2]
+
+    # 8. Senha redefinida com sucesso
+    await service.send_password_reset_completed_email("user@example.com")
+    assert service.send_email.call_count == 8
+    args = service.send_email.call_args[0]
+    assert "redefinida com sucesso" in args[1]
+    assert "login" in args[2]
+
+    # 9. Perfil atualizado
+    await service.send_profile_updated_email("user@example.com", changed_fields=["Nome", "Telefone"])
+    assert service.send_email.call_count == 9
+    args = service.send_email.call_args[0]
+    assert "Perfil atualizado" in args[1]
+    assert "Nome, Telefone" in args[2]
+
+    # 10. Papéis alterados
+    await service.send_roles_changed_email("user@example.com", new_roles=["ORG_ADMIN"])
+    assert service.send_email.call_count == 10
+    args = service.send_email.call_args[0]
+    assert "Alteração de Privilégios" in args[1]
+    assert "ORG_ADMIN" in args[2]
+    assert "Privilégios da Conta Atualizados" in args[2]
+
+
+def test_render_new_templates_content_and_escaping() -> None:
+    """Verifica renderização e escape de todos os 4 novos templates de e-mail."""
+    # Deactivated
+    deact_html = render_template("deactivated.html", reason="<script>bad()</script>Inatividade")
+    assert "Conta Desativada" in deact_html
+    assert "<script>bad()</script>" not in deact_html
+    assert "&lt;script&gt;bad()&lt;/script&gt;Inatividade" in deact_html
+
+    # Password Reset Completed
+    pwd_done_html = render_template(
+        "password_reset_completed.html",
+        login_url="https://app.infrawatch.io/login",
+    )
+    assert "Senha Redefinida com Sucesso!" in pwd_done_html
+    assert "https://app.infrawatch.io/login" in pwd_done_html
+
+    # Profile Updated
+    profile_html = render_template(
+        "profile_updated.html",
+        changed_fields="Nome Completo, E-mail",
+    )
+    assert "Atualização de Perfil Realizada" in profile_html
+    assert "Nome Completo, E-mail" in profile_html
+
+    # Roles Changed
+    roles_html = render_template(
+        "roles_changed.html",
+        new_roles="ORG_ADMIN, AUDITOR",
+    )
+    assert "Privilégios da Conta Atualizados" in roles_html
+    assert "ORG_ADMIN, AUDITOR" in roles_html
