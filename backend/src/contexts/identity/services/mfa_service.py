@@ -15,6 +15,8 @@ from src.contexts.identity.repositories.mfa_repository import MfaRepository
 from src.contexts.identity.repositories.user_repository import UserRepository
 from src.contexts.identity.security.password import password_hasher
 from src.contexts.identity.security.tokens import hash_token
+from src.contexts.identity.services.email_service import EmailService
+from src.contexts.identity.services.email_service import email_service as default_email_service
 from src.core.config import get_settings
 from src.core.exceptions import (
     AuthenticationError,
@@ -29,10 +31,15 @@ from src.core.exceptions import (
 class MfaService:
     """Serviço com lógica de geração TOTP, validação temporal e gestão de códigos de backup."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        email_service: EmailService | None = None,
+    ) -> None:
         self.session = session
         self.mfa_repo = MfaRepository(session)
         self.user_repo = UserRepository(session)
+        self.email_service = email_service or default_email_service
 
     @staticmethod
     def generate_totp_secret() -> str:
@@ -239,10 +246,13 @@ class MfaService:
         # 2. Tentativa via Backup Code
         data = method.data or {}
         hashed_codes = data.get("backup_codes", [])
-        matched, updated_codes, _ = self.verify_and_consume_backup_code(code, hashed_codes)
+        matched, updated_codes, remaining = self.verify_and_consume_backup_code(code, hashed_codes)
         if matched:
             method.data = {"backup_codes": updated_codes}
             await self.session.flush()
+            user = await self.user_repo.get_by_id(user_id)
+            if user:
+                await self.email_service.send_backup_code_used_email(user.email, remaining)
             return True
 
         return False

@@ -20,6 +20,8 @@ from src.contexts.identity.repositories.refresh_token_repository import (
 from src.contexts.identity.repositories.user_repository import UserRepository
 from src.contexts.identity.security.password import password_hasher
 from src.contexts.identity.security.tokens import generate_opaque_token
+from src.contexts.identity.services.email_service import EmailService
+from src.contexts.identity.services.email_service import email_service as default_email_service
 from src.core.exceptions import (
     EmailAlreadyExistsError,
     NotFoundError,
@@ -29,12 +31,17 @@ from src.core.exceptions import (
 class UserService:
     """Serviço de domínio para gestão e ciclo de vida de contas de usuários."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        email_service: EmailService | None = None,
+    ) -> None:
         self.session = session
         self.user_repo = UserRepository(session)
         self.email_token_repo = EmailVerificationRepository(session)
         self.mfa_repo = MfaRepository(session)
         self.refresh_token_repo = RefreshTokenRepository(session)
+        self.email_service = email_service or default_email_service
 
     async def register_user(
         self,
@@ -69,6 +76,8 @@ class UserService:
             token=raw_token,
             expires_at=expires_at,
         )
+
+        await self.email_service.send_verification_email(user.email, raw_token)
 
         return user, raw_token
 

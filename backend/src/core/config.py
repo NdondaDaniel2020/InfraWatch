@@ -81,6 +81,15 @@ class Settings(BaseSettings):
         alias="FORWARDED_ALLOW_IPS",
     )
 
+    # Configurações de E-mail / SMTP
+    SMTP_HOST: str | None = Field(default=None, alias="SMTP_HOST")
+    SMTP_PORT: int = Field(default=587, alias="SMTP_PORT")
+    SMTP_USER: str | None = Field(default=None, alias="SMTP_USER")
+    SMTP_PASSWORD: str | None = Field(default=None, alias="SMTP_PASSWORD")
+    SMTP_FROM: str = Field(default="InfraWatch <no-reply@infrawatch.ao>", alias="SMTP_FROM")
+    SMTP_TLS: bool = Field(default=True, alias="SMTP_TLS")
+    FRONTEND_URL: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

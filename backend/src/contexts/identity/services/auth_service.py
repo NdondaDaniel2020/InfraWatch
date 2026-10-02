@@ -27,12 +27,15 @@ from src.contexts.identity.security.tokens import (
     generate_opaque_token,
 )
 from src.contexts.identity.services.auth_rate_limit_service import AuthRateLimitService
+from src.contexts.identity.services.email_service import EmailService
+from src.contexts.identity.services.email_service import email_service as default_email_service
 from src.contexts.identity.services.mfa_service import MfaService
 from src.contexts.identity.services.token_service import (
     TokenPairResponse,
     TokenService,
 )
 from src.core.exceptions import (
+    AccountLockedOutError,
     AuthenticationError,
     InvalidMfaChallengeError,
     InvalidMfaPendingTokenError,
@@ -65,11 +68,13 @@ class AuthService:
         user_repository: UserRepository | None = None,
         token_service: TokenService | None = None,
         rate_limit_service: AuthRateLimitService | None = None,
+        email_service: EmailService | None = None,
     ) -> None:
         self.session = session
         self.user_repo = user_repository or UserRepository(session)
         self.token_service = token_service or TokenService(session)
         self.rate_limit_service = rate_limit_service or AuthRateLimitService()
+        self.email_service = email_service or default_email_service
         self.password_reset_repo = PasswordResetRepository(session)
         self.email_token_repo = EmailVerificationRepository(session)
         self.refresh_token_repo = RefreshTokenRepository(session)
@@ -105,9 +110,15 @@ class AuthService:
 
         # 4. Falha na autenticação (usuário inexistente, inativo ou senha divergente)
         if not is_password_valid or user is None or not user.is_active:
-            await self.rate_limit_service.register_failed_login(
-                client_ip=client_ip, email=norm_email
-            )
+            try:
+                await self.rate_limit_service.register_failed_login(
+                    client_ip=client_ip, email=norm_email
+                )
+            except AccountLockedOutError as lock_exc:
+                if user is not None and user.is_active:
+                    block_minutes = max(1, (lock_exc.retry_after or 900) // 60)
+                    await self.email_service.send_account_locked_email(user.email, block_minutes)
+                raise
             logger.info(
                 "Falha de autenticação para o identificador %s (IP: %s)", norm_email, client_ip
             )
@@ -157,7 +168,7 @@ class AuthService:
         if not user or not user.is_active:
             raise AuthenticationError(INVALID_CREDENTIALS_MSG)
 
-        mfa_service = MfaService(self.session)
+        mfa_service = MfaService(self.session, email_service=self.email_service)
         is_valid = await mfa_service.verify_challenge(user.id, code)
         if not is_valid:
             raise InvalidMfaChallengeError()
@@ -188,6 +199,7 @@ class AuthService:
             token=raw_token,
             expires_at=expires_at,
         )
+        await self.email_service.send_password_reset_email(user.email, raw_token)
         return raw_token
 
     async def reset_password(
@@ -222,6 +234,8 @@ class AuthService:
         await self.refresh_token_repo.revoke_other_sessions(user.id)
         await self.session.flush()
 
+        await self.email_service.send_password_changed_email(user.email)
+
     async def verify_email(
         self,
         token: str,
@@ -249,6 +263,8 @@ class AuthService:
         await self.email_token_repo.mark_used(record, used_at=now)
         await self.session.flush()
 
+        await self.email_service.send_welcome_email(user.email, user.full_name)
+
     async def resend_verification_email(
         self,
         email: str,
@@ -268,4 +284,5 @@ class AuthService:
             token=raw_token,
             expires_at=expires_at,
         )
+        await self.email_service.send_verification_email(user.email, raw_token)
         return raw_token
