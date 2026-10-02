@@ -22,6 +22,7 @@ from src.contexts.identity.security.password import password_hasher
 from src.contexts.identity.security.tokens import generate_opaque_token
 from src.contexts.identity.services.email_service import EmailService
 from src.contexts.identity.services.email_service import email_service as default_email_service
+from src.core.config import get_settings
 from src.core.exceptions import (
     EmailAlreadyExistsError,
     NotFoundError,
@@ -68,9 +69,10 @@ class UserService:
             is_active=True,
         )
 
-        # Gera token de ativação/verificação de e-mail (válido por 24h)
+        # Gera token de ativação/verificação de e-mail (parametrizado via Settings)
         raw_token = generate_opaque_token(32)
-        expires_at = datetime.now(UTC) + timedelta(hours=24)
+        settings = get_settings()
+        expires_at = datetime.now(UTC) + timedelta(hours=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS)
         await self.email_token_repo.create(
             user_id=user.id,
             token=raw_token,
