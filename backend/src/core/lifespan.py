@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     logger.info(
         "Iniciando %s v%s no ambiente (DEBUG=%s)",
-        settings.PROJECT_NAME,
+        getattr(settings, "PROJECT_NAME", "InfraWatch"),
         "0.1.0",
         settings.DEBUG,
     )

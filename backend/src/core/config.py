@@ -25,6 +25,7 @@ class Settings(BaseSettings):
         default="development", alias="ENVIRONMENT"
     )
     DEBUG: bool = Field(default=False, alias="DEBUG")
+    PROJECT_NAME: str = Field(default="InfraWatch", alias="PROJECT_NAME")
 
     # Configurações do Banco de Dados Relacional (PostgreSQL 16+)
     DATABASE_URL: str = Field(
