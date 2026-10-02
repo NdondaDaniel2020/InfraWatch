@@ -278,3 +278,51 @@ class InvalidMfaPendingTokenError(AuthenticationError):
         self, message: str = "Token de autenticação intermediário inválido ou expirado."
     ) -> None:
         super().__init__(message, code="INVALID_MFA_PENDING_TOKEN")
+
+
+class GoogleLoginDisabledError(InfraWatchException):
+    """Lançada quando o login social via Google OAuth não está habilitado."""
+
+    def __init__(
+        self,
+        message: str = "O login via Google não está habilitado no momento.",
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=403,
+            payload=payload,
+            code="GOOGLE_LOGIN_DISABLED",
+        )
+
+
+class InvalidGoogleTokenError(InfraWatchException):
+    """Lançada quando o token ID ou código de autorização Google é inválido ou expirou."""
+
+    def __init__(
+        self,
+        message: str = "Token ou código de autorização Google inválido ou expirado.",
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=400,
+            payload=payload,
+            code="INVALID_GOOGLE_TOKEN",
+        )
+
+
+class GoogleAuthError(InfraWatchException):
+    """Lançada em caso de falha de comunicação ou resposta inesperada do Google."""
+
+    def __init__(
+        self,
+        message: str = "Falha no serviço de autenticação do Google.",
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=502,
+            payload=payload,
+            code="GOOGLE_AUTH_ERROR",
+        )
