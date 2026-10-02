@@ -6,9 +6,9 @@ e segurança reforçada em ambientes de produção.
 
 import os
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -139,6 +139,41 @@ class Settings(BaseSettings):
     TOKEN_CLEANUP_RETENTION_DAYS: int = Field(
         default=7, alias="TOKEN_CLEANUP_RETENTION_DAYS"
     )
+
+    @model_validator(mode="after")
+    def _validate_production_security(self) -> Self:
+        """Aplica validações de segurança estritas quando em ambiente de produção."""
+        if self.ENVIRONMENT == "production":
+            if self.DEBUG:
+                raise ValueError("DEBUG não pode ser True em ambiente de produção.")
+
+            insecure_defaults = {
+                "infrawatch_insecure_dev_secret_key_change_in_production",
+                "infrawatch_refresh_dev_secret_key_change_in_production",
+                "dev-only-secret-change-me",
+                "test-only-secret-change-me",
+                "change-me",
+                "secret",
+                "admin",
+                "password",
+            }
+
+            if self.SECRET_KEY in insecure_defaults or len(self.SECRET_KEY) < 32:
+                raise ValueError(
+                    "SECRET_KEY insegura ou com tamanho insuficiente (< 32 caracteres) para produção."
+                )
+
+            if self.REFRESH_SECRET_KEY in insecure_defaults or len(self.REFRESH_SECRET_KEY) < 32:
+                raise ValueError(
+                    "REFRESH_SECRET_KEY insegura ou com tamanho insuficiente (< 32 caracteres) para produção."
+                )
+
+            if self.SECRET_KEY == self.REFRESH_SECRET_KEY:
+                raise ValueError(
+                    "REFRESH_SECRET_KEY deve ser estritamente diferente de SECRET_KEY em produção."
+                )
+
+        return self
 
 
 @lru_cache(maxsize=1)
