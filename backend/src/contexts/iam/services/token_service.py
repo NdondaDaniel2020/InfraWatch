@@ -30,7 +30,7 @@ from src.contexts.iam.security.tokens import (
 )
 from src.core.config import get_settings
 from src.core.device import parse_user_agent
-from src.core.events.outbox_repository import OutboxRepository
+from src.core.database.outbox_repository import OutboxRepository
 from src.core.exceptions import (
     InvalidTokenError,
     TokenExpiredError,

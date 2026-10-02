@@ -12,8 +12,8 @@ from typing import Any, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.core.database.outbox_repository import OutboxRepository
 from src.core.database.session import get_session_factory
-from src.core.events.outbox_repository import OutboxRepository
 from src.core.messaging.resilient_bus import ResilientEventBus
 
 logger = logging.getLogger(__name__)
