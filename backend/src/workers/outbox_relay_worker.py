@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.core.database.session import get_session_factory
 from src.core.events.outbox_repository import OutboxRepository
+from src.core.messaging.resilient_bus import ResilientEventBus
 
 logger = logging.getLogger(__name__)
 
@@ -109,4 +110,32 @@ class OutboxRelayWorker:
                 logger.critical(
                     "Erro inesperado no loop do OutboxRelayWorker: %s", exc, exc_info=True
                 )
-                await asyncio.sleep(poll_interval)
+                await asyncio.sleep(max(1.0, poll_interval))
+
+
+async def run_standalone() -> None:
+    """Ponto de entrada para execução do OutboxRelayWorker como processo independente (CLI/Docker)."""
+    from src.core.config import get_settings
+
+    settings = get_settings()
+    event_bus = ResilientEventBus()
+    worker = OutboxRelayWorker(
+        publisher=event_bus,
+        session_factory=get_session_factory(),
+        batch_size=settings.OUTBOX_RELAY_BATCH_SIZE,
+    )
+    try:
+        await worker.run_forever(poll_interval=settings.OUTBOX_RELAY_POLL_INTERVAL_SECONDS)
+    finally:
+        await event_bus.close()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    try:
+        asyncio.run(run_standalone())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Processo OutboxRelayWorker finalizado.")

@@ -4,17 +4,21 @@ Gerencia filas individuais por conexão de cliente, suporta isolamento multitena
 estrito por organização e transmissão em tempo real de baixa latência (<100ms).
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import uuid6
 
-from src.api.dependencies.auth import AuthenticatedUser
 from src.core.domain.events import DomainEvent
+
+if TYPE_CHECKING:
+    from src.api.dependencies.auth import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 

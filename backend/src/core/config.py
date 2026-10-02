@@ -124,6 +124,22 @@ class Settings(BaseSettings):
         default=3600, alias="GOOGLE_CERTS_CACHE_TTL_SECONDS"
     )
 
+    # Workers em Segundo Plano (Outbox Relay & Token Cleanup)
+    ENABLE_BACKGROUND_WORKERS: bool = Field(default=True, alias="ENABLE_BACKGROUND_WORKERS")
+    OUTBOX_RELAY_POLL_INTERVAL_SECONDS: float = Field(
+        default=1.0, alias="OUTBOX_RELAY_POLL_INTERVAL_SECONDS"
+    )
+    OUTBOX_RELAY_BATCH_SIZE: int = Field(default=50, alias="OUTBOX_RELAY_BATCH_SIZE")
+    TOKEN_CLEANUP_INTERVAL_SECONDS: int = Field(
+        default=3600, alias="TOKEN_CLEANUP_INTERVAL_SECONDS"
+    )
+    TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS: int = Field(
+        default=300, alias="TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS"
+    )
+    TOKEN_CLEANUP_RETENTION_DAYS: int = Field(
+        default=7, alias="TOKEN_CLEANUP_RETENTION_DAYS"
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
