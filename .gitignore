@@ -65,7 +65,7 @@ coverage.xml
 /data/
 /timescaledb_data/
 /redis_data/
-
+.mypy_cache
 # IDE & OS
 .vscode/
 .idea/
