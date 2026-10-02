@@ -164,6 +164,59 @@ class EmailService:
         )
         await self.send_email(to_email, subject, html_content)
 
+    async def send_account_deactivated_email(
+        self,
+        to_email: str,
+        reason: str = "Suspensão administrativa por conformidade de segurança",
+    ) -> None:
+        """Alerta o usuário sobre desativação de conta por um administrador."""
+        subject = "Aviso de Segurança: Sua conta no InfraWatch foi desativada"
+        html_content = render_template("deactivated.html", reason=reason)
+        await self.send_email(to_email, subject, html_content)
+
+    async def send_password_reset_completed_email(self, to_email: str) -> None:
+        """Confirmação de que a redefinição de senha foi concluída com sucesso."""
+        login_url = f"{self.settings.FRONTEND_URL}/login"
+        subject = "Sua senha foi redefinida com sucesso — InfraWatch"
+        html_content = render_template(
+            "password_reset_completed.html",
+            login_url=login_url,
+        )
+        await self.send_email(to_email, subject, html_content)
+
+    async def send_profile_updated_email(
+        self,
+        to_email: str,
+        changed_fields: list[str] | str,
+    ) -> None:
+        """Notifica o usuário sobre alterações cadastrais realizadas no perfil."""
+        fields_str = (
+            ", ".join(changed_fields)
+            if isinstance(changed_fields, list)
+            else str(changed_fields)
+        )
+        subject = "Alerta de Segurança: Perfil atualizado — InfraWatch"
+        html_content = render_template(
+            "profile_updated.html",
+            changed_fields=fields_str,
+        )
+        await self.send_email(to_email, subject, html_content)
+
+    async def send_roles_changed_email(
+        self,
+        to_email: str,
+        new_roles: list[str] | str,
+    ) -> None:
+        """Notifica o usuário sobre alteração de privilégios ou papéis de acesso."""
+        roles_str = (
+            ", ".join(new_roles)
+            if isinstance(new_roles, list)
+            else str(new_roles)
+        )
+        subject = "Alteração de Privilégios da Conta — InfraWatch"
+        html_content = render_template("roles_changed.html", new_roles=roles_str)
+        await self.send_email(to_email, subject, html_content)
+
 
 # Instância singleton padrão do serviço
 email_service = EmailService()

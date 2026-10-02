@@ -235,6 +235,7 @@ class AuthService:
         await self.session.flush()
 
         await self.email_service.send_password_changed_email(user.email)
+        await self.email_service.send_password_reset_completed_email(user.email)
 
     async def verify_email(
         self,
