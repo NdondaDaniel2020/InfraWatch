@@ -4,7 +4,6 @@ from typing import Any
 
 from fastapi import FastAPI, Response
 
-from src.api.error_handlers import register_exception_handlers
 from src.api.middleware import setup_middlewares
 from src.api.routes.auth import router as auth_router
 from src.api.routes.mfa import router as mfa_router
@@ -12,6 +11,7 @@ from src.api.routes.organizations import router as organizations_router
 from src.api.routes.sse import router as sse_router
 from src.api.routes.users import router as users_router
 from src.core.config import get_settings
+from src.core.error_handlers import register_exception_handlers
 from src.core.lifespan import lifespan
 from src.core.observability.observability import (
     get_health_status,

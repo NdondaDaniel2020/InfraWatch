@@ -9,8 +9,8 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from src.api.error_handlers import register_exception_handlers
 from src.api.middleware import setup_middlewares
+from src.core.error_handlers import register_exception_handlers
 from src.core.exceptions import (
     AuthenticationError,
     EmailAlreadyExistsError,
