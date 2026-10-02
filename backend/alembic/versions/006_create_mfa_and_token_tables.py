@@ -30,14 +30,16 @@ def upgrade() -> None:
     if is_sqlite:
         with op.batch_alter_table("users") as batch_op:
             batch_op.add_column(
-                sa.Column("is_verified", sa.Boolean(), server_default=sa.text("false"), nullable=False)
+                sa.Column(
+                    "is_verified", sa.Boolean(), server_default=sa.text("false"), nullable=False
+                )
             )
             batch_op.add_column(
-                sa.Column("mfa_enabled", sa.Boolean(), server_default=sa.text("false"), nullable=False)
+                sa.Column(
+                    "mfa_enabled", sa.Boolean(), server_default=sa.text("false"), nullable=False
+                )
             )
-            batch_op.add_column(
-                sa.Column("mfa_type", sa.String(length=16), nullable=True)
-            )
+            batch_op.add_column(sa.Column("mfa_type", sa.String(length=16), nullable=True))
     else:
         op.add_column(
             "users",
@@ -55,9 +57,7 @@ def upgrade() -> None:
     # 2. Coluna device_name na tabela refresh_tokens
     if is_sqlite:
         with op.batch_alter_table("refresh_tokens") as batch_op:
-            batch_op.add_column(
-                sa.Column("device_name", sa.String(length=100), nullable=True)
-            )
+            batch_op.add_column(sa.Column("device_name", sa.String(length=100), nullable=True))
     else:
         op.add_column(
             "refresh_tokens",

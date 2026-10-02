@@ -8,13 +8,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 
 from src.api.dependencies import CurrentUserDep, PaginationParamsDep, require_roles
-from src.contexts.identity.domain.enums import UserRole
-from src.contexts.identity.schemas.audit import (
+from src.contexts.iam.domain.enums import UserRole
+from src.contexts.iam.schemas.audit import (
     AuditIntegrityVerificationResponse,
     AuditListResponse,
     AuditLogResponse,
 )
-from src.contexts.identity.services.audit_service import AuditService
+from src.contexts.iam.services.audit_service import AuditService
 from src.core.database.session import DbSessionDep
 
 router = APIRouter(prefix="/api/v1/audit", tags=["Audit & Forensics"])

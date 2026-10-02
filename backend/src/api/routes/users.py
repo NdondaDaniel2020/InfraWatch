@@ -7,20 +7,20 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.api.dependencies import CurrentUserDep, PaginationParamsDep, require_roles
-from src.contexts.identity.domain.enums import UserRole
-from src.contexts.identity.schemas.session import (
+from src.contexts.iam.domain.enums import UserRole
+from src.contexts.iam.schemas.session import (
     SessionListResponse,
     SessionResponse,
     SessionRevokeResponse,
 )
-from src.contexts.identity.schemas.user import (
+from src.contexts.iam.schemas.user import (
     UserListResponse,
     UserPublicResponse,
     UserRolesUpdate,
     UserUpdate,
 )
-from src.contexts.identity.services.session_service import SessionService
-from src.contexts.identity.services.user_service import UserService
+from src.contexts.iam.services.session_service import SessionService
+from src.contexts.iam.services.user_service import UserService
 from src.core.database.session import DbSessionDep
 from src.core.exceptions import NotFoundError
 

@@ -28,12 +28,8 @@ def upgrade() -> None:
                 existing_type=sa.String(length=255),
                 nullable=True,
             )
-            batch_op.add_column(
-                sa.Column("oauth_provider", sa.String(length=32), nullable=True)
-            )
-            batch_op.add_column(
-                sa.Column("google_id", sa.String(length=255), nullable=True)
-            )
+            batch_op.add_column(sa.Column("oauth_provider", sa.String(length=32), nullable=True))
+            batch_op.add_column(sa.Column("google_id", sa.String(length=255), nullable=True))
             batch_op.create_index("idx_users_google_id", ["google_id"], unique=True)
     else:
         op.alter_column(
@@ -42,12 +38,8 @@ def upgrade() -> None:
             existing_type=sa.String(length=255),
             nullable=True,
         )
-        op.add_column(
-            "users", sa.Column("oauth_provider", sa.String(length=32), nullable=True)
-        )
-        op.add_column(
-            "users", sa.Column("google_id", sa.String(length=255), nullable=True)
-        )
+        op.add_column("users", sa.Column("oauth_provider", sa.String(length=32), nullable=True))
+        op.add_column("users", sa.Column("google_id", sa.String(length=255), nullable=True))
         op.create_index("idx_users_google_id", "users", ["google_id"], unique=True)
 
 

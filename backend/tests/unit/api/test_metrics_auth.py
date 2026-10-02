@@ -76,6 +76,8 @@ async def test_metrics_auth_disabled_permits_anonymous_access():
         patch("src.core.config.get_settings", return_value=custom_settings),
     ):
         unprotected_app = create_app()
-        async with AsyncClient(transport=ASGITransport(app=unprotected_app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=unprotected_app), base_url="http://test"
+        ) as client:
             response = await client.get("/metrics")
             assert response.status_code == 200

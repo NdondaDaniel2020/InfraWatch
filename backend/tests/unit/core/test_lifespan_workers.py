@@ -29,7 +29,9 @@ async def test_lifespan_starts_and_stops_workers_in_development():
 
     mock_outbox_worker = MagicMock()
 
-    async def fake_outbox_run_forever(poll_interval: float = 1.0, stop_event: asyncio.Event | None = None) -> None:
+    async def fake_outbox_run_forever(
+        poll_interval: float = 1.0, stop_event: asyncio.Event | None = None
+    ) -> None:
         try:
             if stop_event:
                 await stop_event.wait()
@@ -134,8 +136,12 @@ async def test_outbox_relay_worker_standalone_entrypoint():
     from src.workers.outbox_relay_worker import run_standalone
 
     with (
-        patch("src.workers.outbox_relay_worker.OutboxRelayWorker.run_forever", new_callable=AsyncMock) as mock_run,
-        patch("src.workers.outbox_relay_worker.ResilientEventBus.close", new_callable=AsyncMock) as mock_close,
+        patch(
+            "src.workers.outbox_relay_worker.OutboxRelayWorker.run_forever", new_callable=AsyncMock
+        ) as mock_run,
+        patch(
+            "src.workers.outbox_relay_worker.ResilientEventBus.close", new_callable=AsyncMock
+        ) as mock_close,
         patch("src.workers.outbox_relay_worker.get_session_factory") as mock_session_factory,
     ):
         mock_session_factory.return_value = MagicMock()
@@ -154,7 +160,10 @@ async def test_token_cleanup_worker_standalone_entrypoint():
 
     with (
         patch("src.workers.token_cleanup_worker.aioredis.from_url", return_value=fake_redis),
-        patch("src.workers.token_cleanup_worker.TokenCleanupWorker.run_forever", new_callable=AsyncMock) as mock_run,
+        patch(
+            "src.workers.token_cleanup_worker.TokenCleanupWorker.run_forever",
+            new_callable=AsyncMock,
+        ) as mock_run,
         patch("src.workers.token_cleanup_worker.get_session_factory") as mock_session_factory,
     ):
         mock_session_factory.return_value = MagicMock()

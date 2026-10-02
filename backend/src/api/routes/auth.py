@@ -10,12 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from src.api.dependencies import ClientIPDep, CurrentUserDep
-from src.contexts.identity.domain.events import (
+from src.contexts.iam.domain.events import (
     UserLoggedInEvent,
     UserLoggedOutEvent,
 )
-from src.contexts.identity.repositories.user_repository import UserRepository
-from src.contexts.identity.schemas.auth import (
+from src.contexts.iam.repositories.user_repository import UserRepository
+from src.contexts.iam.schemas.auth import (
     AuthResponse,
     EmailVerificationConfirm,
     LoginRequest,
@@ -26,12 +26,12 @@ from src.contexts.identity.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
-from src.contexts.identity.schemas.mfa import MfaChallengeRequest
-from src.contexts.identity.schemas.user import UserCreate, UserPublicResponse
-from src.contexts.identity.services.auth_service import AuthService
-from src.contexts.identity.services.session_service import SessionService
-from src.contexts.identity.services.token_service import TokenService
-from src.contexts.identity.services.user_service import UserService
+from src.contexts.iam.schemas.mfa import MfaChallengeRequest
+from src.contexts.iam.schemas.user import UserCreate, UserPublicResponse
+from src.contexts.iam.services.auth_service import AuthService
+from src.contexts.iam.services.session_service import SessionService
+from src.contexts.iam.services.token_service import TokenService
+from src.contexts.iam.services.user_service import UserService
 from src.core.database.session import DbSessionDep
 from src.core.events.outbox_repository import OutboxRepository
 from src.core.exceptions import (

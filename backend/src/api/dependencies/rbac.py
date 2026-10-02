@@ -17,7 +17,7 @@ from src.api.dependencies.auth import (
     get_current_user,
     oauth2_scheme,
 )
-from src.contexts.identity.domain.enums import UserRole
+from src.contexts.iam.domain.enums import UserRole
 
 
 def require_roles(

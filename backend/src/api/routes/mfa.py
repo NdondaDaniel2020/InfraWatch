@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 
 from src.api.dependencies import CurrentUserDep
-from src.contexts.identity.schemas.mfa import (
+from src.contexts.iam.schemas.mfa import (
     MfaBackupCodesResponse,
     MfaDisableRequest,
     MfaEnableRequest,
@@ -15,7 +15,7 @@ from src.contexts.identity.schemas.mfa import (
     MfaRegenerateBackupCodesRequest,
     MfaSetupResponse,
 )
-from src.contexts.identity.services.mfa_service import MfaService
+from src.contexts.iam.services.mfa_service import MfaService
 from src.core.database.session import DbSessionDep
 from src.core.exceptions import (
     AuthenticationError,

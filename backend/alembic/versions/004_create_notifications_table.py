@@ -48,9 +48,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_notifications")),
     )
     op.create_index("ix_notifications_user_id", "notifications", ["user_id"], unique=False)
-    op.create_index(
-        "ix_notifications_user_id_id", "notifications", ["user_id", "id"], unique=False
-    )
+    op.create_index("ix_notifications_user_id_id", "notifications", ["user_id", "id"], unique=False)
     op.create_index(
         "ix_notifications_user_id_created_at",
         "notifications",

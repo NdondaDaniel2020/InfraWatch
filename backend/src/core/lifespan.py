@@ -56,7 +56,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         broadcaster = get_sse_broadcaster()
                         await broadcaster.broadcast_to_user(str(target_user), event_type, payload)
                     except Exception:
-                        logger.warning("Falha ao encaminhar evento do Outbox para SSE", exc_info=True)
+                        logger.warning(
+                            "Falha ao encaminhar evento do Outbox para SSE", exc_info=True
+                        )
 
             outbox_stop_event = asyncio.Event()
             outbox_worker = OutboxRelayWorker(

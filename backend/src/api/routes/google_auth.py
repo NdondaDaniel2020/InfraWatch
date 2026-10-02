@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from src.contexts.identity.schemas.auth import TokenResponse
-from src.contexts.identity.schemas.google import GoogleAuthUrlResponse, GoogleLoginRequest
-from src.contexts.identity.services.google_auth_service import (
+from src.contexts.iam.schemas.auth import TokenResponse
+from src.contexts.iam.schemas.google import GoogleAuthUrlResponse, GoogleLoginRequest
+from src.contexts.iam.services.google_auth_service import (
     GoogleAuthService,
     build_authorization_url,
     create_google_state,

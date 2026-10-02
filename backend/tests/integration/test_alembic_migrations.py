@@ -53,6 +53,7 @@ async def test_alembic_migrations_upgrade_and_downgrade(alembic_config: tuple[Co
     # 2. Inspeciona o schema gerado
     engine = create_async_engine(db_url)
     async with engine.connect() as conn:
+
         def _inspect(sync_conn):
             inspector = inspect(sync_conn)
             tables = set(inspector.get_table_names())
@@ -73,7 +74,13 @@ async def test_alembic_migrations_upgrade_and_downgrade(alembic_config: tuple[Co
 
             # Valida colunas em users
             user_cols = {col["name"] for col in inspector.get_columns("users")}
-            assert {"is_verified", "mfa_enabled", "mfa_type", "oauth_provider", "google_id"}.issubset(user_cols)
+            assert {
+                "is_verified",
+                "mfa_enabled",
+                "mfa_type",
+                "oauth_provider",
+                "google_id",
+            }.issubset(user_cols)
 
             # Valida colunas em refresh_tokens
             refresh_cols = {col["name"] for col in inspector.get_columns("refresh_tokens")}
@@ -85,6 +92,7 @@ async def test_alembic_migrations_upgrade_and_downgrade(alembic_config: tuple[Co
     await asyncio.to_thread(command.downgrade, cfg, "base")
 
     async with engine.connect() as conn:
+
         def _inspect_empty(sync_conn):
             inspector = inspect(sync_conn)
             tables = set(inspector.get_table_names())

@@ -8,14 +8,14 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from src.api.dependencies import CurrentUserDep, PaginationParamsDep
-from src.contexts.identity.schemas.notification import (
+from src.contexts.iam.schemas.notification import (
     NotificationListResponse,
     NotificationReadAllResponse,
     NotificationResponse,
     NotificationSyncResponse,
     NotificationUnreadCountResponse,
 )
-from src.contexts.identity.services.notification_service import NotificationService
+from src.contexts.iam.services.notification_service import NotificationService
 from src.core.database.session import DbSessionDep
 from src.core.exceptions import NotFoundError
 
