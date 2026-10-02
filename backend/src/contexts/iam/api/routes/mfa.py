@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
-from src.contexts.iam.api.dependencies import CurrentUserDep
+from src.contexts.iam.api.dependencies import CurrentUserDep, MfaServiceDep
 from src.contexts.iam.schemas.mfa import (
     MfaBackupCodesResponse,
     MfaDisableRequest,
@@ -15,8 +15,6 @@ from src.contexts.iam.schemas.mfa import (
     MfaRegenerateBackupCodesRequest,
     MfaSetupResponse,
 )
-from src.contexts.iam.services.mfa_service import MfaService
-from src.core.database.session import DbSessionDep
 from src.core.exceptions import (
     AuthenticationError,
     InvalidMfaConfirmationError,
@@ -36,17 +34,15 @@ router = APIRouter(prefix="/api/v1/mfa", tags=["MFA / Two-Factor Authentication"
 )
 async def setup_mfa(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    mfa_service: MfaServiceDep,
 ) -> MfaSetupResponse:
     """Gera o segredo Base32 e a URI otpauth:// para leitura em aplicativos como Google Authenticator."""
-    mfa_service = MfaService(db)
     user_uuid = UUID(current_user.id)
     try:
         secret, uri = await mfa_service.setup_totp(user_id=user_uuid, user_email=current_user.email)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
     return MfaSetupResponse(secret=secret, otpauth_uri=uri)
 
 
@@ -58,10 +54,9 @@ async def setup_mfa(
 async def enable_mfa(
     body: MfaEnableRequest,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    mfa_service: MfaServiceDep,
 ) -> MfaEnableResponse:
     """Valida o primeiro código TOTP de 6 dígitos, habilita o MFA e entrega os códigos de recuperação."""
-    mfa_service = MfaService(db)
     user_uuid = UUID(current_user.id)
     try:
         backup_codes = await mfa_service.enable_totp(user_id=user_uuid, code=body.code)
@@ -72,7 +67,6 @@ async def enable_mfa(
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
     return MfaEnableResponse(
         message="MFA ativado com sucesso. Guarde seus códigos de backup com segurança.",
         backup_codes=backup_codes,
@@ -86,10 +80,9 @@ async def enable_mfa(
 async def disable_mfa(
     body: MfaDisableRequest,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    mfa_service: MfaServiceDep,
 ) -> dict[str, str]:
     """Permite ao usuário desativar o MFA fornecendo sua senha atual e código TOTP ou de backup."""
-    mfa_service = MfaService(db)
     user_uuid = UUID(current_user.id)
     try:
         await mfa_service.disable_totp(
@@ -102,7 +95,6 @@ async def disable_mfa(
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
     return {"status": "ok", "message": "MFA desativado com sucesso."}
 
 
@@ -114,10 +106,9 @@ async def disable_mfa(
 async def regenerate_backup_codes(
     body: MfaRegenerateBackupCodesRequest,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    mfa_service: MfaServiceDep,
 ) -> MfaBackupCodesResponse:
     """Invalida todos os códigos de backup antigos e emite 10 novos códigos descartáveis."""
-    mfa_service = MfaService(db)
     user_uuid = UUID(current_user.id)
     try:
         new_codes = await mfa_service.regenerate_backup_codes(
@@ -129,5 +120,4 @@ async def regenerate_backup_codes(
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
     return MfaBackupCodesResponse(backup_codes=new_codes)

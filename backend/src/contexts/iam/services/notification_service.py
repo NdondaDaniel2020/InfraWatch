@@ -122,8 +122,14 @@ class NotificationService:
         user_id: UUID | str,
     ) -> NotificationModel | None:
         """Marca notificação como lida se pertencer ao usuário."""
-        return await self.repository.mark_as_read(notification_id, user_id)
+        notification = await self.repository.mark_as_read(notification_id, user_id)
+        if notification:
+            await self.session.commit()
+            await self.session.refresh(notification)
+        return notification
 
     async def mark_all_as_read(self, user_id: UUID | str) -> int:
         """Marca todas as notificações do usuário como lidas."""
-        return await self.repository.mark_all_as_read(user_id)
+        count = await self.repository.mark_all_as_read(user_id)
+        await self.session.commit()
+        return count

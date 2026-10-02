@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
+from src.contexts.iam.api.dependencies import GoogleAuthServiceDep
 from src.contexts.iam.schemas.auth import TokenResponse
 from src.contexts.iam.schemas.google import GoogleAuthUrlResponse, GoogleLoginRequest
 from src.contexts.iam.services.google_auth_service import (
-    GoogleAuthService,
     build_authorization_url,
     create_google_state,
     ensure_google_login_enabled,
 )
-from src.core.database.session import DbSessionDep
 from src.core.device import extract_client_ip
 
 router = APIRouter(prefix="/api/v1/auth/google", tags=["Authentication - Google OAuth"])
@@ -46,7 +45,7 @@ async def get_google_auth_url() -> GoogleAuthUrlResponse:
 async def google_auth_callback(
     data: GoogleLoginRequest,
     request: Request,
-    db: DbSessionDep,
+    service: GoogleAuthServiceDep,
 ) -> TokenResponse:
     """Valida o código de autorização OAuth ou o ID Token OpenID Connect.
 
@@ -56,7 +55,6 @@ async def google_auth_callback(
     client_ip = extract_client_ip(request)
     user_agent = request.headers.get("user-agent")
 
-    service = GoogleAuthService(db)
     _user, tokens = await service.authenticate(
         data=data,
         client_ip=client_ip,
