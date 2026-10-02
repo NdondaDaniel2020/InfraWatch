@@ -19,6 +19,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     event,
 )
@@ -107,6 +108,11 @@ class UserModel(Base):
     )
     email_verification_tokens: Mapped[list[EmailVerificationTokenModel]] = relationship(
         "EmailVerificationTokenModel",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    notifications: Mapped[list[NotificationModel]] = relationship(
+        "NotificationModel",
         back_populates="user",
         cascade="all, delete-orphan",
     )
@@ -243,6 +249,42 @@ class MfaMethodModel(Base):
         return f"<MfaMethodModel id={self.id} user_id={self.user_id} type={self.type} active={self.is_active}>"
 
 
+class NotificationModel(Base):
+    """Mapeamento ORM da tabela notifications para histórico e streaming in-app."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notifications_user_id_id", "user_id", "id"),
+        Index("ix_notifications_user_id_created_at", "user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    channel: Mapped[str] = mapped_column(String(32), nullable=False, default="in_app")
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(String(1024), nullable=False)
+    read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+
+    user: Mapped[UserModel] = relationship("UserModel", back_populates="notifications")
+
+    def __repr__(self) -> str:
+        return (
+            f"<NotificationModel id={self.id} user_id={self.user_id} "
+            f"event_type={self.event_type!r} read={self.read}>"
+        )
+
+
 class AuditLogModel(Base):
     """Mapeamento ORM da tabela audit_logs (append-only e imutável)."""
 
@@ -365,6 +407,7 @@ __all__ = [
     "AuditLogModel",
     "EmailVerificationTokenModel",
     "MfaMethodModel",
+    "NotificationModel",
     "OrganizationModel",
     "PasswordResetTokenModel",
     "RefreshTokenModel",

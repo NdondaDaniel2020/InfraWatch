@@ -21,6 +21,14 @@ from src.contexts.identity.schemas.mfa import (
     MfaRegenerateBackupCodesRequest,
     MfaSetupResponse,
 )
+from src.contexts.identity.schemas.notification import (
+    NotificationCreateRequest,
+    NotificationListResponse,
+    NotificationReadAllResponse,
+    NotificationResponse,
+    NotificationSyncResponse,
+    NotificationUnreadCountResponse,
+)
 from src.contexts.identity.schemas.session import (
     SessionListResponse,
     SessionResponse,
@@ -47,6 +55,12 @@ __all__ = [
     "MfaEnableResponse",
     "MfaRegenerateBackupCodesRequest",
     "MfaSetupResponse",
+    "NotificationCreateRequest",
+    "NotificationListResponse",
+    "NotificationReadAllResponse",
+    "NotificationResponse",
+    "NotificationSyncResponse",
+    "NotificationUnreadCountResponse",
     "PasswordResetConfirm",
     "PasswordResetRequest",
     "RefreshTokenRequest",

@@ -144,6 +144,53 @@ class SSEBroadcaster:
         )
         return delivered_count
 
+    async def broadcast_to_user(
+        self,
+        user_id: str | UUID,
+        event: DomainEvent | dict[str, Any],
+    ) -> int:
+        """Envia o evento SSE especificamente para as conexões ativas do usuário indicado.
+
+        Normaliza user_id para string e despacha nas filas assíncronas dedicadas de
+        qualquer sessão ativa do usuário (múltiplas abas ou dispositivos).
+
+        Retorna o total de conexões do usuário que receberam o evento.
+        """
+        payload = self._normalize_event(event)
+        target_uid = str(user_id)
+
+        delivered_count = 0
+        async with self._lock:
+            connections_snapshot = list(self._connections.values())
+
+        for conn in connections_snapshot:
+            if str(conn.user.id) != target_uid:
+                continue
+
+            try:
+                if conn.queue.full():
+                    try:
+                        conn.queue.get_nowait()
+                        conn.queue.task_done()
+                    except asyncio.QueueEmpty:
+                        pass
+                conn.queue.put_nowait(payload)
+                delivered_count += 1
+            except Exception:
+                logger.exception(
+                    "Erro ao entregar evento SSE ao usuário %s na conexão %s",
+                    target_uid,
+                    conn.connection_id,
+                )
+
+        logger.debug(
+            "Broadcast SSE direcionado ao usuário '%s' (%s): entregue a %d conexões ativas",
+            target_uid,
+            payload.get("event_type", "Notification"),
+            delivered_count,
+        )
+        return delivered_count
+
 
 # Instância singleton global do broadcaster SSE
 _global_broadcaster: SSEBroadcaster | None = None
