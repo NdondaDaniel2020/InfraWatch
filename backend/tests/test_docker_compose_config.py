@@ -86,6 +86,15 @@ class TestDockerComposeConfig(unittest.TestCase):
         self.assertEqual(depends_on.get("postgres", {}).get("condition"), "service_healthy")
         self.assertEqual(depends_on.get("redis", {}).get("condition"), "service_healthy")
 
+    def test_api_dockerfile_healthcheck_endpoint(self):
+        """Garante que o Dockerfile.api aponta o HEALTHCHECK para /api/health."""
+        dockerfile_path = self.root_dir / "backend" / "Dockerfile.api"
+        self.assertTrue(dockerfile_path.exists(), f"Dockerfile.api não encontrado em {dockerfile_path}")
+        content = dockerfile_path.read_text(encoding="utf-8")
+        self.assertIn("HEALTHCHECK", content)
+        self.assertIn("http://localhost:8000/api/health", content)
+        self.assertNotIn("/api/v1/monitoring/health", content)
+
     def test_probe_worker_configuration(self):
         """Valida se o Probe Worker usa Dockerfile.worker e comando apropriado."""
         probe_worker = self.compose_data["services"]["infrawatch-probe-worker"]
