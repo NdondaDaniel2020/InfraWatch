@@ -118,7 +118,7 @@ class EmailService:
                 html_content=html_content,
             )
             logger.info("E-mail enviado com sucesso para %s | Assunto: %s", to_email, subject)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.error("Falha ao enviar e-mail para %s via SMTP: %s", to_email, exc)
 
     async def send_verification_email(self, to_email: str, verify_token: str) -> None:

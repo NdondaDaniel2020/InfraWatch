@@ -27,7 +27,8 @@ from src.contexts.identity.security.tokens import (
     generate_opaque_token,
 )
 from src.contexts.identity.services.auth_rate_limit_service import AuthRateLimitService
-from src.contexts.identity.services.email_service import EmailService, email_service as default_email_service
+from src.contexts.identity.services.email_service import EmailService
+from src.contexts.identity.services.email_service import email_service as default_email_service
 from src.contexts.identity.services.mfa_service import MfaService
 from src.contexts.identity.services.token_service import (
     TokenPairResponse,

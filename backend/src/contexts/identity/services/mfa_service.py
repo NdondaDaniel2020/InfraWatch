@@ -15,7 +15,8 @@ from src.contexts.identity.repositories.mfa_repository import MfaRepository
 from src.contexts.identity.repositories.user_repository import UserRepository
 from src.contexts.identity.security.password import password_hasher
 from src.contexts.identity.security.tokens import hash_token
-from src.contexts.identity.services.email_service import EmailService, email_service as default_email_service
+from src.contexts.identity.services.email_service import EmailService
+from src.contexts.identity.services.email_service import email_service as default_email_service
 from src.core.config import get_settings
 from src.core.exceptions import (
     AuthenticationError,

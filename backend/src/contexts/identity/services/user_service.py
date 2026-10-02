@@ -20,7 +20,8 @@ from src.contexts.identity.repositories.refresh_token_repository import (
 from src.contexts.identity.repositories.user_repository import UserRepository
 from src.contexts.identity.security.password import password_hasher
 from src.contexts.identity.security.tokens import generate_opaque_token
-from src.contexts.identity.services.email_service import EmailService, email_service as default_email_service
+from src.contexts.identity.services.email_service import EmailService
+from src.contexts.identity.services.email_service import email_service as default_email_service
 from src.core.exceptions import (
     EmailAlreadyExistsError,
     NotFoundError,
