@@ -11,7 +11,7 @@ from src.contexts.iam.domain.events import OrganizationCreatedEvent
 from src.contexts.iam.domain.models import OrganizationModel
 from src.contexts.iam.repositories.organization_repository import OrganizationRepository
 from src.contexts.iam.schemas.organization import OrganizationCreate
-from src.core.events.outbox_repository import OutboxRepository
+from src.core.database.outbox_repository import OutboxRepository
 from src.core.exceptions import ConflictError, NotFoundError
 
 

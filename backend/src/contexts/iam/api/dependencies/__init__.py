@@ -34,7 +34,7 @@ from src.contexts.iam.api.dependencies.services import (
     get_token_service,
     get_user_service,
 )
-from src.core.pagination import (
+from src.core.web.pagination import (
     PaginatedResponse,
     PaginationParams,
     PaginationParamsDep,

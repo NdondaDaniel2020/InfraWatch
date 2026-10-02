@@ -9,13 +9,14 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from src.core.error_handlers import register_exception_handlers
+from src.core.web.error_handlers import register_exception_handlers
+from src.core.web.middleware import setup_middlewares
+
 from src.core.exceptions import (
     AuthenticationError,
     EmailAlreadyExistsError,
     NotFoundError,
 )
-from src.core.middleware import setup_middlewares
 from src.core.observability.context import (
     get_request_id,
     get_user_id,
