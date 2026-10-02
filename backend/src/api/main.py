@@ -2,8 +2,9 @@
 
 from typing import Any
 
-from fastapi import FastAPI, Response
+from fastapi import Depends, FastAPI, Response
 
+from src.api.dependencies.metrics_auth import verify_metrics_auth
 from src.api.middleware import setup_middlewares
 from src.api.routes.audit import router as audit_router
 from src.api.routes.auth import router as auth_router
@@ -51,9 +52,20 @@ def create_app() -> FastAPI:
     app.include_router(sse_router)
     app.include_router(audit_router)
 
-    @app.get("/metrics", tags=["Observability"], include_in_schema=False)
+    @app.get(
+        "/metrics",
+        tags=["Observability"],
+        include_in_schema=False,
+        dependencies=[Depends(verify_metrics_auth)],
+    )
+    @app.get(
+        "/api/v1/monitoring/metrics",
+        tags=["Observability"],
+        include_in_schema=False,
+        dependencies=[Depends(verify_metrics_auth)],
+    )
     async def metrics_endpoint() -> Response:
-        """Endpoint de scraping em formato Prometheus."""
+        """Endpoint de scraping em formato Prometheus protegido por Basic Auth (ADR-025)."""
         data, content_type = metrics_response()
         return Response(content=data, media_type=content_type)
 
