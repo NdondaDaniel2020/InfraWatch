@@ -140,6 +140,13 @@ class Settings(BaseSettings):
         default=7, alias="TOKEN_CLEANUP_RETENTION_DAYS"
     )
 
+    # Proteção do Endpoint Prometheus /metrics (ADR-025)
+    METRICS_REQUIRE_AUTH: bool = Field(default=True, alias="METRICS_REQUIRE_AUTH")
+    PROMETHEUS_METRICS_USER: str = Field(default="prometheus", alias="PROMETHEUS_METRICS_USER")
+    PROMETHEUS_METRICS_PASSWORD: str = Field(
+        default="prometheus_secure_password_2026", alias="PROMETHEUS_METRICS_PASSWORD"
+    )
+
     @model_validator(mode="after")
     def _validate_production_security(self) -> Self:
         """Aplica validações de segurança estritas quando em ambiente de produção."""
