@@ -20,9 +20,14 @@ from src.contexts.iam.repositories.refresh_token_repository import (
 from src.contexts.iam.repositories.user_repository import UserRepository
 from src.contexts.iam.security.password import password_hasher
 from src.contexts.iam.security.tokens import generate_opaque_token
-from src.contexts.iam.services.email_service import EmailService
-from src.contexts.iam.services.email_service import email_service as default_email_service
+from src.contexts.iam.domain.events import (
+    AccountDeactivatedEvent,
+    EmailVerificationRequestedEvent,
+    ProfileUpdatedEvent,
+    RolesChangedEvent,
+)
 from src.core.config import get_settings
+from src.core.database.outbox_repository import OutboxRepository
 from src.core.exceptions import (
     EmailAlreadyExistsError,
     NotFoundError,
@@ -35,14 +40,12 @@ class UserService:
     def __init__(
         self,
         session: AsyncSession,
-        email_service: EmailService | None = None,
     ) -> None:
         self.session = session
         self.user_repo = UserRepository(session)
         self.email_token_repo = EmailVerificationRepository(session)
         self.mfa_repo = MfaRepository(session)
         self.refresh_token_repo = RefreshTokenRepository(session)
-        self.email_service = email_service or default_email_service
 
     async def register_user(
         self,
@@ -81,7 +84,12 @@ class UserService:
             expires_at=expires_at,
         )
 
-        await self.email_service.send_verification_email(user.email, raw_token)
+        event = EmailVerificationRequestedEvent(
+            aggregate_id=user.id,
+            email=user.email,
+            verify_token=raw_token,
+        )
+        OutboxRepository.add_event(self.session, event, aggregate_type="User")
         await self.session.commit()
         await self.session.refresh(user)
 
@@ -108,10 +116,13 @@ class UserService:
         await self.session.refresh(user)
 
         if changed_fields:
-            await self.email_service.send_profile_updated_email(
-                user.email,
-                changed_fields=changed_fields,
+            event = ProfileUpdatedEvent(
+                aggregate_id=user.id,
+                email=user.email,
+                changed_fields=", ".join(changed_fields),
             )
+            OutboxRepository.add_event(self.session, event, aggregate_type="User")
+            await self.session.commit()
 
         return user
 
@@ -158,7 +169,13 @@ class UserService:
         await self.session.refresh(user)
 
         if old_role != role_str:
-            await self.email_service.send_roles_changed_email(user.email, new_roles=[role_str])
+            event = RolesChangedEvent(
+                aggregate_id=user.id,
+                email=user.email,
+                new_roles=role_str,
+            )
+            OutboxRepository.add_event(self.session, event, aggregate_type="User")
+            await self.session.commit()
 
         return user
 
@@ -192,7 +209,13 @@ class UserService:
         await self.session.flush()
         await self.session.commit()
         await self.session.refresh(user)
-        await self.email_service.send_account_deactivated_email(user.email, reason=reason)
+        event = AccountDeactivatedEvent(
+            aggregate_id=user.id,
+            email=user.email,
+            reason=reason,
+        )
+        OutboxRepository.add_event(self.session, event, aggregate_type="User")
+        await self.session.commit()
         return user
 
     async def admin_disable_mfa(self, user_id: UUID) -> UserModel:

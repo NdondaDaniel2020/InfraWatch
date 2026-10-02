@@ -14,9 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.contexts.iam.repositories.mfa_repository import MfaRepository
 from src.contexts.iam.repositories.user_repository import UserRepository
 from src.contexts.iam.security.password import password_hasher
+from src.contexts.iam.domain.events import BackupCodeUsedEvent
 from src.contexts.iam.security.tokens import hash_token
-from src.contexts.iam.services.email_service import EmailService
-from src.contexts.iam.services.email_service import email_service as default_email_service
+from src.core.database.outbox_repository import OutboxRepository
 from src.core.config import get_settings
 from src.core.exceptions import (
     AuthenticationError,
@@ -34,12 +34,10 @@ class MfaService:
     def __init__(
         self,
         session: AsyncSession,
-        email_service: EmailService | None = None,
     ) -> None:
         self.session = session
         self.mfa_repo = MfaRepository(session)
         self.user_repo = UserRepository(session)
-        self.email_service = email_service or default_email_service
 
     @staticmethod
     def generate_totp_secret() -> str:
@@ -260,7 +258,12 @@ class MfaService:
             await self.session.flush()
             user = await self.user_repo.get_by_id(user_id)
             if user:
-                await self.email_service.send_backup_code_used_email(user.email, remaining)
+                event = BackupCodeUsedEvent(
+                    aggregate_id=user.id,
+                    email=user.email,
+                    remaining_count=remaining,
+                )
+                OutboxRepository.add_event(self.session, event, aggregate_type="User")
             return True
 
         return False

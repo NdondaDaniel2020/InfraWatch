@@ -3,7 +3,7 @@
 from src.contexts.iam.services.audit_service import AuditService
 from src.contexts.iam.services.auth_rate_limit_service import AuthRateLimitService
 from src.contexts.iam.services.auth_service import AuthService
-from src.contexts.iam.services.email_service import EmailService, email_service
+from src.contexts.iam.services.email_service import EmailService
 from src.contexts.iam.services.google_auth_service import (
     GoogleAuthService,
     GoogleIdentityProvider,
@@ -40,5 +40,4 @@ __all__ = [
     "TokenService",
     "TopologySanitizer",
     "UserService",
-    "email_service",
 ]
