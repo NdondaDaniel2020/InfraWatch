@@ -20,6 +20,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.contexts.iam.domain.events import UserLoggedOutEvent
 from src.contexts.iam.domain.models import RefreshTokenModel, UserModel
 from src.contexts.iam.security.tokens import (
     create_access_token,
@@ -29,6 +30,7 @@ from src.contexts.iam.security.tokens import (
 )
 from src.core.config import get_settings
 from src.core.device import parse_user_agent
+from src.core.events.outbox_repository import OutboxRepository
 from src.core.exceptions import (
     InvalidTokenError,
     TokenExpiredError,
@@ -211,6 +213,7 @@ class TokenService:
                 .values(is_revoked=True, revoked_at=now)
             )
             await self.session.flush()
+            await self.session.commit()
 
             raise TokenReuseDetectedError(
                 "Tentativa de reuso de sessão detectada. Toda a família de tokens foi invalidada por segurança."
@@ -250,6 +253,7 @@ class TokenService:
         )
         self.session.add(new_token_record)
         await self.session.flush()
+        await self.session.commit()
 
         return TokenPairResponse(
             access_token=new_access_token,
@@ -262,19 +266,33 @@ class TokenService:
         raw_refresh_token: str,
         access_token: str | None = None,
     ) -> None:
-        """Revoga um refresh token específico e adiciona o access token à blacklist."""
+        """Revoga um refresh token específico, enfileira evento no Outbox e adiciona o access token à blacklist."""
         now = datetime.now(UTC)
         token_hash = hash_token(raw_refresh_token)
 
-        await self.session.execute(
-            update(RefreshTokenModel)
-            .where(
-                RefreshTokenModel.token_hash == token_hash,
-                RefreshTokenModel.is_revoked.is_(False),
-            )
-            .values(is_revoked=True, revoked_at=now)
+        query = (
+            select(RefreshTokenModel)
+            .options(selectinload(RefreshTokenModel.user))
+            .where(RefreshTokenModel.token_hash == token_hash)
         )
-        await self.session.flush()
+        result = await self.session.execute(query)
+        token_record = result.scalar_one_or_none()
+
+        if token_record and not token_record.is_revoked:
+            token_record.is_revoked = True
+            token_record.revoked_at = now
+            await self.session.flush()
+
+            user = token_record.user
+            user_id = token_record.user_id
+            email = user.email if user else ""
+            event = UserLoggedOutEvent(
+                aggregate_id=user_id,
+                user_id=user_id,
+                email=email,
+                reason="User logout",
+            )
+            OutboxRepository.add_event(self.session, event, aggregate_type="User")
 
         if access_token:
             try:
@@ -286,6 +304,8 @@ class TokenService:
                     await self.blacklist_access_token(jti, ttl_seconds=ttl)
             except (InvalidTokenError, TokenExpiredError, KeyError) as exc:
                 logger.debug("Access token não pôde ser decodificado para blacklist: %s", exc)
+
+        await self.session.commit()
 
     async def revoke_all_user_tokens(self, user_id: UUID) -> None:
         """Revoga todas as sessões ativas pertencentes a um usuário."""

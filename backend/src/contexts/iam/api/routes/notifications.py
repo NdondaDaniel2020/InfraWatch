@@ -7,7 +7,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from src.contexts.iam.api.dependencies import CurrentUserDep, PaginationParamsDep
+from src.contexts.iam.api.dependencies import (
+    CurrentUserDep,
+    NotificationServiceDep,
+    PaginationParamsDep,
+)
 from src.contexts.iam.schemas.notification import (
     NotificationListResponse,
     NotificationReadAllResponse,
@@ -15,8 +19,6 @@ from src.contexts.iam.schemas.notification import (
     NotificationSyncResponse,
     NotificationUnreadCountResponse,
 )
-from src.contexts.iam.services.notification_service import NotificationService
-from src.core.database.session import DbSessionDep
 from src.core.exceptions import NotFoundError
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["Notifications"])
@@ -29,7 +31,7 @@ router = APIRouter(prefix="/api/v1/notifications", tags=["Notifications"])
 )
 async def list_notifications(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    notification_service: NotificationServiceDep,
     pagination: PaginationParamsDep,
     unread_only: Annotated[
         bool,
@@ -37,14 +39,13 @@ async def list_notifications(
     ] = False,
 ) -> NotificationListResponse:
     """Retorna lista paginada de notificações destinadas ao usuário logado."""
-    service = NotificationService(db)
-    items, total = await service.list_notifications(
+    items, total = await notification_service.list_notifications(
         user_id=current_user.id,
         unread_only=unread_only,
         page=pagination.page,
         page_size=pagination.page_size,
     )
-    unread_count = await service.get_unread_count(current_user.id)
+    unread_count = await notification_service.get_unread_count(current_user.id)
 
     return NotificationListResponse(
         items=[NotificationResponse.model_validate(n) for n in items],
@@ -62,11 +63,10 @@ async def list_notifications(
 )
 async def get_unread_count(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    notification_service: NotificationServiceDep,
 ) -> NotificationUnreadCountResponse:
     """Retorna o total de notificações não lidas para exibição rápida de badge no frontend."""
-    service = NotificationService(db)
-    count = await service.get_unread_count(current_user.id)
+    count = await notification_service.get_unread_count(current_user.id)
     return NotificationUnreadCountResponse(unread_count=count)
 
 
@@ -77,7 +77,7 @@ async def get_unread_count(
 )
 async def sync_notifications(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    notification_service: NotificationServiceDep,
     since_id: Annotated[
         int | None,
         Query(description="Último ID de notificação processado com sucesso pelo cliente."),
@@ -92,8 +92,7 @@ async def sync_notifications(
     ] = 50,
 ) -> NotificationSyncResponse:
     """Permite ao cliente recuperar eventos e notificações perdidos durante desconexões temporárias do stream SSE."""
-    service = NotificationService(db)
-    items, has_more, last_id = await service.sync_notifications(
+    items, has_more, last_id = await notification_service.sync_notifications(
         user_id=current_user.id,
         since_id=since_id,
         since_timestamp=since_timestamp,
@@ -117,19 +116,16 @@ async def sync_notifications(
 async def mark_notification_as_read(
     notification_id: int,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    notification_service: NotificationServiceDep,
 ) -> NotificationResponse:
     """Marca uma notificação específica como lida, assegurando isolamento por usuário."""
-    service = NotificationService(db)
-    notification = await service.mark_as_read(
+    notification = await notification_service.mark_as_read(
         notification_id=notification_id,
         user_id=current_user.id,
     )
     if not notification:
         raise NotFoundError("Notificação não encontrada.")
 
-    await db.commit()
-    await db.refresh(notification)
     return NotificationResponse.model_validate(notification)
 
 
@@ -140,10 +136,8 @@ async def mark_notification_as_read(
 )
 async def mark_all_notifications_as_read(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    notification_service: NotificationServiceDep,
 ) -> NotificationReadAllResponse:
     """Marca em massa todas as notificações pendentes do usuário como lidas."""
-    service = NotificationService(db)
-    count = await service.mark_all_as_read(current_user.id)
-    await db.commit()
+    count = await notification_service.mark_all_as_read(current_user.id)
     return NotificationReadAllResponse(marked_as_read=count)

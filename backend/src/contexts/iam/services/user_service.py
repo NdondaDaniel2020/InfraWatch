@@ -82,6 +82,8 @@ class UserService:
         )
 
         await self.email_service.send_verification_email(user.email, raw_token)
+        await self.session.commit()
+        await self.session.refresh(user)
 
         return user, raw_token
 
@@ -102,6 +104,8 @@ class UserService:
             changed_fields.append("Nome Completo")
 
         await self.session.flush()
+        await self.session.commit()
+        await self.session.refresh(user)
 
         if changed_fields:
             await self.email_service.send_profile_updated_email(
@@ -150,6 +154,8 @@ class UserService:
         old_role = str(user.role)
         user.role = role_str
         await self.session.flush()
+        await self.session.commit()
+        await self.session.refresh(user)
 
         if old_role != role_str:
             await self.email_service.send_roles_changed_email(user.email, new_roles=[role_str])
@@ -166,6 +172,8 @@ class UserService:
 
         user.is_active = True
         await self.session.flush()
+        await self.session.commit()
+        await self.session.refresh(user)
         return user
 
     async def deactivate_user(
@@ -182,6 +190,8 @@ class UserService:
         user.is_active = False
         await self.refresh_token_repo.revoke_other_sessions(user_id)
         await self.session.flush()
+        await self.session.commit()
+        await self.session.refresh(user)
         await self.email_service.send_account_deactivated_email(user.email, reason=reason)
         return user
 
@@ -198,4 +208,6 @@ class UserService:
         user.mfa_enabled = False
         user.mfa_type = None
         await self.session.flush()
+        await self.session.commit()
+        await self.session.refresh(user)
         return user

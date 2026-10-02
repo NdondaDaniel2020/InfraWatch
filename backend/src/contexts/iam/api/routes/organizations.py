@@ -4,15 +4,18 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from src.contexts.iam.api.dependencies import CurrentUserDep, enforce_tenant_scope, require_roles
+from src.contexts.iam.api.dependencies import (
+    CurrentUserDep,
+    OrganizationServiceDep,
+    enforce_tenant_scope,
+    require_roles,
+)
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.schemas.organization import (
     OrganizationCreate,
     OrganizationListResponse,
     OrganizationResponse,
 )
-from src.contexts.iam.services.organization_service import OrganizationService
-from src.core.database.session import DbSessionDep
 
 router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
 
@@ -22,7 +25,7 @@ router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
 )
 async def list_organizations(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    organization_service: OrganizationServiceDep,
     page: int = Query(default=1, ge=1, description="Número da página"),
     size: int = Query(default=20, ge=1, le=100, description="Itens por página"),
 ) -> OrganizationListResponse:
@@ -31,8 +34,7 @@ async def list_organizations(
     Super Administradores e Operadores NOC visualizam todos os clientes.
     Usuários vinculados a clientes corporativos visualizam estritamente seu tenant.
     """
-    service = OrganizationService(db)
-    items, total = await service.list_organizations(
+    items, total = await organization_service.list_organizations(
         user_is_super_admin=current_user.is_super_admin,
         user_role=current_user.role,
         user_org_id=current_user.organization_id,
@@ -57,11 +59,10 @@ async def list_organizations(
 async def create_organization(
     body: OrganizationCreate,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    organization_service: OrganizationServiceDep,
 ) -> OrganizationResponse:
     """Cadastra um novo cliente tenant no sistema e registra evento via Transactional Outbox."""
-    service = OrganizationService(db)
-    org = await service.create_organization(body)
+    org = await organization_service.create_organization(body)
     return OrganizationResponse.model_validate(org)
 
 
@@ -69,10 +70,9 @@ async def create_organization(
 async def get_organization(
     org_id: UUID,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    organization_service: OrganizationServiceDep,
 ) -> OrganizationResponse:
     """Retorna detalhes de uma organização sob validação rigorosa de escopo multi-tenant."""
     enforce_tenant_scope(org_id, current_user)
-    service = OrganizationService(db)
-    org = await service.get_organization_by_id(org_id)
+    org = await organization_service.get_organization_by_id(org_id)
     return OrganizationResponse.model_validate(org)
