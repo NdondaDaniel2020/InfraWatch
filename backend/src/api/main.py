@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import FastAPI, Response
 
 from src.api.middleware import setup_middlewares
+from src.api.routes.audit import router as audit_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.mfa import router as mfa_router
 from src.api.routes.organizations import router as organizations_router
@@ -44,6 +45,7 @@ def create_app() -> FastAPI:
     app.include_router(users_router)
     app.include_router(organizations_router)
     app.include_router(sse_router)
+    app.include_router(audit_router)
 
     @app.get("/metrics", tags=["Observability"], include_in_schema=False)
     async def metrics_endpoint() -> Response:
