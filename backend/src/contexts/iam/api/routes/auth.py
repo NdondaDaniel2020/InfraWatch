@@ -225,7 +225,11 @@ async def logout(
     token_service: TokenServiceDep,
 ) -> dict[str, str]:
     """Invalida o refresh token no banco de dados e registra evento de auditoria no outbox."""
-    await token_service.revoke_refresh_token(raw_refresh_token=body.refresh_token)
+    await token_service.revoke_refresh_token(
+        raw_refresh_token=body.refresh_token,
+        user_id=UUID(current_user.id),
+        email=current_user.email,
+    )
     return {"status": "ok", "message": "Sessão encerrada com sucesso."}
 
 

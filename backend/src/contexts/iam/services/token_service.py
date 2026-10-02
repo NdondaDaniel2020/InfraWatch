@@ -265,7 +265,9 @@ class TokenService:
         self,
         raw_refresh_token: str,
         access_token: str | None = None,
-    ) -> None:
+        user_id: UUID | None = None,
+        email: str | None = None,
+    ) -> bool:
         """Revoga um refresh token específico, enfileira evento no Outbox e adiciona o access token à blacklist."""
         now = datetime.now(UTC)
         token_hash = hash_token(raw_refresh_token)
@@ -283,13 +285,16 @@ class TokenService:
             token_record.revoked_at = now
             await self.session.flush()
 
-            user = token_record.user
-            user_id = token_record.user_id
-            email = user.email if user else ""
+        effective_user_id = user_id or (token_record.user_id if token_record else None)
+        effective_email = email or (
+            token_record.user.email if (token_record and token_record.user) else ""
+        )
+
+        if effective_user_id:
             event = UserLoggedOutEvent(
-                aggregate_id=user_id,
-                user_id=user_id,
-                email=email,
+                aggregate_id=effective_user_id,
+                user_id=effective_user_id,
+                email=effective_email,
                 reason="User logout",
             )
             OutboxRepository.add_event(self.session, event, aggregate_type="User")
@@ -306,6 +311,7 @@ class TokenService:
                 logger.debug("Access token não pôde ser decodificado para blacklist: %s", exc)
 
         await self.session.commit()
+        return True
 
     async def revoke_all_user_tokens(self, user_id: UUID) -> None:
         """Revoga todas as sessões ativas pertencentes a um usuário."""
