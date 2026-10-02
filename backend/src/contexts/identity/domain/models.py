@@ -50,7 +50,9 @@ class UserModel(Base):
         index=True,
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column("hashed_password", String(255), nullable=False)
+    hashed_password: Mapped[str | None] = mapped_column(
+        "hashed_password", String(255), nullable=True, default=None
+    )
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     role: Mapped[str] = mapped_column(
         String(30),
@@ -59,6 +61,10 @@ class UserModel(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    oauth_provider: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
+    google_id: Mapped[str | None] = mapped_column(
+        String(255), unique=True, index=True, nullable=True, default=None
+    )
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     mfa_type: Mapped[str | None] = mapped_column(String(16), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
@@ -75,11 +81,11 @@ class UserModel(Base):
 
     # Propriedade de compatibilidade mútua password_hash / hashed_password
     @property
-    def password_hash(self) -> str:
+    def password_hash(self) -> str | None:
         return self.hashed_password
 
     @password_hash.setter
-    def password_hash(self, value: str) -> None:
+    def password_hash(self, value: str | None) -> None:
         self.hashed_password = value
 
     # Relacionamentos

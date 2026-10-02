@@ -38,15 +38,28 @@ class UserRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
+    async def get_by_google_id(self, google_id: str) -> UserModel | None:
+        """Busca usuário pela identidade federada única do Google (sub)."""
+        query = (
+            select(UserModel)
+            .options(selectinload(UserModel.organization))
+            .where(UserModel.google_id == google_id.strip())
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
     async def create(
         self,
         *,
         email: str,
-        hashed_password: str,
         full_name: str,
+        hashed_password: str | None = None,
         role: str | UserRole = UserRole.CLIENT_VIEWER,
         organization_id: UUID | None = None,
         is_active: bool = True,
+        is_verified: bool = False,
+        oauth_provider: str | None = None,
+        google_id: str | None = None,
     ) -> UserModel:
         """Cria e persiste um novo usuário no banco de dados."""
         user = UserModel(
@@ -56,6 +69,9 @@ class UserRepository:
             role=str(role),
             organization_id=organization_id,
             is_active=is_active,
+            is_verified=is_verified,
+            oauth_provider=oauth_provider,
+            google_id=google_id,
         )
         self.session.add(user)
         await self.session.flush()

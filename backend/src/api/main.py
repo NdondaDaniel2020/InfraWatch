@@ -7,6 +7,7 @@ from fastapi import FastAPI, Response
 from src.api.middleware import setup_middlewares
 from src.api.routes.audit import router as audit_router
 from src.api.routes.auth import router as auth_router
+from src.api.routes.google_auth import router as google_auth_router
 from src.api.routes.mfa import router as mfa_router
 from src.api.routes.notifications import router as notifications_router
 from src.api.routes.organizations import router as organizations_router
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
 
     # Inclusão de rotas principais
     app.include_router(auth_router)
+    app.include_router(google_auth_router)
     app.include_router(mfa_router)
     app.include_router(users_router)
     app.include_router(organizations_router)

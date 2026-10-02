@@ -3,6 +3,10 @@
 from src.contexts.identity.services.auth_rate_limit_service import AuthRateLimitService
 from src.contexts.identity.services.auth_service import AuthService
 from src.contexts.identity.services.email_service import EmailService, email_service
+from src.contexts.identity.services.google_auth_service import (
+    GoogleAuthService,
+    GoogleIdentityProvider,
+)
 from src.contexts.identity.services.mfa_service import MfaService
 from src.contexts.identity.services.notification_service import NotificationService
 from src.contexts.identity.services.sanitizer import (
@@ -23,6 +27,8 @@ __all__ = [
     "AuthRateLimitService",
     "AuthService",
     "EmailService",
+    "GoogleAuthService",
+    "GoogleIdentityProvider",
     "MfaService",
     "NotificationService",
     "SessionService",

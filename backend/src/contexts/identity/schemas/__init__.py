@@ -12,6 +12,10 @@ from src.contexts.identity.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
+from src.contexts.identity.schemas.google import (
+    GoogleAuthUrlResponse,
+    GoogleLoginRequest,
+)
 from src.contexts.identity.schemas.mfa import (
     MfaBackupCodesResponse,
     MfaChallengeRequest,
@@ -47,6 +51,8 @@ __all__ = [
     "AuthResponse",
     "EmailType",
     "EmailVerificationConfirm",
+    "GoogleAuthUrlResponse",
+    "GoogleLoginRequest",
     "LoginRequest",
     "MfaBackupCodesResponse",
     "MfaChallengeRequest",

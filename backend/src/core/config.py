@@ -95,6 +95,35 @@ class Settings(BaseSettings):
     PAGE_SIZE_DEFAULT: int = Field(default=20, alias="PAGE_SIZE_DEFAULT")
     PAGE_SIZE_MAX: int = Field(default=100, alias="PAGE_SIZE_MAX")
 
+    # Autenticação Social Google OAuth 2.0 / OpenID Connect
+    GOOGLE_LOGIN_ENABLED: bool = Field(default=False, alias="GOOGLE_LOGIN_ENABLED")
+    GOOGLE_CLIENT_ID: str | None = Field(default=None, alias="GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
+    GOOGLE_REDIRECT_URI: str = Field(
+        default="http://localhost:8000/api/v1/auth/google/callback",
+        alias="GOOGLE_REDIRECT_URI",
+    )
+    GOOGLE_AUTH_URL: str = Field(
+        default="https://accounts.google.com/o/oauth2/v2/auth",
+        alias="GOOGLE_AUTH_URL",
+    )
+    GOOGLE_TOKEN_URL: str = Field(
+        default="https://oauth2.googleapis.com/token",
+        alias="GOOGLE_TOKEN_URL",
+    )
+    GOOGLE_CERTS_URL: str = Field(
+        default="https://www.googleapis.com/oauth2/v3/certs",
+        alias="GOOGLE_CERTS_URL",
+    )
+    GOOGLE_ISSUER: str = Field(
+        default="https://accounts.google.com",
+        alias="GOOGLE_ISSUER",
+    )
+    GOOGLE_STATE_TTL_MINUTES: int = Field(default=10, alias="GOOGLE_STATE_TTL_MINUTES")
+    GOOGLE_CERTS_CACHE_TTL_SECONDS: int = Field(
+        default=3600, alias="GOOGLE_CERTS_CACHE_TTL_SECONDS"
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
