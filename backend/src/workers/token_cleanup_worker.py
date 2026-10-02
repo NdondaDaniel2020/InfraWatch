@@ -132,3 +132,33 @@ class TokenCleanupWorker:
             except asyncio.CancelledError:
                 pass
             self._task = None
+
+
+async def run_standalone() -> None:
+    """Ponto de entrada para execução do TokenCleanupWorker como processo independente (CLI/Docker)."""
+    from src.core.config import get_settings
+
+    settings = get_settings()
+    redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    worker = TokenCleanupWorker(
+        redis_client=redis_client,
+        session_factory=get_session_factory(),
+        interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
+        lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
+        retention_days=settings.TOKEN_CLEANUP_RETENTION_DAYS,
+    )
+    try:
+        await worker.run_forever()
+    finally:
+        await redis_client.aclose()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    try:
+        asyncio.run(run_standalone())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Processo TokenCleanupWorker finalizado.")
