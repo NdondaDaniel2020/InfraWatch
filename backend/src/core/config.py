@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_GRACE_PERIOD_SECONDS: int = Field(
         default=10, alias="REFRESH_TOKEN_GRACE_PERIOD_SECONDS"
     )
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=15, alias="PASSWORD_RESET_TOKEN_EXPIRE_MINUTES"
+    )
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = Field(
+        default=24, alias="EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS"
+    )
 
     # Parâmetros Criptográficos Argon2id (RFC 9106)
     ARGON2_TIME_COST: int = Field(default=2, alias="ARGON2_TIME_COST")

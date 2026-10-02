@@ -8,9 +8,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src.api.schemas.pagination import PaginatedResponse
 from src.contexts.identity.domain.enums import UserRole
 from src.contexts.identity.schemas.validators import validate_password_strength
+from src.core.pagination import PaginatedResponse
 
 EmailType = str
 

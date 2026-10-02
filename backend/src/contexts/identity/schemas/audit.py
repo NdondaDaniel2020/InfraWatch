@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.api.schemas.pagination import PaginatedResponse
+from src.core.pagination import PaginatedResponse
 
 
 class AuditLogResponse(BaseModel):

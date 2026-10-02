@@ -34,6 +34,7 @@ from src.contexts.identity.services.token_service import (
     TokenPairResponse,
     TokenService,
 )
+from src.core.config import get_settings
 from src.core.exceptions import (
     AccountLockedOutError,
     AuthenticationError,
@@ -197,7 +198,8 @@ class AuthService:
             return None
 
         raw_token = generate_opaque_token(32)
-        expires_at = datetime.now(UTC) + timedelta(hours=1)
+        settings = get_settings()
+        expires_at = datetime.now(UTC) + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
         await self.password_reset_repo.create(
             user_id=user.id,
             token=raw_token,
@@ -283,7 +285,8 @@ class AuthService:
             return None
 
         raw_token = generate_opaque_token(32)
-        expires_at = datetime.now(UTC) + timedelta(hours=24)
+        settings = get_settings()
+        expires_at = datetime.now(UTC) + timedelta(hours=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS)
         await self.email_token_repo.create(
             user_id=user.id,
             token=raw_token,
