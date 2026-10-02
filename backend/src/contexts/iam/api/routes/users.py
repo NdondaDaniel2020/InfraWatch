@@ -6,7 +6,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.contexts.iam.api.dependencies import CurrentUserDep, PaginationParamsDep, require_roles
+from src.contexts.iam.api.dependencies import (
+    CurrentUserDep,
+    PaginationParamsDep,
+    SessionServiceDep,
+    UserServiceDep,
+    require_roles,
+)
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.schemas.session import (
     SessionListResponse,
@@ -19,9 +25,6 @@ from src.contexts.iam.schemas.user import (
     UserRolesUpdate,
     UserUpdate,
 )
-from src.contexts.iam.services.session_service import SessionService
-from src.contexts.iam.services.user_service import UserService
-from src.core.database.session import DbSessionDep
 from src.core.exceptions import NotFoundError
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users & Sessions"])
@@ -34,10 +37,9 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users & Sessions"])
 )
 async def get_my_user_profile(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    user_service: UserServiceDep,
 ) -> UserPublicResponse:
     """Retorna os dados públicos da conta autenticada."""
-    user_service = UserService(db)
     try:
         user = await user_service.get_user_by_id(UUID(current_user.id))
     except NotFoundError as exc:
@@ -54,18 +56,15 @@ async def get_my_user_profile(
 async def update_my_user_profile(
     body: UserUpdate,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    user_service: UserServiceDep,
 ) -> UserPublicResponse:
     """Atualiza dados permitidos da conta (como full_name)."""
-    user_service = UserService(db)
     user_uuid = UUID(current_user.id)
     try:
         updated = await user_service.update_profile(user_uuid, full_name=body.full_name)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
-    await db.refresh(updated)
     return UserPublicResponse.model_validate(updated)
 
 
@@ -76,10 +75,9 @@ async def update_my_user_profile(
 )
 async def list_my_sessions(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    session_service: SessionServiceDep,
 ) -> SessionListResponse:
     """Retorna todos os tokens de refresh ativos que representam sessões do usuário."""
-    session_service = SessionService(db)
     user_uuid = UUID(current_user.id)
     tokens = await session_service.list_active_sessions(user_uuid)
 
@@ -105,10 +103,9 @@ async def list_my_sessions(
 async def revoke_session_by_id(
     session_id: UUID,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    session_service: SessionServiceDep,
 ) -> SessionRevokeResponse:
     """Invalida o refresh token de um dispositivo conectado específico."""
-    session_service = SessionService(db)
     user_uuid = UUID(current_user.id)
     success = await session_service.revoke_session(user_uuid, session_id)
     if not success:
@@ -117,7 +114,6 @@ async def revoke_session_by_id(
             detail="Sessão não encontrada ou já expirada.",
         )
 
-    await db.commit()
     return SessionRevokeResponse(message="Sessão revogada com sucesso.", revoked_count=1)
 
 
@@ -128,13 +124,11 @@ async def revoke_session_by_id(
 )
 async def revoke_all_sessions(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    session_service: SessionServiceDep,
 ) -> SessionRevokeResponse:
     """Invalida todas as sessões ativas do usuário conectado."""
-    session_service = SessionService(db)
     user_uuid = UUID(current_user.id)
     count = await session_service.revoke_all_sessions(user_uuid)
-    await db.commit()
     return SessionRevokeResponse(
         message="Todas as sessões ativas foram revogadas com sucesso.",
         revoked_count=count,
@@ -161,15 +155,12 @@ async def revoke_all_sessions(
     ],
 )
 async def list_users(
-    db: DbSessionDep,
     current_user: CurrentUserDep,
     pagination: PaginationParamsDep,
+    user_service: UserServiceDep,
     organization_id: UUID | None = None,
 ) -> UserListResponse:
     """Lista usuários cadastrados respeitando o isolamento do tenant caso não seja Super Admin."""
-    user_service = UserService(db)
-
-    # Se não for Super Admin nem NOC, restringe estritamente para a organização do usuário logado
     effective_org = organization_id
     if (
         not current_user.is_super_admin
@@ -209,10 +200,9 @@ async def list_users(
 )
 async def get_user_by_id(
     user_id: UUID,
-    db: DbSessionDep,
+    user_service: UserServiceDep,
 ) -> UserPublicResponse:
     """Busca os detalhes cadastrais de um usuário específico."""
-    user_service = UserService(db)
     try:
         user = await user_service.get_user_by_id(user_id)
     except NotFoundError as exc:
@@ -230,17 +220,14 @@ async def get_user_by_id(
 async def update_user_role(
     user_id: UUID,
     body: UserRolesUpdate,
-    db: DbSessionDep,
+    user_service: UserServiceDep,
 ) -> UserPublicResponse:
     """Atualiza o papel de permissão atribuído ao usuário."""
-    user_service = UserService(db)
     try:
         updated = await user_service.update_user_role(user_id, body.role)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
-    await db.refresh(updated)
     return UserPublicResponse.model_validate(updated)
 
 
@@ -259,17 +246,14 @@ async def update_user_role(
 )
 async def activate_user(
     user_id: UUID,
-    db: DbSessionDep,
+    user_service: UserServiceDep,
 ) -> UserPublicResponse:
     """Reativa conta de usuário."""
-    user_service = UserService(db)
     try:
         user = await user_service.activate_user(user_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
-    await db.refresh(user)
     return UserPublicResponse.model_validate(user)
 
 
@@ -289,7 +273,7 @@ async def activate_user(
 async def deactivate_user(
     user_id: UUID,
     current_user: CurrentUserDep,
-    db: DbSessionDep,
+    user_service: UserServiceDep,
 ) -> UserPublicResponse:
     """Desativa a conta do usuário e revoga todos os tokens ativos. Administrador não pode desativar a si mesmo."""
     if str(user_id) == str(current_user.id):
@@ -298,14 +282,11 @@ async def deactivate_user(
             detail="Não é permitido desativar a própria conta de administrador.",
         )
 
-    user_service = UserService(db)
     try:
         user = await user_service.deactivate_user(user_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
-    await db.refresh(user)
     return UserPublicResponse.model_validate(user)
 
 
@@ -317,15 +298,12 @@ async def deactivate_user(
 )
 async def admin_disable_mfa(
     user_id: UUID,
-    db: DbSessionDep,
+    user_service: UserServiceDep,
 ) -> UserPublicResponse:
     """Desativa o MFA de um usuário por intervenção de suporte quando há perda irrecuperável de chaves."""
-    user_service = UserService(db)
     try:
         user = await user_service.admin_disable_mfa(user_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    await db.commit()
-    await db.refresh(user)
     return UserPublicResponse.model_validate(user)

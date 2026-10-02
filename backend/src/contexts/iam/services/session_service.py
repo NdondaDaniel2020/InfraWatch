@@ -25,11 +25,15 @@ class SessionService:
 
     async def revoke_session(self, user_id: UUID, session_id: UUID) -> bool:
         """Revoga uma sessão específica."""
-        return await self.repo.revoke_by_id_and_user(session_id=session_id, user_id=user_id)
+        res = await self.repo.revoke_by_id_and_user(session_id=session_id, user_id=user_id)
+        await self.session.commit()
+        return res
 
     async def revoke_all_sessions(self, user_id: UUID) -> int:
         """Revoga todas as sessões ativas do usuário."""
-        return await self.repo.revoke_other_sessions(user_id=user_id, current_token_hash=None)
+        count = await self.repo.revoke_other_sessions(user_id=user_id, current_token_hash=None)
+        await self.session.commit()
+        return count
 
     async def revoke_other_sessions(
         self, user_id: UUID, current_token_hash: str | None = None

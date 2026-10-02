@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.contexts.iam.domain.events import UserLoggedInEvent
 from src.contexts.iam.domain.models import UserModel
 from src.contexts.iam.repositories.email_verification_repository import (
     EmailVerificationRepository,
@@ -35,6 +36,7 @@ from src.contexts.iam.services.token_service import (
     TokenService,
 )
 from src.core.config import get_settings
+from src.core.events.outbox_repository import OutboxRepository
 from src.core.exceptions import (
     AccountLockedOutError,
     AuthenticationError,
@@ -145,6 +147,17 @@ class AuthService:
             device_name=device_name,
         )
 
+        event = UserLoggedInEvent(
+            aggregate_id=user.id,
+            user_id=user.id,
+            email=user.email,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            organization_id=user.organization_id,
+        )
+        OutboxRepository.add_event(self.session, event, aggregate_type="User")
+        await self.session.commit()
+
         logger.info("Usuário autenticado com sucesso: %s (ID: %s)", user.email, user.id)
         return user, tokens
 
@@ -183,6 +196,18 @@ class AuthService:
             user_agent=user_agent,
             device_name=device_name,
         )
+
+        event = UserLoggedInEvent(
+            aggregate_id=user.id,
+            user_id=user.id,
+            email=user.email,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            organization_id=user.organization_id,
+        )
+        OutboxRepository.add_event(self.session, event, aggregate_type="User")
+        await self.session.commit()
+
         return user, tokens
 
     async def request_password_reset(
@@ -208,6 +233,7 @@ class AuthService:
             expires_at=expires_at,
         )
         await self.email_service.send_password_reset_email(user.email, raw_token)
+        await self.session.commit()
         return raw_token
 
     async def reset_password(
@@ -241,6 +267,7 @@ class AuthService:
         # Invalida todas as sessões anteriores por segurança
         await self.refresh_token_repo.revoke_other_sessions(user.id)
         await self.session.flush()
+        await self.session.commit()
 
         await self.email_service.send_password_changed_email(user.email)
         await self.email_service.send_password_reset_completed_email(user.email)
@@ -271,6 +298,7 @@ class AuthService:
         user.is_verified = True
         await self.email_token_repo.mark_used(record, used_at=now)
         await self.session.flush()
+        await self.session.commit()
 
         await self.email_service.send_welcome_email(user.email, user.full_name)
 
@@ -296,5 +324,6 @@ class AuthService:
             token=raw_token,
             expires_at=expires_at,
         )
+        await self.session.commit()
         await self.email_service.send_verification_email(user.email, raw_token)
         return raw_token

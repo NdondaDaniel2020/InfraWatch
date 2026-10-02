@@ -137,6 +137,7 @@ class MfaService:
         secret = self.generate_totp_secret()
         uri = self.get_totp_uri(user_email, secret)
         await self.mfa_repo.upsert_pending_secret(user_id, secret, type="totp")
+        await self.session.commit()
         return secret, uri
 
     async def enable_totp(
@@ -163,7 +164,10 @@ class MfaService:
         user.mfa_enabled = True
         user.mfa_type = "totp"
         await self.session.flush()
+        await self.session.commit()
         return backup_codes
+
+    verify_and_activate_totp = enable_totp
 
     async def disable_totp(
         self,
@@ -202,6 +206,9 @@ class MfaService:
         user.mfa_enabled = False
         user.mfa_type = None
         await self.session.flush()
+        await self.session.commit()
+
+    disable_mfa = disable_totp
 
     async def regenerate_backup_codes(
         self,
@@ -227,6 +234,7 @@ class MfaService:
         hashed_codes = self.hash_backup_codes(backup_codes)
         method.data = {"backup_codes": hashed_codes}
         await self.session.flush()
+        await self.session.commit()
         return backup_codes
 
     async def verify_challenge(

@@ -7,15 +7,18 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from src.contexts.iam.api.dependencies import CurrentUserDep, PaginationParamsDep, require_roles
+from src.contexts.iam.api.dependencies import (
+    AuditServiceDep,
+    CurrentUserDep,
+    PaginationParamsDep,
+    require_roles,
+)
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.schemas.audit import (
     AuditIntegrityVerificationResponse,
     AuditListResponse,
     AuditLogResponse,
 )
-from src.contexts.iam.services.audit_service import AuditService
-from src.core.database.session import DbSessionDep
 
 router = APIRouter(prefix="/api/v1/audit", tags=["Audit & Forensics"])
 
@@ -28,8 +31,8 @@ router = APIRouter(prefix="/api/v1/audit", tags=["Audit & Forensics"])
 )
 async def list_audit_logs(
     current_user: CurrentUserDep,
-    db: DbSessionDep,
     pagination: PaginationParamsDep,
+    audit_service: AuditServiceDep,
     organization_id: Annotated[UUID | None, Query()] = None,
 ) -> AuditListResponse:
     """Retorna os registros de auditoria em ordem cronológica decrescente."""
@@ -38,7 +41,6 @@ async def list_audit_logs(
     if current_user.role != UserRole.SUPER_ADMIN and current_user.organization_id:
         target_org_id = UUID(current_user.organization_id)
 
-    audit_service = AuditService(db)
     items, total = await audit_service.get_logs_paginated(
         organization_id=target_org_id,
         offset=pagination.offset,
@@ -60,14 +62,13 @@ async def list_audit_logs(
     dependencies=[Depends(require_roles(UserRole.SUPER_ADMIN))],
 )
 async def verify_audit_integrity(
-    db: DbSessionDep,
+    audit_service: AuditServiceDep,
     organization_id: Annotated[UUID | None, Query()] = None,
 ) -> AuditIntegrityVerificationResponse:
     """Verifica matematicamente o encadeamento de hashes SHA-256 da cadeia de auditoria.
 
     Detecta imediatamente se qualquer registro foi modificado, deletado ou injetado fora de ordem.
     """
-    audit_service = AuditService(db)
     is_valid, violations = await audit_service.verify_audit_trail_integrity(
         organization_id=organization_id
     )
