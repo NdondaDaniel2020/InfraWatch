@@ -9,6 +9,7 @@ from src.api.dependencies.ip_resolver import (
     ClientIPDep,
     get_client_ip,
 )
+from src.api.dependencies.metrics_auth import verify_metrics_auth
 from src.api.dependencies.pagination import (
     PaginationParams,
     PaginationParamsDep,
@@ -34,4 +35,5 @@ __all__ = [
     "get_pagination_params",
     "get_sse_current_user",
     "require_roles",
+    "verify_metrics_auth",
 ]
