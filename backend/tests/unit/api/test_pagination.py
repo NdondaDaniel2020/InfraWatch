@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from src.core.pagination import (
+from src.core.web.pagination import (
     PAGE_DEFAULT,
     PAGE_SIZE_DEFAULT,
     PAGE_SIZE_MAX,

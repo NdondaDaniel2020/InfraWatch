@@ -29,7 +29,7 @@ from src.contexts.iam.security.tokens import (
     hash_token,
 )
 from src.core.config import get_settings
-from src.core.device import parse_user_agent
+from src.core.web.device import parse_user_agent
 from src.core.database.outbox_repository import OutboxRepository
 from src.core.exceptions import (
     InvalidTokenError,

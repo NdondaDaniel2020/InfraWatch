@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI, Request
 
 from src.contexts.iam.api.dependencies.ip_resolver import ClientIPDep, get_client_ip
-from src.core.middleware.trusted_proxy import (
+from src.core.web.middleware.trusted_proxy import (
     TrustedProxyMiddleware,
     parse_trusted_proxies,
 )

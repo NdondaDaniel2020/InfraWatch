@@ -6,10 +6,10 @@ from fastapi import Depends, FastAPI, Response
 
 from src.contexts.iam.api.router import router as iam_router
 from src.core.config import get_settings
-from src.core.error_handlers import register_exception_handlers
 from src.core.lifespan import lifespan
-from src.core.middleware import setup_middlewares
 from src.core.observability.metrics_auth import verify_metrics_auth
+from src.core.web.error_handlers import register_exception_handlers
+from src.core.web.middleware import setup_middlewares
 from src.core.observability.observability import (
     get_health_status,
     metrics_response,

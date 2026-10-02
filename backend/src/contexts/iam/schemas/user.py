@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.schemas.validators import validate_password_strength
-from src.core.pagination import PaginatedResponse
+from src.core.web.pagination import PaginatedResponse
 
 EmailType = str
 
