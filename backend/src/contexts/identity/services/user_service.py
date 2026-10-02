@@ -87,15 +87,24 @@ class UserService:
         *,
         full_name: str | None = None,
     ) -> UserModel:
-        """Atualiza dados cadastrais do perfil."""
+        """Atualiza dados cadastrais do perfil e notifica o usuário."""
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise NotFoundError("Usuário não encontrado.")
 
-        if full_name is not None:
+        changed_fields: list[str] = []
+        if full_name is not None and user.full_name != full_name.strip():
             user.full_name = full_name.strip()
+            changed_fields.append("Nome Completo")
 
         await self.session.flush()
+
+        if changed_fields:
+            await self.email_service.send_profile_updated_email(
+                user.email,
+                changed_fields=changed_fields,
+            )
+
         return user
 
     async def get_user_by_id(self, user_id: UUID) -> UserModel:
@@ -128,13 +137,19 @@ class UserService:
         return list(items_res.scalars().all()), int(count_res.scalar_one())
 
     async def update_roles(self, user_id: UUID, role: UserRole | str) -> UserModel:
-        """Atualiza papel/role RBAC de um usuário."""
+        """Atualiza papel/role RBAC de um usuário e envia notificação."""
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise NotFoundError("Usuário não encontrado.")
 
-        user.role = str(role)
+        role_str = str(role.value if isinstance(role, UserRole) else role)
+        old_role = str(user.role)
+        user.role = role_str
         await self.session.flush()
+
+        if old_role != role_str:
+            await self.email_service.send_roles_changed_email(user.email, new_roles=[role_str])
+
         return user
 
     update_user_role = update_roles
@@ -149,8 +164,13 @@ class UserService:
         await self.session.flush()
         return user
 
-    async def deactivate_user(self, user_id: UUID) -> UserModel:
-        """Suspende a conta do usuário e revoga todas as suas sessões ativas."""
+    async def deactivate_user(
+        self,
+        user_id: UUID,
+        *,
+        reason: str = "Suspensão administrativa por conformidade de segurança",
+    ) -> UserModel:
+        """Suspende a conta do usuário, revoga sessões e notifica por e-mail."""
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise NotFoundError("Usuário não encontrado.")
@@ -158,6 +178,7 @@ class UserService:
         user.is_active = False
         await self.refresh_token_repo.revoke_other_sessions(user_id)
         await self.session.flush()
+        await self.email_service.send_account_deactivated_email(user.email, reason=reason)
         return user
 
     async def admin_disable_mfa(self, user_id: UUID) -> UserModel:
