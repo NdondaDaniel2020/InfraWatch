@@ -15,7 +15,7 @@ from collections.abc import AsyncGenerator
 from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import StreamingResponse
 
-from src.api.dependencies.auth import AuthenticatedUser, SSECurrentUserDep
+from src.api.dependencies.auth import AuthenticatedUser, CurrentUserDep
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ async def sse_event_stream_generator(
 )
 async def stream_events(
     request: Request,
-    current_user: SSECurrentUserDep,
+    current_user: CurrentUserDep,
     last_event_id_header: str | None = Header(None, alias="Last-Event-ID"),
     last_event_id_query: str | None = Query(None, alias="last_event_id"),
     ping_interval: float = Query(default=15.0, alias="ping_interval", ge=0.01, le=60.0),

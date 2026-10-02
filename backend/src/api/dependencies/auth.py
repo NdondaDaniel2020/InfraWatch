@@ -8,8 +8,10 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Query, status
+from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
+from src.contexts.identity.domain.enums import UserRole
 from src.core.security.tokens import decode_access_token
 
 
@@ -36,35 +38,44 @@ class AuthenticatedUser:
         return self.organization_id == target_org_id
 
 
-async def get_sse_current_user(
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login-form",
+    auto_error=False,
+)
+
+
+async def get_current_user(
+    token_bearer: Annotated[str | None, Depends(oauth2_scheme)] = None,
     token_query: Annotated[str | None, Query(alias="token")] = None,
     authorization: Annotated[str | None, Header()] = None,
 ) -> AuthenticatedUser:
-    """Extrai e valida o usuário a partir de query param ?token= ou header Authorization: Bearer.
+    """Extrai e valida o token JWT.
 
-    Utilizado principalmente para conexões SSE (Server-Sent Events) onde a API
-    EventSource nativa do browser não permite customizar headers HTTP.
+    Ordem de resolução:
+    1. Cabeçalho Authorization via OAuth2PasswordBearer
+    2. Cabeçalho Authorization: Bearer manual
+    3. Query parameter ?token= (utilizado por conexões EventSource / SSE)
     """
-    token: str | None = None
+    raw_token = token_bearer
 
-    # 1. Prioriza header Authorization caso fornecido
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:].strip()
-    elif authorization:
-        token = authorization.strip()
-    # 2. Caso contrário, utiliza query parameter ?token=
-    elif token_query:
-        token = token_query.strip()
+    if not raw_token and authorization:
+        if authorization.startswith("Bearer "):
+            raw_token = authorization[7:].strip()
+        else:
+            raw_token = authorization.strip()
 
-    if not token:
+    if not raw_token and token_query:
+        raw_token = token_query.strip()
+
+    if not raw_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Autenticação necessária. Forneça o token no header Bearer ou query param 'token'.",
+            detail="Autenticação necessária. Forneça o token no cabeçalho Authorization ou parâmetro token.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     try:
-        payload = decode_access_token(token)
+        payload = decode_access_token(raw_token)
     except ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -89,9 +100,9 @@ async def get_sse_current_user(
     return AuthenticatedUser(
         id=str(user_id),
         email=str(payload.get("email", "")),
-        role=str(payload.get("role", "CLIENT_VIEWER")),
+        role=str(payload.get("role", UserRole.CLIENT_VIEWER.value)),
         organization_id=payload.get("organization_id") or payload.get("org_id"),
     )
 
 
-SSECurrentUserDep = Annotated[AuthenticatedUser, Depends(get_sse_current_user)]
+CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
