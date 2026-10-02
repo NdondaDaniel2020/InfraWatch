@@ -1,6 +1,6 @@
 """Database models package."""
 
-from src.contexts.identity.domain.models import (
+from src.contexts.iam.domain.models import (
     AuditLogModel,
     OrganizationModel,
     RefreshTokenModel,

@@ -10,8 +10,8 @@ import httpx
 import pytest
 from fastapi import FastAPI, Request
 
-from src.api.dependencies.ip_resolver import ClientIPDep, get_client_ip
-from src.api.middleware.trusted_proxy import (
+from src.contexts.iam.api.dependencies.ip_resolver import ClientIPDep, get_client_ip
+from src.core.middleware.trusted_proxy import (
     TrustedProxyMiddleware,
     parse_trusted_proxies,
 )

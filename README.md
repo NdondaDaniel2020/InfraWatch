@@ -150,7 +150,7 @@ Toda a documentação técnica, contratos de API, especificações e planos de i
 5. **Iniciar os serviços:**
    ```bash
    # Terminal 1: API REST & SSE
-   uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+   uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
    # Terminal 2: Probe Worker (Coleta ICMP/HTTP/DNS)
    python -m src.workers.probe_worker

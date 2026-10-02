@@ -142,9 +142,7 @@ class Settings(BaseSettings):
     TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS: int = Field(
         default=300, alias="TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS"
     )
-    TOKEN_CLEANUP_RETENTION_DAYS: int = Field(
-        default=7, alias="TOKEN_CLEANUP_RETENTION_DAYS"
-    )
+    TOKEN_CLEANUP_RETENTION_DAYS: int = Field(default=7, alias="TOKEN_CLEANUP_RETENTION_DAYS")
 
     # Proteção do Endpoint Prometheus /metrics (ADR-025)
     METRICS_REQUIRE_AUTH: bool = Field(default=True, alias="METRICS_REQUIRE_AUTH")

@@ -1,7 +1,0 @@
-"""Re-exportação de compatibilidade para OrganizationRepository."""
-
-from src.contexts.organization.repositories.organization_repository import (
-    OrganizationRepository,
-)
-
-__all__ = ["OrganizationRepository"]

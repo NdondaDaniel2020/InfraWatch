@@ -26,19 +26,18 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from src.api.main import app
-from src.contexts.identity.domain.enums import OrgTier, UserRole
-from src.contexts.identity.domain.models import (
+from src.contexts.iam.domain.enums import OrgTier, UserRole
+from src.contexts.iam.domain.models import (
     EmailVerificationTokenModel,
     OrganizationModel,
     PasswordResetTokenModel,
     UserModel,
 )
-from src.contexts.identity.security.password import password_hasher
-from src.contexts.identity.security.tokens import hash_opaque_token
+from src.contexts.iam.security.password import password_hasher
+from src.contexts.iam.security.tokens import create_access_token, hash_opaque_token
 from src.core.database.base_model import Base
 from src.core.database.session import get_db_session
-from src.core.security.tokens import create_access_token
+from src.main import app
 
 
 @pytest.fixture

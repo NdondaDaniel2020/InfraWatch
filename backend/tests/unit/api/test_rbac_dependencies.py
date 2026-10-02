@@ -13,18 +13,18 @@ import httpx
 import pytest
 from fastapi import Depends, FastAPI
 
-from src.api.dependencies.rbac import (
+from src.contexts.iam.api.dependencies.rbac import (
     CurrentUserDep,
     enforce_tenant_scope,
     require_roles,
 )
-from src.contexts.identity.domain.enums import UserRole
-from src.contexts.identity.services.sanitizer import (
+from src.contexts.iam.domain.enums import UserRole
+from src.contexts.iam.security.tokens import create_access_token
+from src.contexts.iam.services.sanitizer import (
     MASKED_IP,
     MASKED_SECRET,
     TopologySanitizer,
 )
-from src.core.security.tokens import create_access_token
 
 
 def create_rbac_test_app() -> FastAPI:
