@@ -86,6 +86,7 @@ class AuthService:
         *,
         client_ip: str = "127.0.0.1",
         user_agent: str | None = None,
+        device_name: str | None = None,
     ) -> tuple[UserModel, TokenPairResponse | str]:
         """Autentica o usuário de forma neutra contra ataques de temporização.
 
@@ -140,6 +141,7 @@ class AuthService:
             user=user,
             ip_address=client_ip,
             user_agent=user_agent,
+            device_name=device_name,
         )
 
         logger.info("Usuário autenticado com sucesso: %s (ID: %s)", user.email, user.id)
@@ -152,6 +154,7 @@ class AuthService:
         code: str,
         client_ip: str = "127.0.0.1",
         user_agent: str | None = None,
+        device_name: str | None = None,
     ) -> tuple[UserModel, TokenPairResponse]:
         """Valida o código TOTP ou de backup e emite o par final de tokens de sessão."""
         try:
@@ -177,6 +180,7 @@ class AuthService:
             user=user,
             ip_address=client_ip,
             user_agent=user_agent,
+            device_name=device_name,
         )
         return user, tokens
 

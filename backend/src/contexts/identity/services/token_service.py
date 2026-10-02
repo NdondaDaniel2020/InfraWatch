@@ -28,6 +28,7 @@ from src.contexts.identity.security.tokens import (
     hash_token,
 )
 from src.core.config import get_settings
+from src.core.device import parse_user_agent
 from src.core.exceptions import (
     InvalidTokenError,
     TokenExpiredError,
@@ -90,6 +91,7 @@ class TokenService:
         user: UserModel,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        device_name: str | None = None,
     ) -> TokenPairResponse:
         """Emite um novo par de tokens (Access Token JWT e Refresh Token opaco) para o usuário."""
         settings = get_settings()
@@ -107,7 +109,10 @@ class TokenService:
         raw_refresh_token = generate_opaque_token(48)
         token_hash = hash_token(raw_refresh_token)
 
-        # 3. Persistir o hash do Refresh Token no banco relacional
+        # 3. Determinar nome amigável de dispositivo
+        effective_device_name = device_name or (parse_user_agent(user_agent) if user_agent else None)
+
+        # 4. Persistir o hash do Refresh Token no banco relacional
         expires_at = now + timedelta(days=settings.JWT_REFRESH_DAYS)
         token_record = RefreshTokenModel(
             user_id=user.id,
@@ -116,6 +121,7 @@ class TokenService:
             is_revoked=False,
             ip_address=ip_address,
             user_agent=user_agent,
+            device_name=effective_device_name,
         )
         self.session.add(token_record)
         await self.session.flush()
@@ -131,6 +137,7 @@ class TokenService:
         raw_refresh_token: str,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        device_name: str | None = None,
     ) -> TokenPairResponse:
         """Executa a rotação estrita do refresh token com tolerância a concorrência via Grace Period.
 
@@ -222,14 +229,22 @@ class TokenService:
         token_record.revoked_at = now
         token_record.replaced_by = new_token_hash
 
+        # Determinar nome amigável de dispositivo (preserva do token anterior se não fornecido)
+        effective_device_name = (
+            device_name
+            or (parse_user_agent(user_agent) if user_agent else None)
+            or token_record.device_name
+        )
+
         # Persiste o novo token rotacionado
         new_token_record = RefreshTokenModel(
             user_id=token_record.user_id,
             token_hash=new_token_hash,
             expires_at=now + timedelta(days=settings.JWT_REFRESH_DAYS),
             is_revoked=False,
-            ip_address=ip_address,
-            user_agent=user_agent,
+            ip_address=ip_address or token_record.ip_address,
+            user_agent=user_agent or token_record.user_agent,
+            device_name=effective_device_name,
         )
         self.session.add(new_token_record)
         await self.session.flush()
