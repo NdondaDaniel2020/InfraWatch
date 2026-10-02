@@ -1,19 +1,26 @@
 """Ponto de entrada principal da aplicação FastAPI do InfraWatch."""
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from typing import Any
 
-from src.api.middleware import TrustedProxyMiddleware
+from fastapi import FastAPI, Response
+
+from src.api.error_handlers import register_exception_handlers
+from src.api.middleware import setup_middlewares
 from src.api.routes.auth import router as auth_router
 from src.api.routes.mfa import router as mfa_router
 from src.api.routes.organizations import router as organizations_router
 from src.api.routes.sse import router as sse_router
 from src.api.routes.users import router as users_router
 from src.core.config import get_settings
+from src.core.lifespan import lifespan
+from src.core.observability.observability import (
+    get_health_status,
+    metrics_response,
+)
 
 
 def create_app() -> FastAPI:
-    """Instancia e configura a aplicação FastAPI com rotas e middlewares essenciais."""
+    """Instancia e configura a aplicação FastAPI com lifespan, middlewares, rotas e observabilidade."""
     settings = get_settings()
 
     app = FastAPI(
@@ -24,19 +31,12 @@ def create_app() -> FastAPI:
             "Gestão Automatizada de Incidentes GLPI e Monitoramento de SLA."
         ),
         debug=settings.DEBUG,
+        lifespan=lifespan,
     )
 
-    # Sanitização e resolução segura do IP de clientes contra spoofing (ADR-023)
-    app.add_middleware(TrustedProxyMiddleware)
-
-    # Configuração de CORS permissivo para dashboards e clientes web autorizados
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # Registro ordenado de middlewares e exception handlers
+    setup_middlewares(app)
+    register_exception_handlers(app)
 
     # Inclusão de rotas principais
     app.include_router(auth_router)
@@ -45,10 +45,21 @@ def create_app() -> FastAPI:
     app.include_router(organizations_router)
     app.include_router(sse_router)
 
-    @app.get("/api/health", tags=["Health"])
-    async def health_check() -> dict[str, str]:
-        """Healthcheck básico de disponibilidade da API."""
-        return {"status": "healthy", "service": "infrawatch-api"}
+    @app.get("/metrics", tags=["Observability"], include_in_schema=False)
+    async def metrics_endpoint() -> Response:
+        """Endpoint de scraping em formato Prometheus."""
+        data, content_type = metrics_response()
+        return Response(content=data, media_type=content_type)
+
+    @app.get("/api/health", tags=["Health"], summary="Health check profundo de disponibilidade")
+    async def health_check() -> dict[str, Any]:
+        """Health check profundo de disponibilidade da API e conectividade com banco de dados."""
+        return await get_health_status()
+
+    @app.get("/api/live", tags=["Health"], include_in_schema=False)
+    async def liveness_probe() -> dict[str, str]:
+        """Liveness probe simples para orquestradores (Kubernetes / Docker)."""
+        return {"status": "alive"}
 
     return app
 
