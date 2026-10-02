@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.api.schemas.pagination import PaginatedResponse
 from src.contexts.identity.domain.enums import UserRole
 from src.contexts.identity.schemas.validators import validate_password_strength
 
@@ -89,10 +91,14 @@ class UserPublicResponse(BaseModel):
     updated_at: datetime | None = None
 
 
-class UserListResponse(BaseModel):
+class UserListResponse(PaginatedResponse[UserPublicResponse]):
     """Lista paginada de usuários para endpoints administrativos."""
 
-    items: list[UserPublicResponse]
-    total: int
-    offset: int
-    limit: int
+    offset: int | None = None
+    limit: int | None = None
+
+    def model_post_init(self, context: Any, /) -> None:
+        if self.offset is None:
+            self.offset = (self.page - 1) * self.page_size
+        if self.limit is None:
+            self.limit = self.page_size

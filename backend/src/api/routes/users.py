@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.api.dependencies import CurrentUserDep, require_roles
+from src.api.dependencies import CurrentUserDep, PaginationParamsDep, require_roles
 from src.contexts.identity.domain.enums import UserRole
 from src.contexts.identity.schemas.session import (
     SessionListResponse,
@@ -163,8 +163,7 @@ async def revoke_all_sessions(
 async def list_users(
     db: DbSessionDep,
     current_user: CurrentUserDep,
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    pagination: PaginationParamsDep,
     organization_id: UUID | None = None,
 ) -> UserListResponse:
     """Lista usuários cadastrados respeitando o isolamento do tenant caso não seja Super Admin."""
@@ -181,12 +180,17 @@ async def list_users(
 
     users, total = await user_service.list_users(
         organization_id=effective_org,
-        offset=offset,
-        limit=limit,
+        offset=pagination.offset,
+        limit=pagination.limit,
     )
 
     items = [UserPublicResponse.model_validate(u) for u in users]
-    return UserListResponse(items=items, total=total, offset=offset, limit=limit)
+    return UserListResponse(
+        items=items,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.get(
