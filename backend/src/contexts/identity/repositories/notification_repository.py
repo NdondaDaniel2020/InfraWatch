@@ -12,6 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.contexts.identity.domain.models import NotificationModel
 
 
+def _ensure_uuid(val: UUID | str) -> UUID:
+    """Garante conversão segura de str para UUID."""
+    if isinstance(val, UUID):
+        return val
+    return UUID(str(val))
+
+
 class NotificationRepository:
     """Gerencia a persistência de notificações e consultas otimizadas para sincronização SSE."""
 
@@ -21,7 +28,7 @@ class NotificationRepository:
     async def create(
         self,
         *,
-        user_id: UUID,
+        user_id: UUID | str,
         event_type: str,
         title: str,
         message: str,
@@ -29,8 +36,9 @@ class NotificationRepository:
         details: dict[str, Any] | None = None,
     ) -> NotificationModel:
         """Cria e persiste uma nova notificação."""
+        uid = _ensure_uuid(user_id)
         notification = NotificationModel(
-            user_id=user_id,
+            user_id=uid,
             event_type=event_type,
             title=title,
             message=message,
@@ -44,25 +52,27 @@ class NotificationRepository:
     async def get_by_id(
         self,
         notification_id: int,
-        user_id: UUID | None = None,
+        user_id: UUID | str | None = None,
     ) -> NotificationModel | None:
         """Busca notificação por id com filtro opcional de usuário para isolamento."""
         stmt = select(NotificationModel).where(NotificationModel.id == notification_id)
         if user_id is not None:
-            stmt = stmt.where(NotificationModel.user_id == user_id)
+            uid = _ensure_uuid(user_id)
+            stmt = stmt.where(NotificationModel.user_id == uid)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_missed_notifications(
         self,
-        user_id: UUID,
+        user_id: UUID | str,
         *,
         since_id: int | None = None,
         since_timestamp: datetime | None = None,
         limit: int = 50,
     ) -> list[NotificationModel]:
         """Recupera notificações para Catch-Up Sync após since_id ou since_timestamp."""
-        stmt = select(NotificationModel).where(NotificationModel.user_id == user_id)
+        uid = _ensure_uuid(user_id)
+        stmt = select(NotificationModel).where(NotificationModel.user_id == uid)
 
         if since_id is not None:
             stmt = stmt.where(NotificationModel.id > since_id)
@@ -75,14 +85,15 @@ class NotificationRepository:
 
     async def list_notifications(
         self,
-        user_id: UUID,
+        user_id: UUID | str,
         *,
         unread_only: bool = False,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[NotificationModel], int]:
         """Retorna lista paginada e a contagem total de notificações do usuário."""
-        base_filter = [NotificationModel.user_id == user_id]
+        uid = _ensure_uuid(user_id)
+        base_filter = [NotificationModel.user_id == uid]
         if unread_only:
             base_filter.append(NotificationModel.read.is_(False))
 
@@ -103,11 +114,12 @@ class NotificationRepository:
 
         return items, total
 
-    async def count_unread(self, user_id: UUID) -> int:
+    async def count_unread(self, user_id: UUID | str) -> int:
         """Retorna a contagem de notificações não lidas para o usuário."""
+        uid = _ensure_uuid(user_id)
         stmt = (
             select(func.count(NotificationModel.id))
-            .where(NotificationModel.user_id == user_id)
+            .where(NotificationModel.user_id == uid)
             .where(NotificationModel.read.is_(False))
         )
         count = await self.session.scalar(stmt)
@@ -116,20 +128,22 @@ class NotificationRepository:
     async def mark_as_read(
         self,
         notification_id: int,
-        user_id: UUID,
+        user_id: UUID | str,
     ) -> NotificationModel | None:
         """Marca notificação como lida se pertencer ao usuário."""
-        notification = await self.get_by_id(notification_id, user_id=user_id)
+        uid = _ensure_uuid(user_id)
+        notification = await self.get_by_id(notification_id, user_id=uid)
         if notification and not notification.read:
             notification.read = True
             await self.session.flush()
         return notification
 
-    async def mark_all_as_read(self, user_id: UUID) -> int:
+    async def mark_all_as_read(self, user_id: UUID | str) -> int:
         """Marca todas as notificações não lidas do usuário como lidas."""
+        uid = _ensure_uuid(user_id)
         stmt = (
             update(NotificationModel)
-            .where(NotificationModel.user_id == user_id)
+            .where(NotificationModel.user_id == uid)
             .where(NotificationModel.read.is_(False))
             .values(read=True)
         )

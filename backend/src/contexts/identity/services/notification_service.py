@@ -31,7 +31,7 @@ class NotificationService:
     async def notify_user(
         self,
         *,
-        user_id: UUID,
+        user_id: UUID | str,
         event_type: str,
         title: str,
         message: str,
@@ -77,7 +77,7 @@ class NotificationService:
 
     async def list_notifications(
         self,
-        user_id: UUID,
+        user_id: UUID | str,
         *,
         unread_only: bool = False,
         page: int = 1,
@@ -92,13 +92,13 @@ class NotificationService:
             offset=offset,
         )
 
-    async def get_unread_count(self, user_id: UUID) -> int:
+    async def get_unread_count(self, user_id: UUID | str) -> int:
         """Retorna a contagem de notificações não lidas."""
         return await self.repository.count_unread(user_id)
 
     async def sync_notifications(
         self,
-        user_id: UUID,
+        user_id: UUID | str,
         *,
         since_id: int | None = None,
         since_timestamp: datetime | None = None,
@@ -116,10 +116,14 @@ class NotificationService:
         last_id = returned_items[-1].id if returned_items else since_id
         return returned_items, has_more, last_id
 
-    async def mark_as_read(self, notification_id: int, user_id: UUID) -> NotificationModel | None:
+    async def mark_as_read(
+        self,
+        notification_id: int,
+        user_id: UUID | str,
+    ) -> NotificationModel | None:
         """Marca notificação como lida se pertencer ao usuário."""
         return await self.repository.mark_as_read(notification_id, user_id)
 
-    async def mark_all_as_read(self, user_id: UUID) -> int:
+    async def mark_all_as_read(self, user_id: UUID | str) -> int:
         """Marca todas as notificações do usuário como lidas."""
         return await self.repository.mark_all_as_read(user_id)
