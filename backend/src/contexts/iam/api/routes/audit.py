@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from src.api.dependencies import CurrentUserDep, PaginationParamsDep, require_roles
+from src.contexts.iam.api.dependencies import CurrentUserDep, PaginationParamsDep, require_roles
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.schemas.audit import (
     AuditIntegrityVerificationResponse,

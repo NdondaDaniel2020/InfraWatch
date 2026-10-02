@@ -2,9 +2,9 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
-from src.api.dependencies import CurrentUserDep, enforce_tenant_scope, require_roles
+from src.contexts.iam.api.dependencies import CurrentUserDep, enforce_tenant_scope, require_roles
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.schemas.organization import (
     OrganizationCreate,
@@ -13,7 +13,6 @@ from src.contexts.iam.schemas.organization import (
 )
 from src.contexts.iam.services.organization_service import OrganizationService
 from src.core.database.session import DbSessionDep
-from src.core.exceptions import ConflictError, NotFoundError
 
 router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
 
@@ -40,7 +39,6 @@ async def list_organizations(
         page=page,
         size=size,
     )
-
     return OrganizationListResponse(
         items=[OrganizationResponse.model_validate(org) for org in items],
         total=total,
@@ -63,14 +61,7 @@ async def create_organization(
 ) -> OrganizationResponse:
     """Cadastra um novo cliente tenant no sistema e registra evento via Transactional Outbox."""
     service = OrganizationService(db)
-    try:
-        org = await service.create_organization(body)
-    except ConflictError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=exc.message,
-        ) from None
-
+    org = await service.create_organization(body)
     return OrganizationResponse.model_validate(org)
 
 
@@ -82,14 +73,6 @@ async def get_organization(
 ) -> OrganizationResponse:
     """Retorna detalhes de uma organização sob validação rigorosa de escopo multi-tenant."""
     enforce_tenant_scope(org_id, current_user)
-
     service = OrganizationService(db)
-    try:
-        org = await service.get_organization_by_id(org_id)
-    except NotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Organização não encontrada.",
-        ) from None
-
+    org = await service.get_organization_by_id(org_id)
     return OrganizationResponse.model_validate(org)

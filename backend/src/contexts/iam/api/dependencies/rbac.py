@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 
-from src.api.dependencies.auth import (
+from src.contexts.iam.api.dependencies.auth import (
     AuthenticatedUser,
     CurrentUserDep,
     get_current_user,

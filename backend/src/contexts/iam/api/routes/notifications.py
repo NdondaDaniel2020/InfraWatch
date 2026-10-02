@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from src.api.dependencies import CurrentUserDep, PaginationParamsDep
+from src.contexts.iam.api.dependencies import CurrentUserDep, PaginationParamsDep
 from src.contexts.iam.schemas.notification import (
     NotificationListResponse,
     NotificationReadAllResponse,

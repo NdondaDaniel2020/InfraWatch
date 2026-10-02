@@ -1,4 +1,4 @@
-"""Testes unitários para a dependência unificada de autenticação (src.api.dependencies.auth)."""
+"""Testes unitários para a dependência unificada de autenticação (src.contexts.iam.api.dependencies.auth)."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -6,7 +6,7 @@ import jwt
 import pytest
 from fastapi import HTTPException
 
-from src.api.dependencies.auth import AuthenticatedUser, get_current_user
+from src.contexts.iam.api.dependencies.auth import AuthenticatedUser, get_current_user
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.security.tokens import create_access_token
 from src.core.config import get_settings

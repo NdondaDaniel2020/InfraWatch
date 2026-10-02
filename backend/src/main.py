@@ -4,12 +4,12 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, Response
 
-from src.api.dependencies.metrics_auth import verify_metrics_auth
-from src.api.middleware import setup_middlewares
 from src.contexts.iam.api.router import router as iam_router
 from src.core.config import get_settings
 from src.core.error_handlers import register_exception_handlers
 from src.core.lifespan import lifespan
+from src.core.middleware import setup_middlewares
+from src.core.observability.metrics_auth import verify_metrics_auth
 from src.core.observability.observability import (
     get_health_status,
     metrics_response,
@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
     setup_middlewares(app)
     register_exception_handlers(app)
 
-    # Inclusão de rotas do Bounded Context IAM
+    # Inclusão do roteador principal do Bounded Context IAM
     app.include_router(iam_router)
 
     @app.get(
@@ -69,3 +69,5 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+__all__ = ["app", "create_app"]

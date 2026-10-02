@@ -9,13 +9,16 @@ from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
-from jwt.exceptions import ExpiredSignatureError
-from jwt.exceptions import InvalidTokenError as PyJWTInvalidTokenError
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, PyJWTError
 
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.security.tokens import decode_access_token
-from src.core.exceptions import InvalidTokenError as CoreInvalidTokenError
-from src.core.exceptions import TokenExpiredError
+from src.core.exceptions import (
+    InvalidTokenError as CoreInvalidTokenError,
+)
+from src.core.exceptions import (
+    TokenExpiredError as CoreTokenExpiredError,
+)
 
 
 @dataclass(frozen=True)
@@ -79,13 +82,13 @@ async def get_current_user(
 
     try:
         payload = decode_access_token(raw_token)
-    except (ExpiredSignatureError, TokenExpiredError):
+    except (CoreTokenExpiredError, ExpiredSignatureError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token de autenticação expirado.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
-    except (PyJWTInvalidTokenError, CoreInvalidTokenError):
+    except (CoreInvalidTokenError, InvalidTokenError, PyJWTError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token de autenticação inválido ou corrompido.",
@@ -109,3 +112,10 @@ async def get_current_user(
 
 
 CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
+
+__all__ = [
+    "AuthenticatedUser",
+    "CurrentUserDep",
+    "get_current_user",
+    "oauth2_scheme",
+]

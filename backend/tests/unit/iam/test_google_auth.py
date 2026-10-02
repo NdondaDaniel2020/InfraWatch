@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from src.api.main import app
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.domain.models import AuditLogModel
 from src.contexts.iam.repositories.user_repository import UserRepository
@@ -35,6 +34,7 @@ from src.core.exceptions import (
     GoogleLoginDisabledError,
     InvalidGoogleTokenError,
 )
+from src.main import app
 
 TEST_GOOGLE_EMAIL = "google_user@infrawatch.ao"
 TEST_GOOGLE_SUB = "google-oauth2-sub-987654"

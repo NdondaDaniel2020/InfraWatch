@@ -1,5 +1,6 @@
-"""Módulo de serviços do contexto de IAM (Identity & Access Management)."""
+"""Módulo de serviços do contexto IAM."""
 
+from src.contexts.iam.services.audit_service import AuditService
 from src.contexts.iam.services.auth_rate_limit_service import AuthRateLimitService
 from src.contexts.iam.services.auth_service import AuthService
 from src.contexts.iam.services.email_service import EmailService, email_service
@@ -25,6 +26,7 @@ from src.contexts.iam.services.user_service import UserService
 __all__ = [
     "MASKED_IP",
     "MASKED_SECRET",
+    "AuditService",
     "AuthRateLimitService",
     "AuthService",
     "EmailService",

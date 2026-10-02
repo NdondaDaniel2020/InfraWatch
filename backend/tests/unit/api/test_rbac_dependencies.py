@@ -13,7 +13,7 @@ import httpx
 import pytest
 from fastapi import Depends, FastAPI
 
-from src.api.dependencies.rbac import (
+from src.contexts.iam.api.dependencies.rbac import (
     CurrentUserDep,
     enforce_tenant_scope,
     require_roles,

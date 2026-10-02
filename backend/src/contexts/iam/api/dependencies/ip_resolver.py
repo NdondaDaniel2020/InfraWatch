@@ -25,3 +25,5 @@ def get_client_ip(request: Request) -> str:
 
 
 ClientIPDep = Annotated[str, Depends(get_client_ip)]
+
+__all__ = ["ClientIPDep", "get_client_ip"]

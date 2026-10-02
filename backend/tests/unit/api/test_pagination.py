@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from src.api.dependencies.pagination import (
+from src.core.pagination import (
     PAGE_DEFAULT,
     PAGE_SIZE_DEFAULT,
     PAGE_SIZE_MAX,
+    PaginatedResponse,
     PaginationParams,
     get_pagination_params,
 )
-from src.api.schemas.pagination import PaginatedResponse
 
 
 class ItemSample(BaseModel):

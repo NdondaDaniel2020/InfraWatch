@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any, TypeVar
 
-from src.api.dependencies.auth import AuthenticatedUser
+from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
 from src.contexts.iam.domain.enums import UserRole
 
 logger = logging.getLogger("infrawatch.identity.sanitizer")

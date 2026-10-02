@@ -21,8 +21,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from src.api.dependencies.auth import AuthenticatedUser
-from src.api.main import app
+from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.domain.models import NotificationModel, UserModel
 from src.contexts.iam.repositories.notification_repository import NotificationRepository
@@ -32,6 +31,7 @@ from src.core.database.base_model import Base
 from src.core.database.session import get_db_session
 from src.core.domain.entity import generate_uuid7
 from src.core.messaging.sse_broadcaster import SSEBroadcaster
+from src.main import app
 
 
 @pytest.fixture

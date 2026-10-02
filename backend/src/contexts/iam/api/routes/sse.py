@@ -15,7 +15,7 @@ from collections.abc import AsyncGenerator
 from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import StreamingResponse
 
-from src.api.dependencies.auth import AuthenticatedUser, CurrentUserDep
+from src.contexts.iam.api.dependencies.auth import AuthenticatedUser, CurrentUserDep
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
 
 logger = logging.getLogger(__name__)
@@ -31,8 +31,8 @@ async def sse_event_stream_generator(
     """Generator assíncrono que produz eventos formatados em SSE a partir da fila do cliente.
 
     Emite mensagens conforme a especificação WHATWG EventSource:
-    - Eventos regulares: event: ...\\nid: ...\\ndata: {...}\\n\\n
-    - Heartbeat keep-alive: : ping\\n\\n
+    - Eventos regulares: event: ...\nid: ...\ndata: {...}\n\n
+    - Heartbeat keep-alive: : ping\n\n
     """
     broadcaster = get_sse_broadcaster()
     connection_id, queue = await broadcaster.connect(user)

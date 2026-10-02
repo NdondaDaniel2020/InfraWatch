@@ -3,11 +3,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.middleware.correlation_id import CorrelationIDMiddleware
-from src.api.middleware.request_logging import RequestLoggingMiddleware
-from src.api.middleware.security_headers import SecurityHeadersMiddleware
-from src.api.middleware.trusted_proxy import TrustedProxyMiddleware
 from src.core.config import get_settings
+from src.core.middleware.correlation_id import CorrelationIDMiddleware
+from src.core.middleware.request_logging import RequestLoggingMiddleware
+from src.core.middleware.security_headers import SecurityHeadersMiddleware
+from src.core.middleware.trusted_proxy import TrustedProxyMiddleware
 from src.core.observability.observability import MetricsMiddleware
 
 

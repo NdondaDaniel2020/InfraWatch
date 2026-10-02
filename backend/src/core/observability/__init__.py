@@ -13,6 +13,7 @@ from src.core.observability.logging import (
     get_logger,
     setup_logging,
 )
+from src.core.observability.metrics_auth import verify_metrics_auth
 from src.core.observability.observability import (
     MetricsMiddleware,
     get_health_status,
@@ -32,4 +33,5 @@ __all__ = [
     "set_user_id",
     "setup_logging",
     "user_id_ctx",
+    "verify_metrics_auth",
 ]

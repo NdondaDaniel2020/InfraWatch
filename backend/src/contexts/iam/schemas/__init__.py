@@ -1,5 +1,10 @@
-"""Centralização e reexportação dos schemas Pydantic do contexto de IAM (Identity & Access Management)."""
+"""Centralização e reexportação dos schemas Pydantic do contexto IAM."""
 
+from src.contexts.iam.schemas.audit import (
+    AuditIntegrityVerificationResponse,
+    AuditListResponse,
+    AuditLogResponse,
+)
 from src.contexts.iam.schemas.auth import (
     AuthResponse,
     EmailType,
@@ -53,6 +58,9 @@ from src.contexts.iam.schemas.user import (
 from src.contexts.iam.schemas.validators import validate_password_strength
 
 __all__ = [
+    "AuditIntegrityVerificationResponse",
+    "AuditListResponse",
+    "AuditLogResponse",
     "AuthResponse",
     "EmailType",
     "EmailVerificationConfirm",

@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from src.api.dependencies import ClientIPDep, CurrentUserDep
+from src.contexts.iam.api.dependencies import ClientIPDep, CurrentUserDep
 from src.contexts.iam.domain.events import (
     UserLoggedInEvent,
     UserLoggedOutEvent,

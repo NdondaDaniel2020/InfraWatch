@@ -1,5 +1,6 @@
-"""Módulo de repositórios do contexto de Identidade."""
+"""Módulo de repositórios do contexto IAM."""
 
+from src.contexts.iam.repositories.audit_repository import AuditRepository
 from src.contexts.iam.repositories.email_verification_repository import (
     EmailVerificationRepository,
 )
@@ -17,6 +18,7 @@ from src.contexts.iam.repositories.refresh_token_repository import (
 from src.contexts.iam.repositories.user_repository import UserRepository
 
 __all__ = [
+    "AuditRepository",
     "EmailVerificationRepository",
     "MfaRepository",
     "NotificationRepository",

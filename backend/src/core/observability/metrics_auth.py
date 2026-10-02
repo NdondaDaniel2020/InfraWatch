@@ -55,3 +55,6 @@ async def verify_metrics_auth(
             detail="Credenciais inválidas para o scraper de métricas.",
             headers={"WWW-Authenticate": 'Basic realm="Prometheus Metrics"'},
         )
+
+
+__all__ = ["security", "verify_metrics_auth"]

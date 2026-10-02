@@ -67,7 +67,7 @@ class OrganizationModel(Base):
         onupdate=lambda: datetime.now(UTC),
     )
 
-    # Relacionamentos com entidades de IAM
+    # Relacionamentos com entidades do IAM
     users: Mapped[list[UserModel]] = relationship(
         "UserModel",
         back_populates="organization",

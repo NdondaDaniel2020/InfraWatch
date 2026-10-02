@@ -69,3 +69,6 @@ class OrganizationRepository:
         query = select(func.count()).select_from(OrganizationModel)
         result = await self.session.execute(query)
         return int(result.scalar_one())
+
+
+__all__ = ["OrganizationRepository"]

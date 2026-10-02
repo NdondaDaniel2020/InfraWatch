@@ -12,11 +12,11 @@ import time
 import httpx
 import pytest
 
-from src.api.dependencies.auth import AuthenticatedUser, get_current_user
-from src.api.main import app
-from src.api.routes.sse import sse_event_stream_generator
+from src.contexts.iam.api.dependencies.auth import AuthenticatedUser, get_current_user
+from src.contexts.iam.api.routes.sse import sse_event_stream_generator
 from src.contexts.iam.security.tokens import create_access_token
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
+from src.main import app
 
 
 def generate_token(

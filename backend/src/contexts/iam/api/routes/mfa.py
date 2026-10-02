@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
-from src.api.dependencies import CurrentUserDep
+from src.contexts.iam.api.dependencies import CurrentUserDep
 from src.contexts.iam.schemas.mfa import (
     MfaBackupCodesResponse,
     MfaDisableRequest,

@@ -1,4 +1,4 @@
-"""Módulo de domínio do contexto de Identidade."""
+"""Módulo de domínio do contexto IAM."""
 
 from src.contexts.iam.domain.enums import (
     AuditAction,
