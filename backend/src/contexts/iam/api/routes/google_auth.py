@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from src.contexts.iam.api.dependencies import GoogleAuthServiceDep
+from src.contexts.iam.api.dependencies import ClientIPDep, GoogleAuthServiceDep
 from src.contexts.iam.schemas.auth import TokenResponse
 from src.contexts.iam.schemas.google import GoogleAuthUrlResponse, GoogleLoginRequest
 from src.contexts.iam.services.google_auth_service import (
@@ -12,7 +12,6 @@ from src.contexts.iam.services.google_auth_service import (
     create_google_state,
     ensure_google_login_enabled,
 )
-from src.core.device import extract_client_ip
 
 router = APIRouter(prefix="/api/v1/auth/google", tags=["Authentication - Google OAuth"])
 
@@ -45,6 +44,7 @@ async def get_google_auth_url() -> GoogleAuthUrlResponse:
 async def google_auth_callback(
     data: GoogleLoginRequest,
     request: Request,
+    client_ip: ClientIPDep,
     service: GoogleAuthServiceDep,
 ) -> TokenResponse:
     """Valida o código de autorização OAuth ou o ID Token OpenID Connect.
@@ -52,7 +52,6 @@ async def google_auth_callback(
     Registra automaticamente novos usuários como verificados ou vincula a conta existente
     pelo endereço de e-mail verificado. Emite o par de tokens locais (Access JWT + Refresh Token).
     """
-    client_ip = extract_client_ip(request)
     user_agent = request.headers.get("user-agent")
 
     _user, tokens = await service.authenticate(
