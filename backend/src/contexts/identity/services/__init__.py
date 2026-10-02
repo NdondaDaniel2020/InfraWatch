@@ -4,6 +4,7 @@ from src.contexts.identity.services.auth_rate_limit_service import AuthRateLimit
 from src.contexts.identity.services.auth_service import AuthService
 from src.contexts.identity.services.email_service import EmailService, email_service
 from src.contexts.identity.services.mfa_service import MfaService
+from src.contexts.identity.services.notification_service import NotificationService
 from src.contexts.identity.services.sanitizer import (
     MASKED_IP,
     MASKED_SECRET,
@@ -23,6 +24,7 @@ __all__ = [
     "AuthService",
     "EmailService",
     "MfaService",
+    "NotificationService",
     "SessionService",
     "TokenPairResponse",
     "TokenService",
