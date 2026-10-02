@@ -91,6 +91,10 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = Field(default=True, alias="SMTP_TLS")
     FRONTEND_URL: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
 
+    # Configurações de Paginação da API
+    PAGE_SIZE_DEFAULT: int = Field(default=20, alias="PAGE_SIZE_DEFAULT")
+    PAGE_SIZE_MAX: int = Field(default=100, alias="PAGE_SIZE_MAX")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

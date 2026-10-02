@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from src.api.dependencies import CurrentUserDep, require_roles
+from src.api.dependencies import CurrentUserDep, PaginationParamsDep, require_roles
 from src.contexts.identity.domain.enums import UserRole
 from src.contexts.identity.schemas.audit import (
     AuditIntegrityVerificationResponse,
@@ -29,8 +29,7 @@ router = APIRouter(prefix="/api/v1/audit", tags=["Audit & Forensics"])
 async def list_audit_logs(
     current_user: CurrentUserDep,
     db: DbSessionDep,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    pagination: PaginationParamsDep,
     organization_id: Annotated[UUID | None, Query()] = None,
 ) -> AuditListResponse:
     """Retorna os registros de auditoria em ordem cronológica decrescente."""
@@ -42,15 +41,15 @@ async def list_audit_logs(
     audit_service = AuditService(db)
     items, total = await audit_service.get_logs_paginated(
         organization_id=target_org_id,
-        offset=offset,
-        limit=limit,
+        offset=pagination.offset,
+        limit=pagination.limit,
     )
 
     return AuditListResponse(
         items=[AuditLogResponse.model_validate(log) for log in items],
         total=total,
-        offset=offset,
-        limit=limit,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 

@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.api.schemas.pagination import PaginatedResponse
+
 
 class AuditLogResponse(BaseModel):
     """Representação serializada de um registro de auditoria imutável."""
@@ -28,13 +30,17 @@ class AuditLogResponse(BaseModel):
     hash: str
 
 
-class AuditListResponse(BaseModel):
+class AuditListResponse(PaginatedResponse[AuditLogResponse]):
     """Resposta paginada de registros de auditoria."""
 
-    items: list[AuditLogResponse]
-    total: int
-    offset: int
-    limit: int
+    offset: int | None = None
+    limit: int | None = None
+
+    def model_post_init(self, context: Any, /) -> None:
+        if self.offset is None:
+            self.offset = (self.page - 1) * self.page_size
+        if self.limit is None:
+            self.limit = self.page_size
 
 
 class AuditIntegrityVerificationResponse(BaseModel):
