@@ -1,4 +1,4 @@
-"""Tratamento global e padronizado de exceções para a API REST do InfraWatch."""
+"""Tratamento global e padronizado de exceções para a API e Core do InfraWatch."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from src.core.exceptions import InfraWatchException
 from src.core.observability.context import get_request_id
 
-logger = logging.getLogger("infrawatch.api.errors")
+logger = logging.getLogger("infrawatch.core.errors")
 
 
 def _error_payload(
