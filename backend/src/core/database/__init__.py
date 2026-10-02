@@ -1,5 +1,8 @@
+"""InfraWatch Core Database Package (SQLAlchemy 2.0 Async, Session and Unit of Work)."""
+
+from typing import TYPE_CHECKING
+
 from src.core.database.base_model import NAMING_CONVENTION, Base
-from src.core.database.outbox_repository import OutboxRepository
 from src.core.database.session import (
     DbSessionDep,
     DbSessionDep,
