@@ -1,6 +1,6 @@
 """Módulo Web transversal (Middlewares, Error Handlers, Device e Paginação)."""
 
-from src.core.web.device import extract_client_ip, parse_user_agent
+from core.web.client_info import extract_client_ip, parse_user_agent
 from src.core.web.error_handlers import register_exception_handlers
 from src.core.web.middleware import setup_middlewares
 from src.core.web.pagination import (
