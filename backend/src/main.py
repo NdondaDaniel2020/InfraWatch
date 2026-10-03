@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, Response
 
 from src.contexts.iam.api.router import router as iam_router
+from src.contexts.inventory.api.routes.devices import router as inventory_router
 from src.core.config import get_settings
 from src.core.lifespan import lifespan
 from src.core.observability.metrics_auth import verify_metrics_auth
@@ -37,6 +38,9 @@ def create_app() -> FastAPI:
 
     # Inclusão do roteador principal do Bounded Context IAM
     app.include_router(iam_router)
+    
+    # Inclusão do roteador do Bounded Context Inventory
+    app.include_router(inventory_router)
 
     @app.get(
         "/metrics",
