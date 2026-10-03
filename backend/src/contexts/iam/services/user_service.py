@@ -9,6 +9,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.iam.domain.enums import UserRole
+from src.contexts.iam.domain.events import (
+    AccountDeactivatedEvent,
+    EmailVerificationRequestedEvent,
+    ProfileUpdatedEvent,
+    RolesChangedEvent,
+)
 from src.contexts.iam.domain.models import UserModel
 from src.contexts.iam.repositories.email_verification_repository import (
     EmailVerificationRepository,
@@ -20,12 +26,6 @@ from src.contexts.iam.repositories.refresh_token_repository import (
 from src.contexts.iam.repositories.user_repository import UserRepository
 from src.contexts.iam.security.password import password_hasher
 from src.contexts.iam.security.tokens import generate_opaque_token
-from src.contexts.iam.domain.events import (
-    AccountDeactivatedEvent,
-    EmailVerificationRequestedEvent,
-    ProfileUpdatedEvent,
-    RolesChangedEvent,
-)
 from src.core.config import get_settings
 from src.core.database.outbox_repository import OutboxRepository
 from src.core.exceptions import (

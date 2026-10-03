@@ -11,13 +11,13 @@ from uuid import UUID
 import pyotp
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.contexts.iam.domain.events import BackupCodeUsedEvent
 from src.contexts.iam.repositories.mfa_repository import MfaRepository
 from src.contexts.iam.repositories.user_repository import UserRepository
 from src.contexts.iam.security.password import password_hasher
-from src.contexts.iam.domain.events import BackupCodeUsedEvent
 from src.contexts.iam.security.tokens import hash_token
-from src.core.database.outbox_repository import OutboxRepository
 from src.core.config import get_settings
+from src.core.database.outbox_repository import OutboxRepository
 from src.core.exceptions import (
     AuthenticationError,
     InvalidMfaConfirmationError,

@@ -63,7 +63,7 @@ class OutboxRelayWorker:
                     await asyncio.sleep(2.0)
             except asyncio.CancelledError:
                 break
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.error("Erro no listener do Outbox: %s", exc)
                 await asyncio.sleep(5.0)
             finally:
