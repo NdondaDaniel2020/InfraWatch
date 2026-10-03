@@ -142,7 +142,7 @@ def create_mfa_pending_token(
         "iat": int(now.timestamp()),
         "exp": int(expiry.timestamp()),
     }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(payload, settings.MFA_PENDING_SECRET, algorithm=settings.ALGORITHM)
 
 
 def decode_mfa_pending_token(token: str) -> dict[str, Any]:
@@ -151,7 +151,7 @@ def decode_mfa_pending_token(token: str) -> dict[str, Any]:
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
+            settings.MFA_PENDING_SECRET,
             algorithms=[settings.ALGORITHM],
             options={"require": ["exp", "sub"]},
         )

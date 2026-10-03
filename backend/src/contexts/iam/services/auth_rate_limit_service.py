@@ -40,12 +40,15 @@ class AuthRateLimitService:
                 retry_after=ip_retry_after,
             )
 
-        # 2. Checagem de Account Lockout (sem consulta ao PostgreSQL)
-        account_retry_after = await self.rate_limiter.check_account_lockout(email)
+        # 2. Checagem de Account Lockout por par conta e IP
+        account_retry_after = await self.rate_limiter.check_account_lockout(
+            email, client_ip=client_ip
+        )
         if account_retry_after is not None:
             logger.warning(
-                "Tentativa de login bloqueada para conta em lockout: %s (retry_after=%ss)",
+                "Tentativa de login bloqueada para par conta/IP em lockout: %s (IP: %s, retry_after=%ss)",
                 email,
+                client_ip,
                 account_retry_after,
             )
             raise AccountLockedOutError(
@@ -55,11 +58,14 @@ class AuthRateLimitService:
 
     async def register_failed_login(self, client_ip: str, email: str) -> None:
         """Registra falha de credenciais e ativa Account Lockout se o limite for atingido."""
-        count, lockout_ttl = await self.rate_limiter.register_failed_account_attempt(email)
+        count, lockout_ttl = await self.rate_limiter.register_failed_account_attempt(
+            email, client_ip=client_ip
+        )
         if lockout_ttl is not None:
             logger.warning(
-                "Account Lockout ativado para a conta %s após %s falhas consecutivas (duração=%ss)",
+                "Account Lockout ativado para a conta %s (IP: %s) após %s falhas consecutivas (duração=%ss)",
                 email,
+                client_ip,
                 count,
                 lockout_ttl,
             )
@@ -70,4 +76,4 @@ class AuthRateLimitService:
 
     async def register_successful_login(self, client_ip: str, email: str) -> None:
         """Limpa o contador de falhas da conta após validação com sucesso das credenciais."""
-        await self.rate_limiter.reset_account_attempts(email)
+        await self.rate_limiter.reset_account_attempts(email, client_ip=client_ip)

@@ -49,7 +49,7 @@ def create_google_state() -> str:
         "iat": int(now.timestamp()),
         "exp": int(expires_at.timestamp()),
     }
-    return pyjwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return pyjwt.encode(payload, settings.OAUTH_STATE_SECRET, algorithm=settings.ALGORITHM)
 
 
 def verify_google_state(state: str) -> None:
@@ -58,7 +58,7 @@ def verify_google_state(state: str) -> None:
     try:
         payload = pyjwt.decode(
             state,
-            settings.SECRET_KEY,
+            settings.OAUTH_STATE_SECRET,
             algorithms=[settings.ALGORITHM],
             options={"require": ["nonce", "type", "exp"]},
         )

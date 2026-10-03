@@ -44,6 +44,31 @@ class OutboxRelayWorker:
         self.session_factory = session_factory or get_session_factory()
         self.batch_size = batch_size
         self.max_retries = max_retries
+        self.wake_signal = asyncio.Event()
+
+    async def _listen_for_notifications(self, stop_event: asyncio.Event | None = None) -> None:
+        import asyncpg
+
+        from src.core.config import get_settings
+        settings = get_settings()
+        
+        while stop_event is None or not stop_event.is_set():
+            conn = None
+            try:
+                # asyncpg aceita o formato postgresql:// nativo
+                conn = await asyncpg.connect(settings.DATABASE_URL.replace("+asyncpg", ""))
+                await conn.add_listener("outbox_events_wake", lambda *args: self.wake_signal.set())
+                
+                while stop_event is None or not stop_event.is_set():
+                    await asyncio.sleep(2.0)
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Erro no listener do Outbox: %s", exc)
+                await asyncio.sleep(5.0)
+            finally:
+                if conn and not conn.is_closed():
+                    await conn.close()
 
     async def _dispatch_event(self, event_type: str, payload: dict[str, Any]) -> None:
         """Chama o publicador (seja classe compatível com EventPublisher ou função assíncrona)."""
@@ -93,24 +118,42 @@ class OutboxRelayWorker:
 
     async def run_forever(
         self,
-        poll_interval: float = 1.0,
+        max_idle: float = 30.0,
         stop_event: asyncio.Event | None = None,
     ) -> None:
-        """Executa o loop contínuo de pooling e relay de eventos com suporte a cancelamento gracioso."""
-        logger.info("Iniciando loop do OutboxRelayWorker (intervalo=%.1fs)...", poll_interval)
-        while stop_event is None or not stop_event.is_set():
-            try:
-                processed = await self.process_batch()
-                if processed == 0:
-                    await asyncio.sleep(poll_interval)
-            except asyncio.CancelledError:
-                logger.info("OutboxRelayWorker interrompido graciosamente.")
-                break
-            except Exception as exc:
-                logger.critical(
-                    "Erro inesperado no loop do OutboxRelayWorker: %s", exc, exc_info=True
-                )
-                await asyncio.sleep(max(1.0, poll_interval))
+        """Executa o loop contínuo de relay de eventos com wakeup via banco de dados."""
+        logger.info("Iniciando loop do OutboxRelayWorker com LISTEN/NOTIFY (max_idle=%.1fs)...", max_idle)
+        
+        listener_task = asyncio.create_task(self._listen_for_notifications(stop_event))
+        
+        try:
+            while stop_event is None or not stop_event.is_set():
+                try:
+                    self.wake_signal.clear()
+                    processed = await self.process_batch()
+                    
+                    if processed == 0:
+                        try:
+                            await asyncio.wait_for(self.wake_signal.wait(), timeout=max_idle)
+                        except TimeoutError:
+                            pass
+                    elif processed == self.batch_size:
+                        # Pode haver mais eventos aguardando, agenda próxima execução imediatamente
+                        self.wake_signal.set()
+                        
+                except asyncio.CancelledError:
+                    logger.info("OutboxRelayWorker interrompido graciosamente.")
+                    break
+                except Exception as exc:
+                    logger.critical(
+                        "Erro inesperado no loop do OutboxRelayWorker: %s", exc, exc_info=True
+                    )
+                    await asyncio.sleep(5.0)
+        finally:
+            listener_task.cancel()
+            import contextlib
+            with contextlib.suppress(asyncio.CancelledError):
+                await listener_task
 
 
 async def run_standalone() -> None:
@@ -125,7 +168,8 @@ async def run_standalone() -> None:
         batch_size=settings.OUTBOX_RELAY_BATCH_SIZE,
     )
     try:
-        await worker.run_forever(poll_interval=settings.OUTBOX_RELAY_POLL_INTERVAL_SECONDS)
+        # Usamos o interval como max_idle no fallback do listen/notify
+        await worker.run_forever(max_idle=settings.OUTBOX_RELAY_POLL_INTERVAL_SECONDS)
     finally:
         await event_bus.close()
 

@@ -52,6 +52,14 @@ class Settings(BaseSettings):
         default="infrawatch_refresh_dev_secret_key_change_in_production",
         alias="REFRESH_SECRET_KEY",
     )
+    OAUTH_STATE_SECRET: str = Field(
+        default="infrawatch_oauth_state_dev_secret_key_change_in_production",
+        alias="OAUTH_STATE_SECRET",
+    )
+    MFA_PENDING_SECRET: str = Field(
+        default="infrawatch_mfa_pending_dev_secret_key_change_in_production",
+        alias="MFA_PENDING_SECRET",
+    )
     ALGORITHM: str = Field(default="HS256", alias="ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     JWT_ACCESS_MINUTES: int = Field(default=15, alias="JWT_ACCESS_MINUTES")
@@ -161,6 +169,8 @@ class Settings(BaseSettings):
             insecure_defaults = {
                 "infrawatch_insecure_dev_secret_key_change_in_production",
                 "infrawatch_refresh_dev_secret_key_change_in_production",
+                "infrawatch_oauth_state_dev_secret_key_change_in_production",
+                "infrawatch_mfa_pending_dev_secret_key_change_in_production",
                 "dev-only-secret-change-me",
                 "test-only-secret-change-me",
                 "change-me",
@@ -177,6 +187,16 @@ class Settings(BaseSettings):
             if self.REFRESH_SECRET_KEY in insecure_defaults or len(self.REFRESH_SECRET_KEY) < 32:
                 raise ValueError(
                     "REFRESH_SECRET_KEY insegura ou com tamanho insuficiente (< 32 caracteres) para produção."
+                )
+
+            if self.OAUTH_STATE_SECRET in insecure_defaults or len(self.OAUTH_STATE_SECRET) < 32:
+                raise ValueError(
+                    "OAUTH_STATE_SECRET insegura ou com tamanho insuficiente (< 32 caracteres) para produção."
+                )
+
+            if self.MFA_PENDING_SECRET in insecure_defaults or len(self.MFA_PENDING_SECRET) < 32:
+                raise ValueError(
+                    "MFA_PENDING_SECRET insegura ou com tamanho insuficiente (< 32 caracteres) para produção."
                 )
 
             if self.SECRET_KEY == self.REFRESH_SECRET_KEY:

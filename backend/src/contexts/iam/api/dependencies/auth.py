@@ -7,12 +7,13 @@ Fornece suporte unificado para extração de token via Header Bearer e Query Par
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, Query, status
+from fastapi import Depends, Header, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, PyJWTError
 
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.security.tokens import decode_access_token
+from src.contexts.iam.services.token_service import is_token_blacklisted
 from src.core.exceptions import (
     InvalidTokenError as CoreInvalidTokenError,
 )
@@ -51,6 +52,7 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 
 async def get_current_user(
+    request: Request = None,
     token_bearer: Annotated[str | None, Depends(oauth2_scheme)] = None,
     token_query: Annotated[str | None, Query(alias="token")] = None,
     authorization: Annotated[str | None, Header()] = None,
@@ -94,6 +96,18 @@ async def get_current_user(
             detail="Token de autenticação inválido ou corrompido.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
+
+    jti = payload.get("jti")
+    redis_client = None
+    if request is not None and hasattr(request, "app") and hasattr(request.app, "state"):
+        redis_client = getattr(request.app.state, "redis_client", None)
+
+    if jti and await is_token_blacklisted(jti, redis_client=redis_client):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de autenticação revogado ou na lista de bloqueio.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     user_id = payload.get("sub")
     if not user_id:

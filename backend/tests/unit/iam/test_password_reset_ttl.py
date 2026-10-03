@@ -30,7 +30,6 @@ async def test_password_reset_ttl_defaults_to_15_minutes(mock_user):
     service.user_repo = AsyncMock()
     service.user_repo.get_by_email.return_value = mock_user
     service.password_reset_repo = AsyncMock()
-    service.email_service = AsyncMock()
 
     before_call = datetime.now(UTC)
     raw_token = await service.request_password_reset(email="test@infrawatch.ao")
@@ -55,7 +54,6 @@ async def test_password_reset_ttl_custom_settings(mock_user):
     service.user_repo = AsyncMock()
     service.user_repo.get_by_email.return_value = mock_user
     service.password_reset_repo = AsyncMock()
-    service.email_service = AsyncMock()
 
     custom_settings = Settings(
         ENVIRONMENT="test",
@@ -83,7 +81,6 @@ async def test_email_verification_ttl_matches_settings(mock_user):
     service.user_repo = AsyncMock()
     service.user_repo.get_by_email.return_value = mock_user
     service.email_token_repo = AsyncMock()
-    service.email_service = AsyncMock()
 
     before_call = datetime.now(UTC)
     raw_token = await service.resend_verification_email(email="test@infrawatch.ao")

@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from src.core.database.base_model import NAMING_CONVENTION, Base
 from src.core.database.session import (
     DbSessionDep,
-    DbSessionDep,
     build_async_database_url,
     get_db_session,
     get_engine,
@@ -23,8 +22,6 @@ __all__ = [
     "NAMING_CONVENTION",
     "AbstractUnitOfWork",
     "Base",
-    "DbSessionDep",
-    "OutboxRepository",
     "DbSessionDep",
     "OutboxRepository",
     "SqlAlchemyUnitOfWork",

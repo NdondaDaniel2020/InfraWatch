@@ -4,11 +4,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.config import get_settings
+from src.core.observability.observability import MetricsMiddleware
 from src.core.web.middleware.correlation_id import CorrelationIDMiddleware
 from src.core.web.middleware.request_logging import RequestLoggingMiddleware
 from src.core.web.middleware.security_headers import SecurityHeadersMiddleware
 from src.core.web.middleware.trusted_proxy import TrustedProxyMiddleware
-from src.core.observability.observability import MetricsMiddleware
 
 
 def setup_middlewares(app: FastAPI) -> None:

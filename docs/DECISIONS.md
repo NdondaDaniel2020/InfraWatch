@@ -55,7 +55,8 @@
 - **Origem:** Diretriz explícita em `subject/.md` (*"DUAL WRITE -> Transactional Outbox Pattern"*).
 - **Problema:** Ao atualizar um status ou incidente no banco e disparar uma notificação/Redis em operações separadas, se uma falhar, o sistema entra em inconsistência (ex: banco comita mas o Redis não recebe, ou a mensagem é enviada mas a transação do banco dá rollback).
 - **Decisão:** Toda mutação de negócio salva o registro da entidade e o evento na tabela `outbox_events` na **mesma transação ACID do PostgreSQL**. Um worker de segundo plano despacha os eventos pendentes via `SELECT ... FOR UPDATE SKIP LOCKED`.
-- **Benefício:** Garantia de entrega *at-least-once*, desacoplamento total e consistência de dados estrita.
+  - **Otimização de Latência (LISTEN/NOTIFY):** Para evitar polling constante (ex: 1 em 1 segundo), o worker aguarda notificações via `LISTEN outbox_events_wake`, disparadas instantaneamente por uma trigger no PostgreSQL no momento do `INSERT`. O sistema mantém um polling de segurança secundário (`max_idle`) para auto-reconciliação caso uma notificação se perca.
+- **Benefício:** Garantia de entrega *at-least-once*, desacoplamento total, consistência de dados estrita e resposta em tempo real aos eventos sem sobrecarga de polling no banco de dados.
 
 ---
 
