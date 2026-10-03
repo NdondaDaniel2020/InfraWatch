@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import IntEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -82,8 +82,7 @@ class GlpiTicketCreate(BaseModel):
     itilcategories_id: int = Field(default=0, description="ID da categoria ITSM (0 = sem categoria)")
     entities_id: int = Field(default=0, description="ID da entidade / organização no GLPI")
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class GlpiTicketCreateResponse(BaseModel):
@@ -96,8 +95,7 @@ class GlpiTicketUpdate(BaseModel):
     status: GlpiTicketStatus = GlpiTicketStatus.SOLVED
     solvedate: str | None = Field(None, description="Data/hora de resolução (Y-m-d H:M:S)")
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # ---------------------------------------------------------------------------
