@@ -11,6 +11,32 @@ class DeviceRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def get_by_id(self, device_id: UUID) -> DeviceModel | None:
+        stmt = select(DeviceModel).where(DeviceModel.id == device_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def save(self, device) -> None:
+        model = await self.get_by_id(device.id)
+        if not model:
+            model = DeviceModel(
+                id=device.id,
+                organization_id=device.organization_id,
+            )
+            self.session.add(model)
+        
+        model.name = device.name
+        model.hostname = None
+        model.ip_address = device.ip_address
+        model.port = device.port
+        model.protocol = device.protocol
+        model.category = device.category
+        model.interval_seconds = device.interval_seconds
+        model.thresholds = device.thresholds
+        model.is_paused = device.is_paused
+        model.status = device.status
+        model.maintenance_until = device.maintenance_until
+
     async def search_devices(
         self,
         query: str,

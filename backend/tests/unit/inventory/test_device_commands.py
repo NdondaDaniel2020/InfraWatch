@@ -44,15 +44,16 @@ class MockSession:
     async def commit(self):
         pass
 
-# Patch OutboxRepository for testing
-from src.core.database.outbox_repository import OutboxRepository
+# Removed global monkeypatch of OutboxRepository.add_event
+
+
+from unittest.mock import patch
+
 def mock_add_event(session, event, aggregate_type=""):
     session.add({"event": event, "type": aggregate_type})
 
-OutboxRepository.add_event = staticmethod(mock_add_event)
-
-
 @pytest.mark.asyncio
+@patch("src.contexts.inventory.services.device_command_service.OutboxRepository.add_event", new=mock_add_event)
 async def test_create_device_success():
     session = MockSession()
     repo = MockRepository()
@@ -89,6 +90,7 @@ async def test_create_device_success():
 
 
 @pytest.mark.asyncio
+@patch("src.contexts.inventory.services.device_command_service.OutboxRepository.add_event", new=mock_add_event)
 async def test_create_device_invalid_interval():
     session = MockSession()
     repo = MockRepository()
@@ -110,6 +112,7 @@ async def test_create_device_invalid_interval():
         await service.create_device(cmd, actor_user_id=uuid4(), actor_ip="127.0.0.1")
 
 @pytest.mark.asyncio
+@patch("src.contexts.inventory.services.device_command_service.OutboxRepository.add_event", new=mock_add_event)
 async def test_pause_and_resume_device():
     session = MockSession()
     repo = MockRepository()
@@ -134,6 +137,7 @@ async def test_pause_and_resume_device():
     assert session.added[-1]["event"].event_type == "DeviceResumed"
 
 @pytest.mark.asyncio
+@patch("src.contexts.inventory.services.device_command_service.OutboxRepository.add_event", new=mock_add_event)
 async def test_set_maintenance():
     session = MockSession()
     repo = MockRepository()
