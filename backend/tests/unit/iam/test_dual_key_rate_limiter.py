@@ -37,37 +37,34 @@ def limiter_in_memory() -> DualKeyRateLimiter:
 async def test_distributed_attack_triggers_account_lockout(
     limiter_in_memory: DualKeyRateLimiter,
 ) -> None:
-    """Cenário 1: Ataque distribuído com IPs distintos contra a mesma conta.
+    """Cenário 1: Tentativas consecutivas contra uma conta a partir do mesmo IP ativam lockout para aquele par.
 
-    Cada IP faz 1 tentativa (não estoura o rate limit de IP), mas a conta alvo
-    atinge 5 falhas consecutivas e entra em Account Lockout. A 6ª tentativa vinda
-    de um IP novo deve ser rejeitada com AccountLockedOutError.
+    5 falhas consecutivas para (vitima@empresa.com, IP_A) bloqueiam o IP_A.
+    Um IP distinto (IP_B) NÃO é bloqueado, mitigando enumeração de conta e ataques de negação de serviço (DoS).
     """
     service = AuthRateLimitService(limiter_in_memory)
     target_account = "vitima@empresa.com"
+    attacker_ip = "198.51.100.1"
 
-    # Simular 5 IPs distintos tentando adivinhar a senha
-    for i in range(1, 6):
-        client_ip = f"198.51.100.{i}"
+    # Simular 4 falhas
+    for _ in range(4):
+        await service.pre_login_check(client_ip=attacker_ip, email=target_account)
+        await service.register_failed_login(client_ip=attacker_ip, email=target_account)
 
-        # Pré-checagem deve passar para as primeiras 4 falhas
-        if i < 5:
-            await service.pre_login_check(client_ip=client_ip, email=target_account)
-            # Registra falha de senha
-            await service.register_failed_login(client_ip=client_ip, email=target_account)
-        else:
-            # A 5ª falha ativa o lockout
-            await service.pre_login_check(client_ip=client_ip, email=target_account)
-            with pytest.raises(AccountLockedOutError) as exc_info:
-                await service.register_failed_login(client_ip=client_ip, email=target_account)
-            assert exc_info.value.retry_after > 0
-
-    # 6ª tentativa: novo IP nunca visto tentando a conta bloqueada
-    new_attacker_ip = "203.0.113.99"
+    # A 5ª falha ativa o lockout para o attacker_ip
+    await service.pre_login_check(client_ip=attacker_ip, email=target_account)
     with pytest.raises(AccountLockedOutError) as exc_info:
-        await service.pre_login_check(client_ip=new_attacker_ip, email=target_account)
-
+        await service.register_failed_login(client_ip=attacker_ip, email=target_account)
     assert exc_info.value.retry_after > 0
+
+    # 6ª tentativa a partir do mesmo IP deve ser rejeitada na pré-checagem
+    with pytest.raises(AccountLockedOutError) as exc_info:
+        await service.pre_login_check(client_ip=attacker_ip, email=target_account)
+    assert exc_info.value.retry_after > 0
+
+    # Usuário legítimo em outro IP não deve ser bloqueado (anti-enumeração e anti-DoS)
+    legitimate_ip = "203.0.113.99"
+    await service.pre_login_check(client_ip=legitimate_ip, email=target_account)
 
 
 @pytest.mark.asyncio
@@ -147,7 +144,7 @@ async def test_redis_operations_and_lockout() -> None:
     mock_redis.incr.return_value = 1
     mock_redis.ttl.return_value = 800
     with pytest.raises(AccountLockedOutError) as exc_info:
-        await service.pre_login_check("5.6.7.8", "alvo@empresa.com")
+        await service.pre_login_check("1.2.3.4", "alvo@empresa.com")
 
     assert exc_info.value.retry_after == 800
 
@@ -172,18 +169,19 @@ async def test_redis_failure_falls_back_to_in_memory_transparently() -> None:
     )
     service = AuthRateLimitService(limiter)
     email = "fallback@empresa.com"
+    client_ip = "10.0.0.1"
 
-    # 3 falhas devem ativar o lockout no fallback in-memory mesmo com o Redis fora do ar
-    for i in range(1, 3):
-        await service.pre_login_check(f"10.0.0.{i}", email)
-        await service.register_failed_login(f"10.0.0.{i}", email)
+    # 3 falhas consecutivas do mesmo IP devem ativar o lockout no fallback in-memory
+    for _ in range(2):
+        await service.pre_login_check(client_ip, email)
+        await service.register_failed_login(client_ip, email)
 
     # 3ª falha ativa o lockout
     with pytest.raises(AccountLockedOutError):
-        await service.register_failed_login("10.0.0.3", email)
+        await service.register_failed_login(client_ip, email)
 
-    # Tentativa seguinte bloqueada pelo fallback em memória
+    # Tentativa seguinte do mesmo IP é bloqueada pelo fallback em memória
     with pytest.raises(AccountLockedOutError) as exc_info:
-        await service.pre_login_check("10.0.0.4", email)
+        await service.pre_login_check(client_ip, email)
 
     assert exc_info.value.retry_after > 0

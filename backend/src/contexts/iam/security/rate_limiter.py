@@ -168,15 +168,24 @@ class DualKeyRateLimiter:
         now = time.monotonic()
         return self._fallback.check_ip(ip, self.ip_max_requests, self.ip_window_seconds, now)
 
-    async def check_account_lockout(self, email: str) -> int | None:
-        """Verifica se a conta informada está temporariamente bloqueada por Account Lockout.
+    def _account_key(self, email: str, client_ip: str | None = None) -> str:
+        """Gera chave identificadora composta (email + IP) para mitigar enumeração e DoS."""
+        norm_email = self.normalize_email(email)
+        if client_ip:
+            return f"{norm_email}:{client_ip.strip()}"
+        return norm_email
+
+    async def check_account_lockout(
+        self, email: str, client_ip: str | None = None
+    ) -> int | None:
+        """Verifica se o par conta/IP está temporariamente bloqueado por Account Lockout.
 
         Retorna o tempo restante de bloqueio (em segundos) se bloqueada, ou None se liberada.
         """
-        norm_email = self.normalize_email(email)
+        key = self._account_key(email, client_ip)
         if self._redis is not None:
             try:
-                lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{norm_email}"
+                lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{key}"
                 ttl = await self._redis.ttl(lockout_key)
                 if ttl > 0:
                     return ttl
@@ -188,24 +197,26 @@ class DualKeyRateLimiter:
                 )
 
         now = time.monotonic()
-        return self._fallback.check_lockout(norm_email, now)
+        return self._fallback.check_lockout(key, now)
 
-    async def register_failed_account_attempt(self, email: str) -> tuple[int, int | None]:
-        """Registra uma falha de login contra a conta alvo.
+    async def register_failed_account_attempt(
+        self, email: str, client_ip: str | None = None
+    ) -> tuple[int, int | None]:
+        """Registra uma falha de login contra a conta alvo (por par email e IP).
 
         Retorna uma tupla (total_falhas, lockout_ttl_seconds).
         Se total_falhas atingir account_max_failures, ativa o Account Lockout imediatamente.
         """
-        norm_email = self.normalize_email(email)
+        key = self._account_key(email, client_ip)
         if self._redis is not None:
             try:
-                attempts_key = f"{ACCOUNT_ATTEMPTS_PREFIX}{norm_email}"
+                attempts_key = f"{ACCOUNT_ATTEMPTS_PREFIX}{key}"
                 count = await self._redis.incr(attempts_key)
                 if count == 1:
                     await self._redis.expire(attempts_key, self.account_window_seconds)
 
                 if count >= self.account_max_failures:
-                    lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{norm_email}"
+                    lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{key}"
                     await self._redis.set(
                         lockout_key, "1", ex=self.account_lockout_duration_seconds
                     )
@@ -220,25 +231,27 @@ class DualKeyRateLimiter:
 
         now = time.monotonic()
         return self._fallback.register_account_failure(
-            norm_email,
+            key,
             self.account_max_failures,
             self.account_window_seconds,
             self.account_lockout_duration_seconds,
             now,
         )
 
-    async def reset_account_attempts(self, email: str) -> None:
+    async def reset_account_attempts(
+        self, email: str, client_ip: str | None = None
+    ) -> None:
         """Limpa o contador de falhas e qualquer lockout ativo após autenticação com sucesso."""
-        norm_email = self.normalize_email(email)
+        key = self._account_key(email, client_ip)
         if self._redis is not None:
             try:
-                attempts_key = f"{ACCOUNT_ATTEMPTS_PREFIX}{norm_email}"
-                lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{norm_email}"
+                attempts_key = f"{ACCOUNT_ATTEMPTS_PREFIX}{key}"
+                lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{key}"
                 await self._redis.delete(attempts_key, lockout_key)
             except (RedisError, ConnectionError, OSError) as exc:
                 logger.warning("Falha ao resetar tentativas no Redis: %s", exc)
 
-        self._fallback.reset_account(norm_email)
+        self._fallback.reset_account(key)
 
     async def reset_ip_attempts(self, client_ip: str) -> None:
         """Reseta contador de requisições de um IP específico (útil para rotinas de teste)."""
