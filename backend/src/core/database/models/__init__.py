@@ -1,5 +1,6 @@
 """Database models package."""
 
+from src.contexts.inventory.database.models import DeviceModel
 from src.contexts.iam.domain.models import (
     AuditLogModel,
     OrganizationModel,
@@ -15,4 +16,5 @@ __all__ = [
     "OutboxStatus",
     "RefreshTokenModel",
     "UserModel",
+    "DeviceModel",
 ]
