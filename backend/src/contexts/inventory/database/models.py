@@ -33,11 +33,12 @@ class DeviceModel(Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     search_vector: Mapped[Any] = mapped_column(
-        TSVECTOR,
+        TSVECTOR().with_variant(String(), "sqlite"),
         Computed(
             "to_tsvector('portuguese', coalesce(name, '') || ' ' || coalesce(ip_address, '') || ' ' || coalesce(hostname, ''))",
             persisted=True
-        )
+        ),
+        nullable=True # Para nao quebrar no sqlite que nao suporta a funcao
     )
 
     __table_args__ = (
