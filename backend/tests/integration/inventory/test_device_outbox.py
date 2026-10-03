@@ -58,9 +58,8 @@ async def test_device_creation_generates_outbox_event(
     test_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     """Garante que a criação de dispositivo insere o evento no outbox na mesma transação."""
-    repo = DummyDeviceRepository()
-    
     async with test_session_factory() as session:
+        repo = DummyDeviceRepository(session)
         service = DeviceCommandService(session, repo)
         
         # Ignora auditoria (mock)
