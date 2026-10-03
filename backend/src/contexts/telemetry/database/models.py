@@ -25,7 +25,7 @@ class MetricModel(Base):
 
     __tablename__ = "metrics"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement="auto")
     device_id: Mapped[UUID] = mapped_column(Uuid, nullable=False, index=True)
     organization_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
     metric_type: Mapped[str] = mapped_column(
