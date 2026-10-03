@@ -35,7 +35,7 @@ from src.core.exceptions import (
     TokenExpiredError,
     TokenReuseDetectedError,
 )
-from src.core.web.device import parse_user_agent
+from core.web.client_info import parse_user_agent
 
 logger = logging.getLogger(__name__)
 

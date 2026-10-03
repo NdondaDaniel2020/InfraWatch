@@ -31,7 +31,7 @@ from src.core.redis.distributed_lock import (
     DistributedLock,
     redis_distributed_lock,
 )
-from src.workers.token_cleanup_worker import TokenCleanupWorker
+from workers.daemons.token_cleanup_worker import TokenCleanupWorker
 
 
 class FakeRedisClient:
