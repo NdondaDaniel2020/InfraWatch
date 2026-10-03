@@ -6,7 +6,6 @@ Create Date: 2026-10-03 00:00:00.000000
 
 """
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -17,6 +16,9 @@ depends_on = None
 
 
 def upgrade():
+    bind = op.get_bind()
+    if bind.dialect.name != "postgresql":
+        return
     op.execute("""
         CREATE OR REPLACE FUNCTION notify_outbox_event() RETURNS trigger AS $$
         BEGIN
@@ -33,5 +35,8 @@ def upgrade():
 
 
 def downgrade():
+    bind = op.get_bind()
+    if bind.dialect.name != "postgresql":
+        return
     op.execute("DROP TRIGGER IF EXISTS trg_outbox_notify ON outbox_events;")
     op.execute("DROP FUNCTION IF EXISTS notify_outbox_event();")
