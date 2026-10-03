@@ -2,10 +2,10 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from src.core.domain.entity import AggregateRoot
+from src.core.domain.entity import Entity
 
 
-class Device(AggregateRoot):
+class Device(Entity):
     def __init__(self, id: UUID, organization_id: UUID, name: str, ip_address: str, port: int, protocol: str, category: str, interval_seconds: int, thresholds: dict):
         super().__init__(id)
         self.organization_id = organization_id
