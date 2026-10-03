@@ -49,6 +49,38 @@ def test_production_rejects_identical_keys():
             ENVIRONMENT="production",
             SECRET_KEY=strong_key,
             REFRESH_SECRET_KEY=strong_key,
+            OAUTH_STATE_SECRET="c" * 32,
+            MFA_PENDING_SECRET="d" * 32,
+            DEBUG=False,
+        )
+
+
+def test_production_rejects_default_oauth_state_secret():
+    """Valida que valores padrão de OAUTH_STATE_SECRET são rejeitados em produção."""
+    with pytest.raises(
+        ValidationError, match="OAUTH_STATE_SECRET insegura ou com tamanho insuficiente"
+    ):
+        Settings(
+            ENVIRONMENT="production",
+            SECRET_KEY="a" * 32,
+            REFRESH_SECRET_KEY="b" * 32,
+            OAUTH_STATE_SECRET="infrawatch_oauth_state_dev_secret_key_change_in_production",
+            MFA_PENDING_SECRET="c" * 32,
+            DEBUG=False,
+        )
+
+
+def test_production_rejects_default_mfa_pending_secret():
+    """Valida que valores padrão de MFA_PENDING_SECRET são rejeitados em produção."""
+    with pytest.raises(
+        ValidationError, match="MFA_PENDING_SECRET insegura ou com tamanho insuficiente"
+    ):
+        Settings(
+            ENVIRONMENT="production",
+            SECRET_KEY="a" * 32,
+            REFRESH_SECRET_KEY="b" * 32,
+            OAUTH_STATE_SECRET="c" * 32,
+            MFA_PENDING_SECRET="infrawatch_mfa_pending_dev_secret_key_change_in_production",
             DEBUG=False,
         )
 
@@ -60,6 +92,8 @@ def test_production_rejects_debug_mode():
             ENVIRONMENT="production",
             SECRET_KEY="a" * 32,
             REFRESH_SECRET_KEY="b" * 32,
+            OAUTH_STATE_SECRET="c" * 32,
+            MFA_PENDING_SECRET="d" * 32,
             DEBUG=True,
         )
 
@@ -70,12 +104,16 @@ def test_production_accepts_strong_secrets():
         ENVIRONMENT="production",
         SECRET_KEY="super_secure_production_secret_key_12345",
         REFRESH_SECRET_KEY="super_secure_production_refresh_key_67890",
+        OAUTH_STATE_SECRET="super_secure_production_oauth_state_12345",
+        MFA_PENDING_SECRET="super_secure_production_mfa_pending_67890",
         DEBUG=False,
     )
     assert settings.ENVIRONMENT == "production"
     assert settings.DEBUG is False
     assert len(settings.SECRET_KEY) >= 32
     assert settings.SECRET_KEY != settings.REFRESH_SECRET_KEY
+    assert len(settings.OAUTH_STATE_SECRET) >= 32
+    assert len(settings.MFA_PENDING_SECRET) >= 32
 
 
 def test_development_and_test_allow_defaults():
