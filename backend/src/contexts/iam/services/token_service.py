@@ -29,26 +29,34 @@ from src.contexts.iam.security.tokens import (
     hash_token,
 )
 from src.core.config import get_settings
-from src.core.web.device import parse_user_agent
 from src.core.database.outbox_repository import OutboxRepository
 from src.core.exceptions import (
     InvalidTokenError,
     TokenExpiredError,
     TokenReuseDetectedError,
 )
+from src.core.web.device import parse_user_agent
 
 logger = logging.getLogger(__name__)
 
 # Fallback em memória para blacklist de tokens quando o Redis estiver inacessível
 _in_memory_blacklist: dict[str, float] = {}
+MAX_IN_MEMORY_BLACKLIST_SIZE = 10_000
 
 
-def _clean_expired_in_memory_blacklist() -> None:
-    """Expurga entradas expiradas do cache em memória."""
+def _clean_expired_in_memory_blacklist(max_size: int = MAX_IN_MEMORY_BLACKLIST_SIZE) -> None:
+    """Expurga entradas expiradas do cache em memória e aplica limite rígido (LRU/TTL)."""
     now_ts = datetime.now(UTC).timestamp()
     expired = [jti for jti, exp in _in_memory_blacklist.items() if exp <= now_ts]
     for jti in expired:
         _in_memory_blacklist.pop(jti, None)
+
+    # Se atingir ou exceder o tamanho máximo, remove as entradas que expiram primeiro
+    if len(_in_memory_blacklist) >= max_size:
+        excess = len(_in_memory_blacklist) - max_size + 1
+        sorted_by_exp = sorted(_in_memory_blacklist.items(), key=lambda item: item[1])
+        for jti, _ in sorted_by_exp[:excess]:
+            _in_memory_blacklist.pop(jti, None)
 
 
 @dataclass(frozen=True)
@@ -347,15 +355,20 @@ class TokenService:
 
     async def is_token_blacklisted(self, jti: str) -> bool:
         """Verifica se o JTI do Access Token consta como revogado/bloqueado."""
-        if not jti:
-            return False
+        return await is_token_blacklisted(jti, self._redis)
 
-        if self._redis is not None:
-            try:
-                val = await self._redis.get(f"blacklist:token:{jti}")
-                return val is not None
-            except (RedisError, ConnectionError, OSError) as exc:
-                logger.warning("Falha ao consultar blacklist no Redis, checando memória: %s", exc)
 
-        _clean_expired_in_memory_blacklist()
-        return jti in _in_memory_blacklist
+async def is_token_blacklisted(jti: str, redis_client: aioredis.Redis | None = None) -> bool:
+    """Verifica se o JTI do Access Token consta como revogado/bloqueado no Redis ou na memória."""
+    if not jti:
+        return False
+
+    if redis_client is not None:
+        try:
+            val = await redis_client.get(f"blacklist:token:{jti}")
+            return val is not None
+        except (RedisError, ConnectionError, OSError) as exc:
+            logger.warning("Falha ao consultar blacklist no Redis, checando memória: %s", exc)
+
+    _clean_expired_in_memory_blacklist()
+    return jti in _in_memory_blacklist

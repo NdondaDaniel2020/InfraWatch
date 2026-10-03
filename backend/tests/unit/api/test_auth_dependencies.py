@@ -129,3 +129,41 @@ class TestUnifiedAuthDependency:
         assert client_user.can_access_organization("org-acme") is True
         assert client_user.can_access_organization("other-org") is False
         assert client_user.can_access_organization(None) is True
+
+    @pytest.mark.asyncio
+    async def test_blacklisted_token_in_memory_raises_401(self) -> None:
+        from src.contexts.iam.services.token_service import _in_memory_blacklist
+
+        token = make_valid_token(user_id="user-revoked")
+        payload = jwt.decode(token, options={"verify_signature": False})
+        jti = payload["jti"]
+
+        # Adiciona o jti na blacklist em memória
+        _in_memory_blacklist[jti] = datetime.now(UTC).timestamp() + 300
+        try:
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_user(token_bearer=token)
+            assert exc_info.value.status_code == 401
+            assert "revogado ou na lista de bloqueio" in exc_info.value.detail
+        finally:
+            _in_memory_blacklist.pop(jti, None)
+
+    @pytest.mark.asyncio
+    async def test_blacklisted_token_in_redis_raises_401(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock
+
+        token = make_valid_token(user_id="user-redis-revoked")
+
+        # Mock de Request com redis_client
+        mock_redis = MagicMock()
+        mock_redis.get = AsyncMock(return_value="1")  # Consta na blacklist do Redis
+
+        mock_app = MagicMock()
+        mock_app.state.redis_client = mock_redis
+        mock_request = MagicMock()
+        mock_request.app = mock_app
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(request=mock_request, token_bearer=token)
+        assert exc_info.value.status_code == 401
+        assert "revogado ou na lista de bloqueio" in exc_info.value.detail

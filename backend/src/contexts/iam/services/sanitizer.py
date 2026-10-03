@@ -5,13 +5,17 @@ infraestrutura interna (IPs de gerência, comunidades SNMP, roteadores internos 
 estritamente mascaradas ou omitidas.
 """
 
+from __future__ import annotations
+
 import ipaddress
 import logging
 from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
-from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
+if TYPE_CHECKING:
+    from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
+
 from src.contexts.iam.domain.enums import UserRole
 
 logger = logging.getLogger("infrawatch.identity.sanitizer")
