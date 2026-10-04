@@ -1,14 +1,20 @@
+"""Application lifespan management for InfraWatch.
+
+Handles startup/shutdown of database, Redis, event bus, and background workers.
+"""
+
 import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
-import redis.asyncio as aioredis
 from fastapi import FastAPI
 
 from src.core.config import get_settings
-from src.core.database.session import get_engine, get_session_factory
+from src.core.database.init_db import close_db, init_db
+from src.core.database.session import get_session_factory
+from src.core.infrastructure.redis import close_redis, init_redis
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
 from src.core.observability.logging import setup_logging
@@ -32,21 +38,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         settings.DEBUG,
     )
 
-    engine = get_engine()
+    # 2. Inicializa banco de dados (fail-fast: valida conectividade no boot)
+    engine = await init_db()
+    app.state.engine = engine
+
+    # 3. Inicializa Redis (global singleton, disponível em qualquer módulo via get_redis_client)
+    await init_redis()
+
+    # 4. Event bus
     event_bus = ResilientEventBus()
     app.state.event_bus = event_bus
 
+    # 5. Background workers (apenas se habilitados)
     outbox_task: asyncio.Task[None] | None = None
     outbox_stop_event: asyncio.Event | None = None
     token_cleanup_worker: TokenCleanupWorker | None = None
-    redis_client: aioredis.Redis | None = None
 
     if settings.ENABLE_BACKGROUND_WORKERS and settings.ENVIRONMENT != "test":
         logger.info("Inicializando workers de segundo plano (OutboxRelay & TokenCleanup)...")
         try:
-            redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-            app.state.redis_client = redis_client
-
+            # Workers usam get_redis_client() global - não precisam de redis_client passado no construtor
             # Configura publicador integrado do Outbox (despacha para EventBus e repassa para SSE)
             async def outbox_dispatcher(event_type: str, payload: dict[str, Any]) -> None:
                 await event_bus.publish(event_type, payload)
@@ -74,7 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
 
             token_cleanup_worker = TokenCleanupWorker(
-                redis_client=redis_client,
+                # redis_client removido - worker usa get_redis_client() internamente
                 session_factory=get_session_factory(),
                 interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
                 lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
@@ -111,16 +122,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Exceção ao encerrar TokenCleanupWorker: %s", exc)
 
-        if redis_client is not None:
-            try:
-                await redis_client.aclose()
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Falha ao encerrar conexão Redis no teardown: %s", exc)
-
-        try:
-            await event_bus.close()
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("Falha ao encerrar event_bus no teardown: %s", exc)
-
-        await engine.dispose()
+        # Fecha Redis e DB (ordem inversa da inicialização)
+        await close_redis()
+        await event_bus.close()
+        await close_db(engine)
         logger.info("Encerramento do ciclo de vida concluído com sucesso.")

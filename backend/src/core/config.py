@@ -42,6 +42,7 @@ class Settings(BaseSettings):
         default="redis://:redis_secure_password_2026@localhost:6379/0",
         alias="REDIS_URL",
     )
+    REDIS_MAX_CONNECTIONS: int = Field(default=10, alias="REDIS_MAX_CONNECTIONS")
 
     # Segurança & Autenticação
     SECRET_KEY: str = Field(
