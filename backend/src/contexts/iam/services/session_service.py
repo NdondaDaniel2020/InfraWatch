@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.iam.database.models import RefreshTokenModel
+from contexts.iam.database.models import RefreshTokenModel
 from src.contexts.iam.repositories.refresh_token_repository import (
     RefreshTokenRepository,
 )

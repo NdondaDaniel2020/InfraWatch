@@ -9,12 +9,12 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
+import redis.asyncio as aioredis
 from sqlalchemy import and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.contexts.iam.database.models import RefreshTokenModel
+from contexts.iam.database.models import RefreshTokenModel
 from src.core.database.session import get_session_factory
-from src.core.infrastructure.redis import get_redis_client
 from src.core.redis.distributed_lock import redis_distributed_lock
 
 logger = logging.getLogger("infrawatch.workers.token_cleanup")
@@ -25,6 +25,7 @@ class TokenCleanupWorker:
 
     def __init__(
         self,
+        redis_client: aioredis.Redis,
         session_factory: async_sessionmaker[AsyncSession] | None = None,
         interval_seconds: int = 3600,
         lock_timeout: int = 300,
@@ -33,21 +34,19 @@ class TokenCleanupWorker:
         """Inicializa o worker de limpeza de tokens.
 
         Args:
+            redis_client: Cliente Redis para o lock distribuído.
             session_factory: Fábrica de sessões do banco de dados SQLAlchemy.
             interval_seconds: Intervalo entre execuções sucessivas do worker.
             lock_timeout: Tempo de vida (TTL) do lock distribuído em segundos.
             retention_days: Quantidade de dias para manter tokens revogados para auditoria.
         """
+        self.redis_client = redis_client
         self.session_factory = session_factory or get_session_factory()
         self.interval_seconds = interval_seconds
         self.lock_timeout = lock_timeout
         self.retention_days = retention_days
         self._running = False
         self._task: asyncio.Task[None] | None = None
-
-    def _get_redis(self):
-        """Obtém o cliente Redis global (lazy init)."""
-        return get_redis_client()
 
     async def cleanup_expired_tokens(self, session: AsyncSession) -> int:
         """Executa a deleção em lote de tokens expirados e revogados obsoletos.
@@ -77,13 +76,8 @@ class TokenCleanupWorker:
             int: Quantidade de tokens excluídos se o lock foi adquirido.
             None: Se o lock não pôde ser adquirido porque outra réplica já está em execução.
         """
-        redis_client = self._get_redis()
-        if redis_client is None:
-            logger.warning("Redis não disponível; pulando ciclo de limpeza de tokens.")
-            return None
-
         async with redis_distributed_lock(
-            redis_client=redis_client,
+            redis_client=self.redis_client,
             key="token_cleanup",
             timeout=self.lock_timeout,
             blocking=False,
@@ -145,7 +139,9 @@ async def run_standalone() -> None:
     from src.core.config import get_settings
 
     settings = get_settings()
+    redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     worker = TokenCleanupWorker(
+        redis_client=redis_client,
         session_factory=get_session_factory(),
         interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
         lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
@@ -153,8 +149,8 @@ async def run_standalone() -> None:
     )
     try:
         await worker.run_forever()
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Processo TokenCleanupWorker finalizado.")
+    finally:
+        await redis_client.aclose()
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from src.contexts.iam.database.models import UserModel
+from contexts.iam.database.models import UserModel
 from src.contexts.iam.services.auth_service import AuthService
 from src.core.config import Settings
 

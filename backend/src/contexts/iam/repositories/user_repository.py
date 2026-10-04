@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.contexts.iam.domain.enums import UserRole
-from src.contexts.iam.database.models import UserModel
+from contexts.iam.database.models import UserModel
 
 
 class UserRepository:

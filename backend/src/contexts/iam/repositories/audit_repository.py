@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.iam.domain.enums import AuditResult
-from src.contexts.iam.database.models import AuditLogModel
+from contexts.iam.database.models import AuditLogModel
 from src.core.domain.entity import generate_uuid7
 from src.core.exceptions import AuditImmutabilityError
 from src.core.security.audit import compute_audit_hash
