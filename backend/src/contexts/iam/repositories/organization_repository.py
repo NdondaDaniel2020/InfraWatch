@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.iam.domain.enums import OrgTier
-from src.contexts.iam.domain.models import OrganizationModel
+from contexts.iam.database.models import OrganizationModel
 
 
 class OrganizationRepository:

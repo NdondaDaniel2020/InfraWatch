@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import StaticPool
 
 from src.contexts.iam.domain.enums import OrgTier, UserRole
-from src.contexts.iam.domain.models import (
+from contexts.iam.database.models import (
     OrganizationModel,
     RefreshTokenModel,
     UserModel,

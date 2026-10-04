@@ -15,7 +15,7 @@ from src.contexts.iam.domain.events import (
     ProfileUpdatedEvent,
     RolesChangedEvent,
 )
-from src.contexts.iam.domain.models import UserModel
+from contexts.iam.database.models import UserModel
 from src.contexts.iam.repositories.email_verification_repository import (
     EmailVerificationRepository,
 )

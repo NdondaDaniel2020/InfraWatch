@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.contexts.iam.domain.events import UserLoggedOutEvent
-from src.contexts.iam.domain.models import RefreshTokenModel, UserModel
+from contexts.iam.database.models import RefreshTokenModel, UserModel
 from src.contexts.iam.security.tokens import (
     create_access_token,
     decode_access_token,
