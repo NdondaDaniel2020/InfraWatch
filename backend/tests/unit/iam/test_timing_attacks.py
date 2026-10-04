@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import StaticPool
 
 from src.contexts.iam.domain.enums import UserRole
-from src.contexts.iam.domain.models import UserModel
+from contexts.iam.database.models import UserModel
 from src.contexts.iam.security.password import password_hasher
 from src.contexts.iam.security.timing import (
     constant_time_verify,

@@ -10,11 +10,11 @@ from src.contexts.iam.api.dependencies import (
     require_roles,
 )
 from src.contexts.iam.domain.enums import UserRole
-from src.contexts.inventory.api.dependencies import (
+from contexts.inventory.api.dependencies.dependencies import (
     DeviceCommandServiceDep,
     DeviceQueryServiceDep,
 )
-from src.contexts.inventory.api.schemas.requests import (
+from contexts.inventory.schemas.requests import (
     CreateDeviceRequest,
     SetMaintenanceRequest,
     UpdateDeviceRequest,

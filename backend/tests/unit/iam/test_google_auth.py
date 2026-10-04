@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import StaticPool
 
 from src.contexts.iam.domain.enums import UserRole
-from src.contexts.iam.domain.models import AuditLogModel
+from contexts.iam.database.models import AuditLogModel
 from src.contexts.iam.repositories.user_repository import UserRepository
 from src.contexts.iam.schemas.google import GoogleLoginRequest
 from src.contexts.iam.services.google_auth_service import (

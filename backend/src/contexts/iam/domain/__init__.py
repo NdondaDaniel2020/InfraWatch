@@ -7,7 +7,7 @@ from src.contexts.iam.domain.enums import (
     TokenType,
     UserRole,
 )
-from src.contexts.iam.domain.models import (
+from contexts.iam.database.models import (
     AuditLogModel,
     EmailVerificationTokenModel,
     MfaMethodModel,
