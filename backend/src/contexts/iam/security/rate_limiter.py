@@ -4,8 +4,8 @@ Protege endpoints de autenticação contra:
 1. Força bruta concentrada (mesmo IP disparando contra uma ou várias contas).
 2. Força bruta distribuída / botnets (múltiplos IPs rotativos atacando uma única conta alvo).
 
-Utiliza Redis assíncrono com operações atômicas (INCR, EXPIRE, TTL, DEL)
-e dispõe de fallback in-memory thread-safe e transparente.
+Utiliza helper centralizado `rate_limit_check` do módulo Redis para rate limiting por IP,
+e lógica própria para Account Lockout por par (email, IP) com fallback in-memory.
 """
 
 from __future__ import annotations
@@ -15,10 +15,8 @@ import threading
 import time
 from collections import deque
 
-import redis.asyncio as aioredis
-from redis.exceptions import RedisError
-
 from src.core.config import get_settings
+from src.core.infrastructure.redis import get_redis_client, rate_limit_check
 
 logger = logging.getLogger(__name__)
 
@@ -50,25 +48,25 @@ class _InMemoryLimiterState:
             events.append(now)
             return None
 
-    def check_lockout(self, email: str, now: float) -> int | None:
+    def check_lockout(self, key: str, now: float) -> int | None:
         with self._lock:
-            locked_until = self._account_locked_until.get(email)
+            locked_until = self._account_locked_until.get(key)
             if locked_until is not None:
                 if now < locked_until:
                     return max(1, int(locked_until - now))
-                self._account_locked_until.pop(email, None)
+                self._account_locked_until.pop(key, None)
             return None
 
     def register_account_failure(
         self,
-        email: str,
+        key: str,
         max_failures: int,
         window_seconds: float,
         lockout_duration_seconds: float,
         now: float,
     ) -> tuple[int, int | None]:
         with self._lock:
-            attempts = self._account_attempts.setdefault(email, deque())
+            attempts = self._account_attempts.setdefault(key, deque())
             while attempts and attempts[0] <= now - window_seconds:
                 attempts.popleft()
 
@@ -76,15 +74,15 @@ class _InMemoryLimiterState:
             count = len(attempts)
 
             if count >= max_failures:
-                self._account_locked_until[email] = now + lockout_duration_seconds
+                self._account_locked_until[key] = now + lockout_duration_seconds
                 return count, int(lockout_duration_seconds)
 
             return count, None
 
-    def reset_account(self, email: str) -> None:
+    def reset_account(self, key: str) -> None:
         with self._lock:
-            self._account_attempts.pop(email, None)
-            self._account_locked_until.pop(email, None)
+            self._account_attempts.pop(key, None)
+            self._account_locked_until.pop(key, None)
 
     def reset_ip(self, ip: str) -> None:
         with self._lock:
@@ -98,18 +96,20 @@ class _InMemoryLimiterState:
 
 
 class DualKeyRateLimiter:
-    """Implementa controle de taxa duplo por IP e por Conta com Account Lockout."""
+    """Implementa controle de taxa duplo por IP e por Conta com Account Lockout.
+
+    - IP rate limit: usa `rate_limit_check` centralizado (Redis atomic INCR + EXPIRE)
+    - Account lockout: lógica própria com chave composta (email:IP) e fallback in-memory
+    """
 
     def __init__(
         self,
-        redis_client: aioredis.Redis | None = None,
         ip_max_requests: int | None = None,
         ip_window_seconds: int | None = None,
         account_max_failures: int | None = None,
         account_window_seconds: int | None = None,
         account_lockout_duration_seconds: int | None = None,
     ) -> None:
-        self._redis = redis_client
         settings = get_settings()
 
         self.ip_max_requests = (
@@ -142,38 +142,36 @@ class DualKeyRateLimiter:
         """Normaliza o e-mail removendo espaços em branco e convertendo para minúsculas."""
         return email.strip().lower()
 
-    async def check_ip_limit(self, client_ip: str) -> int | None:
-        """Verifica se o IP ultrapassou o limite de requisições.
-
-        Retorna Retry-After em segundos se excedido, ou None se permitido.
-        """
-        ip = client_ip.strip()
-        if self._redis is not None:
-            try:
-                ip_key = f"{IP_RATE_LIMIT_PREFIX}{ip}"
-                count = await self._redis.incr(ip_key)
-                if count == 1:
-                    await self._redis.expire(ip_key, self.ip_window_seconds)
-
-                if count > self.ip_max_requests:
-                    ttl = await self._redis.ttl(ip_key)
-                    return max(1, ttl if ttl > 0 else self.ip_window_seconds)
-                return None
-            except (RedisError, ConnectionError, OSError) as exc:
-                logger.warning(
-                    "Falha ao validar rate limit de IP no Redis, usando fallback em memória: %s",
-                    exc,
-                )
-
-        now = time.monotonic()
-        return self._fallback.check_ip(ip, self.ip_max_requests, self.ip_window_seconds, now)
-
     def _account_key(self, email: str, client_ip: str | None = None) -> str:
         """Gera chave identificadora composta (email + IP) para mitigar enumeração e DoS."""
         norm_email = self.normalize_email(email)
         if client_ip:
             return f"{norm_email}:{client_ip.strip()}"
         return norm_email
+
+    async def check_ip_limit(self, client_ip: str) -> int | None:
+        """Verifica se o IP ultrapassou o limite de requisições.
+
+        Usa Redis com helper centralizado `rate_limit_check` quando disponível,
+        e fallback in-memory thread-safe quando Redis indisponível.
+        Retorna Retry-After em segundos se excedido, ou None se permitido.
+        """
+        ip = client_ip.strip()
+        key = f"{IP_RATE_LIMIT_PREFIX}{ip}"
+        redis_client = get_redis_client()
+
+        if redis_client is not None:
+            try:
+                return await rate_limit_check(key, self.ip_max_requests, self.ip_window_seconds)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Falha ao validar rate limit de IP no Redis, usando fallback em memória: %s",
+                    exc,
+                )
+
+        # Fallback in-memory
+        now = time.monotonic()
+        return self._fallback.check_ip(ip, self.ip_max_requests, self.ip_window_seconds, now)
 
     async def check_account_lockout(
         self, email: str, client_ip: str | None = None
@@ -183,14 +181,16 @@ class DualKeyRateLimiter:
         Retorna o tempo restante de bloqueio (em segundos) se bloqueada, ou None se liberada.
         """
         key = self._account_key(email, client_ip)
-        if self._redis is not None:
+        redis_client = get_redis_client()
+
+        if redis_client is not None:
             try:
                 lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{key}"
-                ttl = await self._redis.ttl(lockout_key)
+                ttl = await redis_client.ttl(lockout_key)
                 if ttl > 0:
                     return ttl
                 return None
-            except (RedisError, ConnectionError, OSError) as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Falha ao consultar lockout de conta no Redis, usando fallback em memória: %s",
                     exc,
@@ -208,22 +208,24 @@ class DualKeyRateLimiter:
         Se total_falhas atingir account_max_failures, ativa o Account Lockout imediatamente.
         """
         key = self._account_key(email, client_ip)
-        if self._redis is not None:
+        redis_client = get_redis_client()
+
+        if redis_client is not None:
             try:
                 attempts_key = f"{ACCOUNT_ATTEMPTS_PREFIX}{key}"
-                count = await self._redis.incr(attempts_key)
+                count = await redis_client.incr(attempts_key)
                 if count == 1:
-                    await self._redis.expire(attempts_key, self.account_window_seconds)
+                    await redis_client.expire(attempts_key, self.account_window_seconds)
 
                 if count >= self.account_max_failures:
                     lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{key}"
-                    await self._redis.set(
+                    await redis_client.set(
                         lockout_key, "1", ex=self.account_lockout_duration_seconds
                     )
                     return count, self.account_lockout_duration_seconds
 
                 return count, None
-            except (RedisError, ConnectionError, OSError) as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Falha ao registrar tentativa falha no Redis, usando fallback em memória: %s",
                     exc,
@@ -243,12 +245,14 @@ class DualKeyRateLimiter:
     ) -> None:
         """Limpa o contador de falhas e qualquer lockout ativo após autenticação com sucesso."""
         key = self._account_key(email, client_ip)
-        if self._redis is not None:
+        redis_client = get_redis_client()
+
+        if redis_client is not None:
             try:
                 attempts_key = f"{ACCOUNT_ATTEMPTS_PREFIX}{key}"
                 lockout_key = f"{ACCOUNT_LOCKOUT_PREFIX}{key}"
-                await self._redis.delete(attempts_key, lockout_key)
-            except (RedisError, ConnectionError, OSError) as exc:
+                await redis_client.delete(attempts_key, lockout_key)
+            except Exception as exc:  # noqa: BLE001
                 logger.warning("Falha ao resetar tentativas no Redis: %s", exc)
 
         self._fallback.reset_account(key)
@@ -256,11 +260,13 @@ class DualKeyRateLimiter:
     async def reset_ip_attempts(self, client_ip: str) -> None:
         """Reseta contador de requisições de um IP específico (útil para rotinas de teste)."""
         ip = client_ip.strip()
-        if self._redis is not None:
+        redis_client = get_redis_client()
+
+        if redis_client is not None:
             try:
                 ip_key = f"{IP_RATE_LIMIT_PREFIX}{ip}"
-                await self._redis.delete(ip_key)
-            except (RedisError, ConnectionError, OSError):
+                await redis_client.delete(ip_key)
+            except Exception:
                 pass
 
         self._fallback.reset_ip(ip)
