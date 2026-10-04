@@ -11,7 +11,7 @@ Valida:
 
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import StaticPool
 
 from src.contexts.iam.domain.enums import UserRole
-from contexts.iam.database.models import RefreshTokenModel, UserModel
+from src.contexts.iam.database.models import RefreshTokenModel, UserModel
 from src.contexts.iam.security.tokens import (
     create_access_token,
     decode_access_token,
@@ -266,22 +266,23 @@ async def test_token_service_blacklist_and_revocation(
     mock_redis.set = AsyncMock(return_value=True)
     mock_redis.get = AsyncMock(return_value=b"1")
 
-    service = TokenService(async_session, redis_client=mock_redis)
+    with patch("src.contexts.iam.services.token_service.get_redis_client", return_value=mock_redis):
+        service = TokenService(async_session)
 
-    pair = await service.create_token_pair(dummy_user)
-    await async_session.commit()
+        pair = await service.create_token_pair(dummy_user)
+        await async_session.commit()
 
-    # Revogar refresh token informando o access token
-    await service.revoke_refresh_token(
-        raw_refresh_token=pair.refresh_token,
-        access_token=pair.access_token,
-    )
-    await async_session.commit()
+        # Revogar refresh token informando o access token
+        await service.revoke_refresh_token(
+            raw_refresh_token=pair.refresh_token,
+            access_token=pair.access_token,
+        )
+        await async_session.commit()
 
-    # Validar chamada ao redis set
-    mock_redis.set.assert_awaited()
+        # Validar chamada ao redis set
+        mock_redis.set.assert_awaited()
 
-    # Checar se o JTI está blacklisted
-    payload = decode_access_token(pair.access_token)
-    is_blocked = await service.is_token_blacklisted(payload["jti"])
-    assert is_blocked is True
+        # Checar se o JTI está blacklisted
+        payload = decode_access_token(pair.access_token)
+        is_blocked = await service.is_token_blacklisted(payload["jti"])
+        assert is_blocked is True

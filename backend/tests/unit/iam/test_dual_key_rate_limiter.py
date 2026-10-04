@@ -8,7 +8,7 @@ Valida os cenários essenciais da Issue #9:
 5. Resiliência e fallback transparente em memória diante de indisponibilidade do Redis.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from redis.exceptions import ConnectionError as RedisConnError
@@ -20,9 +20,8 @@ from src.core.exceptions import AccountLockedOutError, RateLimitExceededError
 
 @pytest.fixture
 def limiter_in_memory() -> DualKeyRateLimiter:
-    """Instância do rate limiter utilizando fallback in-memory isolado."""
+    """Instância do rate limiter utilizando fallback in-memory isolado (sem Redis)."""
     limiter = DualKeyRateLimiter(
-        redis_client=None,
         ip_max_requests=10,
         ip_window_seconds=60,
         account_max_failures=5,
@@ -31,6 +30,33 @@ def limiter_in_memory() -> DualKeyRateLimiter:
     )
     limiter.clear_in_memory_state()
     return limiter
+
+
+@pytest.fixture
+def mock_redis_client():
+    """Mock do cliente Redis para testes de integração."""
+    mock = MagicMock()
+    mock.incr = AsyncMock(return_value=1)
+    mock.expire = AsyncMock(return_value=True)
+    mock.ttl = AsyncMock(return_value=-2)  # key doesn't exist
+    mock.set = AsyncMock(return_value=True)
+    mock.delete = AsyncMock(return_value=1)
+    return mock
+
+
+@pytest.fixture
+def limiter_with_mock_redis(mock_redis_client):
+    """Rate limiter com mock do Redis global."""
+    with patch("src.contexts.iam.security.rate_limiter.get_redis_client", return_value=mock_redis_client):
+        limiter = DualKeyRateLimiter(
+            ip_max_requests=10,
+            ip_window_seconds=60,
+            account_max_failures=5,
+            account_window_seconds=300,
+            account_lockout_duration_seconds=900,
+        )
+        limiter.clear_in_memory_state()
+        yield limiter, mock_redis_client
 
 
 @pytest.mark.asyncio
@@ -117,21 +143,14 @@ async def test_successful_login_resets_failed_attempts(
 
 
 @pytest.mark.asyncio
-async def test_redis_operations_and_lockout() -> None:
+async def test_redis_operations_and_lockout(limiter_with_mock_redis) -> None:
     """Cenário 4: Validação de chamadas Redis (incr, expire, ttl, set, delete)."""
-    mock_redis = MagicMock()
-    mock_redis.incr = AsyncMock(return_value=5)  # Atinge o limite de 5
-    mock_redis.expire = AsyncMock(return_value=True)
-    mock_redis.ttl = AsyncMock(return_value=850)
-    mock_redis.set = AsyncMock(return_value=True)
-    mock_redis.delete = AsyncMock(return_value=1)
-
-    limiter = DualKeyRateLimiter(
-        redis_client=mock_redis,
-        account_max_failures=5,
-        account_lockout_duration_seconds=900,
-    )
+    limiter, mock_redis = limiter_with_mock_redis
     service = AuthRateLimitService(limiter)
+
+    # Configure mock for 5th failure
+    mock_redis.incr.return_value = 5
+    mock_redis.ttl.return_value = 850
 
     # 1. Registrar 5ª falha no Redis
     with pytest.raises(AccountLockedOutError) as exc_info:
@@ -162,26 +181,27 @@ async def test_redis_failure_falls_back_to_in_memory_transparently() -> None:
     broken_redis.set = AsyncMock(side_effect=RedisConnError("Redis connection refused"))
     broken_redis.delete = AsyncMock(side_effect=RedisConnError("Redis connection refused"))
 
-    limiter = DualKeyRateLimiter(
-        redis_client=broken_redis,
-        account_max_failures=3,
-        account_lockout_duration_seconds=300,
-    )
-    service = AuthRateLimitService(limiter)
-    email = "fallback@empresa.com"
-    client_ip = "10.0.0.1"
+    with patch("src.contexts.iam.security.rate_limiter.get_redis_client", return_value=broken_redis):
+        limiter = DualKeyRateLimiter(
+            account_max_failures=3,
+            account_lockout_duration_seconds=300,
+        )
+        limiter.clear_in_memory_state()
+        service = AuthRateLimitService(limiter)
+        email = "fallback@empresa.com"
+        client_ip = "10.0.0.1"
 
-    # 3 falhas consecutivas do mesmo IP devem ativar o lockout no fallback in-memory
-    for _ in range(2):
-        await service.pre_login_check(client_ip, email)
-        await service.register_failed_login(client_ip, email)
+        # 3 falhas consecutivas do mesmo IP devem ativar o lockout no fallback in-memory
+        for _ in range(2):
+            await service.pre_login_check(client_ip, email)
+            await service.register_failed_login(client_ip, email)
 
-    # 3ª falha ativa o lockout
-    with pytest.raises(AccountLockedOutError):
-        await service.register_failed_login(client_ip, email)
+        # 3ª falha ativa o lockout
+        with pytest.raises(AccountLockedOutError):
+            await service.register_failed_login(client_ip, email)
 
-    # Tentativa seguinte do mesmo IP é bloqueada pelo fallback em memória
-    with pytest.raises(AccountLockedOutError) as exc_info:
-        await service.pre_login_check(client_ip, email)
+        # Tentativa seguinte do mesmo IP é bloqueada pelo fallback em memória
+        with pytest.raises(AccountLockedOutError) as exc_info:
+            await service.pre_login_check(client_ip, email)
 
-    assert exc_info.value.retry_after > 0
+        assert exc_info.value.retry_after > 0
