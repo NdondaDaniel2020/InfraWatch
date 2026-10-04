@@ -14,14 +14,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-import redis.asyncio as aioredis
-from redis.exceptions import RedisError
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.contexts.iam.domain.events import UserLoggedOutEvent
-from contexts.iam.database.models import RefreshTokenModel, UserModel
+from src.contexts.iam.database.models import RefreshTokenModel, UserModel
 from src.contexts.iam.security.tokens import (
     create_access_token,
     decode_access_token,
@@ -35,7 +33,8 @@ from src.core.exceptions import (
     TokenExpiredError,
     TokenReuseDetectedError,
 )
-from core.web.client_info import parse_user_agent
+from src.core.infrastructure.redis import get_redis_client
+from src.core.web.client_info import parse_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -84,17 +83,19 @@ class TokenService:
     def __init__(
         self,
         session: AsyncSession,
-        redis_client: aioredis.Redis | None = None,
         grace_period_seconds: int | None = None,
     ) -> None:
         self.session = session
-        self._redis = redis_client
         settings = get_settings()
         self._grace_period_seconds = (
             grace_period_seconds
             if grace_period_seconds is not None
             else settings.REFRESH_TOKEN_GRACE_PERIOD_SECONDS
         )
+
+    def _get_redis(self):
+        """Obtém o cliente Redis global (lazy init)."""
+        return get_redis_client()
 
     async def create_token_pair(
         self,
@@ -339,11 +340,12 @@ class TokenService:
         if not jti or ttl_seconds <= 0:
             return
 
-        if self._redis is not None:
+        redis_client = self._get_redis()
+        if redis_client is not None:
             try:
-                await self._redis.set(f"blacklist:token:{jti}", "1", ex=ttl_seconds)
+                await redis_client.set(f"blacklist:token:{jti}", "1", ex=ttl_seconds)
                 return
-            except (RedisError, ConnectionError, OSError) as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Falha ao registrar blacklist no Redis, utilizando fallback em memória: %s", exc
                 )
@@ -355,19 +357,38 @@ class TokenService:
 
     async def is_token_blacklisted(self, jti: str) -> bool:
         """Verifica se o JTI do Access Token consta como revogado/bloqueado."""
-        return await is_token_blacklisted(jti, self._redis)
+        redis_client = self._get_redis()
+        if not jti:
+            return False
+
+        if redis_client is not None:
+            try:
+                val = await redis_client.get(f"blacklist:token:{jti}")
+                return val is not None
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Falha ao consultar blacklist no Redis, checando memória: %s", exc)
+
+        _clean_expired_in_memory_blacklist()
+        return jti in _in_memory_blacklist
 
 
-async def is_token_blacklisted(jti: str, redis_client: aioredis.Redis | None = None) -> bool:
-    """Verifica se o JTI do Access Token consta como revogado/bloqueado no Redis ou na memória."""
+async def is_token_blacklisted(jti: str) -> bool:
+    """Verifica se o JTI do Access Token consta como revogado/bloqueado.
+
+    Função standalone para uso em dependencies (ex: get_current_user) sem precisar
+    instanciar TokenService. Usa o cliente Redis global via get_redis_client().
+    """
     if not jti:
         return False
 
+    from src.core.infrastructure.redis import get_redis_client
+
+    redis_client = get_redis_client()
     if redis_client is not None:
         try:
             val = await redis_client.get(f"blacklist:token:{jti}")
             return val is not None
-        except (RedisError, ConnectionError, OSError) as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning("Falha ao consultar blacklist no Redis, checando memória: %s", exc)
 
     _clean_expired_in_memory_blacklist()
