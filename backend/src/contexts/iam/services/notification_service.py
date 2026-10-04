@@ -9,7 +9,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from contexts.iam.database.models import NotificationModel
+from src.contexts.iam.database.models import NotificationModel
 from src.contexts.iam.repositories.notification_repository import NotificationRepository
 from src.core.messaging.sse_broadcaster import SSEBroadcaster, get_sse_broadcaster
 

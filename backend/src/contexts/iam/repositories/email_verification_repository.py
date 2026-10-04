@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from contexts.iam.database.models import EmailVerificationTokenModel
+from src.contexts.iam.database.models import EmailVerificationTokenModel
 from src.contexts.iam.security.tokens import hash_token
 
 

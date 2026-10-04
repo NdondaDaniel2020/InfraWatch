@@ -1,7 +1,7 @@
 """Database models package."""
 
 from src.contexts.inventory.database.models import DeviceModel
-from contexts.iam.database.models import (
+from src.contexts.iam.database.models import (
     AuditLogModel,
     OrganizationModel,
     RefreshTokenModel,
