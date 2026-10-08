@@ -36,7 +36,7 @@ def get_engine() -> AsyncEngine:
     db_url = build_async_database_url(settings.DATABASE_URL)
 
     engine_kwargs: dict[str, Any] = {
-        "echo": settings.DEBUG,
+        "echo": False,
     }
 
     # SQLite (usado em testes in-memory) requer StaticPool ou NullPool e não suporta pool_size

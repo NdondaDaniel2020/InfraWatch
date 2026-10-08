@@ -26,12 +26,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         request_id = get_request_id()
 
         logger.info(
-            "%s %s %s %.3fs client=%s request_id=%s",
-            request.method,
-            request.url.path,
-            response.status_code,
-            elapsed,
-            client_host,
-            request_id,
+            "HTTP request completed",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": round(elapsed * 1000, 2),
+                "client_host": client_host,
+                "request_id": request_id,
+            },
         )
         return response
