@@ -11,6 +11,8 @@ from typing import Any
 
 from fastapi import FastAPI
 
+from datetime import datetime, UTC
+
 from src.core.config import get_settings
 from src.core.database.init_db import close_db, init_db
 from src.core.database.session import get_session_factory
@@ -18,10 +20,74 @@ from src.core.infrastructure.redis import close_redis, get_redis_client, init_re
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
 from src.core.observability.logging import setup_logging
+from src.integrations.glpi import GlpiClient, render_glpi_template
+from src.integrations.glpi.schemas import (
+    GlpiImpact,
+    GlpiPriority,
+    GlpiTicketCreate,
+    GlpiUrgency,
+)
 from src.workers.daemons.outbox_relay_worker import OutboxRelayWorker
 from src.workers.daemons.token_cleanup_worker import TokenCleanupWorker
 
 logger = logging.getLogger("infrawatch.lifespan")
+
+
+async def _notify_glpi_startup(settings: Any) -> None:
+    """Emite um ticket informativo (heartbeat) no GLPI indicando que o InfraWatch está operacional.
+
+    Proteções contra spam:
+    1. Desabilitado se GLPI_NOTIFY_STARTUP for False (evita abertura a cada reload de código).
+    2. Debounce no Redis com TTL de 24h (mesmo habilitado, limita a 1 ticket por dia).
+    """
+    if not getattr(settings, "GLPI_ENABLED", False) or not getattr(settings, "GLPI_NOTIFY_STARTUP", False):
+        return
+
+    if settings.ENVIRONMENT == "test":
+        return
+
+    app_token = getattr(settings, "GLPI_APP_TOKEN", "")
+    user_token = getattr(settings, "GLPI_USER_TOKEN", "")
+    if not app_token or not user_token:
+        logger.debug("Tokens do GLPI não configurados. Notificação de startup ignorada.")
+        return
+
+    try:
+        # Trava de idempotência via Redis (TTL de 24 horas = 86400s)
+        try:
+            redis_client = get_redis_client()
+            acquired = await redis_client.set("infrawatch:glpi:startup_heartbeat_sent", "1", nx=True, ex=86400)
+            if not acquired:
+                logger.debug("Ticket de inicialização já emitido nas últimas 24h (Redis debounce ativo).")
+                return
+        except Exception:
+            logger.debug("Redis indisponível para lock de startup GLPI; prosseguindo com segurança.")
+
+        async with GlpiClient(
+            base_url=settings.GLPI_BASE_URL,
+            app_token=app_token,
+            user_token=user_token,
+            timeout=getattr(settings, "GLPI_TIMEOUT_SECONDS", 10.0),
+        ) as glpi:
+            now_str = datetime.now(UTC).strftime("%d/%m/%Y às %H:%M:%S UTC")
+            ticket_content = render_glpi_template(
+                "startup_heartbeat.html",
+                app_name=settings.APP_NAME,
+                app_version=getattr(settings, "APP_VERSION", "0.1.0"),
+                environment=settings.ENVIRONMENT,
+                started_at=now_str,
+            )
+            ticket_payload = GlpiTicketCreate(
+                name=f"🟢 [InfraWatch] Motor de Monitoramento no Ar — {settings.APP_NAME}",
+                content=ticket_content,
+                urgency=GlpiUrgency.VERY_LOW,
+                impact=GlpiImpact.VERY_LOW,
+                priority=GlpiPriority.VERY_LOW,
+            )
+            ticket_id = await glpi.open_ticket(ticket_payload)
+            logger.info("Ticket de inicialização criado com sucesso no GLPI (#%d)", ticket_id)
+    except Exception as exc:
+        logger.warning("Não foi possível enviar notificação de inicialização ao GLPI: %s", exc)
 
 
 @asynccontextmanager
@@ -100,6 +166,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("Workers de segundo plano iniciados com sucesso.")
         except Exception:
             logger.exception("Falha ao inicializar workers de segundo plano no startup")
+
+    # 6. Heartbeat de inicialização no GLPI (não bloqueante)
+    if settings.GLPI_ENABLED and settings.ENVIRONMENT != "test":
+        asyncio.create_task(_notify_glpi_startup(settings))
 
     try:
         yield
