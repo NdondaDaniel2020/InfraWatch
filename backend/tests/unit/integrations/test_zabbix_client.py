@@ -354,3 +354,63 @@ async def test_zabbix_sync_worker_resilience_on_zabbix_error():
     # Não deve lançar exceção, deve retornar None e não gravar métricas
     assert result is None
     mock_session.add_all.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Testes de Startup Heartbeat
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_zabbix_send_startup_heartbeat_success():
+    """Valida envio de batimento cardíaco (startup heartbeat) com sucesso."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    hosts_resp = make_jsonrpc_response(result=[{"hostid": "10084", "host": "srv-prod-01"}])
+    version_resp = make_jsonrpc_response(result="7.0.0")
+    push_resp = make_jsonrpc_response(result={"response": "success"})
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp, push_resp]):
+        res = await client.send_startup_heartbeat(
+            app_name="InfraWatch",
+            version="0.1.0",
+            environment="production",
+        )
+        assert res["status"] == "ok"
+        assert res["api_version"] == "7.0.0"
+        assert res["hosts_count"] == 1
+        assert res["heartbeat_pushed"] is True
+
+
+@pytest.mark.asyncio
+async def test_zabbix_send_startup_heartbeat_graceful_on_push_error():
+    """Valida que falha em history.push (ex: trapper não configurado) não invalida o heartbeat."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    version_resp = make_jsonrpc_response(result="7.0.0")
+    hosts_resp = make_jsonrpc_response(result=[{"hostid": "10084", "host": "srv-prod-01"}])
+    push_err = make_jsonrpc_response(error={"code": -32602, "message": "Item not found"})
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp, push_err]):
+        res = await client.send_startup_heartbeat()
+        assert res["status"] == "ok"
+        assert res["api_version"] == "7.0.0"
+        assert res["hosts_count"] == 1
+        assert res["heartbeat_pushed"] is False
+
+
+@pytest.mark.asyncio
+async def test_zabbix_send_startup_heartbeat_without_hosts():
+    """Valida comportamento seguro quando nenhum host está cadastrado."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    version_resp = make_jsonrpc_response(result="6.4.0")
+    hosts_resp = make_jsonrpc_response(result=[])
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp]):
+        res = await client.send_startup_heartbeat()
+        assert res["status"] == "ok"
+        assert res["api_version"] == "6.4.0"
+        assert res["hosts_count"] == 0
+        assert res["heartbeat_pushed"] is False
+

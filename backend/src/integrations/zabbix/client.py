@@ -353,3 +353,40 @@ class ZabbixClient:
             )
 
         return metrics
+
+    async def send_startup_heartbeat(
+        self,
+        app_name: str = "InfraWatch",
+        version: str = "0.1.0",
+        environment: str = "development",
+    ) -> dict[str, Any]:
+        """Valida conectividade e registra batimento cardíaco (startup heartbeat) no Zabbix."""
+        api_version = await self.get_api_version()
+        hosts = await self.get_hosts()
+
+        pushed = False
+        # No Zabbix 7.0+, tenta enviar telemetria trapper se houver host disponível
+        if hosts:
+            target_host = hosts[0].host
+            try:
+                await self.call(
+                    "history.push",
+                    params=[
+                        {
+                            "host": target_host,
+                            "key": "infrawatch.status",
+                            "value": f"{app_name} v{version} ONLINE ({environment})",
+                        }
+                    ],
+                )
+                pushed = True
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Tentativa de history.push no Zabbix ignorada (item trapper opcional): %s", exc)
+
+        return {
+            "status": "ok",
+            "api_version": api_version,
+            "hosts_count": len(hosts),
+            "heartbeat_pushed": pushed,
+        }
+

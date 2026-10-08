@@ -172,6 +172,7 @@ class Settings(BaseSettings):
 
     # Integração Zabbix JSON-RPC
     ZABBIX_ENABLED: bool = Field(default=False, alias="ZABBIX_ENABLED")
+    ZABBIX_NOTIFY_STARTUP: bool = Field(default=False, alias="ZABBIX_NOTIFY_STARTUP")
     ZABBIX_API_URL: str = Field(default="https://zabbix.rcsangola.co.ao/api_jsonrpc.php", alias="ZABBIX_API_URL")
     ZABBIX_API_TOKEN: str = Field(default="", alias="ZABBIX_API_TOKEN")
     ZABBIX_USER: str = Field(default="Admin", alias="ZABBIX_USER")
