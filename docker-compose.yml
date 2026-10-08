@@ -79,13 +79,32 @@ services:
     networks:
       - infrawatch-net
 
-  infrawatch-integration-worker:
+  infrawatch-outbox-worker:
     build:
       context: ./backend
       dockerfile: Dockerfile.worker
-    container_name: infrawatch-integration-worker
+    container_name: infrawatch-outbox-worker
     restart: unless-stopped
-    command: ["python", "-m", "src.workers.integration_worker"]
+    command: ["python", "-m", "src.workers.daemons.outbox_relay_worker"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - infrawatch-net
+
+  infrawatch-cleanup-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: infrawatch-cleanup-worker
+    restart: unless-stopped
+    command: ["python", "-m", "src.workers.daemons.token_cleanup_worker"]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0

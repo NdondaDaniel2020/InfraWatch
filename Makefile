@@ -24,14 +24,7 @@ help:
 	@echo "  make glpi-down      - Encerra os containers do GLPI e MariaDB"
 
 dev: container
-	@echo "=========================================================="
-	@echo "  Iniciando InfraWatch no modo DEV:"
-	@echo "  [1/3] Containers (PostgreSQL + Redis) [OK]"
-	@echo "  [2/3] Workers (Probe Worker Daemon)   [Iniciando...]"
-	@echo "  [3/3] App (FastAPI com hot-reload)    [Iniciando...]"
-	@echo "=========================================================="
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
-		(cd backend && $(UV) run python -m src.workers.probe_worker) & \
 		sleep 1; \
 		(cd backend && $(UV) run python main.py)"
 
@@ -53,7 +46,11 @@ worker-cleanup:
 
 workers:
 	@echo "Iniciando Daemons de workers..."
-	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; (cd backend && $(UV) run python -m src.workers.probe_worker) & wait"
+	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
+		(cd backend && $(UV) run python -m src.workers.probe_worker) & \
+		(cd backend && $(UV) run python -m src.workers.daemons.outbox_relay_worker) & \
+		(cd backend && $(UV) run python -m src.workers.daemons.token_cleanup_worker) & \
+		wait"
 
 test:
 	cd backend && $(UV) run pytest tests -v
