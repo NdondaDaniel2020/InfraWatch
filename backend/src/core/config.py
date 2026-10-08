@@ -174,6 +174,8 @@ class Settings(BaseSettings):
     ZABBIX_ENABLED: bool = Field(default=False, alias="ZABBIX_ENABLED")
     ZABBIX_API_URL: str = Field(default="https://zabbix.rcsangola.co.ao/api_jsonrpc.php", alias="ZABBIX_API_URL")
     ZABBIX_API_TOKEN: str = Field(default="", alias="ZABBIX_API_TOKEN")
+    ZABBIX_USER: str = Field(default="Admin", alias="ZABBIX_USER")
+    ZABBIX_PASSWORD: str = Field(default="zabbix", alias="ZABBIX_PASSWORD")
     ZABBIX_TIMEOUT_SECONDS: float = Field(default=10.0, alias="ZABBIX_TIMEOUT_SECONDS")
 
     @model_validator(mode="after")

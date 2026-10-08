@@ -71,6 +71,21 @@ class ZabbixHost(BaseModel):
     status: str = "0"  # 0 = Monitored, 1 = Unmonitored
     available: str | int | None = None  # 1 = Available, 2 = Unavailable
 
+    @property
+    def status_label(self) -> str:
+        """Retorna o rótulo legível do status de monitoramento."""
+        return "Monitored" if str(self.status) == "0" else "Unmonitored"
+
+    @property
+    def available_label(self) -> str:
+        """Retorna o rótulo de disponibilidade do agente Zabbix."""
+        val = str(self.available) if self.available is not None else "0"
+        if val == "1":
+            return "Available"
+        if val == "2":
+            return "Unavailable"
+        return "Unknown"
+
 
 class ZabbixItem(BaseModel):
     """Item de monitoramento (métrica ou sensor) do Zabbix."""

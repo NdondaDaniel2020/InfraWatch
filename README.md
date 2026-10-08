@@ -157,9 +157,27 @@ Toda a documentação técnica, contratos de API, especificações e planos de i
 
    # Terminal 3: Integration Worker (GLPI & Webhooks)
    python -m src.workers.integration_worker
+
+   # Terminal 4: Zabbix Sync Worker (Telemetria de Hardware)
+   python -m src.workers.daemons.zabbix_sync_worker
    ```
 
----
+### 🧪 Ambientes de Teste de Integração (GLPI & Zabbix)
+
+O InfraWatch disponibiliza stacks completas em Docker Compose e scripts automatizados para validar as integrações de ponta a ponta:
+
+```bash
+# --- Integração Zabbix 7.0 LTS (Porta Web: 8081 / API: /api_jsonrpc.php) ---
+make zabbix-up      # Sobe Zabbix DB, Server, Web Nginx e Agent
+make test-zabbix    # Executa validação de API, login, hosts e telemetria
+make zabbix-down    # Para os containers do Zabbix
+
+# --- Integração GLPI 10+ (Porta Web: 8080 / API: /apirest.php) ---
+make glpi-up        # Sobe MariaDB e GLPI App
+make test-glpi      # Executa validação de autenticação, abertura e acompanhamento
+make glpi-down      # Para os containers do GLPI
+```
+
 
 ## 📄 Licença
 

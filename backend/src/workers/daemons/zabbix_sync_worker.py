@@ -49,6 +49,8 @@ class ZabbixSyncWorker:
         return ZabbixClient(
             api_url=settings.ZABBIX_API_URL,
             api_token=settings.ZABBIX_API_TOKEN,
+            username=settings.ZABBIX_USER,
+            password=settings.ZABBIX_PASSWORD,
             timeout=settings.ZABBIX_TIMEOUT_SECONDS,
         )
 
