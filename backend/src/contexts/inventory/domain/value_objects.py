@@ -95,6 +95,7 @@ class ThresholdConfig:
     max_latency_ms: float = 200.0
     max_jitter_ms: float = 50.0
     max_loss_percent: float = 5.0
+    zabbix_host_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.max_latency_ms < 0:
@@ -112,11 +113,14 @@ class ThresholdConfig:
 
     def to_dict(self) -> dict:
         """Serializa para dicionário compatível com JSONB."""
-        return {
+        data = {
             "max_latency_ms": self.max_latency_ms,
             "max_jitter_ms": self.max_jitter_ms,
             "max_loss_percent": self.max_loss_percent,
         }
+        if self.zabbix_host_id:
+            data["zabbix_host_id"] = self.zabbix_host_id
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "ThresholdConfig":
@@ -125,4 +129,6 @@ class ThresholdConfig:
             max_latency_ms=data.get("max_latency_ms", 200.0),
             max_jitter_ms=data.get("max_jitter_ms", 50.0),
             max_loss_percent=data.get("max_loss_percent", 5.0),
+            zabbix_host_id=data.get("zabbix_host_id"),
         )
+
