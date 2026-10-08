@@ -354,6 +354,7 @@ class ZabbixClient:
 
         return metrics
 
+<<<<<<< HEAD
     async def get_or_create_status_item(self, hostid: str) -> str | None:
         """Busca ou cria automaticamente o item trapper infrawatch.status no host indicado."""
         try:
@@ -389,6 +390,8 @@ class ZabbixClient:
             logger.debug("Não foi possível obter ou provisionar item infrawatch.status no Zabbix: %s", exc)
         return None
 
+=======
+>>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
     async def send_startup_heartbeat(
         self,
         app_name: str = "InfraWatch",
@@ -400,6 +403,7 @@ class ZabbixClient:
         hosts = await self.get_hosts()
 
         pushed = False
+<<<<<<< HEAD
         item_id: str | None = None
         # No Zabbix 7.0+, localiza ou provisiona o item trapper e envia o histórico via itemid
         if hosts:
@@ -422,13 +426,38 @@ class ZabbixClient:
                             pushed = True
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("Tentativa de history.push no Zabbix falhou: %s", exc)
+=======
+        # No Zabbix 7.0+, tenta enviar telemetria trapper se houver host disponível
+        if hosts:
+            target_host = hosts[0].host
+            try:
+                await self.call(
+                    "history.push",
+                    params=[
+                        {
+                            "host": target_host,
+                            "key": "infrawatch.status",
+                            "value": f"{app_name} v{version} ONLINE ({environment})",
+                        }
+                    ],
+                )
+                pushed = True
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Tentativa de history.push no Zabbix ignorada (item trapper opcional): %s", exc)
+>>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
 
         return {
             "status": "ok",
             "api_version": api_version,
             "hosts_count": len(hosts),
+<<<<<<< HEAD
             "item_id": item_id,
             "heartbeat_pushed": pushed,
         }
 
 
+=======
+            "heartbeat_pushed": pushed,
+        }
+
+>>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)

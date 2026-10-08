@@ -368,6 +368,7 @@ async def test_zabbix_send_startup_heartbeat_success():
 
     hosts_resp = make_jsonrpc_response(result=[{"hostid": "10084", "host": "srv-prod-01"}])
     version_resp = make_jsonrpc_response(result="7.0.0")
+<<<<<<< HEAD
     items_resp = make_jsonrpc_response(result=[{"itemid": "50740"}])
     push_resp = make_jsonrpc_response(result={"response": "success", "data": [{"itemid": 50740}]})
 
@@ -376,6 +377,11 @@ async def test_zabbix_send_startup_heartbeat_success():
         new_callable=AsyncMock,
         side_effect=[version_resp, hosts_resp, items_resp, push_resp],
     ):
+=======
+    push_resp = make_jsonrpc_response(result={"response": "success"})
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp, push_resp]):
+>>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
         res = await client.send_startup_heartbeat(
             app_name="InfraWatch",
             version="0.1.0",
@@ -384,17 +390,25 @@ async def test_zabbix_send_startup_heartbeat_success():
         assert res["status"] == "ok"
         assert res["api_version"] == "7.0.0"
         assert res["hosts_count"] == 1
+<<<<<<< HEAD
         assert res["item_id"] == "50740"
+=======
+>>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
         assert res["heartbeat_pushed"] is True
 
 
 @pytest.mark.asyncio
 async def test_zabbix_send_startup_heartbeat_graceful_on_push_error():
+<<<<<<< HEAD
     """Valida que falha em history.push (ex: erro no servidor) não invalida o heartbeat."""
+=======
+    """Valida que falha em history.push (ex: trapper não configurado) não invalida o heartbeat."""
+>>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
     client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
 
     version_resp = make_jsonrpc_response(result="7.0.0")
     hosts_resp = make_jsonrpc_response(result=[{"hostid": "10084", "host": "srv-prod-01"}])
+<<<<<<< HEAD
     items_resp = make_jsonrpc_response(result=[{"itemid": "50740"}])
     push_err = make_jsonrpc_response(error={"code": -32602, "message": "Failed to push"})
 
@@ -403,11 +417,19 @@ async def test_zabbix_send_startup_heartbeat_graceful_on_push_error():
         new_callable=AsyncMock,
         side_effect=[version_resp, hosts_resp, items_resp, push_err],
     ):
+=======
+    push_err = make_jsonrpc_response(error={"code": -32602, "message": "Item not found"})
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp, push_err]):
+>>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
         res = await client.send_startup_heartbeat()
         assert res["status"] == "ok"
         assert res["api_version"] == "7.0.0"
         assert res["hosts_count"] == 1
+<<<<<<< HEAD
         assert res["item_id"] == "50740"
+=======
+>>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
         assert res["heartbeat_pushed"] is False
 
 
