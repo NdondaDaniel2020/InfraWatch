@@ -109,8 +109,6 @@ class ZabbixClient:
                 "Content-Type": "application/json-rpc",
                 "User-Agent": "InfraWatch-ZabbixConnector/1.0",
             }
-            if self._api_token:
-                headers["Authorization"] = f"Bearer {self._api_token}"
 
             self._client = httpx.AsyncClient(
                 timeout=self._timeout,
@@ -153,18 +151,27 @@ class ZabbixClient:
         # O Zabbix aceita o token no campo auth ou via cabeçalho Authorization
         effective_auth = auth if auth is not None else self._auth_token
 
+        # Headers por requisição: métodos como apiinfo.version PROÍBEM header de Authorization
+        request_headers: dict[str, str] = {}
+        payload_auth: str | None = None
+
+        if method not in ("apiinfo.version", "user.login") and effective_auth:
+            request_headers["Authorization"] = f"Bearer {effective_auth}"
+            if not self._api_token:
+                payload_auth = effective_auth
+
         payload = JsonRpcRequest(
             method=method,
             params=params if params is not None else {},
             id=self._next_id(),
-            auth=effective_auth,
+            auth=payload_auth,
         ).model_dump(exclude_none=True)
 
         last_exception: Exception | None = None
 
         for attempt in range(1, _MAX_RETRIES + 1):
             try:
-                response = await self._client.post(self._api_url, json=payload)
+                response = await self._client.post(self._api_url, json=payload, headers=request_headers)
 
                 if response.status_code == 401 or response.status_code == 403:
                     raise ZabbixAuthError(

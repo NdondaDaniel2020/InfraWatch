@@ -92,16 +92,22 @@ def test_zabbix_item_float_parsing():
 @pytest.mark.asyncio
 async def test_zabbix_get_api_version():
     """Valida chamada do método apiinfo.version sem necessidade de autenticação."""
-    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php")
+    # Mesmo com api_token configurado, apiinfo.version não pode enviar header Authorization
+    client = ZabbixClient(
+        api_url="http://zabbix.test/api_jsonrpc.php",
+        api_token="token_that_must_not_be_sent_to_apiinfo_version",
+    )
 
-    mock_resp = make_jsonrpc_response(result="6.4.12")
+    mock_resp = make_jsonrpc_response(result="7.0.0")
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp) as mock_post:
         version = await client.get_api_version()
-        assert version == "6.4.12"
+        assert version == "7.0.0"
         mock_post.assert_called_once()
         sent_json = mock_post.call_args[1]["json"]
+        sent_headers = mock_post.call_args[1]["headers"]
         assert sent_json["method"] == "apiinfo.version"
         assert "auth" not in sent_json or sent_json["auth"] is None
+        assert "Authorization" not in sent_headers
 
 
 @pytest.mark.asyncio
