@@ -39,7 +39,10 @@ async def test_metrics_with_invalid_credentials_returns_401(app):
 @pytest.mark.asyncio
 async def test_metrics_with_valid_basic_auth_returns_200(app):
     """Garante que credenciais válidas acessam com sucesso as métricas em /metrics e /api/v1/monitoring/metrics."""
-    valid_creds = base64.b64encode(b"prometheus:prometheus_secure_password_2026").decode("ascii")
+    from src.core.config import get_settings
+    settings = get_settings()
+    user_pass = f"{settings.PROMETHEUS_METRICS_USER}:{settings.PROMETHEUS_METRICS_PASSWORD}".encode("utf-8")
+    valid_creds = base64.b64encode(user_pass).decode("ascii")
     headers = {"Authorization": f"Basic {valid_creds}"}
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -56,7 +59,9 @@ async def test_metrics_with_valid_basic_auth_returns_200(app):
 @pytest.mark.asyncio
 async def test_metrics_with_bearer_token_returns_200(app):
     """Garante que Bearer Token de serviço também é aceito para scrapers modernos."""
-    headers = {"Authorization": "Bearer prometheus_secure_password_2026"}
+    from src.core.config import get_settings
+    settings = get_settings()
+    headers = {"Authorization": f"Bearer {settings.PROMETHEUS_METRICS_PASSWORD}"}
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/metrics", headers=headers)

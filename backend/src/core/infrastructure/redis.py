@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
@@ -19,6 +20,14 @@ from redis.exceptions import RedisError
 from src.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+_REDIS_URL_PASSWORD_PATTERN = re.compile(r"(?<=://)[^:@]*:[^@]+@")
+
+
+def _sanitize_redis_url(url: str) -> str:
+    """Remove password from Redis URL for safe logging."""
+    return _REDIS_URL_PASSWORD_PATTERN.sub(":***@", url)
+
 
 _redis_client: Optional[Redis] = None
 _redis_init_lock = asyncio.Lock()
@@ -52,7 +61,7 @@ async def init_redis() -> Optional[Redis]:
             max_connections=settings.REDIS_MAX_CONNECTIONS,
         )
         await _redis_client.ping()
-        logger.info("Redis connected: %s", redis_url)
+        logger.info("Redis connected: %s", _sanitize_redis_url(redis_url))
         return _redis_client
     except RedisError as e:
         logger.warning("Redis connection failed: %s", e)

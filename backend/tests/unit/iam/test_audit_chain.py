@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from contexts.iam.database.models import Base
+from src.contexts.iam.database.models import Base
 from src.contexts.iam.repositories.audit_repository import AuditRepository
 from src.contexts.iam.services.audit_service import AuditService
 from src.core.exceptions import AuditImmutabilityError

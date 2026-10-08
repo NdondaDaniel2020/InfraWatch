@@ -14,12 +14,12 @@ from fastapi import FastAPI
 from src.core.config import get_settings
 from src.core.database.init_db import close_db, init_db
 from src.core.database.session import get_session_factory
-from src.core.infrastructure.redis import close_redis, init_redis
+from src.core.infrastructure.redis import close_redis, get_redis_client, init_redis
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
 from src.core.observability.logging import setup_logging
-from workers.daemons.outbox_relay_worker import OutboxRelayWorker
-from workers.daemons.token_cleanup_worker import TokenCleanupWorker
+from src.workers.daemons.outbox_relay_worker import OutboxRelayWorker
+from src.workers.daemons.token_cleanup_worker import TokenCleanupWorker
 
 logger = logging.getLogger("infrawatch.lifespan")
 
@@ -76,6 +76,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 publisher=outbox_dispatcher,
                 session_factory=get_session_factory(),
                 batch_size=settings.OUTBOX_RELAY_BATCH_SIZE,
+                worker_id="outbox-main",
             )
             outbox_task = asyncio.create_task(
                 outbox_worker.run_forever(
@@ -85,7 +86,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
 
             token_cleanup_worker = TokenCleanupWorker(
-                # redis_client removido - worker usa get_redis_client() internamente
+                redis_client=get_redis_client(),
                 session_factory=get_session_factory(),
                 interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
                 lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,

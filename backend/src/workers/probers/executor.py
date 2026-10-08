@@ -5,13 +5,13 @@ com limite global de concorrência para proteger o OS (Too many open files).
 """
 
 import asyncio
-from typing import Dict, Type
+from typing import Dict
 
-from src.workers.scheduler.in_memory_inventory import ProbeTarget
 from src.workers.probers.base import BaseProber, ProbeResult
-from src.workers.probers.icmp import IcmpProber
 from src.workers.probers.http import HttpProber
+from src.workers.probers.icmp import IcmpProber
 from src.workers.probers.tcp import TcpProber
+from src.workers.scheduler.in_memory_inventory import ProbeTarget
 
 
 class ProbeExecutor:

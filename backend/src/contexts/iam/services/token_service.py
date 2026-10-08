@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.contexts.iam.domain.events import UserLoggedOutEvent
-from contexts.iam.database.models import RefreshTokenModel, UserModel
+from src.contexts.iam.database.models import RefreshTokenModel, UserModel
 from src.contexts.iam.security.tokens import (
     create_access_token,
     decode_access_token,
@@ -35,7 +35,7 @@ from src.core.exceptions import (
     TokenExpiredError,
     TokenReuseDetectedError,
 )
-from core.web.client_info import parse_user_agent
+from src.core.web.client_info import parse_user_agent
 
 logger = logging.getLogger(__name__)
 

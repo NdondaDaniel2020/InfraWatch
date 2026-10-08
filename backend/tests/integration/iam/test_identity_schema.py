@@ -30,7 +30,7 @@ from src.contexts.iam.domain.enums import (
     OrgTier,
     UserRole,
 )
-from contexts.iam.database.models import (
+from src.contexts.iam.database.models import (
     AuditLogModel,
     RefreshTokenModel,
 )

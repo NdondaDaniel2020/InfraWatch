@@ -39,7 +39,7 @@ class TcpProber(BaseProber):
                 packet_loss_pct=0.0
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ProbeResult(
                 device_id=target.device_id,
                 target_name=target.name,

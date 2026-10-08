@@ -1,4 +1,4 @@
-"""InfraWatch background workers package."""
+"""Workers em background (daemons)."""
 
 from src.workers.daemons.outbox_relay_worker import (
     EventPublisher,
@@ -21,4 +21,3 @@ __all__ = [
     "run_cleanup_standalone",
     "run_outbox_standalone",
 ]
-

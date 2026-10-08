@@ -6,11 +6,10 @@ restantes de validade são calculados.
 """
 
 import asyncio
+import socket
 import ssl
 import time
-from datetime import datetime, UTC
-from urllib.parse import urlparse
-import socket
+from datetime import UTC, datetime
 
 import httpx
 

@@ -7,7 +7,6 @@ ou privilégios root.
 
 import asyncio
 import re
-import sys
 from typing import Optional
 
 from src.workers.probers.base import BaseProber, ProbeResult
@@ -43,7 +42,7 @@ class IcmpProber(BaseProber):
             # Analisa o output
             return self._parse_ping_output(target, output, proc.returncode)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ProbeResult(
                 device_id=target.device_id,
                 target_name=target.name,

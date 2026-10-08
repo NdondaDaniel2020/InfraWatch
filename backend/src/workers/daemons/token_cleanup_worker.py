@@ -13,7 +13,7 @@ import redis.asyncio as aioredis
 from sqlalchemy import and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from contexts.iam.database.models import RefreshTokenModel
+from src.contexts.iam.database.models import RefreshTokenModel
 from src.core.database.session import get_session_factory
 from src.core.redis.distributed_lock import redis_distributed_lock
 
@@ -25,7 +25,7 @@ class TokenCleanupWorker:
 
     def __init__(
         self,
-        redis_client: aioredis.Redis,
+        redis_client: aioredis.Redis | None = None,
         session_factory: async_sessionmaker[AsyncSession] | None = None,
         interval_seconds: int = 3600,
         lock_timeout: int = 300,
@@ -34,13 +34,22 @@ class TokenCleanupWorker:
         """Inicializa o worker de limpeza de tokens.
 
         Args:
-            redis_client: Cliente Redis para o lock distribuído.
+            redis_client: Cliente Redis para o lock distribuído (opcional; utiliza get_redis_client() se omitido).
             session_factory: Fábrica de sessões do banco de dados SQLAlchemy.
             interval_seconds: Intervalo entre execuções sucessivas do worker.
             lock_timeout: Tempo de vida (TTL) do lock distribuído em segundos.
             retention_days: Quantidade de dias para manter tokens revogados para auditoria.
         """
-        self.redis_client = redis_client
+        if redis_client is not None:
+            self.redis_client = redis_client
+        else:
+            from src.core.infrastructure.redis import get_redis_client
+
+            client = get_redis_client()
+            if client is None:
+                raise RuntimeError("Cliente Redis não inicializado para TokenCleanupWorker")
+            self.redis_client = client
+
         self.session_factory = session_factory or get_session_factory()
         self.interval_seconds = interval_seconds
         self.lock_timeout = lock_timeout
