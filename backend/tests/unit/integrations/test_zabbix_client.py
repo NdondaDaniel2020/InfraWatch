@@ -144,6 +144,27 @@ async def test_zabbix_login_failure():
         await client.login("Admin", "wrong_password")
 
 
+@pytest.mark.asyncio
+async def test_zabbix_invalid_api_token_triggers_auth_error():
+    """Valida que token inválido/expirado com resposta 'Session terminated' lança ZabbixAuthError."""
+    client = ZabbixClient(
+        api_url="http://zabbix.test/api_jsonrpc.php",
+        api_token="invalid_or_fake_token",
+    )
+
+    error_payload = {
+        "code": -32602,
+        "message": "Invalid params.",
+        "data": "Session terminated, re-login, please.",
+    }
+    mock_resp = make_jsonrpc_response(error=error_payload)
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp),
+        pytest.raises(ZabbixAuthError, match="Erro de autenticação Zabbix"),
+    ):
+        async with client:
+            await client.get_hosts()
+
 
 @pytest.mark.asyncio
 async def test_zabbix_api_token_header():

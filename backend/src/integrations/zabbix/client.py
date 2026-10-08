@@ -184,8 +184,15 @@ class ZabbixClient:
 
                 if rpc_response.error:
                     err = rpc_response.error
+                    err_data_str = str(err.data) if err.data else ""
                     # Mensagens conhecidas de auth inválida no Zabbix
-                    if "Not authorized" in err.message or "Session terminated" in err.message or err.code == -32602 and "login" in method:
+                    if (
+                        "Not authorized" in err.message
+                        or "Session terminated" in err.message
+                        or "Session terminated" in err_data_str
+                        or "Not authorized" in err_data_str
+                        or (err.code == -32602 and "login" in method)
+                    ):
                         raise ZabbixAuthError(f"Erro de autenticação Zabbix: {err.message} ({err.data})")
 
                     raise ZabbixApiError(code=err.code, message=err.message, data=err.data)
