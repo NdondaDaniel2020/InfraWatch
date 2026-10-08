@@ -37,7 +37,7 @@ run: app
 api: app
 
 worker-probe:
-	cd backend && $(UV) run python -m src.workers.probe_worker
+	cd backend && $(UV) run python -m src.workers.daemons.probe_worker
 
 worker-outbox:
 	cd backend && $(UV) run python -m src.workers.daemons.outbox_relay_worker
@@ -52,7 +52,7 @@ worker-zabbix:
 workers:
 	@echo "Iniciando Daemons de workers..."
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
-		(cd backend && $(UV) run python -m src.workers.probe_worker) & \
+		(cd backend && $(UV) run python -m src.workers.daemons.probe_worker) & \
 		(cd backend && $(UV) run python -m src.workers.daemons.outbox_relay_worker) & \
 		(cd backend && $(UV) run python -m src.workers.daemons.token_cleanup_worker) & \
 		wait"

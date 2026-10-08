@@ -153,7 +153,7 @@ Toda a documentação técnica, contratos de API, especificações e planos de i
    uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
    # Terminal 2: Probe Worker (Coleta ICMP/HTTP/DNS)
-   python -m src.workers.probe_worker
+   python -m src.workers.daemons.probe_worker
 
    # Terminal 3: Integration Worker (GLPI & Webhooks)
    python -m src.workers.integration_worker
