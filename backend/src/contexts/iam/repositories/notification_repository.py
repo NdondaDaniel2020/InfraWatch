@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from contexts.iam.database.models import NotificationModel
+from src.contexts.iam.database.models import NotificationModel
 
 
 def _ensure_uuid(val: UUID | str) -> UUID:

@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from contexts.iam.database.models import MfaMethodModel
+from src.contexts.iam.database.models import MfaMethodModel
 
 
 class MfaRepository:

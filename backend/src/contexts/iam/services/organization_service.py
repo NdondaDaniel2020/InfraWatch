@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.domain.events import OrganizationCreatedEvent
-from contexts.iam.database.models import OrganizationModel
+from src.contexts.iam.database.models import OrganizationModel
 from src.contexts.iam.repositories.organization_repository import OrganizationRepository
 from src.contexts.iam.schemas.organization import OrganizationCreate
 from src.core.database.outbox_repository import OutboxRepository
