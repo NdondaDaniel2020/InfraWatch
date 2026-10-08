@@ -103,7 +103,7 @@ class TestDockerComposeConfig(unittest.TestCase):
         build_cfg = probe_worker.get("build", {})
         self.assertEqual(build_cfg.get("context"), "./backend")
         self.assertEqual(build_cfg.get("dockerfile"), "Dockerfile.worker")
-        self.assertEqual(probe_worker.get("command"), ["python", "-m", "src.workers.probe_worker"])
+        self.assertEqual(probe_worker.get("command"), ["python", "-m", "src.workers.daemons.probe_worker"])
 
     def test_integration_worker_configuration(self):
         """Valida se o Integration Worker usa Dockerfile.worker e comando apropriado."""

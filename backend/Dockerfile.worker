@@ -53,4 +53,4 @@ RUN setcap cap_net_raw+ep /opt/venv/bin/python3.12 || true
 
 USER appuser
 
-CMD ["python", "-m", "src.workers.probe_worker"]
+CMD ["python", "-m", "src.workers.daemons.probe_worker"]

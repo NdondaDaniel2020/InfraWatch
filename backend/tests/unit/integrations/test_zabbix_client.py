@@ -27,7 +27,7 @@ from src.integrations.zabbix.schemas import (
     ZabbixHostMetrics,
     ZabbixItem,
 )
-from src.workers.zabbix_sync_worker import ZabbixSyncWorker
+from src.workers.daemons.zabbix_sync_worker import ZabbixSyncWorker
 
 
 def make_jsonrpc_response(result: object = None, error: dict | None = None, status_code: int = 200) -> MagicMock:
@@ -286,7 +286,7 @@ async def test_zabbix_sync_worker_records_telemetry():
     device_id = uuid4()
     org_id = uuid4()
 
-    with patch("src.workers.zabbix_sync_worker.get_redis_client", return_value=mock_redis):
+    with patch("src.workers.daemons.zabbix_sync_worker.get_redis_client", return_value=mock_redis):
         result = await worker.sync_device_metrics(
             session=mock_session,
             client=mock_client,
