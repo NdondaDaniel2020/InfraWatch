@@ -1,0 +1,50 @@
+services:
+  glpi-db:
+    image: mariadb:10.11
+    container_name: infrawatch-glpi-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_2026
+      MYSQL_DATABASE: glpidb
+      MYSQL_USER: glpi
+      MYSQL_PASSWORD: glpi_secure_password_2026
+    volumes:
+      - glpi_db_data:/var/lib/mysql
+    networks:
+      - infrawatch-glpi-net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  glpi-app:
+    image: diouxx/glpi:latest
+    container_name: infrawatch-glpi-app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      TIMEZONE: Africa/Luanda
+      MARIADB_HOST: glpi-db
+      MARIADB_PORT: 3306
+      MARIADB_DATABASE: glpidb
+      MARIADB_USER: glpi
+      MARIADB_PASSWORD: glpi_secure_password_2026
+    volumes:
+      - glpi_data:/var/www/html/glpi
+    depends_on:
+      glpi-db:
+        condition: service_healthy
+    networks:
+      - infrawatch-glpi-net
+
+volumes:
+  glpi_db_data:
+    driver: local
+  glpi_data:
+    driver: local
+
+networks:
+  infrawatch-glpi-net:
+    driver: bridge

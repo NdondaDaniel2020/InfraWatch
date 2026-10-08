@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup workers test lint format up down status container container-stop
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup workers test lint format up down status container container-stop glpi-up glpi-down test-glpi
 
 UV = uv
 
@@ -20,6 +20,8 @@ help:
 	@echo "  make status         - Exibe o status dos containers"
 	@echo "  make container      - Sobe apenas containers de Postgres e Redis sem Compose"
 	@echo "  make container-stop - Para os containers locais de Postgres e Redis"
+	@echo "  make glpi-up        - Sobe os containers do GLPI e MariaDB para testes"
+	@echo "  make glpi-down      - Encerra os containers do GLPI e MariaDB"
 
 dev: container
 	@echo "=========================================================="
@@ -93,3 +95,13 @@ container:
 container-stop:
 	@docker stop infrawatch-redis infrawatch-postgres 2>/dev/null || true
 	@docker rm infrawatch-redis infrawatch-postgres 2>/dev/null || true
+
+glpi-up:
+	docker compose -f docker-compose.glpi.yml up -d
+
+glpi-down:
+	docker compose -f docker-compose.glpi.yml down
+
+test-glpi:
+	@echo "Executando teste de integração com GLPI..."
+	@cd backend && .venv/bin/python ../scripts/test_glpi.py

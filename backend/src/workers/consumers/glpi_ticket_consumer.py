@@ -18,7 +18,7 @@ import logging
 from typing import Any
 
 from src.core.messaging.resilient_bus import ResilientEventBus
-from src.integrations.glpi.client import GlpiClient
+from src.integrations.glpi import GlpiClient, render_glpi_template
 from src.integrations.glpi.schemas import (
     GlpiImpact,
     GlpiTicketCreate,
@@ -68,16 +68,12 @@ class GlpiTicketConsumer:
         occurred_at = payload.get("occurred_at", "N/A")
 
         title = f"[InfraWatch] Incidente {severity} — {device_name} ({device_ip})"
-        content = (
-            f"<p><strong>Incidente detectado automaticamente pelo InfraWatch</strong></p>"
-            f"<ul>"
-            f"<li><strong>Dispositivo:</strong> {device_name}</li>"
-            f"<li><strong>Endereço IP:</strong> {device_ip}</li>"
-            f"<li><strong>Severidade:</strong> {severity}</li>"
-            f"<li><strong>Detectado em:</strong> {occurred_at}</li>"
-            f"</ul>"
-            f"<p>Verificação imediata recomendada. Este chamado foi aberto automaticamente "
-            f"pelo sistema de monitoramento InfraWatch.</p>"
+        content = render_glpi_template(
+            "incident_ticket.html",
+            device_name=device_name,
+            device_ip=device_ip,
+            severity=severity,
+            occurred_at=occurred_at,
         )
 
         return GlpiTicketCreate(
@@ -113,9 +109,10 @@ class GlpiTicketConsumer:
 
                 # Acompanhamento técnico com detalhes das últimas sondas
                 if probe_details := payload.get("last_probe_details"):
-                    followup_text = (
-                        f"<strong>Detalhes da última sonda ({payload.get('protocol', 'N/A')}):</strong><br>"
-                        f"<pre>{json.dumps(probe_details, indent=2, ensure_ascii=False)}</pre>"
+                    followup_text = render_glpi_template(
+                        "incident_followup.html",
+                        protocol=payload.get("protocol", "N/A"),
+                        probe_details_json=json.dumps(probe_details, indent=2, ensure_ascii=False),
                     )
                     await glpi.add_followup(ticket_id, followup_text, private=True)
 

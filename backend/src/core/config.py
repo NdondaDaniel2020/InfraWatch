@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     """Configurações gerais do sistema InfraWatch."""
 
     model_config = SettingsConfigDict(
-        env_file=os.getenv("ENV_FILE", ".env"),
+        env_file=(os.getenv("ENV_FILE", ".env"), "backend/.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     )
     DEBUG: bool = Field(default=False, alias="DEBUG")
     PROJECT_NAME: str = Field(default="InfraWatch", alias="PROJECT_NAME")
+    APP_NAME: str = Field(default="InfraWatch", alias="APP_NAME")
+    APP_VERSION: str = Field(default="0.1.0", alias="APP_VERSION")
 
     # Configurações do Banco de Dados Relacional (PostgreSQL 16+)
     DATABASE_URL: str = Field(
@@ -159,6 +161,20 @@ class Settings(BaseSettings):
     PROMETHEUS_METRICS_PASSWORD: str = Field(
         default="prometheus_secure_password_2026", alias="PROMETHEUS_METRICS_PASSWORD"
     )
+
+    # Integração GLPI ITSM
+    GLPI_ENABLED: bool = Field(default=False, alias="GLPI_ENABLED")
+    GLPI_NOTIFY_STARTUP: bool = Field(default=False, alias="GLPI_NOTIFY_STARTUP")
+    GLPI_BASE_URL: str = Field(default="http://localhost:8080/apirest.php", alias="GLPI_BASE_URL")
+    GLPI_APP_TOKEN: str = Field(default="", alias="GLPI_APP_TOKEN")
+    GLPI_USER_TOKEN: str = Field(default="", alias="GLPI_USER_TOKEN")
+    GLPI_TIMEOUT_SECONDS: float = Field(default=10.0, alias="GLPI_TIMEOUT_SECONDS")
+
+    # Integração Zabbix JSON-RPC
+    ZABBIX_ENABLED: bool = Field(default=False, alias="ZABBIX_ENABLED")
+    ZABBIX_API_URL: str = Field(default="https://zabbix.rcsangola.co.ao/api_jsonrpc.php", alias="ZABBIX_API_URL")
+    ZABBIX_API_TOKEN: str = Field(default="", alias="ZABBIX_API_TOKEN")
+    ZABBIX_TIMEOUT_SECONDS: float = Field(default=10.0, alias="ZABBIX_TIMEOUT_SECONDS")
 
     @model_validator(mode="after")
     def _validate_production_security(self) -> Self:
