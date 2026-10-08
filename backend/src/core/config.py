@@ -142,7 +142,7 @@ class Settings(BaseSettings):
     # Workers em Segundo Plano (Outbox Relay & Token Cleanup)
     ENABLE_BACKGROUND_WORKERS: bool = Field(default=True, alias="ENABLE_BACKGROUND_WORKERS")
     OUTBOX_RELAY_POLL_INTERVAL_SECONDS: float = Field(
-        default=1.0, alias="OUTBOX_RELAY_POLL_INTERVAL_SECONDS"
+        default=15.0, alias="OUTBOX_RELAY_POLL_INTERVAL_SECONDS"
     )
     OUTBOX_RELAY_BATCH_SIZE: int = Field(default=50, alias="OUTBOX_RELAY_BATCH_SIZE")
     TOKEN_CLEANUP_INTERVAL_SECONDS: int = Field(

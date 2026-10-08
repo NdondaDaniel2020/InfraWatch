@@ -8,6 +8,7 @@ e atualizar os estados de entrega (At-Least-Once Delivery).
 import asyncio
 import contextlib
 import logging
+import random
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -54,15 +55,25 @@ class OutboxRelayWorker:
 
     async def _listen_for_notifications(self, stop_event: asyncio.Event | None = None) -> None:
         """Mantém uma conexão dedicada via asyncpg escutando NOTIFY no canal outbox_events_wake.
-        
+
         Se a conexão cair ou falhar, realiza tentativas periódicas de reconexão.
         Durante qualquer indisponibilidade, o loop principal continuará processando via polling de fallback.
         """
         import asyncpg
 
         from src.core.config import get_settings
+
         settings = get_settings()
-        
+
+        raw_dsn = settings.DATABASE_URL
+        if not raw_dsn.startswith(("postgresql://", "postgresql+", "postgres://")):
+            self.is_listener_healthy = False
+            self._log.info(
+                "Dialeto não-PostgreSQL detectado (%s). LISTEN desativado, operando exclusivamente via Polling.",
+                raw_dsn.split(":", 1)[0],
+            )
+            return
+
         backoff = 1.0
         while stop_event is None or not stop_event.is_set():
             conn = None
@@ -74,7 +85,7 @@ class OutboxRelayWorker:
                 self.is_listener_healthy = True
                 backoff = 1.0
                 self._log.info("LISTEN ativo no canal 'outbox_events_wake'.")
-                
+
                 # Mantém vivo e monitora enquanto stop_event não for acionado
                 while stop_event is None or not stop_event.is_set():
                     await asyncio.sleep(1.0)
@@ -132,7 +143,7 @@ class OutboxRelayWorker:
                     # 2. Marca como publicado com sucesso
                     await OutboxRepository.mark_as_published(session, event.id)
                     processed_count += 1
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     self._log.exception(
                         "Falha ao despachar evento",
                         extra={"event_id": str(event.id), "event_type": event.event_type},
@@ -154,7 +165,7 @@ class OutboxRelayWorker:
         max_idle: float | None = None,
     ) -> None:
         """Executa o loop contínuo de relay de eventos com LISTEN/NOTIFY e Polling de Fallback.
-        
+
         Args:
             poll_interval: Intervalo máximo (segundos) entre varreduras quando ocioso (fallback).
             stop_event: Evento para sinalizar parada graciosa.
@@ -165,28 +176,35 @@ class OutboxRelayWorker:
             "Iniciando loop do OutboxRelayWorker com LISTEN/NOTIFY e Fallback de Polling",
             extra={"poll_interval_seconds": fallback_timeout},
         )
-        
+
         # Garante que wake_signal exista
         if self.wake_signal is None:
             self.wake_signal = asyncio.Event()
-        
+
         listener_task = asyncio.create_task(self._listen_for_notifications(stop_event))
-        
+
         try:
             while stop_event is None or not stop_event.is_set():
                 try:
                     processed = await self.process_batch()
-                    
+
                     if processed == 0:
                         # Sem eventos pendentes: aguarda NOTIFY ou acorda após o timeout de polling
+                        # Aplica jitter aleatório (±10%) para evitar que múltiplas réplicas colidam (Thundering Herd)
+                        jitter_ratio = random.uniform(0.9, 1.1)
+                        current_timeout = max(0.01, fallback_timeout * jitter_ratio)
                         try:
                             await asyncio.wait_for(
                                 self.wake_signal.wait(),
-                                timeout=fallback_timeout,
+                                timeout=current_timeout,
                             )
+                            self._log.debug("OutboxRelayWorker acordado via NOTIFY (Fast-Path).")
                         except TimeoutError:
                             # Timeout disparado -> Polling de Fallback
-                            pass
+                            self._log.debug(
+                                "OutboxRelayWorker acordado via timeout de polling (Slow-Path/Fallback: %.2fs).",
+                                current_timeout,
+                            )
                         finally:
                             # Limpa o sinal consumido para a próxima iteração
                             self.wake_signal.clear()
@@ -196,11 +214,11 @@ class OutboxRelayWorker:
                     else:
                         # Processou alguns eventos mas sobrou capacidade: limpa sinal para esperar novos
                         self.wake_signal.clear()
-                        
+
                 except asyncio.CancelledError:
                     self._log.info("OutboxRelayWorker interrompido graciosamente.")
                     break
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     self._log.critical(
                         "Erro inesperado no loop do OutboxRelayWorker",
                         extra={"error": str(exc)},

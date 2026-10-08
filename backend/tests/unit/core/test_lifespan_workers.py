@@ -140,12 +140,16 @@ async def test_outbox_relay_worker_standalone_entrypoint():
 
     with (
         patch(
-            "src.workers.daemons.outbox_relay_worker.OutboxRelayWorker.run_forever", new_callable=AsyncMock
+            "src.workers.daemons.outbox_relay_worker.OutboxRelayWorker.run_forever",
+            new_callable=AsyncMock,
         ) as mock_run,
         patch(
-            "src.workers.daemons.outbox_relay_worker.ResilientEventBus.close", new_callable=AsyncMock
+            "src.workers.daemons.outbox_relay_worker.ResilientEventBus.close",
+            new_callable=AsyncMock,
         ) as mock_close,
-        patch("src.workers.daemons.outbox_relay_worker.get_session_factory") as mock_session_factory,
+        patch(
+            "src.workers.daemons.outbox_relay_worker.get_session_factory"
+        ) as mock_session_factory,
     ):
         mock_session_factory.return_value = MagicMock()
         await run_standalone()
@@ -162,12 +166,16 @@ async def test_token_cleanup_worker_standalone_entrypoint():
     fake_redis.aclose = AsyncMock()
 
     with (
-        patch("src.workers.daemons.token_cleanup_worker.aioredis.from_url", return_value=fake_redis),
+        patch(
+            "src.workers.daemons.token_cleanup_worker.aioredis.from_url", return_value=fake_redis
+        ),
         patch(
             "src.workers.daemons.token_cleanup_worker.TokenCleanupWorker.run_forever",
             new_callable=AsyncMock,
         ) as mock_run,
-        patch("src.workers.daemons.token_cleanup_worker.get_session_factory") as mock_session_factory,
+        patch(
+            "src.workers.daemons.token_cleanup_worker.get_session_factory"
+        ) as mock_session_factory,
     ):
         mock_session_factory.return_value = MagicMock()
         await run_standalone()
@@ -254,3 +262,56 @@ async def test_outbox_relay_fast_path_via_wake_signal():
     await task
     assert batch_calls >= 2
     assert elapsed < 2.0
+
+
+@pytest.mark.asyncio
+async def test_outbox_relay_listener_bypasses_non_postgres_dialect():
+    """Valida que bancos não-PostgreSQL (ex.: SQLite) desativam o listener sem tentar chamar asyncpg."""
+    from src.workers.daemons.outbox_relay_worker import OutboxRelayWorker
+
+    worker = OutboxRelayWorker(
+        publisher=AsyncMock(),
+        session_factory=MagicMock(),
+    )
+
+    mock_settings = MagicMock()
+    mock_settings.DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+    with patch("src.core.config.get_settings", return_value=mock_settings):
+        # Executa _listen_for_notifications; deve retornar imediatamente após identificar dialeto sqlite
+        await worker._listen_for_notifications()
+
+    assert not worker.is_listener_healthy
+
+
+@pytest.mark.asyncio
+async def test_outbox_relay_jitter_applied_to_fallback():
+    """Valida que o cálculo do fallback aplica jitter aleatório (±10%) ao timeout de espera."""
+    from src.workers.daemons.outbox_relay_worker import OutboxRelayWorker
+
+    worker = OutboxRelayWorker(
+        publisher=AsyncMock(),
+        session_factory=MagicMock(),
+    )
+
+    stop_event = asyncio.Event()
+    worker.process_batch = AsyncMock(return_value=0)
+
+    captured_timeouts: list[float] = []
+
+    async def capturing_wait_for(fut, timeout):
+        captured_timeouts.append(timeout)
+        stop_event.set()
+        if asyncio.iscoroutine(fut):
+            fut.close()
+        raise TimeoutError
+
+    with (
+        patch.object(worker, "_listen_for_notifications", AsyncMock()),
+        patch("asyncio.wait_for", side_effect=capturing_wait_for),
+    ):
+        await worker.run_forever(poll_interval=10.0, stop_event=stop_event)
+
+    assert len(captured_timeouts) == 1
+    # Timeout base 10.0 com jitter ±10% deve estar no intervalo [9.0, 11.0]
+    assert 9.0 <= captured_timeouts[0] <= 11.0
