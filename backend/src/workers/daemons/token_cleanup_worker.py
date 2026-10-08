@@ -13,7 +13,7 @@ import redis.asyncio as aioredis
 from sqlalchemy import and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from contexts.iam.database.models import RefreshTokenModel
+from src.contexts.iam.database.models import RefreshTokenModel
 from src.core.database.session import get_session_factory
 from src.core.redis.distributed_lock import redis_distributed_lock
 

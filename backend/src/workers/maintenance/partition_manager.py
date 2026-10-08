@@ -154,7 +154,7 @@ class PartitionManager:
                         stop_event.wait() if stop_event else asyncio.sleep(interval_hours * 3600),
                         timeout=interval_hours * 3600,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
 
             except asyncio.CancelledError:

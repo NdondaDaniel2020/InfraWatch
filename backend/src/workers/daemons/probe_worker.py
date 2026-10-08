@@ -7,7 +7,6 @@ Possui rotina de reconciliação periódica com o banco de dados.
 
 import asyncio
 import logging
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -65,7 +64,7 @@ class ProbeWorkerDaemon:
                     await asyncio.wait_for(self._stop_event.wait(), timeout=self.reconciliation_interval)
                     if self._stop_event.is_set():
                         break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass  # Tempo expirou, hora de reconciliar
                 
                 logger.debug("Executando reconciliação com o banco de dados...")
