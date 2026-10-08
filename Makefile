@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup workers test lint format up down status container container-stop glpi-up glpi-down test-glpi
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix workers test lint format up down status container container-stop glpi-up glpi-down test-glpi
 
 UV = uv
 
@@ -12,6 +12,7 @@ help:
 	@echo "  make worker-probe   - Inicia o Daemon de Sondas (Probe Worker) para pings e checagens"
 	@echo "  make worker-outbox  - Inicia o worker de Outbox Relay independente"
 	@echo "  make worker-cleanup - Inicia o worker de expurgo de tokens independente"
+	@echo "  make worker-zabbix  - Inicia o worker de sincronização de telemetria Zabbix"
 	@echo "  make test           - Executa os testes automatizados com uv run pytest"
 	@echo "  make lint           - Executa checagem de código com uv run ruff"
 	@echo "  make format         - Formata o código com uv run ruff format"
@@ -43,6 +44,10 @@ worker-outbox:
 
 worker-cleanup:
 	cd backend && $(UV) run python -m src.workers.daemons.token_cleanup_worker
+
+worker-zabbix:
+	cd backend && $(UV) run python -m src.workers.daemons.zabbix_sync_worker
+
 
 workers:
 	@echo "Iniciando Daemons de workers..."
