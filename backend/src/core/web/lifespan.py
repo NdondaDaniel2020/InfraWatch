@@ -93,8 +93,6 @@ async def _notify_glpi_startup(settings: Any) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Gerencia inicialização e encerramento gracioso de recursos e conexões assíncronas."""
-    # 1. Startup: inicializa logging estruturado e configurações
-    setup_logging()
     settings = get_settings()
     logger.info(
         "Iniciando %s v%s no ambiente '%s' (DEBUG=%s)",

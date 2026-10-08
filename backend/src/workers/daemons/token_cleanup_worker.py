@@ -163,10 +163,9 @@ async def run_standalone() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
+    from src.core.observability.logging import setup_logging
+
+    setup_logging()
     try:
         asyncio.run(run_standalone())
     except (KeyboardInterrupt, SystemExit):

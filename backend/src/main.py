@@ -1,8 +1,21 @@
 """Ponto de entrada principal da aplicação FastAPI do InfraWatch."""
 
+import warnings
 from typing import Any
 
 from fastapi import Depends, FastAPI, Response
+
+# Configura logging ANTES de qualquer import que possa logar
+from src.core.observability.logging import setup_logging
+
+setup_logging()
+
+# Suprime RuntimeWarning sobre sys.modules (import order em workers standalone)
+warnings.filterwarnings(
+    "ignore",
+    message=r".*found in sys.modules after import of package.*",
+    category=RuntimeWarning,
+)
 
 from src.contexts.iam.api.router import router as iam_router
 from src.contexts.inventory.api.routes.devices import router as inventory_router
@@ -64,7 +77,7 @@ def create_app() -> FastAPI:
         """Health check profundo de disponibilidade da API e conectividade com banco de dados."""
         return await get_health_status()
 
-    @app.get("/api/live", tags=["Health"], include_in_schema=False)
+    @app.get("/api/live", tags=["Health"])
     async def liveness_probe() -> dict[str, str]:
         """Liveness probe simples para orquestradores (Kubernetes / Docker)."""
         return {"status": "alive"}
