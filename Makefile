@@ -1,16 +1,17 @@
-.PHONY: help dev run api worker-probe worker-outbox worker-cleanup workers test lint format up down status container container-stop
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup workers test lint format up down status container container-stop
 
 UV = uv
 
 help:
 	@echo "Comandos disponíveis:"
-	@echo "  make dev            - Inicia infra (Postgres/Redis) + API (FastAPI) + Probe Worker em paralelo"
-	@echo "  make run            - Inicia o servidor backend FastAPI com hot-reload (alias: api)"
-	@echo "  make api            - Inicia apenas o servidor backend FastAPI com hot-reload"
+	@echo "  make dev            - Roda tudo: containers -> workers -> app no fim"
+	@echo "  make app            - Inicia apenas a aplicação backend FastAPI com hot-reload (alias: run, api)"
+	@echo "  make run            - Inicia a aplicação backend (alias para app)"
+	@echo "  make api            - Inicia a aplicação backend (alias para app)"
+	@echo "  make workers        - Inicia os daemons de workers em segundo plano"
 	@echo "  make worker-probe   - Inicia o Daemon de Sondas (Probe Worker) para pings e checagens"
 	@echo "  make worker-outbox  - Inicia o worker de Outbox Relay independente"
 	@echo "  make worker-cleanup - Inicia o worker de expurgo de tokens independente"
-	@echo "  make workers        - Inicia os daemons de segundo plano"
 	@echo "  make test           - Executa os testes automatizados com uv run pytest"
 	@echo "  make lint           - Executa checagem de código com uv run ruff"
 	@echo "  make format         - Formata o código com uv run ruff format"
@@ -21,13 +22,23 @@ help:
 	@echo "  make container-stop - Para os containers locais de Postgres e Redis"
 
 dev: container
-	@echo "Iniciando InfraWatch Backend (API + Probe Worker)..."
-	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; (cd backend && $(UV) run python -m src.workers.probe_worker) & (cd backend && $(UV) run python main.py)"
+	@echo "=========================================================="
+	@echo "  Iniciando InfraWatch no modo DEV:"
+	@echo "  [1/3] Containers (PostgreSQL + Redis) [OK]"
+	@echo "  [2/3] Workers (Probe Worker Daemon)   [Iniciando...]"
+	@echo "  [3/3] App (FastAPI com hot-reload)    [Iniciando...]"
+	@echo "=========================================================="
+	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
+		(cd backend && $(UV) run python -m src.workers.probe_worker) & \
+		sleep 1; \
+		(cd backend && $(UV) run python main.py)"
 
-run:
+app:
 	cd backend && $(UV) run python main.py
 
-api: run
+run: app
+
+api: app
 
 worker-probe:
 	cd backend && $(UV) run python -m src.workers.probe_worker
