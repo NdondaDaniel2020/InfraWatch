@@ -354,6 +354,41 @@ class ZabbixClient:
 
         return metrics
 
+    async def get_or_create_status_item(self, hostid: str) -> str | None:
+        """Busca ou cria automaticamente o item trapper infrawatch.status no host indicado."""
+        try:
+            items = await self.call(
+                "item.get",
+                params={
+                    "hostids": [hostid],
+                    "filter": {"key_": "infrawatch.status"},
+                    "output": ["itemid", "name", "key_"],
+                },
+            )
+            if items and isinstance(items, list) and len(items) > 0:
+                return str(items[0]["itemid"])
+
+            # Se ainda não existe, provisiona o item como Zabbix trapper (type: 2, value_type: 4 = text)
+            created = await self.call(
+                "item.create",
+                params={
+                    "name": "InfraWatch API Status (Startup)",
+                    "key_": "infrawatch.status",
+                    "hostid": hostid,
+                    "type": 2,  # Zabbix trapper
+                    "value_type": 4,  # Text
+                },
+            )
+            if created and isinstance(created, dict) and "itemids" in created and created["itemids"]:
+                logger.info(
+                    "Item trapper infrawatch.status provisionado com sucesso no Zabbix (itemid: %s)",
+                    created["itemids"][0],
+                )
+                return str(created["itemids"][0])
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Não foi possível obter ou provisionar item infrawatch.status no Zabbix: %s", exc)
+        return None
+
     async def send_startup_heartbeat(
         self,
         app_name: str = "InfraWatch",
@@ -365,28 +400,35 @@ class ZabbixClient:
         hosts = await self.get_hosts()
 
         pushed = False
-        # No Zabbix 7.0+, tenta enviar telemetria trapper se houver host disponível
+        item_id: str | None = None
+        # No Zabbix 7.0+, localiza ou provisiona o item trapper e envia o histórico via itemid
         if hosts:
-            target_host = hosts[0].host
-            try:
-                await self.call(
-                    "history.push",
-                    params=[
-                        {
-                            "host": target_host,
-                            "key": "infrawatch.status",
-                            "value": f"{app_name} v{version} ONLINE ({environment})",
-                        }
-                    ],
-                )
-                pushed = True
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Tentativa de history.push no Zabbix ignorada (item trapper opcional): %s", exc)
+            target_host = hosts[0]
+            item_id = await self.get_or_create_status_item(target_host.hostid)
+            if item_id:
+                try:
+                    res = await self.call(
+                        "history.push",
+                        params=[
+                            {
+                                "itemid": item_id,
+                                "value": f"{app_name} v{version} ONLINE ({environment})",
+                            }
+                        ],
+                    )
+                    if res and isinstance(res, dict) and res.get("response") == "success":
+                        data_list = res.get("data", [])
+                        if data_list and "error" not in data_list[0]:
+                            pushed = True
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("Tentativa de history.push no Zabbix falhou: %s", exc)
 
         return {
             "status": "ok",
             "api_version": api_version,
             "hosts_count": len(hosts),
+            "item_id": item_id,
             "heartbeat_pushed": pushed,
         }
+
 

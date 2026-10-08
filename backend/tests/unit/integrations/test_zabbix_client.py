@@ -368,9 +368,14 @@ async def test_zabbix_send_startup_heartbeat_success():
 
     hosts_resp = make_jsonrpc_response(result=[{"hostid": "10084", "host": "srv-prod-01"}])
     version_resp = make_jsonrpc_response(result="7.0.0")
-    push_resp = make_jsonrpc_response(result={"response": "success"})
+    items_resp = make_jsonrpc_response(result=[{"itemid": "50740"}])
+    push_resp = make_jsonrpc_response(result={"response": "success", "data": [{"itemid": 50740}]})
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp, push_resp]):
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[version_resp, hosts_resp, items_resp, push_resp],
+    ):
         res = await client.send_startup_heartbeat(
             app_name="InfraWatch",
             version="0.1.0",
@@ -379,23 +384,30 @@ async def test_zabbix_send_startup_heartbeat_success():
         assert res["status"] == "ok"
         assert res["api_version"] == "7.0.0"
         assert res["hosts_count"] == 1
+        assert res["item_id"] == "50740"
         assert res["heartbeat_pushed"] is True
 
 
 @pytest.mark.asyncio
 async def test_zabbix_send_startup_heartbeat_graceful_on_push_error():
-    """Valida que falha em history.push (ex: trapper não configurado) não invalida o heartbeat."""
+    """Valida que falha em history.push (ex: erro no servidor) não invalida o heartbeat."""
     client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
 
     version_resp = make_jsonrpc_response(result="7.0.0")
     hosts_resp = make_jsonrpc_response(result=[{"hostid": "10084", "host": "srv-prod-01"}])
-    push_err = make_jsonrpc_response(error={"code": -32602, "message": "Item not found"})
+    items_resp = make_jsonrpc_response(result=[{"itemid": "50740"}])
+    push_err = make_jsonrpc_response(error={"code": -32602, "message": "Failed to push"})
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp, push_err]):
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[version_resp, hosts_resp, items_resp, push_err],
+    ):
         res = await client.send_startup_heartbeat()
         assert res["status"] == "ok"
         assert res["api_version"] == "7.0.0"
         assert res["hosts_count"] == 1
+        assert res["item_id"] == "50740"
         assert res["heartbeat_pushed"] is False
 
 
