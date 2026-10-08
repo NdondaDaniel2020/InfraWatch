@@ -8,18 +8,17 @@ sem duplicar regras de coleta nativas (ADR-004).
 import asyncio
 import json
 import logging
-from datetime import datetime, UTC
-from typing import Any
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.telemetry.database.models import MetricModel
 from src.core.config import get_settings
 from src.core.database.session import get_session_factory
 from src.core.infrastructure.redis import get_redis_client
-from src.contexts.inventory.database.models import DeviceModel
-from src.contexts.telemetry.database.models import MetricModel
 from src.integrations.zabbix.client import ZabbixClient, ZabbixError
 from src.integrations.zabbix.schemas import ZabbixHostMetrics
 
@@ -136,7 +135,7 @@ class ZabbixSyncWorker:
                     "zabbix_host_id": zabbix_host_id,
                 }
                 await redis.set(cache_key, json.dumps(payload), ex=180)
-            except Exception as redis_exc:
+            except Exception as redis_exc:  # noqa: BLE001
                 logger.debug("Falha ao cachear telemetria no Redis: %s", redis_exc)
 
             return metrics
@@ -150,12 +149,10 @@ class ZabbixSyncWorker:
                 exc,
             )
             return None
-        except Exception as exc:
-            logger.error(
-                "Erro inesperado na sincronização do dispositivo %s com Zabbix: %s",
+        except Exception:
+            logger.exception(
+                "Erro inesperado na sincronização do dispositivo %s com Zabbix",
                 device_id,
-                exc,
-                exc_info=True,
             )
             return None
 
@@ -169,29 +166,28 @@ class ZabbixSyncWorker:
         synced_count = 0
         client = self._get_zabbix_client()
 
-        async with client:
-            async with self._session_factory() as session:
-                query = select(DeviceModel).where(
-                    DeviceModel.is_paused.is_(False)
+        async with client, self._session_factory() as session:
+            query = select(DeviceModel).where(
+                DeviceModel.is_paused.is_(False)
+            )
+            result = await session.execute(query)
+            devices = result.scalars().all()
+
+            for device in devices:
+                thresholds = device.thresholds or {}
+                zabbix_host_id = thresholds.get("zabbix_host_id")
+                if not zabbix_host_id:
+                    continue
+
+                synced = await self.sync_device_metrics(
+                    session=session,
+                    client=client,
+                    device_id=device.id,
+                    org_id=device.organization_id,
+                    zabbix_host_id=str(zabbix_host_id),
                 )
-                result = await session.execute(query)
-                devices = result.scalars().all()
-
-                for device in devices:
-                    thresholds = device.thresholds or {}
-                    zabbix_host_id = thresholds.get("zabbix_host_id")
-                    if not zabbix_host_id:
-                        continue
-
-                    synced = await self.sync_device_metrics(
-                        session=session,
-                        client=client,
-                        device_id=device.id,
-                        org_id=device.organization_id,
-                        zabbix_host_id=str(zabbix_host_id),
-                    )
-                    if synced:
-                        synced_count += 1
+                if synced:
+                    synced_count += 1
 
         return synced_count
 
@@ -207,15 +203,15 @@ class ZabbixSyncWorker:
                 count = await self.sync_once()
                 if count > 0:
                     logger.info("Ciclo Zabbix finalizado: %d dispositivos sincronizados.", count)
-            except Exception as exc:
-                logger.error("Erro no ciclo de sincronização Zabbix: %s", exc, exc_info=True)
+            except Exception:
+                logger.exception("Erro no ciclo de sincronização Zabbix")
 
             try:
                 if stop_event:
                     await asyncio.wait_for(stop_event.wait(), timeout=self._sync_interval)
                 else:
                     await asyncio.sleep(self._sync_interval)
-            except (TimeoutError, asyncio.TimeoutError):
+            except TimeoutError:
                 pass
 
 

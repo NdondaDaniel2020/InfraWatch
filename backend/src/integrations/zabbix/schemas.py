@@ -7,10 +7,10 @@ Define modelos de dados para:
 - Visão agregada de telemetria de hardware (CPU, Memória RAM, Disco)
 """
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
-from pydantic import BaseModel, ConfigDict, Field
 
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
 # Envelope JSON-RPC 2.0 Padrão

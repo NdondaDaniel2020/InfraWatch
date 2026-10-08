@@ -12,6 +12,7 @@ Suporta:
 import asyncio
 import logging
 from typing import Any
+
 import httpx
 
 from src.integrations.zabbix.schemas import (
@@ -89,11 +90,16 @@ class ZabbixClient:
         self._request_counter = 0
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "ZabbixClient":
+    async def __aenter__(self) -> "ZabbixClient":  # noqa: PYI034
         await self.open()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         await self.close()
 
     async def open(self) -> None:
@@ -121,7 +127,7 @@ class ZabbixClient:
         if self._session_created and self._auth_token and not self._api_token:
             try:
                 await self.logout()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.debug("Falha ignorada ao encerrar sessão no Zabbix: %s", exc)
 
         if self._client and not self._client.is_closed:
@@ -191,7 +197,7 @@ class ZabbixClient:
                     await asyncio.sleep(0.5 * (2 ** (attempt - 1)))
             except ZabbixError:
                 raise
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 last_exception = exc
                 logger.error("Erro inesperado ao consultar Zabbix: %s", exc)
                 break
@@ -283,39 +289,32 @@ class ZabbixClient:
                 continue
 
             # CPU Utilization (%)
-            if "system.cpu.util" in key or "system.cpu.load" in key:
-                if metrics.cpu_utilization_pct is None:
-                    metrics.cpu_utilization_pct = round(val, 2)
+            if ("system.cpu.util" in key or "system.cpu.load" in key) and metrics.cpu_utilization_pct is None:
+                metrics.cpu_utilization_pct = round(val, 2)
 
             # Memory Utilization (%)
-            elif "vm.memory.util" in key or "vm.memory.size[pused]" in key:
-                if metrics.memory_utilization_pct is None:
-                    metrics.memory_utilization_pct = round(val, 2)
+            elif ("vm.memory.util" in key or "vm.memory.size[pused]" in key) and metrics.memory_utilization_pct is None:
+                metrics.memory_utilization_pct = round(val, 2)
 
             # Memory Used Bytes
-            elif "vm.memory.size[used]" in key:
-                if metrics.memory_used_bytes is None:
-                    metrics.memory_used_bytes = val
+            elif "vm.memory.size[used]" in key and metrics.memory_used_bytes is None:
+                metrics.memory_used_bytes = val
 
             # Memory Total Bytes
-            elif "vm.memory.size[total]" in key:
-                if metrics.memory_total_bytes is None:
-                    metrics.memory_total_bytes = val
+            elif "vm.memory.size[total]" in key and metrics.memory_total_bytes is None:
+                metrics.memory_total_bytes = val
 
             # Disk Utilization (%)
-            elif "vfs.fs.size[" in key and "pused]" in key:
-                if metrics.disk_utilization_pct is None:
-                    metrics.disk_utilization_pct = round(val, 2)
+            elif "vfs.fs.size[" in key and "pused]" in key and metrics.disk_utilization_pct is None:
+                metrics.disk_utilization_pct = round(val, 2)
 
             # Disk Used Bytes
-            elif "vfs.fs.size[" in key and "used]" in key and "pused]" not in key:
-                if metrics.disk_used_bytes is None:
-                    metrics.disk_used_bytes = val
+            elif "vfs.fs.size[" in key and "used]" in key and "pused]" not in key and metrics.disk_used_bytes is None:
+                metrics.disk_used_bytes = val
 
             # Disk Total Bytes
-            elif "vfs.fs.size[" in key and "total]" in key:
-                if metrics.disk_total_bytes is None:
-                    metrics.disk_total_bytes = val
+            elif "vfs.fs.size[" in key and "total]" in key and metrics.disk_total_bytes is None:
+                metrics.disk_total_bytes = val
 
         # Se temos used e total de memória mas não a porcentagem, calcula:
         if (
