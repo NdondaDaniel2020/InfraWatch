@@ -1,22 +1,46 @@
-.PHONY: help dev run test lint format up down status
+.PHONY: help dev run api worker-probe worker-outbox worker-cleanup workers test lint format up down status container container-stop
 
 UV = uv
 
 help:
 	@echo "Comandos disponíveis:"
-	@echo "  make dev       - Inicia o servidor backend FastAPI com hot-reload executando main.py"
-	@echo "  make run       - Inicia o servidor backend (alias para dev)"
-	@echo "  make test      - Executa os testes automatizados com uv run pytest"
-	@echo "  make lint      - Executa checagem de código com uv run ruff"
-	@echo "  make format    - Formata o código com uv run ruff format"
-	@echo "  make up        - Sobe os containers da infraestrutura com Docker Compose"
-	@echo "  make down      - Encerra os containers do Docker Compose"
-	@echo "  make status    - Exibe o status dos containers"
+	@echo "  make dev            - Inicia infra (Postgres/Redis) + API (FastAPI) + Probe Worker em paralelo"
+	@echo "  make run            - Inicia o servidor backend FastAPI com hot-reload (alias: api)"
+	@echo "  make api            - Inicia apenas o servidor backend FastAPI com hot-reload"
+	@echo "  make worker-probe   - Inicia o Daemon de Sondas (Probe Worker) para pings e checagens"
+	@echo "  make worker-outbox  - Inicia o worker de Outbox Relay independente"
+	@echo "  make worker-cleanup - Inicia o worker de expurgo de tokens independente"
+	@echo "  make workers        - Inicia os daemons de segundo plano"
+	@echo "  make test           - Executa os testes automatizados com uv run pytest"
+	@echo "  make lint           - Executa checagem de código com uv run ruff"
+	@echo "  make format         - Formata o código com uv run ruff format"
+	@echo "  make up             - Sobe os containers da infraestrutura com Docker Compose"
+	@echo "  make down           - Encerra os containers do Docker Compose"
+	@echo "  make status         - Exibe o status dos containers"
+	@echo "  make container      - Sobe apenas containers de Postgres e Redis sem Compose"
+	@echo "  make container-stop - Para os containers locais de Postgres e Redis"
 
-dev: container run
+dev: container
+	@echo "Iniciando InfraWatch Backend (API + Probe Worker)..."
+	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; (cd backend && $(UV) run python -m src.workers.probe_worker) & (cd backend && $(UV) run python main.py)"
 
 run:
 	cd backend && $(UV) run python main.py
+
+api: run
+
+worker-probe:
+	cd backend && $(UV) run python -m src.workers.probe_worker
+
+worker-outbox:
+	cd backend && $(UV) run python -m src.workers.daemons.outbox_relay_worker
+
+worker-cleanup:
+	cd backend && $(UV) run python -m src.workers.daemons.token_cleanup_worker
+
+workers:
+	@echo "Iniciando Daemons de workers..."
+	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; (cd backend && $(UV) run python -m src.workers.probe_worker) & wait"
 
 test:
 	cd backend && $(UV) run pytest tests -v
