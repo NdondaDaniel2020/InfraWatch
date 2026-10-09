@@ -180,6 +180,15 @@ class Settings(BaseSettings):
     ZABBIX_PASSWORD: str = Field(default="zabbix", alias="ZABBIX_PASSWORD")
     ZABBIX_TIMEOUT_SECONDS: float = Field(default=10.0, alias="ZABBIX_TIMEOUT_SECONDS")
 
+    # Notificações Multicanal (Telegram, WhatsApp e Webhooks)
+    TELEGRAM_BOT_TOKEN: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
+    TELEGRAM_DEFAULT_CHAT_ID: str = Field(default="", alias="TELEGRAM_DEFAULT_CHAT_ID")
+    WHATSAPP_ENABLED: bool = Field(default=False, alias="WHATSAPP_ENABLED")
+    WHATSAPP_GATEWAY_URL: str = Field(default="", alias="WHATSAPP_GATEWAY_URL")
+    WHATSAPP_API_TOKEN: str = Field(default="", alias="WHATSAPP_API_TOKEN")
+    WHATSAPP_DEFAULT_RECIPIENT: str = Field(default="", alias="WHATSAPP_DEFAULT_RECIPIENT")
+    DEFAULT_WEBHOOK_URL: str = Field(default="", alias="DEFAULT_WEBHOOK_URL")
+
     @model_validator(mode="after")
     def _validate_production_security(self) -> Self:
         """Aplica validações de segurança estritas quando em ambiente de produção."""
