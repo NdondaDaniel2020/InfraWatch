@@ -7,6 +7,9 @@ import logging
 from collections.abc import Awaitable, Callable
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from functools import lru_cache
+from pathlib import Path
+from string import Template
 from typing import Any
 
 import aiosmtplib
@@ -16,12 +19,24 @@ from src.integrations.notifications.interfaces import AlertMessage, AlertSeverit
 
 logger = logging.getLogger("infrawatch.notifications.smtp")
 
+_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
+
 _SEVERITY_COLORS: dict[AlertSeverity, str] = {
     AlertSeverity.CRITICAL: "#DC2626",
     AlertSeverity.DEGRADED: "#D97706",
     AlertSeverity.RESOLVED: "#059669",
     AlertSeverity.INFO: "#2563EB",
 }
+
+
+@lru_cache(maxsize=8)
+def _load_template(template_name: str) -> Template:
+    """Carrega e armazena em cache o template de e-mail a partir do disco."""
+    template_path = _TEMPLATES_DIR / template_name
+    if template_path.is_file():
+        return Template(template_path.read_text(encoding="utf-8"))
+    logger.warning("Template '%s' não encontrado em '%s'", template_name, template_path)
+    return Template("<div><h2>$title</h2><p>$description</p></div>")
 
 
 class SmtpNotificationChannel:
@@ -80,32 +95,16 @@ class SmtpNotificationChannel:
                 f"<td style='padding:6px 0;color:#111827;font-size:14px;'>{alert.downtime_minutes:.1f} minutos</td></tr>"
             )
 
-        return f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:24px;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:580px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-    <div style="background-color:{color};padding:16px 24px;color:#ffffff;">
-      <span style="display:inline-block;padding:2px 8px;background:rgba(255,255,255,0.25);border-radius:4px;font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">
-        {alert.severity.value}
-      </span>
-      <h2 style="margin:8px 0 0 0;font-size:18px;font-weight:600;color:#ffffff;">{safe_title}</h2>
-    </div>
-    <div style="padding:24px;">
-      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#374151;">{safe_desc}</p>
-      <table style="width:100%;border-collapse:collapse;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px;">
-        {device_section}
-        {downtime_section}
-        <tr><td style="padding:6px 0;color:#6b7280;font-size:14px;"><strong>Data/Hora:</strong></td>
-            <td style="padding:6px 0;color:#111827;font-size:14px;">{date_str}</td></tr>
-      </table>
-    </div>
-    <div style="background:#f9fafb;padding:12px 24px;border-top:1px solid #e5e7eb;text-align:center;color:#9ca3af;font-size:12px;">
-      InfraWatch Monitoring System • Notificação Automática
-    </div>
-  </div>
-</body>
-</html>"""
+        template = _load_template("alert_email.html")
+        return template.safe_substitute(
+            color=color,
+            severity=alert.severity.value,
+            title=safe_title,
+            description=safe_desc,
+            device_section=device_section,
+            downtime_section=downtime_section,
+            timestamp=date_str,
+        )
 
     async def send(self, alert: AlertMessage, recipient: str | None = None) -> bool:
         """Envia e-mail formatado via SMTP assíncrono."""
