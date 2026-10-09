@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.contexts.iam.database.models import UserModel
 from src.contexts.iam.domain.events import (
     AccountLockedEvent,
     EmailVerificationRequestedEvent,
@@ -17,7 +18,6 @@ from src.contexts.iam.domain.events import (
     PasswordResetRequestedEvent,
     UserLoggedInEvent,
 )
-from src.contexts.iam.database.models import UserModel
 from src.contexts.iam.repositories.email_verification_repository import (
     EmailVerificationRepository,
 )

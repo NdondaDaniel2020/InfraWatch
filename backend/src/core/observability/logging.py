@@ -11,7 +11,6 @@ from typing import Any
 from src.core.config import get_settings
 from src.core.observability.context import get_request_id, get_user_id
 
-
 # Campos padrão do LogRecord que não devem ser incluídos como extra
 _STANDARD_LOG_RECORD_ATTRS = {
     "name",
