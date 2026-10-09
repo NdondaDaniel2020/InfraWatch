@@ -25,12 +25,12 @@ logger = logging.getLogger(__name__)
 class EventPublisher(Protocol):
     """Protocolo abstrato para publicação de eventos no barramento."""
 
-    async def publish(self, event_type: str, payload: dict[str, Any]) -> None:
+    async def publish(self, event_type: str, payload: dict[str, Any]) -> Any:
         """Publica o evento com seu payload no canal ou stream correspondente."""
         ...
 
 
-PublishCallback = Callable[[str, dict[str, Any]], Awaitable[None]]
+PublishCallback = Callable[[str, dict[str, Any]], Awaitable[Any]]
 
 
 class OutboxRelayWorker:
@@ -43,6 +43,7 @@ class OutboxRelayWorker:
         batch_size: int = 50,
         max_retries: int = 5,
         worker_id: str | None = None,
+        poll_interval: float = 30.0,
     ) -> None:
         self.publisher = publisher
         self.session_factory = session_factory or get_session_factory()
@@ -51,6 +52,9 @@ class OutboxRelayWorker:
         self.worker_id = worker_id or f"outbox-{uuid.uuid4().hex[:8]}"
         self.wake_signal = asyncio.Event()
         self.is_listener_healthy = False
+        self._poll_interval = poll_interval
+        self._stop_event: asyncio.Event | None = None
+        self._task: asyncio.Task[None] | None = None
         self._log = logging.LoggerAdapter(logger, {"worker_id": self.worker_id})
 
     async def _listen_for_notifications(self, stop_event: asyncio.Event | None = None) -> None:
@@ -59,7 +63,7 @@ class OutboxRelayWorker:
         Se a conexão cair ou falhar, realiza tentativas periódicas de reconexão.
         Durante qualquer indisponibilidade, o loop principal continuará processando via polling de fallback.
         """
-        import asyncpg
+        import asyncpg  # type: ignore[import-untyped]
 
         from src.core.config import get_settings
 
@@ -164,6 +168,8 @@ class OutboxRelayWorker:
         stop_event: asyncio.Event | None = None,
         max_idle: float | None = None,
     ) -> None:
+        self._poll_interval = poll_interval
+        self._stop_event = stop_event or asyncio.Event()
         """Executa o loop contínuo de relay de eventos com LISTEN/NOTIFY e Polling de Fallback.
 
         Args:
@@ -229,6 +235,32 @@ class OutboxRelayWorker:
             listener_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await listener_task
+
+    # --- API compatível com TokenCleanupWorker ---
+
+    async def start(self) -> asyncio.Task[None]:
+        """Inicia o loop assíncrono do worker como uma Task."""
+        if self._task is None or self._task.done():
+            self._stop_event = asyncio.Event()
+            self._task = asyncio.create_task(
+                self.run_forever(
+                    poll_interval=self._poll_interval,
+                    stop_event=self._stop_event,
+                )
+            )
+        return self._task
+
+    async def stop(self) -> None:
+        """Para a execução do worker de forma graciosa."""
+        if self._stop_event:
+            self._stop_event.set()
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
 
 
 async def run_standalone() -> None:
