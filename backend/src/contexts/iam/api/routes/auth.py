@@ -68,6 +68,7 @@ async def register(
             organization_id=body.organization_id,
             role=body.role,
         )
+        await user_service.uow.commit()
     except EmailAlreadyExistsError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -101,6 +102,7 @@ async def login(
             client_ip=client_ip,
             user_agent=user_agent,
         )
+        await auth_service.uow.commit()
     except AuthenticationError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -171,6 +173,7 @@ async def login_mfa_challenge(
             client_ip=client_ip,
             user_agent=user_agent,
         )
+        await auth_service.uow.commit()
     except (InvalidMfaChallengeError, InvalidMfaPendingTokenError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -252,6 +255,7 @@ async def verify_email_endpoint(
     """Valida token recebido por e-mail e marca a conta do usuário como verificada."""
     try:
         await auth_service.verify_email(token=body.token)
+        await auth_service.uow.commit()
     except (InvalidOrExpiredTokenError, TokenAlreadyUsedError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -273,6 +277,7 @@ async def resend_verification_endpoint(
 ) -> dict[str, str]:
     """Reenvia o e-mail de confirmação caso o usuário exista e ainda não esteja verificado."""
     await auth_service.resend_verification_email(email=body.email)
+    await auth_service.uow.commit()
     return {
         "status": "ok",
         "message": "Se o e-mail estiver cadastrado e não verificado, um novo link foi enviado.",
@@ -286,6 +291,7 @@ async def request_password_reset_endpoint(
 ) -> dict[str, str]:
     """Gera um token seguro de redefinição de senha sem vazar a existência do e-mail."""
     await auth_service.request_password_reset(email=body.email)
+    await auth_service.uow.commit()
     return {
         "status": "ok",
         "message": "Se o endereço estiver cadastrado, as instruções de redefinição foram enviadas.",
@@ -303,6 +309,7 @@ async def confirm_password_reset_endpoint(
             token=body.token,
             new_password=body.new_password,
         )
+        await auth_service.uow.commit()
     except (InvalidOrExpiredTokenError, TokenAlreadyUsedError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -12,6 +12,8 @@ from src.core.database.session import (
 from src.core.database.unit_of_work import (
     AbstractUnitOfWork,
     SqlAlchemyUnitOfWork,
+    UnitOfWorkDep,
+    get_unit_of_work,
 )
 
 __all__ = [
@@ -21,8 +23,10 @@ __all__ = [
     "DbSessionDep",
     "OutboxRepository",
     "SqlAlchemyUnitOfWork",
+    "UnitOfWorkDep",
     "build_async_database_url",
     "get_db_session",
     "get_engine",
     "get_session_factory",
+    "get_unit_of_work",
 ]

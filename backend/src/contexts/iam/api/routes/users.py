@@ -62,6 +62,7 @@ async def update_my_user_profile(
     user_uuid = UUID(current_user.id)
     try:
         updated = await user_service.update_profile(user_uuid, full_name=body.full_name)
+        await user_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -225,6 +226,7 @@ async def update_user_role(
     """Atualiza o papel de permissão atribuído ao usuário."""
     try:
         updated = await user_service.update_user_role(user_id, body.role)
+        await user_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -251,6 +253,7 @@ async def activate_user(
     """Reativa conta de usuário."""
     try:
         user = await user_service.activate_user(user_id)
+        await user_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -284,6 +287,7 @@ async def deactivate_user(
 
     try:
         user = await user_service.deactivate_user(user_id)
+        await user_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -303,6 +307,7 @@ async def admin_disable_mfa(
     """Desativa o MFA de um usuário por intervenção de suporte quando há perda irrecuperável de chaves."""
     try:
         user = await user_service.admin_disable_mfa(user_id)
+        await user_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 

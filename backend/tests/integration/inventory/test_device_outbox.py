@@ -1,4 +1,6 @@
 from collections.abc import AsyncGenerator
+from uuid import uuid4
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
@@ -7,16 +9,15 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import StaticPool
-from uuid import uuid4
-
-from src.core.database.base_model import Base
-from src.core.database.models.outbox import OutboxEventModel, OutboxStatus
-from src.contexts.inventory.schemas.requests import CreateDeviceRequest
-from src.contexts.inventory.services.device_command_service import DeviceCommandService
 
 # We need a mock repository and a concrete session for testing Outbox insertion
 from src.contexts.inventory.domain.aggregate import Device
 from src.contexts.inventory.repositories.device_repository import DeviceRepository
+from src.contexts.inventory.schemas.requests import CreateDeviceRequest
+from src.contexts.inventory.services.device_command_service import DeviceCommandService
+from src.core.database.base_model import Base
+from src.core.database.models.outbox import OutboxEventModel, OutboxStatus
+
 
 class DummyDeviceRepository(DeviceRepository):
     async def save(self, device: Device) -> None:
@@ -79,6 +80,7 @@ async def test_device_creation_generates_outbox_event(
         )
 
         device = await service.create_device(cmd, actor_user_id=uuid4(), actor_ip="127.0.0.1")
+        await service.uow.commit()
 
     # Verifica o DB usando uma nova sessão (pois a anterior fez commit)
     async with test_session_factory() as session:
