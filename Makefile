@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix workers test lint format up down status container container-stop glpi-up glpi-down test-glpi
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean
 
 UV = uv
 
@@ -16,6 +16,8 @@ help:
 	@echo "  make test           - Executa os testes automatizados com uv run pytest"
 	@echo "  make lint           - Executa checagem de código com uv run ruff"
 	@echo "  make format         - Formata o código com uv run ruff format"
+	@echo "  make secrets-init   - Inicializa arquivos locais em secrets/ para Docker Compose"
+	@echo "  make secrets-clean  - Remove arquivos de segredos locais de secrets/"
 	@echo "  make up             - Sobe os containers da infraestrutura com Docker Compose"
 	@echo "  make down           - Encerra os containers do Docker Compose"
 	@echo "  make status         - Exibe o status dos containers"
@@ -66,7 +68,15 @@ lint:
 format:
 	cd backend && $(UV) run ruff check --fix . && $(UV) run ruff format .
 
-up:
+secrets-init:
+	@./scripts/init-secrets.sh
+
+secrets-clean:
+	@echo "Removendo arquivos de segredos locais..."
+	@rm -f secrets/*.txt
+	@echo "Segredos removidos."
+
+up: secrets-init
 	docker compose up -d postgres redis
 
 down:
@@ -75,22 +85,24 @@ down:
 status:
 	docker compose ps
 
-container:
+container: secrets-init
 	@echo "Starting Redis container..."
-	@docker start infrawatch-redis 2>/dev/null || docker run -d \
+	@REDIS_PASS=$$(cat secrets/redis_password.txt 2>/dev/null || echo "redis_secure_password_2026"); \
+	docker start infrawatch-redis 2>/dev/null || docker run -d \
 		--name infrawatch-redis \
 		-p 6379:6379 \
-		-e REDIS_PASSWORD=redis_secure_password_2026 \
+		-e REDIS_PASSWORD=$$REDIS_PASS \
 		-v infrawatch_redis_data:/data \
 		redis:7-alpine \
-		redis-server --appendonly yes --requirepass redis_secure_password_2026
+		redis-server --appendonly yes --requirepass $$REDIS_PASS
 	@echo "Starting Postgres container..."
-	@docker start infrawatch-postgres 2>/dev/null || docker run -d \
+	@PG_PASS=$$(cat secrets/postgres_password.txt 2>/dev/null || echo "infrawatch_secure_password_2026"); \
+	docker start infrawatch-postgres 2>/dev/null || docker run -d \
 		--name infrawatch-postgres \
 		-p 5432:5432 \
 		-e POSTGRES_DB=infrawatch_db \
 		-e POSTGRES_USER=infrawatch_user \
-		-e POSTGRES_PASSWORD=infrawatch_secure_password_2026 \
+		-e POSTGRES_PASSWORD=$$PG_PASS \
 		-v infrawatch_postgres_data:/var/lib/postgresql/data \
 		postgres:16-alpine
 
@@ -98,7 +110,7 @@ container-stop:
 	@docker stop infrawatch-redis infrawatch-postgres 2>/dev/null || true
 	@docker rm infrawatch-redis infrawatch-postgres 2>/dev/null || true
 
-glpi-up:
+glpi-up: secrets-init
 	docker compose -f docker-compose.glpi.yml up -d
 
 glpi-down:
@@ -108,7 +120,7 @@ test-glpi:
 	@echo "Executando teste de integração com GLPI..."
 	@cd backend && .venv/bin/python ../scripts/test_glpi.py
 
-zabbix-up:
+zabbix-up: secrets-init
 	docker compose -f docker-compose.zabbix.yml up -d
 
 zabbix-down:
@@ -117,3 +129,4 @@ zabbix-down:
 test-zabbix:
 	@echo "Executando teste de integração com Zabbix..."
 	@cd backend && .venv/bin/python ../scripts/test_zabbix.py
+

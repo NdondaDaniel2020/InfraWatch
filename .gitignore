@@ -5,6 +5,8 @@
 *.pem
 *.key
 *.cert
+secrets/*.txt
+!secrets/.gitkeep
 
 # Python
 __pycache__/
