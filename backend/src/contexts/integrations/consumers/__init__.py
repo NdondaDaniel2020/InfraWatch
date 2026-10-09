@@ -1,7 +1,4 @@
-"""Módulo de compatibilidade reversa para GlpiTicketConsumer (ADR-001).
-
-Redireciona para src.contexts.integrations.consumers.glpi_ticket_consumer.
-"""
+"""Consumers assíncronos do Bounded Context de Integrações."""
 
 from src.contexts.integrations.consumers.glpi_ticket_consumer import (
     CONSUMER_GROUP,

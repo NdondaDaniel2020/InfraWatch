@@ -11,10 +11,12 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.contexts.inventory.consumers.inventory_changes_consumer import (
+    InventoryChangesConsumer,
+)
 from src.contexts.inventory.database.models import DeviceModel
 from src.core.database.session import get_session_factory
 from src.core.messaging.resilient_bus import ResilientEventBus
-from src.workers.consumers.inventory_changes_consumer import InventoryChangesConsumer
 from src.workers.scheduler.in_memory_inventory import InMemorySchedule, ProbeTarget
 
 logger = logging.getLogger("infrawatch.workers.probe_worker")
