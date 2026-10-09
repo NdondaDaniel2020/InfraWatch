@@ -17,7 +17,14 @@ class RefreshTokenRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    async def save(self, record: RefreshTokenModel) -> RefreshTokenModel:
+        """Persiste ou atualiza um token de refresh na sessão ativa."""
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
     async def get_by_id(self, session_id: UUID) -> RefreshTokenModel | None:
+
         return await self.session.get(RefreshTokenModel, session_id)
 
     async def get_by_token_hash(self, token_hash: str) -> RefreshTokenModel | None:

@@ -25,6 +25,12 @@ class NotificationRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    async def save(self, notification: NotificationModel) -> NotificationModel:
+        """Persiste ou atualiza uma notificação na sessão ativa."""
+        self.session.add(notification)
+        await self.session.flush()
+        return notification
+
     async def create(
         self,
         *,
@@ -35,7 +41,7 @@ class NotificationRepository:
         channel: str = "in_app",
         details: dict[str, Any] | None = None,
     ) -> NotificationModel:
-        """Cria e persiste uma nova notificação."""
+        """Cria e persiste uma nova notificação (conveniência para save)."""
         uid = _ensure_uuid(user_id)
         notification = NotificationModel(
             user_id=uid,
@@ -45,9 +51,8 @@ class NotificationRepository:
             channel=channel,
             details=details,
         )
-        self.session.add(notification)
-        await self.session.flush()
-        return notification
+        return await self.save(notification)
+
 
     async def get_by_id(
         self,
