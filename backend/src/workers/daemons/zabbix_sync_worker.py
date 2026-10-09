@@ -128,15 +128,16 @@ class ZabbixSyncWorker:
             # Atualiza cache Redis para o dashboard NOC
             try:
                 redis = get_redis_client()
-                cache_key = f"infrawatch:device:{device_id}:hardware_telemetry"
-                payload = {
-                    "cpu_usage_pct": metrics.cpu_utilization_pct,
-                    "memory_usage_pct": metrics.memory_utilization_pct,
-                    "disk_usage_pct": metrics.disk_utilization_pct,
-                    "collected_at": now.isoformat(),
-                    "zabbix_host_id": zabbix_host_id,
-                }
-                await redis.set(cache_key, json.dumps(payload), ex=180)
+                if redis:
+                    cache_key = f"infrawatch:device:{device_id}:hardware_telemetry"
+                    payload = {
+                        "cpu_usage_pct": metrics.cpu_utilization_pct,
+                        "memory_usage_pct": metrics.memory_utilization_pct,
+                        "disk_usage_pct": metrics.disk_utilization_pct,
+                        "collected_at": now.isoformat(),
+                        "zabbix_host_id": zabbix_host_id,
+                    }
+                    await redis.set(cache_key, json.dumps(payload), ex=180)
             except Exception as redis_exc:  # noqa: BLE001
                 logger.debug("Falha ao cachear telemetria no Redis: %s", redis_exc)
 
