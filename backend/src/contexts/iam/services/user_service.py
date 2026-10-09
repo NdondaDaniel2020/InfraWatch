@@ -63,14 +63,15 @@ class UserService:
             raise EmailAlreadyExistsError()
 
         hashed_pwd = password_hasher.hash(password)
-        user = await self.user_repo.create(
+        user = UserModel(
             email=norm_email,
             hashed_password=hashed_pwd,
             full_name=full_name.strip(),
-            role=role,
+            role=str(role),
             organization_id=organization_id,
             is_active=True,
         )
+        user = await self.user_repo.save(user)
 
         # Gera token de ativação/verificação de e-mail (parametrizado via Settings)
         raw_token = generate_opaque_token(32)
