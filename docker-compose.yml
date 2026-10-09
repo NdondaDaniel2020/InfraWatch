@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
       POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     ports:
       - "5432:5432"
     volumes:
@@ -18,6 +18,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    secrets:
+      - postgres_password
     networks:
       - infrawatch-net
 
@@ -25,17 +27,19 @@ services:
     image: redis:7-alpine
     container_name: infrawatch-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_password_2026}
+    command: ["/bin/sh", "-c", "redis-server --appendonly yes --requirepass $$(cat /run/secrets/redis_password)"]
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-redis_secure_password_2026} ping | grep PONG"]
+      test: ["CMD-SHELL", "redis-cli -a $$(cat /run/secrets/redis_password) ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
+    secrets:
+      - redis_password
     networks:
       - infrawatch-net
 
@@ -48,10 +52,17 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
+      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      SECRET_KEY: ${SECRET_KEY:-infrawatch_insecure_dev_secret_key_change_in_production}
+    secrets:
+      - postgres_password
+      - redis_password
+      - secret_key
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,9 +79,16 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "src.workers.daemons.probe_worker"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
+      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
+    secrets:
+      - postgres_password
+      - redis_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,9 +105,16 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "src.workers.integration_worker"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
+      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
+    secrets:
+      - postgres_password
+      - redis_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,9 +131,16 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "src.workers.daemons.outbox_relay_worker"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
+      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
+    secrets:
+      - postgres_password
+      - redis_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,9 +157,16 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "src.workers.daemons.token_cleanup_worker"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-infrawatch_user}:${POSTGRES_PASSWORD:-infrawatch_secure_password_2026}@postgres:5432/${POSTGRES_DB:-infrawatch_db}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_2026}@redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
+      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
+    secrets:
+      - postgres_password
+      - redis_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -142,13 +181,25 @@ services:
     restart: unless-stopped
     ports:
       - "8085:8085"
+    entrypoint: ["/bin/sh", "-c", "export AUTHENTICATION_API_KEY=$$(cat /run/secrets/whatsapp_token 2>/dev/null || echo \"$$AUTHENTICATION_API_KEY\"); exec npm run start:prod"]
     environment:
       SERVER_URL: http://localhost:8085
-      AUTHENTICATION_API_KEY: ${WHATSAPP_API_TOKEN:-infrawatch_whatsapp_secret_token_2026}
+    secrets:
+      - whatsapp_token
     volumes:
       - evolution_instances:/evolution/instances
     networks:
       - infrawatch-net
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+  secret_key:
+    file: ./secrets/secret_key.txt
+  whatsapp_token:
+    file: ./secrets/whatsapp_token.txt
 
 volumes:
   postgres_data:
