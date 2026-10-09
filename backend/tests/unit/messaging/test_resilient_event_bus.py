@@ -125,6 +125,58 @@ class TestInMemoryEventBus:
         assert received_events[0]["order_id"] == 123
         assert received_events[1]["order_id"] == 456
 
+    async def test_subscribe_invokes_canonical_handler_with_topic(
+        self, bus: InMemoryEventBus
+    ) -> None:
+        topic = "notifications.email"
+        group = "email-workers"
+        consumer = "email-worker-1"
+        received_calls: list[tuple[str, dict[str, Any]]] = []
+
+        async def canonical_handler(t: str, payload: dict[str, Any]) -> None:
+            received_calls.append((t, payload))
+
+        await bus.subscribe(topic, group, consumer, canonical_handler)
+        await bus.publish(topic, {"recipient": "admin@infrawatch.io", "subject": "Alerta"})
+
+        import asyncio
+
+        for _ in range(10):
+            if len(received_calls) >= 1:
+                break
+            await asyncio.sleep(0.1)
+
+        assert len(received_calls) == 1
+        assert received_calls[0] == (topic, {"recipient": "admin@infrawatch.io", "subject": "Alerta"})
+
+    async def test_subscribe_invokes_event_handler_protocol(
+        self, bus: InMemoryEventBus
+    ) -> None:
+        topic = "audit.events"
+        group = "audit-workers"
+        consumer = "audit-worker-1"
+
+        class AuditHandler:
+            def __init__(self) -> None:
+                self.records: list[tuple[str, dict[str, Any]]] = []
+
+            async def handle(self, t: str, event_data: dict[str, Any]) -> None:
+                self.records.append((t, event_data))
+
+        handler_instance = AuditHandler()
+        await bus.subscribe(topic, group, consumer, handler_instance)
+        await bus.publish(topic, {"action": "USER_LOGIN", "user": "daniel"})
+
+        import asyncio
+
+        for _ in range(10):
+            if len(handler_instance.records) >= 1:
+                break
+            await asyncio.sleep(0.1)
+
+        assert len(handler_instance.records) == 1
+        assert handler_instance.records[0] == (topic, {"action": "USER_LOGIN", "user": "daniel"})
+
 
 # ============================================================================
 # 2. Testes do RedisStreamsEventBus (com Mock)
