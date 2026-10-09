@@ -43,6 +43,7 @@ from src.contexts.iam.services.token_service import (
 )
 from src.core.config import get_settings
 from src.core.database import OutboxRepository
+from src.core.database.unit_of_work import AbstractUnitOfWork, SqlAlchemyUnitOfWork
 from src.core.exceptions import (
     AccountLockedOutError,
     AuthenticationError,
@@ -74,18 +75,29 @@ class AuthService:
 
     def __init__(
         self,
-        session: AsyncSession,
+        uow_or_session: AbstractUnitOfWork | AsyncSession | None = None,
+        session: AsyncSession | None = None,
         user_repository: UserRepository | None = None,
         token_service: TokenService | None = None,
         rate_limit_service: AuthRateLimitService | None = None,
     ) -> None:
-        self.session = session
-        self.user_repo = user_repository or UserRepository(session)
-        self.token_service = token_service or TokenService(session)
+        target = uow_or_session if uow_or_session is not None else session
+        if target is None:
+            raise ValueError("uow_or_session or session is required")
+
+        if isinstance(target, AbstractUnitOfWork):
+            self.uow = target
+            self.session = target.session
+        else:
+            self.session = target
+            self.uow = SqlAlchemyUnitOfWork(session=target)
+
+        self.user_repo = user_repository or UserRepository(self.session)
+        self.token_service = token_service or TokenService(self.session)
         self.rate_limit_service = rate_limit_service or AuthRateLimitService()
-        self.password_reset_repo = PasswordResetRepository(session)
-        self.email_token_repo = EmailVerificationRepository(session)
-        self.refresh_token_repo = RefreshTokenRepository(session)
+        self.password_reset_repo = PasswordResetRepository(self.session)
+        self.email_token_repo = EmailVerificationRepository(self.session)
+        self.refresh_token_repo = RefreshTokenRepository(self.session)
 
     async def authenticate(
         self,
@@ -132,7 +144,7 @@ class AuthService:
                         block_minutes=block_minutes,
                     )
                     OutboxRepository.add_event(self.session, locked_event, aggregate_type="User")
-                    await self.session.commit()
+                    await self.session.flush()
                 log_security_event(
                     "ACCOUNT_LOCKED",
                     user_id=str(user.id) if user else None,
@@ -191,7 +203,6 @@ class AuthService:
             organization_id=user.organization_id,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
-        await self.session.commit()
 
         log_security_event(
             "LOGIN_SUCCESS",
@@ -258,7 +269,6 @@ class AuthService:
             organization_id=user.organization_id,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
-        await self.session.commit()
 
         log_security_event(
             "MFA_LOGIN_SUCCESS",
@@ -302,7 +312,6 @@ class AuthService:
             reset_token=raw_token,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
-        await self.session.commit()
         return raw_token
 
     async def reset_password(
@@ -343,7 +352,6 @@ class AuthService:
         OutboxRepository.add_event(self.session, completed_event, aggregate_type="User")
 
         await self.session.flush()
-        await self.session.commit()
 
     async def verify_email(
         self,
@@ -379,7 +387,6 @@ class AuthService:
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
 
         await self.session.flush()
-        await self.session.commit()
 
     async def resend_verification_email(
         self,
@@ -410,5 +417,4 @@ class AuthService:
             verify_token=raw_token,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
-        await self.session.commit()
         return raw_token

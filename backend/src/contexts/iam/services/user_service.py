@@ -28,6 +28,7 @@ from src.contexts.iam.security.password import password_hasher
 from src.contexts.iam.security.tokens import generate_opaque_token
 from src.core.config import get_settings
 from src.core.database.outbox_repository import OutboxRepository
+from src.core.database.unit_of_work import AbstractUnitOfWork, SqlAlchemyUnitOfWork
 from src.core.exceptions import (
     EmailAlreadyExistsError,
     NotFoundError,
@@ -39,13 +40,24 @@ class UserService:
 
     def __init__(
         self,
-        session: AsyncSession,
+        uow_or_session: AbstractUnitOfWork | AsyncSession | None = None,
+        session: AsyncSession | None = None,
     ) -> None:
-        self.session = session
-        self.user_repo = UserRepository(session)
-        self.email_token_repo = EmailVerificationRepository(session)
-        self.mfa_repo = MfaRepository(session)
-        self.refresh_token_repo = RefreshTokenRepository(session)
+        target = uow_or_session if uow_or_session is not None else session
+        if target is None:
+            raise ValueError("uow_or_session or session is required")
+
+        if isinstance(target, AbstractUnitOfWork):
+            self.uow = target
+            self.session = target.session
+        else:
+            self.session = target
+            self.uow = SqlAlchemyUnitOfWork(session=target)
+
+        self.user_repo = UserRepository(self.session)
+        self.email_token_repo = EmailVerificationRepository(self.session)
+        self.mfa_repo = MfaRepository(self.session)
+        self.refresh_token_repo = RefreshTokenRepository(self.session)
 
     async def register_user(
         self,
@@ -91,7 +103,7 @@ class UserService:
             verify_token=raw_token,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(user)
 
         return user, raw_token
@@ -113,7 +125,6 @@ class UserService:
             changed_fields.append("Nome Completo")
 
         await self.session.flush()
-        await self.session.commit()
         await self.session.refresh(user)
 
         if changed_fields:
@@ -123,7 +134,7 @@ class UserService:
                 changed_fields=", ".join(changed_fields),
             )
             OutboxRepository.add_event(self.session, event, aggregate_type="User")
-            await self.session.commit()
+            await self.session.flush()
 
         return user
 
@@ -166,7 +177,6 @@ class UserService:
         old_role = str(user.role)
         user.role = role_str
         await self.session.flush()
-        await self.session.commit()
         await self.session.refresh(user)
 
         if old_role != role_str:
@@ -176,7 +186,7 @@ class UserService:
                 new_roles=role_str,
             )
             OutboxRepository.add_event(self.session, event, aggregate_type="User")
-            await self.session.commit()
+            await self.session.flush()
 
         return user
 
@@ -190,7 +200,6 @@ class UserService:
 
         user.is_active = True
         await self.session.flush()
-        await self.session.commit()
         await self.session.refresh(user)
         return user
 
@@ -207,16 +216,14 @@ class UserService:
 
         user.is_active = False
         await self.refresh_token_repo.revoke_other_sessions(user_id)
-        await self.session.flush()
-        await self.session.commit()
-        await self.session.refresh(user)
         event = AccountDeactivatedEvent(
             aggregate_id=user.id,
             email=user.email,
             reason=reason,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
-        await self.session.commit()
+        await self.session.flush()
+        await self.session.refresh(user)
         return user
 
     async def admin_disable_mfa(self, user_id: UUID) -> UserModel:
@@ -232,6 +239,5 @@ class UserService:
         user.mfa_enabled = False
         user.mfa_type = None
         await self.session.flush()
-        await self.session.commit()
         await self.session.refresh(user)
         return user

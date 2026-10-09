@@ -19,16 +19,17 @@ from src.contexts.iam.services.session_service import SessionService
 from src.contexts.iam.services.token_service import TokenService
 from src.contexts.iam.services.user_service import UserService
 from src.core.database.session import DbSessionDep
+from src.core.database.unit_of_work import UnitOfWorkDep
 
 
-def get_user_service(db: DbSessionDep) -> UserService:
-    """Fábrica de injeção para o UserService."""
-    return UserService(db)
+def get_user_service(uow: UnitOfWorkDep) -> UserService:
+    """Fábrica de injeção para o UserService com Unit of Work."""
+    return UserService(uow)
 
 
-def get_auth_service(db: DbSessionDep) -> AuthService:
-    """Fábrica de injeção para o AuthService."""
-    return AuthService(db)
+def get_auth_service(uow: UnitOfWorkDep) -> AuthService:
+    """Fábrica de injeção para o AuthService com Unit of Work."""
+    return AuthService(uow)
 
 
 def get_session_service(db: DbSessionDep) -> SessionService:
