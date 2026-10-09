@@ -185,8 +185,8 @@ class TestDockerComposeConfig(unittest.TestCase):
         self.assertNotIn("DATABASE_URL", api.get("environment", {}))
         self.assertNotIn("REDIS_URL", api.get("environment", {}))
 
-        # Evolution API
-        evolution = services["evolution-api"]
+        # Evolution API / WhatsApp Gateway
+        evolution = services.get("infrawatch-whatsapp-gateway") or services["evolution-api"]
         self.assertIn("whatsapp_token", evolution.get("secrets", []))
         self.assertNotIn("AUTHENTICATION_API_KEY", evolution.get("environment", {}))
 
