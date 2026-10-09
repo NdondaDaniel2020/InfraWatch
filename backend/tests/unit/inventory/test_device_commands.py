@@ -3,12 +3,12 @@ from datetime import datetime, UTC, timedelta
 from uuid import uuid4
 
 from src.contexts.inventory.domain.aggregate import Device
-from src.contexts.inventory.domain.commands import (
-    CreateDeviceCommand,
-    UpdateDeviceCommand,
-    PauseDeviceCommand,
-    ResumeDeviceCommand,
-    SetMaintenanceCommand,
+from src.contexts.inventory.schemas.requests import (
+    CreateDeviceRequest,
+    PauseDeviceRequest,
+    ResumeDeviceRequest,
+    SetMaintenanceRequest,
+    UpdateDeviceRequest,
 )
 from src.contexts.inventory.services.device_command_service import DeviceCommandService
 
@@ -63,7 +63,7 @@ async def test_create_device_success():
     org_id = uuid4()
     actor_id = uuid4()
     
-    cmd = CreateDeviceCommand(
+    cmd = CreateDeviceRequest(
         organization_id=org_id,
         name="Router Edge",
         ip_address="192.168.1.1",
@@ -97,7 +97,7 @@ async def test_create_device_invalid_interval():
     service = DeviceCommandService(session, repo)
     service.audit_service = MockAuditService()
 
-    cmd = CreateDeviceCommand(
+    cmd = CreateDeviceRequest(
         organization_id=uuid4(),
         name="Router",
         ip_address="1.1.1.1",
@@ -122,14 +122,14 @@ async def test_pause_and_resume_device():
     device = Device(uuid4(), uuid4(), "Switch", "10.0.0.1", 161, "snmp", "SWITCH", 60, {})
     await repo.save(device)
     
-    cmd_pause = PauseDeviceCommand(device.id, device.organization_id, reason="Maintenance")
+    cmd_pause = PauseDeviceRequest(device_id=device.id, organization_id=device.organization_id, reason="Maintenance")
     await service.pause_device(cmd_pause, uuid4(), "127.0.0.1")
     
     assert device.status == "PAUSED"
     assert device.is_paused is True
     assert session.added[-1]["event"].event_type == "DevicePaused"
     
-    cmd_resume = ResumeDeviceCommand(device.id, device.organization_id)
+    cmd_resume = ResumeDeviceRequest(device_id=device.id, organization_id=device.organization_id)
     await service.resume_device(cmd_resume, uuid4(), "127.0.0.1")
     
     assert device.status == "UP"
@@ -148,7 +148,7 @@ async def test_set_maintenance():
     await repo.save(device)
     
     future = datetime.now(UTC) + timedelta(hours=2)
-    cmd = SetMaintenanceCommand(device.id, device.organization_id, future, "OS Update", "Security patch")
+    cmd = SetMaintenanceRequest(device_id=device.id, organization_id=device.organization_id, until=future, title="OS Update", reason="Security patch")
     
     await service.set_maintenance(cmd, uuid4(), "127.0.0.1")
     
