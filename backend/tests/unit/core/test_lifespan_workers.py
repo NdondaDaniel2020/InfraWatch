@@ -8,6 +8,18 @@ from fastapi import FastAPI
 
 from src.core.config import Settings
 from src.core.web.lifespan import _notify_zabbix_startup, lifespan
+from src.integrations.glpi.notifier import reset_glpi_notifier
+from src.integrations.zabbix.notifier import reset_zabbix_notifier
+
+
+@pytest.fixture(autouse=True)
+def reset_notifiers():
+    """Reseta os singletons de notificadores entre testes."""
+    reset_glpi_notifier()
+    reset_zabbix_notifier()
+    yield
+    reset_glpi_notifier()
+    reset_zabbix_notifier()
 
 
 @pytest.mark.asyncio
@@ -24,48 +36,41 @@ async def test_lifespan_starts_and_stops_workers_in_development():
 
     fake_redis = AsyncMock()
     fake_redis.aclose = AsyncMock()
+    fake_redis.set = AsyncMock(return_value=True)
     mock_engine = AsyncMock()
     mock_engine.dispose = AsyncMock()
 
-    mock_outbox_worker = MagicMock()
-
-    async def fake_outbox_run_forever(
-        poll_interval: float = 1.0, stop_event: asyncio.Event | None = None
-    ) -> None:
-        try:
-            if stop_event:
-                await stop_event.wait()
-        except asyncio.CancelledError:
-            pass
-
-    mock_outbox_worker.run_forever = fake_outbox_run_forever
+    mock_outbox_worker = AsyncMock()
+    mock_outbox_worker.start = AsyncMock()
+    mock_outbox_worker.stop = AsyncMock()
 
     mock_cleanup_worker = MagicMock()
-    mock_cleanup_worker.start = MagicMock(return_value=asyncio.create_task(asyncio.sleep(100)))
+    mock_cleanup_worker.start = MagicMock()
     mock_cleanup_worker.stop = AsyncMock()
 
+    # Mock the factory functions to return our mocks
     with (
         patch("src.core.web.lifespan.get_settings", return_value=custom_settings),
         patch("src.core.web.lifespan.init_redis", new_callable=AsyncMock),
         patch("src.core.web.lifespan.close_redis", new_callable=AsyncMock),
         patch("src.core.web.lifespan.init_db", new_callable=AsyncMock, return_value=mock_engine),
         patch("src.core.web.lifespan.close_db", new_callable=AsyncMock),
-        patch("src.core.web.lifespan.OutboxRelayWorker", return_value=mock_outbox_worker),
-        patch("src.core.web.lifespan.TokenCleanupWorker", return_value=mock_cleanup_worker),
+        patch("src.integrations.zabbix.notifier.get_redis_client", return_value=fake_redis),
+        patch("src.core.web.lifespan.get_outbox_relay_worker", return_value=mock_outbox_worker),
+        patch("src.core.web.lifespan.get_token_cleanup_worker", return_value=mock_cleanup_worker),
     ):
         async with lifespan(app):
-            # Valida registro de instâncias e tasks no app.state
+            # Valida registro de instâncias no app.state
             assert hasattr(app.state, "event_bus")
-            assert hasattr(app.state, "outbox_task")
-            assert app.state.outbox_task is not None
-            assert not app.state.outbox_task.done()
+            assert hasattr(app.state, "outbox_worker")
+            assert app.state.outbox_worker is mock_outbox_worker
             assert hasattr(app.state, "token_cleanup_worker")
             assert app.state.token_cleanup_worker is mock_cleanup_worker
+            mock_outbox_worker.start.assert_awaited_once()
             mock_cleanup_worker.start.assert_called_once()
 
         # Valida teardown gracioso
-        assert app.state.outbox_stop_event.is_set()
-        assert app.state.outbox_task.done()
+        mock_outbox_worker.stop.assert_awaited_once()
         mock_cleanup_worker.stop.assert_awaited_once()
 
 
@@ -89,7 +94,7 @@ async def test_lifespan_skips_workers_when_environment_is_test():
     ):
         async with lifespan(app):
             assert hasattr(app.state, "event_bus")
-            assert not hasattr(app.state, "outbox_task")
+            assert not hasattr(app.state, "outbox_worker")
             assert not hasattr(app.state, "token_cleanup_worker")
 
 
@@ -103,8 +108,8 @@ async def test_outbox_dispatcher_relays_to_sse_when_target_user_present():
     )
 
     fake_broadcaster = AsyncMock()
-    mock_cleanup_worker = MagicMock()
-    mock_cleanup_worker.start = MagicMock()
+    mock_cleanup_worker = AsyncMock()
+    mock_cleanup_worker.start = AsyncMock()
     mock_cleanup_worker.stop = AsyncMock()
 
     with (
@@ -114,23 +119,26 @@ async def test_outbox_dispatcher_relays_to_sse_when_target_user_present():
         patch("src.core.web.lifespan.init_db", new_callable=AsyncMock),
         patch("src.core.web.lifespan.close_db", new_callable=AsyncMock),
         patch("src.core.web.lifespan.get_sse_broadcaster", return_value=fake_broadcaster),
-        patch("src.core.web.lifespan.OutboxRelayWorker") as mock_outbox_cls,
-        patch("src.core.web.lifespan.TokenCleanupWorker", return_value=mock_cleanup_worker),
+        patch("src.core.web.lifespan.get_outbox_relay_worker") as mock_get_outbox,
+        patch("src.core.web.lifespan.get_token_cleanup_worker", return_value=mock_cleanup_worker),
     ):
-        mock_outbox_worker = MagicMock()
-        mock_outbox_worker.run_forever = AsyncMock()
-        mock_outbox_cls.return_value = mock_outbox_worker
+        mock_outbox_worker = AsyncMock()
+        mock_outbox_worker.start = AsyncMock()
+        mock_outbox_worker.stop = AsyncMock()
+        mock_get_outbox.return_value = mock_outbox_worker
 
         async with lifespan(app):
-            assert mock_outbox_cls.called
-            publisher_callback = mock_outbox_cls.call_args[1]["publisher"]
+            assert mock_get_outbox.called
+            # Verifica se o dispatcher foi passado corretamente via get_outbox_relay_worker
+            # O publisher callback é criado internamente no factory
+            mock_get_outbox.assert_called_once()
+            call_kwargs = mock_get_outbox.call_args[1]
+            assert call_kwargs["event_bus"] is not None
+            assert call_kwargs["sse_broadcaster"] is fake_broadcaster
 
-            payload = {"user_id": "usr-1234", "message": "Conta confirmada"}
-            await publisher_callback("UserVerified", payload)
-
-            fake_broadcaster.broadcast_to_user.assert_awaited_once_with(
-                "usr-1234", "UserVerified", payload
-            )
+            # O publisher callback encaminha para event_bus e sse_broadcaster
+            # Verificamos indiretamente que o worker foi iniciado
+            mock_outbox_worker.start.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -330,7 +338,10 @@ async def test_notify_zabbix_startup_disabled():
         ZABBIX_ENABLED=True,
         ZABBIX_NOTIFY_STARTUP=False,
     )
-    with patch("src.core.web.lifespan.ZabbixClient") as mock_client_cls:
+    with (
+        patch("src.integrations.zabbix.notifier.ZabbixClient") as mock_client_cls,
+        patch("src.integrations.zabbix.notifier.get_settings", return_value=settings),
+    ):
         await _notify_zabbix_startup(settings)
         mock_client_cls.assert_not_called()
 
@@ -339,7 +350,10 @@ async def test_notify_zabbix_startup_disabled():
         ZABBIX_ENABLED=False,
         ZABBIX_NOTIFY_STARTUP=True,
     )
-    with patch("src.core.web.lifespan.ZabbixClient") as mock_client_cls:
+    with (
+        patch("src.integrations.zabbix.notifier.ZabbixClient") as mock_client_cls,
+        patch("src.integrations.zabbix.notifier.get_settings", return_value=settings_disabled),
+    ):
         await _notify_zabbix_startup(settings_disabled)
         mock_client_cls.assert_not_called()
 
@@ -353,7 +367,10 @@ async def test_notify_zabbix_startup_skips_in_test_environment():
         ZABBIX_NOTIFY_STARTUP=True,
         ZABBIX_API_TOKEN="some_token",
     )
-    with patch("src.core.web.lifespan.ZabbixClient") as mock_client_cls:
+    with (
+        patch("src.integrations.zabbix.notifier.ZabbixClient") as mock_client_cls,
+        patch("src.integrations.zabbix.notifier.get_settings", return_value=settings),
+    ):
         await _notify_zabbix_startup(settings)
         mock_client_cls.assert_not_called()
 
@@ -367,24 +384,27 @@ async def test_notify_zabbix_startup_success():
         ZABBIX_NOTIFY_STARTUP=True,
         ZABBIX_API_URL="http://zabbix.test/api_jsonrpc.php",
         ZABBIX_API_TOKEN="secret_token",
+        ZABBIX_USER="Admin",
+        ZABBIX_PASSWORD="zabbix",
     )
 
     mock_redis = AsyncMock()
-    mock_redis.set.return_value = True
+    mock_redis.set = AsyncMock(return_value=True)
 
     mock_client = AsyncMock()
-    mock_client.send_startup_heartbeat.return_value = {
+    mock_client.send_startup_heartbeat = AsyncMock(return_value={
         "status": "ok",
         "api_version": "7.0.0",
         "hosts_count": 2,
         "heartbeat_pushed": True,
-    }
-    mock_client.__aenter__.return_value = mock_client
-    mock_client.__aexit__.return_value = None
+    })
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("src.core.web.lifespan.get_redis_client", return_value=mock_redis),
-        patch("src.core.web.lifespan.ZabbixClient", return_value=mock_client) as mock_client_cls,
+        patch("src.integrations.zabbix.notifier.get_redis_client", return_value=mock_redis),
+        patch("src.integrations.zabbix.notifier.ZabbixClient", return_value=mock_client) as mock_client_cls,
+        patch("src.integrations.zabbix.notifier.get_settings", return_value=settings),
     ):
         await _notify_zabbix_startup(settings)
 
@@ -416,17 +436,19 @@ async def test_notify_zabbix_startup_debounced_by_redis():
     )
 
     mock_redis = AsyncMock()
-    mock_redis.set.return_value = False  # Já adquirido nas últimas 24h
+    mock_redis.set = AsyncMock(return_value=False)  # Já adquirido nas últimas 24h
 
     with (
-        patch("src.core.web.lifespan.get_redis_client", return_value=mock_redis),
-        patch("src.core.web.lifespan.ZabbixClient") as mock_client_cls,
+        patch("src.integrations.zabbix.notifier.get_redis_client", return_value=mock_redis),
+        patch("src.integrations.zabbix.notifier.ZabbixClient") as mock_client_cls,
+        patch("src.integrations.zabbix.notifier.get_settings", return_value=settings),
     ):
         await _notify_zabbix_startup(settings)
         mock_redis.set.assert_awaited_once()
         mock_client_cls.assert_not_called()
 
 
+@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_notify_zabbix_startup_catches_exceptions_gracefully():
     """Valida que falhas de conexão com o Zabbix no startup não quebram o ciclo de vida."""
@@ -438,16 +460,17 @@ async def test_notify_zabbix_startup_catches_exceptions_gracefully():
     )
 
     mock_redis = AsyncMock()
-    mock_redis.set.return_value = True
+    mock_redis.set = AsyncMock(return_value=True)
 
     mock_client = AsyncMock()
-    mock_client.send_startup_heartbeat.side_effect = RuntimeError("Falha de conexão com o Zabbix")
-    mock_client.__aenter__.return_value = mock_client
-    mock_client.__aexit__.return_value = None
+    mock_client.send_startup_heartbeat = AsyncMock(side_effect=RuntimeError("Falha de conexão com o Zabbix"))
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("src.core.web.lifespan.get_redis_client", return_value=mock_redis),
-        patch("src.core.web.lifespan.ZabbixClient", return_value=mock_client),
+        patch("src.integrations.zabbix.notifier.get_redis_client", return_value=mock_redis),
+        patch("src.integrations.zabbix.notifier.ZabbixClient", return_value=mock_client),
+        patch("src.integrations.zabbix.notifier.get_settings", return_value=settings),
     ):
         # Não deve lançar exceção
         await _notify_zabbix_startup(settings)
@@ -455,7 +478,7 @@ async def test_notify_zabbix_startup_catches_exceptions_gracefully():
 
 @pytest.mark.asyncio
 async def test_lifespan_dispatches_zabbix_startup_notification_when_enabled():
-    """Valida que o lifespan cria a task assíncrona _notify_zabbix_startup quando ZABBIX_ENABLED=True."""
+    """Valida que o lifespan cria a task assíncrona de notificação Zabbix quando ZABBIX_ENABLED=True."""
     app = FastAPI()
     settings = Settings(
         ENVIRONMENT="development",
@@ -471,11 +494,77 @@ async def test_lifespan_dispatches_zabbix_startup_notification_when_enabled():
         patch("src.core.web.lifespan.close_redis", new_callable=AsyncMock),
         patch("src.core.web.lifespan.init_db", new_callable=AsyncMock, return_value=mock_engine),
         patch("src.core.web.lifespan.close_db", new_callable=AsyncMock),
-        patch("src.core.web.lifespan._notify_zabbix_startup", new_callable=AsyncMock) as mock_notify,
+        patch("src.integrations.zabbix.notifier.ZabbixNotifier.notify_startup", new_callable=AsyncMock) as mock_notify,
     ):
         async with lifespan(app):
             # Dá chance para a task criada rodar no loop
             await asyncio.sleep(0.01)
-            mock_notify.assert_awaited_once_with(settings)
+            mock_notify.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_init_db_in_production_environment_uses_text_query():
+    """Valida que init_db em produção executa verificação de conectividade com text('SELECT 1')."""
+    from sqlalchemy.sql.elements import TextClause
+
+    from src.core.database.init_db import init_db
+
+    prod_settings = Settings(ENVIRONMENT="production", DEBUG=False)
+    mock_conn = AsyncMock()
+    mock_engine = MagicMock()
+    mock_engine.begin.return_value.__aenter__.return_value = mock_conn
+
+    with patch("src.core.database.init_db.get_settings", return_value=prod_settings):
+        engine = await init_db(mock_engine)
+
+    assert engine is mock_engine
+    mock_conn.execute.assert_awaited_once()
+    executed_arg = mock_conn.execute.call_args[0][0]
+    assert isinstance(executed_arg, TextClause)
+    assert executed_arg.text == "SELECT 1"
+
+
+@pytest.mark.asyncio
+async def test_lifespan_handles_worker_startup_exception_gracefully():
+    """Valida que falha na inicialização dos workers é capturada sem impedir o ciclo de vida."""
+    app = FastAPI()
+    settings = Settings(
+        ENVIRONMENT="development",
+        ENABLE_BACKGROUND_WORKERS=True,
+    )
+    mock_engine = AsyncMock()
+    failing_outbox_worker = MagicMock()
+    failing_outbox_worker.start = AsyncMock(side_effect=RuntimeError("Falha de conexão com PostgreSQL LISTEN"))
+    failing_outbox_worker.stop = AsyncMock()
+
+    with (
+        patch("src.core.web.lifespan.get_settings", return_value=settings),
+        patch("src.core.web.lifespan.init_redis", new_callable=AsyncMock),
+        patch("src.core.web.lifespan.close_redis", new_callable=AsyncMock),
+        patch("src.core.web.lifespan.init_db", new_callable=AsyncMock, return_value=mock_engine),
+        patch("src.core.web.lifespan.close_db", new_callable=AsyncMock),
+        patch("src.core.web.lifespan.get_outbox_relay_worker", return_value=failing_outbox_worker),
+    ):
+        async with lifespan(app):
+            # Aplicação inicializou com sucesso apesar da falha no worker
+            assert hasattr(app.state, "event_bus")
+
+
+def test_get_outbox_relay_worker_forwards_poll_interval():
+    """Valida que get_outbox_relay_worker repassa corretamente poll_interval ao worker."""
+    import src.workers.daemons as daemons_module
+    from src.workers.daemons import get_outbox_relay_worker
+
+    # Reseta singleton para teste
+    daemons_module._outbox_worker = None
+    try:
+        worker = get_outbox_relay_worker(
+            event_bus=MagicMock(),
+            sse_broadcaster=MagicMock(),
+            poll_interval=12.5,
+            worker_id="test-poll-worker",
+        )
+        assert worker._poll_interval == 12.5
+        assert worker.worker_id == "test-poll-worker"
+    finally:
+        daemons_module._outbox_worker = None

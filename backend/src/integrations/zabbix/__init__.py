@@ -7,6 +7,7 @@ from src.integrations.zabbix.client import (
     ZabbixConnectionError,
     ZabbixError,
 )
+from src.integrations.zabbix.notifier import ZabbixNotifier, get_zabbix_notifier
 from src.integrations.zabbix.schemas import (
     JsonRpcError,
     JsonRpcRequest,
@@ -28,4 +29,6 @@ __all__ = [
     "ZabbixHost",
     "ZabbixHostMetrics",
     "ZabbixItem",
+    "ZabbixNotifier",
+    "get_zabbix_notifier",
 ]

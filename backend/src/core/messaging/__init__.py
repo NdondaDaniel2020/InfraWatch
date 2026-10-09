@@ -16,6 +16,26 @@ from src.core.messaging.sse_broadcaster import (
     get_sse_broadcaster,
 )
 
+# Singleton do Event Bus
+_event_bus: ResilientEventBus | None = None
+
+
+def get_event_bus() -> ResilientEventBus:
+    """Retorna a instância singleton do ResilientEventBus."""
+    global _event_bus
+    if _event_bus is None:
+        _event_bus = ResilientEventBus()
+    return _event_bus
+
+
+async def close_event_bus() -> None:
+    """Fecha a instância singleton do EventBus."""
+    global _event_bus
+    if _event_bus is not None:
+        await _event_bus.close()
+        _event_bus = None
+
+
 __all__ = [
     "EventBus",
     "EventHandler",
@@ -27,5 +47,7 @@ __all__ = [
     "ResilientEventBus",
     "SSEBroadcaster",
     "SSEConnection",
+    "close_event_bus",
+    "get_event_bus",
     "get_sse_broadcaster",
 ]

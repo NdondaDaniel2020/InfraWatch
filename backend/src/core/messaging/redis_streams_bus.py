@@ -11,7 +11,6 @@ import asyncio
 import inspect
 import json
 import logging
-from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -251,12 +250,12 @@ class RedisStreamsEventBus(EventBus):
         """Invoca o handler registrado."""
         if isinstance(handler, EventHandler):
             await handler.handle(topic, payload)
-        elif isinstance(handler, Callable):
+        elif callable(handler):
             sig = inspect.signature(handler)
             if len(sig.parameters) == 1:
-                await handler(payload)  # type: ignore[call-arg]
+                await handler(payload)  # type: ignore[call-arg,arg-type]
             else:
-                await handler(topic, payload)  # type: ignore[call-arg]
+                await handler(topic, payload)
 
     async def subscribe(
         self,

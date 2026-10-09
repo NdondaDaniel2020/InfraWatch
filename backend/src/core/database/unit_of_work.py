@@ -17,7 +17,11 @@ from src.core.database.session import DbSessionDep, get_session_factory
 class AbstractUnitOfWork(ABC):
     """Contrato abstrato para o Unit of Work assíncrono."""
 
-    session: AsyncSession
+    @property
+    @abstractmethod
+    def session(self) -> AsyncSession:
+        """Sessão assíncrona gerenciada pelo Unit of Work."""
+        raise NotImplementedError
 
     async def __aenter__(self) -> Self:
         return self
