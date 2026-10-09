@@ -8,20 +8,38 @@ from datetime import UTC, datetime
 from typing import Any
 
 from src.core.config import get_settings
+from src.core.observability.context import get_request_id, get_user_id
 
 SECURITY_LOGGER_NAME = "infrawatch.security"
 
 
 class _SecurityJsonFormatter(logging.Formatter):
-    """Formata registros de segurança como linhas JSON únicas e filtráveis."""
+    """Formata registros de segurança como linhas JSON únicas e filtráveis aderentes ao padrão canônico."""
 
     def format(self, record: logging.LogRecord) -> str:
+        event_message = record.getMessage()
         payload: dict[str, Any] = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
-            "event": record.getMessage(),
+            "logger": record.name,
+            "service": "infrawatch-api",
+            "message": event_message,
+            "event": event_message,
         }
+
+        # Injeta correlation ID do contexto assíncrono se presente
+        request_id = get_request_id()
+        if request_id:
+            payload["request_id"] = request_id
+
+        # Injeta ID do usuário autenticado a partir do contexto se disponível
+        ctx_user_id = get_user_id()
+        if ctx_user_id:
+            payload["user_id"] = ctx_user_id
+
+        # Injeta campos específicos de segurança (podendo sobrescrever user_id se fornecido explicitamente)
         payload.update(getattr(record, "security_fields", {}))
+
         return json.dumps(payload, default=str, ensure_ascii=False)
 
 
@@ -35,7 +53,9 @@ def get_security_logger() -> logging.Logger:
     logger.propagate = False
 
     if not logger.handlers:
-        handler = logging.StreamHandler()
+        import sys
+
+        handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(level)
         handler.setFormatter(_SecurityJsonFormatter())
         logger.addHandler(handler)
