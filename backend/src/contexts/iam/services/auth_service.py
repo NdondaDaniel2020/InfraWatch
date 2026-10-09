@@ -42,7 +42,7 @@ from src.contexts.iam.services.token_service import (
     TokenService,
 )
 from src.core.config import get_settings
-from src.core.database.outbox_repository import OutboxRepository
+from src.core.database import OutboxRepository
 from src.core.exceptions import (
     AccountLockedOutError,
     AuthenticationError,

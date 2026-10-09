@@ -21,9 +21,9 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
+from src.core.database import OutboxRepository
 from src.core.database.base_model import Base
 from src.core.database.models.outbox import OutboxEventModel, OutboxStatus
-from src.core.database.outbox_repository import OutboxRepository
 from src.core.database.unit_of_work import SqlAlchemyUnitOfWork
 from src.core.domain.events import DomainEvent
 from src.workers.daemons.outbox_relay_worker import OutboxRelayWorker

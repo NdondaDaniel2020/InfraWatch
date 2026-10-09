@@ -354,10 +354,6 @@ class ZabbixClient:
 
         return metrics
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 79a91cf (feat(zabbix): auto-provisionar item trapper e registrar historico no startup)
     async def get_or_create_status_item(self, hostid: str) -> str | None:
         """Busca ou cria automaticamente o item trapper infrawatch.status no host indicado."""
         try:
@@ -393,11 +389,6 @@ class ZabbixClient:
             logger.debug("Não foi possível obter ou provisionar item infrawatch.status no Zabbix: %s", exc)
         return None
 
-<<<<<<< HEAD
-=======
->>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
-=======
->>>>>>> 79a91cf (feat(zabbix): auto-provisionar item trapper e registrar historico no startup)
     async def send_startup_heartbeat(
         self,
         app_name: str = "InfraWatch",
@@ -409,8 +400,6 @@ class ZabbixClient:
         hosts = await self.get_hosts()
 
         pushed = False
-<<<<<<< HEAD
-<<<<<<< HEAD
         item_id: str | None = None
         # No Zabbix 7.0+, localiza ou provisiona o item trapper e envia o histórico via itemid
         if hosts:
@@ -433,68 +422,11 @@ class ZabbixClient:
                             pushed = True
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("Tentativa de history.push no Zabbix falhou: %s", exc)
-=======
-        # No Zabbix 7.0+, tenta enviar telemetria trapper se houver host disponível
-        if hosts:
-            target_host = hosts[0].host
-            try:
-                await self.call(
-                    "history.push",
-                    params=[
-                        {
-                            "host": target_host,
-                            "key": "infrawatch.status",
-                            "value": f"{app_name} v{version} ONLINE ({environment})",
-                        }
-                    ],
-                )
-                pushed = True
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Tentativa de history.push no Zabbix ignorada (item trapper opcional): %s", exc)
->>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
-=======
-        item_id: str | None = None
-        # No Zabbix 7.0+, localiza ou provisiona o item trapper e envia o histórico via itemid
-        if hosts:
-            target_host = hosts[0]
-            item_id = await self.get_or_create_status_item(target_host.hostid)
-            if item_id:
-                try:
-                    res = await self.call(
-                        "history.push",
-                        params=[
-                            {
-                                "itemid": item_id,
-                                "value": f"{app_name} v{version} ONLINE ({environment})",
-                            }
-                        ],
-                    )
-                    if res and isinstance(res, dict) and res.get("response") == "success":
-                        data_list = res.get("data", [])
-                        if data_list and "error" not in data_list[0]:
-                            pushed = True
-                except Exception as exc:  # noqa: BLE001
-                    logger.debug("Tentativa de history.push no Zabbix falhou: %s", exc)
->>>>>>> 79a91cf (feat(zabbix): auto-provisionar item trapper e registrar historico no startup)
 
         return {
             "status": "ok",
             "api_version": api_version,
             "hosts_count": len(hosts),
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 79a91cf (feat(zabbix): auto-provisionar item trapper e registrar historico no startup)
             "item_id": item_id,
             "heartbeat_pushed": pushed,
         }
-
-
-<<<<<<< HEAD
-=======
-            "heartbeat_pushed": pushed,
-        }
-
->>>>>>> 932e1cd (feat(zabbix): adicionar notificacao de startup e configuracao zabbix_notify_startup)
-=======
->>>>>>> 79a91cf (feat(zabbix): auto-provisionar item trapper e registrar historico no startup)
