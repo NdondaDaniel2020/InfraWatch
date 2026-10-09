@@ -45,6 +45,17 @@ class EvaluationResult:
         return super().__eq__(other)
 
 
+@dataclass(frozen=True)
+class _StepOutcome:
+    """Estrutura intermediária com o resultado da avaliação de um cenário de sonda."""
+
+    target_status: DeviceHealthStatus
+    consecutive_failures: int
+    consecutive_successes: int
+    events: list[DomainEvent]
+    reason: str
+
+
 class FailureEvaluator:
     """Motor de avaliação analítica de falhas e degradação em ativos de rede.
 
@@ -119,7 +130,6 @@ class FailureEvaluator:
         Suporta operação com estado interno ou modo sem estado (passando parâmetros
         explícitos via argumentos nomeados).
         """
-        # Determina estado ativo e contadores
         active_status = (
             self._state_machine._coerce_status(current_status)
             if current_status is not None
@@ -136,193 +146,340 @@ class FailureEvaluator:
             else consecutive_successes
         )
 
-        # Dispositivos em janela de manutenção programada não sofrem transição por sondas
         if active_status == DeviceHealthStatus.MAINTENANCE:
-            return EvaluationResult(
-                status=DeviceHealthStatus.MAINTENANCE,
-                previous_status=active_status,
-                status_changed=False,
-                events=[],
+            return self._handle_maintenance(active_status, c_failures, c_successes)
+
+        baseline = self._get_effective_baseline(baseline_latency_ms)
+
+        if packet_loss_pct >= 100.0:
+            outcome = self._handle_total_failure(
+                active_status=active_status,
                 consecutive_failures=c_failures,
+                latency_ms=latency_ms,
+                packet_loss_pct=packet_loss_pct,
+                device_id=device_id,
+                organization_id=organization_id,
+                device_name=device_name,
+                device_ip=device_ip,
+                last_probe_details=last_probe_details,
+                protocol=protocol,
+            )
+        elif self._is_sample_degraded(latency_ms, packet_loss_pct, baseline):
+            outcome = self._handle_degradation(
+                active_status=active_status,
+                latency_ms=latency_ms,
+                packet_loss_pct=packet_loss_pct,
+                baseline=baseline,
+                device_id=device_id,
+                organization_id=organization_id,
+                device_name=device_name,
+                device_ip=device_ip,
+                last_probe_details=last_probe_details,
+                protocol=protocol,
+            )
+        else:
+            outcome = self._handle_healthy_probe(
+                active_status=active_status,
                 consecutive_successes=c_successes,
-                moving_average_latency_ms=self.moving_average_latency,
-                reason="Dispositivo em janela de manutenção programada",
+                latency_ms=latency_ms,
+                packet_loss_pct=packet_loss_pct,
+                device_id=device_id,
+                organization_id=organization_id,
+                device_name=device_name,
+                device_ip=device_ip,
+                last_probe_details=last_probe_details,
+                protocol=protocol,
             )
 
-        # Baseline de latência para cálculo de anomalias
-        effective_baseline = (
-            baseline_latency_ms
-            if (baseline_latency_ms is not None and baseline_latency_ms > 0)
-            else self.moving_average_latency
+        return self._build_result(
+            active_status=active_status,
+            outcome=outcome,
+            sync_internal_status=(current_status is None),
+            sync_internal_failures=(consecutive_failures is None),
+            sync_internal_successes=(consecutive_successes is None),
         )
 
-        # Classificação da amostra
-        is_total_failure = packet_loss_pct >= 100.0
-        is_loss_degraded = (
-            self.degraded_packet_loss_min <= packet_loss_pct < 100.0
-        )
-        is_latency_degraded = (
-            effective_baseline > 0
-            and latency_ms > (effective_baseline * self.latency_spike_factor)
-            and packet_loss_pct < 100.0
-        )
-        is_degraded = (is_loss_degraded or is_latency_degraded) and not is_total_failure
-        is_healthy = (
-            not is_total_failure
-            and not is_degraded
-            and packet_loss_pct < self.degraded_packet_loss_min
-        )
-
-        events: list[DomainEvent] = []
-        target_status: DeviceHealthStatus = active_status
-        reason: str = ""
-
-        # Cenário 1: Falha Total (100% de perda ou Timeout)
-        if is_total_failure:
-            c_failures += 1
-            c_successes = 0
-
-            if active_status == DeviceHealthStatus.DOWN:
-                target_status = DeviceHealthStatus.DOWN
-                reason = f"Ativo permanece DOWN ({c_failures} falhas consecutivas)"
-            else:
-                if c_failures >= self.retry_threshold:
-                    target_status = self._state_machine.transition(
-                        active_status, DeviceHealthStatus.DOWN
-                    )
-                    reason = (
-                        f"Ativo indisponível: {c_failures} falhas consecutivas com "
-                        f"{packet_loss_pct:.1f}% de perda"
-                    )
-                    events.append(
-                        IncidentTriggeredEvent(
-                            device_id=device_id or generate_uuid7(),
-                            organization_id=organization_id,
-                            device_name=device_name,
-                            device_ip=device_ip,
-                            severity="DOWN",
-                            reason=reason,
-                            latency_ms=latency_ms,
-                            packet_loss_pct=packet_loss_pct,
-                            previous_status=active_status.value,
-                            new_status=DeviceHealthStatus.DOWN.value,
-                            consecutive_failures=c_failures,
-                            last_probe_details=last_probe_details,
-                            protocol=protocol,
-                        )
-                    )
-                else:
-                    target_status = active_status
-                    reason = (
-                        f"Falha isolada ({c_failures}/{self.retry_threshold} tentativas); "
-                        f"mantendo estado {active_status.value}"
-                    )
-
-        # Cenário 2: Degradação Dinâmica (Latência ou Perda parcial)
-        elif is_degraded:
-            c_successes = 0
-            c_failures = 0
-
-            if active_status == DeviceHealthStatus.DOWN:
-                target_status = DeviceHealthStatus.DOWN
-                reason = "Ativo permanece em DOWN (enlace ainda com perda ou latência anormal)"
-            elif active_status == DeviceHealthStatus.UP:
-                target_status = self._state_machine.transition(
-                    active_status, DeviceHealthStatus.DEGRADED
-                )
-                if is_latency_degraded and is_loss_degraded:
-                    reason = (
-                        f"Latência anormal de {latency_ms:.1f}ms (> {effective_baseline * self.latency_spike_factor:.1f}ms) "
-                        f"e perda de pacotes de {packet_loss_pct:.1f}%"
-                    )
-                elif is_latency_degraded:
-                    reason = (
-                        f"Latência anormal de {latency_ms:.1f}ms excede {self.latency_spike_factor:.1f}x "
-                        f"a média base ({effective_baseline:.1f}ms)"
-                    )
-                else:
-                    reason = f"Perda moderada de pacotes detectada: {packet_loss_pct:.1f}%"
-
-                events.append(
-                    IncidentTriggeredEvent(
-                        device_id=device_id or generate_uuid7(),
-                        organization_id=organization_id,
-                        device_name=device_name,
-                        device_ip=device_ip,
-                        severity="WARNING",
-                        reason=reason,
-                        latency_ms=latency_ms,
-                        packet_loss_pct=packet_loss_pct,
-                        previous_status=active_status.value,
-                        new_status=DeviceHealthStatus.DEGRADED.value,
-                        consecutive_failures=0,
-                        last_probe_details=last_probe_details,
-                        protocol=protocol,
-                    )
-                )
-            else:
-                target_status = DeviceHealthStatus.DEGRADED
-                reason = "Enlace permanece em estado DEGRADED"
-
-        # Cenário 3: Probe Saudável (Operação Normal)
-        elif is_healthy:
-            self.add_latency_sample(latency_ms)
-            c_successes += 1
-            c_failures = 0
-
-            if active_status == DeviceHealthStatus.UP:
-                target_status = DeviceHealthStatus.UP
-                reason = "Operação normal e estável"
-            else:
-                # DOWN ou DEGRADED aguardando recuperação
-                if c_successes >= self.recovery_threshold:
-                    target_status = self._state_machine.transition(
-                        active_status, DeviceHealthStatus.UP
-                    )
-                    reason = (
-                        f"Ativo recuperado para UP após {c_successes} probes saudáveis consecutivos"
-                    )
-                    events.append(
-                        IncidentResolvedEvent(
-                            device_id=device_id or generate_uuid7(),
-                            organization_id=organization_id,
-                            device_name=device_name,
-                            device_ip=device_ip,
-                            severity="RESOLVED",
-                            reason=reason,
-                            latency_ms=latency_ms,
-                            packet_loss_pct=packet_loss_pct,
-                            previous_status=active_status.value,
-                            new_status=DeviceHealthStatus.UP.value,
-                            consecutive_successes=c_successes,
-                            last_probe_details=last_probe_details,
-                            protocol=protocol,
-                        )
-                    )
-                else:
-                    target_status = active_status
-                    reason = (
-                        f"Probe saudável ({c_successes}/{self.recovery_threshold} para recuperação); "
-                        f"mantendo {active_status.value}"
-                    )
-
-        # Sincroniza estado interno do avaliador quando não sobrescrito por chamadas externas
-        if current_status is None:
-            self.current_status = target_status
-        if consecutive_failures is None:
-            self.consecutive_failures = c_failures
-        if consecutive_successes is None:
-            self.consecutive_successes = c_successes
-
-        status_changed = target_status != active_status
-
+    def _handle_maintenance(
+        self,
+        active_status: DeviceHealthStatus,
+        c_failures: int,
+        c_successes: int,
+    ) -> EvaluationResult:
+        """Trata avaliação de dispositivo em janela de manutenção programada."""
         return EvaluationResult(
-            status=target_status,
+            status=DeviceHealthStatus.MAINTENANCE,
             previous_status=active_status,
-            status_changed=status_changed,
-            events=events,
+            status_changed=False,
+            events=[],
             consecutive_failures=c_failures,
             consecutive_successes=c_successes,
             moving_average_latency_ms=self.moving_average_latency,
-            reason=reason,
+            reason="Dispositivo em janela de manutenção programada",
+        )
+
+    def _get_effective_baseline(self, baseline_latency_ms: float | None) -> float:
+        """Determina a base de latência comparativa (informada ou calculada)."""
+        if baseline_latency_ms is not None and baseline_latency_ms > 0:
+            return baseline_latency_ms
+        return self.moving_average_latency
+
+    def _is_sample_degraded(
+        self,
+        latency_ms: float,
+        packet_loss_pct: float,
+        baseline: float,
+    ) -> bool:
+        """Avalia se a amostra se enquadra em critérios de degradação."""
+        if packet_loss_pct >= 100.0:
+            return False
+        is_loss_degraded = self.degraded_packet_loss_min <= packet_loss_pct < 100.0
+        is_latency_degraded = (
+            baseline > 0
+            and latency_ms > (baseline * self.latency_spike_factor)
+        )
+        return is_loss_degraded or is_latency_degraded
+
+    def _handle_total_failure(
+        self,
+        active_status: DeviceHealthStatus,
+        consecutive_failures: int,
+        latency_ms: float,
+        packet_loss_pct: float,
+        device_id: UUID | None,
+        organization_id: UUID | None,
+        device_name: str,
+        device_ip: str,
+        last_probe_details: dict[str, Any] | None,
+        protocol: str,
+    ) -> _StepOutcome:
+        """Processa cenário de falha total (100% perda ou timeout)."""
+        new_failures = consecutive_failures + 1
+        new_successes = 0
+
+        if active_status == DeviceHealthStatus.DOWN:
+            return _StepOutcome(
+                target_status=DeviceHealthStatus.DOWN,
+                consecutive_failures=new_failures,
+                consecutive_successes=new_successes,
+                events=[],
+                reason=f"Ativo permanece DOWN ({new_failures} falhas consecutivas)",
+            )
+
+        if new_failures >= self.retry_threshold:
+            target_status = self._state_machine.transition(
+                active_status, DeviceHealthStatus.DOWN
+            )
+            reason = (
+                f"Ativo indisponível: {new_failures} falhas consecutivas com "
+                f"{packet_loss_pct:.1f}% de perda"
+            )
+            event = IncidentTriggeredEvent(
+                device_id=device_id or generate_uuid7(),
+                organization_id=organization_id,
+                device_name=device_name,
+                device_ip=device_ip,
+                severity="DOWN",
+                reason=reason,
+                latency_ms=latency_ms,
+                packet_loss_pct=packet_loss_pct,
+                previous_status=active_status.value,
+                new_status=DeviceHealthStatus.DOWN.value,
+                consecutive_failures=new_failures,
+                last_probe_details=last_probe_details,
+                protocol=protocol,
+            )
+            return _StepOutcome(
+                target_status=target_status,
+                consecutive_failures=new_failures,
+                consecutive_successes=new_successes,
+                events=[event],
+                reason=reason,
+            )
+
+        return _StepOutcome(
+            target_status=active_status,
+            consecutive_failures=new_failures,
+            consecutive_successes=new_successes,
+            events=[],
+            reason=(
+                f"Falha isolada ({new_failures}/{self.retry_threshold} tentativas); "
+                f"mantendo estado {active_status.value}"
+            ),
+        )
+
+    def _handle_degradation(
+        self,
+        active_status: DeviceHealthStatus,
+        latency_ms: float,
+        packet_loss_pct: float,
+        baseline: float,
+        device_id: UUID | None,
+        organization_id: UUID | None,
+        device_name: str,
+        device_ip: str,
+        last_probe_details: dict[str, Any] | None,
+        protocol: str,
+    ) -> _StepOutcome:
+        """Processa cenário de degradação dinâmica de rede."""
+        new_failures = 0
+        new_successes = 0
+
+        if active_status == DeviceHealthStatus.DOWN:
+            return _StepOutcome(
+                target_status=DeviceHealthStatus.DOWN,
+                consecutive_failures=new_failures,
+                consecutive_successes=new_successes,
+                events=[],
+                reason="Ativo permanece em DOWN (enlace ainda com perda ou latência anormal)",
+            )
+
+        if active_status == DeviceHealthStatus.UP:
+            target_status = self._state_machine.transition(
+                active_status, DeviceHealthStatus.DEGRADED
+            )
+            reason = self._build_degradation_reason(latency_ms, packet_loss_pct, baseline)
+            event = IncidentTriggeredEvent(
+                device_id=device_id or generate_uuid7(),
+                organization_id=organization_id,
+                device_name=device_name,
+                device_ip=device_ip,
+                severity="WARNING",
+                reason=reason,
+                latency_ms=latency_ms,
+                packet_loss_pct=packet_loss_pct,
+                previous_status=active_status.value,
+                new_status=DeviceHealthStatus.DEGRADED.value,
+                consecutive_failures=0,
+                last_probe_details=last_probe_details,
+                protocol=protocol,
+            )
+            return _StepOutcome(
+                target_status=target_status,
+                consecutive_failures=new_failures,
+                consecutive_successes=new_successes,
+                events=[event],
+                reason=reason,
+            )
+
+        return _StepOutcome(
+            target_status=DeviceHealthStatus.DEGRADED,
+            consecutive_failures=new_failures,
+            consecutive_successes=new_successes,
+            events=[],
+            reason="Enlace permanece em estado DEGRADED",
+        )
+
+    def _build_degradation_reason(
+        self,
+        latency_ms: float,
+        packet_loss_pct: float,
+        baseline: float,
+    ) -> str:
+        """Gera descrição textual detalhada do motivo de degradação."""
+        is_latency = baseline > 0 and latency_ms > (baseline * self.latency_spike_factor)
+        is_loss = self.degraded_packet_loss_min <= packet_loss_pct < 100.0
+
+        if is_latency and is_loss:
+            return (
+                f"Latência anormal de {latency_ms:.1f}ms (> {baseline * self.latency_spike_factor:.1f}ms) "
+                f"e perda de pacotes de {packet_loss_pct:.1f}%"
+            )
+        if is_latency:
+            return (
+                f"Latência anormal de {latency_ms:.1f}ms excede {self.latency_spike_factor:.1f}x "
+                f"a média base ({baseline:.1f}ms)"
+            )
+        return f"Perda moderada de pacotes detectada: {packet_loss_pct:.1f}%"
+
+    def _handle_healthy_probe(
+        self,
+        active_status: DeviceHealthStatus,
+        consecutive_successes: int,
+        latency_ms: float,
+        packet_loss_pct: float,
+        device_id: UUID | None,
+        organization_id: UUID | None,
+        device_name: str,
+        device_ip: str,
+        last_probe_details: dict[str, Any] | None,
+        protocol: str,
+    ) -> _StepOutcome:
+        """Processa cenário de sondagem saudável."""
+        self.add_latency_sample(latency_ms)
+        new_successes = consecutive_successes + 1
+        new_failures = 0
+
+        if active_status == DeviceHealthStatus.UP:
+            return _StepOutcome(
+                target_status=DeviceHealthStatus.UP,
+                consecutive_failures=new_failures,
+                consecutive_successes=new_successes,
+                events=[],
+                reason="Operação normal e estável",
+            )
+
+        if new_successes >= self.recovery_threshold:
+            target_status = self._state_machine.transition(
+                active_status, DeviceHealthStatus.UP
+            )
+            reason = f"Ativo recuperado para UP após {new_successes} probes saudáveis consecutivos"
+            event = IncidentResolvedEvent(
+                device_id=device_id or generate_uuid7(),
+                organization_id=organization_id,
+                device_name=device_name,
+                device_ip=device_ip,
+                severity="RESOLVED",
+                reason=reason,
+                latency_ms=latency_ms,
+                packet_loss_pct=packet_loss_pct,
+                previous_status=active_status.value,
+                new_status=DeviceHealthStatus.UP.value,
+                consecutive_successes=new_successes,
+                last_probe_details=last_probe_details,
+                protocol=protocol,
+            )
+            return _StepOutcome(
+                target_status=target_status,
+                consecutive_failures=new_failures,
+                consecutive_successes=new_successes,
+                events=[event],
+                reason=reason,
+            )
+
+        return _StepOutcome(
+            target_status=active_status,
+            consecutive_failures=new_failures,
+            consecutive_successes=new_successes,
+            events=[],
+            reason=(
+                f"Probe saudável ({new_successes}/{self.recovery_threshold} para recuperação); "
+                f"mantendo {active_status.value}"
+            ),
+        )
+
+    def _build_result(
+        self,
+        active_status: DeviceHealthStatus,
+        outcome: _StepOutcome,
+        sync_internal_status: bool,
+        sync_internal_failures: bool,
+        sync_internal_successes: bool,
+    ) -> EvaluationResult:
+        """Consolida e sincroniza o resultado final da avaliação."""
+        if sync_internal_status:
+            self.current_status = outcome.target_status
+        if sync_internal_failures:
+            self.consecutive_failures = outcome.consecutive_failures
+        if sync_internal_successes:
+            self.consecutive_successes = outcome.consecutive_successes
+
+        return EvaluationResult(
+            status=outcome.target_status,
+            previous_status=active_status,
+            status_changed=(outcome.target_status != active_status),
+            events=outcome.events,
+            consecutive_failures=outcome.consecutive_failures,
+            consecutive_successes=outcome.consecutive_successes,
+            moving_average_latency_ms=self.moving_average_latency,
+            reason=outcome.reason,
         )
