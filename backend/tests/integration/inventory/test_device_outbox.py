@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from src.core.database.base_model import Base
 from src.core.database.models.outbox import OutboxEventModel, OutboxStatus
-from src.contexts.inventory.domain.commands import CreateDeviceCommand
+from src.contexts.inventory.schemas.requests import CreateDeviceRequest
 from src.contexts.inventory.services.device_command_service import DeviceCommandService
 
 # We need a mock repository and a concrete session for testing Outbox insertion
@@ -67,7 +67,7 @@ async def test_device_creation_generates_outbox_event(
             async def record_action(self, **kwargs): pass
         service.audit_service = MockAudit()
 
-        cmd = CreateDeviceCommand(
+        cmd = CreateDeviceRequest(
             organization_id=uuid4(),
             name="Core Router",
             ip_address="10.1.1.1",
