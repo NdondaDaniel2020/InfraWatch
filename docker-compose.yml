@@ -136,10 +136,26 @@ services:
     networks:
       - infrawatch-net
 
+  evolution-api:
+    image: atendai/evolution-api:v2.2.3
+    container_name: infrawatch-whatsapp-gateway
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      SERVER_URL: http://localhost:8085
+      AUTHENTICATION_API_KEY: ${WHATSAPP_API_TOKEN:-infrawatch_whatsapp_secret_token_2026}
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - infrawatch-net
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  evolution_instances:
     driver: local
 
 networks:
