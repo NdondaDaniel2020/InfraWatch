@@ -6,6 +6,7 @@ e segurança reforçada em ambientes de produção.
 
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import Field, model_validator
@@ -19,6 +20,9 @@ class Settings(BaseSettings):
         env_file=(os.getenv("ENV_FILE", ".env"), "backend/.env"),
         env_file_encoding="utf-8",
         extra="ignore",
+        secrets_dir=os.getenv("SECRETS_DIR", "/run/secrets")
+        if os.path.isdir(os.getenv("SECRETS_DIR", "/run/secrets"))
+        else None,
     )
 
     ENVIRONMENT: Literal["development", "test", "staging", "production"] = Field(
@@ -31,8 +35,15 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # Configurações do Banco de Dados Relacional (PostgreSQL 16+)
-    DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://infrawatch_user:infrawatch_secure_password_2026@localhost:5432/infrawatch_db",
+    POSTGRES_USER: str = Field(default="infrawatch_user", alias="POSTGRES_USER")
+    POSTGRES_PASSWORD: str = Field(
+        default="infrawatch_secure_password_2026", alias="POSTGRES_PASSWORD"
+    )
+    POSTGRES_HOST: str = Field(default="localhost", alias="POSTGRES_HOST")
+    POSTGRES_PORT: int = Field(default=5432, alias="POSTGRES_PORT")
+    POSTGRES_DB: str = Field(default="infrawatch_db", alias="POSTGRES_DB")
+    DATABASE_URL: str | None = Field(
+        default=None,
         alias="DATABASE_URL",
     )
     DB_POOL_SIZE: int = Field(default=20, alias="DB_POOL_SIZE")
@@ -41,8 +52,11 @@ class Settings(BaseSettings):
     DB_POOL_PRE_PING: bool = Field(default=True, alias="DB_POOL_PRE_PING")
 
     # Redis (Cache, Streams, Lock Distribuído)
-    REDIS_URL: str = Field(
-        default="redis://:redis_secure_password_2026@localhost:6379/0",
+    REDIS_HOST: str = Field(default="localhost", alias="REDIS_HOST")
+    REDIS_PORT: int = Field(default=6379, alias="REDIS_PORT")
+    REDIS_PASSWORD: str = Field(default="", alias="REDIS_PASSWORD")
+    REDIS_URL: str | None = Field(
+        default=None,
         alias="REDIS_URL",
     )
     REDIS_MAX_CONNECTIONS: int = Field(default=10, alias="REDIS_MAX_CONNECTIONS")
@@ -188,6 +202,25 @@ class Settings(BaseSettings):
     WHATSAPP_API_TOKEN: str = Field(default="", alias="WHATSAPP_API_TOKEN")
     WHATSAPP_DEFAULT_RECIPIENT: str = Field(default="", alias="WHATSAPP_DEFAULT_RECIPIENT")
     DEFAULT_WEBHOOK_URL: str = Field(default="", alias="DEFAULT_WEBHOOK_URL")
+
+    @model_validator(mode="after")
+    def _assemble_connection_urls(self) -> Self:
+        """Monta dinamicamente DATABASE_URL e REDIS_URL a partir das credenciais e segredos se não fornecidas."""
+        if not self.DATABASE_URL:
+            self.DATABASE_URL = (
+                f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+                f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            )
+        if not self.REDIS_URL:
+            pwd_part = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+            self.REDIS_URL = f"redis://{pwd_part}{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+
+        if not self.WHATSAPP_API_TOKEN:
+            whatsapp_secret = Path("/run/secrets/whatsapp_token")
+            if whatsapp_secret.is_file():
+                self.WHATSAPP_API_TOKEN = whatsapp_secret.read_text(encoding="utf-8").strip()
+
+        return self
 
     @model_validator(mode="after")
     def _validate_production_security(self) -> Self:

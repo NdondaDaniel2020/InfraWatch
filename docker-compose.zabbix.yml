@@ -5,12 +5,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: zabbix
-      POSTGRES_PASSWORD: zabbix_secure_password_2026
       POSTGRES_DB: zabbix
+      POSTGRES_PASSWORD_FILE: /run/secrets/zabbix_db_password
     volumes:
       - zabbix_db_data:/var/lib/postgresql/data
     networks:
       - infrawatch-zabbix-net
+    secrets:
+      - zabbix_db_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U zabbix -d zabbix"]
       interval: 10s
@@ -26,8 +28,10 @@ services:
     environment:
       DB_SERVER_HOST: zabbix-db
       POSTGRES_USER: zabbix
-      POSTGRES_PASSWORD: zabbix_secure_password_2026
       POSTGRES_DB: zabbix
+      POSTGRES_PASSWORD_FILE: /run/secrets/zabbix_db_password
+    secrets:
+      - zabbix_db_password
     depends_on:
       zabbix-db:
         condition: service_healthy
@@ -44,9 +48,11 @@ services:
       ZBX_SERVER_HOST: zabbix-server
       DB_SERVER_HOST: zabbix-db
       POSTGRES_USER: zabbix
-      POSTGRES_PASSWORD: zabbix_secure_password_2026
       POSTGRES_DB: zabbix
+      POSTGRES_PASSWORD_FILE: /run/secrets/zabbix_db_password
       PHP_TZ: Africa/Luanda
+    secrets:
+      - zabbix_db_password
     depends_on:
       zabbix-db:
         condition: service_healthy
@@ -69,6 +75,10 @@ services:
       - zabbix-server
     networks:
       - infrawatch-zabbix-net
+
+secrets:
+  zabbix_db_password:
+    file: ./secrets/zabbix_db_password.txt
 
 volumes:
   zabbix_db_data:
