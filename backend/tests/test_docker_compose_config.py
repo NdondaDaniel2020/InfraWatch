@@ -28,6 +28,11 @@ class TestDockerComposeConfig(unittest.TestCase):
         with open(cls.compose_file, "r", encoding="utf-8") as f:
             cls.compose_data = yaml.safe_load(f)
 
+        # Garante que os segredos locais estejam gerados para validação do compose
+        init_secrets_script = cls.root_dir / "scripts" / "init-secrets.sh"
+        if init_secrets_script.exists():
+            subprocess.run([str(init_secrets_script)], check=False, capture_output=True)
+
     def test_compose_file_exists_and_is_valid_yaml(self):
         """Valida se o docker-compose.yml existe e é um YAML válido."""
         self.assertIsInstance(self.compose_data, dict)
@@ -154,6 +159,94 @@ class TestDockerComposeConfig(unittest.TestCase):
         # Porta web exposta em 8081:8080
         web = services["zabbix-web"]
         self.assertIn("8081:8080", web.get("ports", []))
+
+    def test_docker_compose_secrets_declared_and_mounted(self):
+        """Garante que docker-compose.yml utiliza secrets em vez de senhas em environment."""
+        secrets = self.compose_data.get("secrets", {})
+        expected_secrets = {"postgres_password", "redis_password", "secret_key", "whatsapp_token"}
+        self.assertTrue(expected_secrets.issubset(secrets.keys()))
+
+        services = self.compose_data["services"]
+        # Postgres
+        postgres = services["postgres"]
+        self.assertIn("postgres_password", postgres.get("secrets", []))
+        self.assertIn("POSTGRES_PASSWORD_FILE", postgres.get("environment", {}))
+        self.assertNotIn("POSTGRES_PASSWORD", postgres.get("environment", {}))
+
+        # Redis
+        redis = services["redis"]
+        self.assertIn("redis_password", redis.get("secrets", []))
+
+        # API
+        api = services["infrawatch-api"]
+        self.assertIn("postgres_password", api.get("secrets", []))
+        self.assertIn("redis_password", api.get("secrets", []))
+        self.assertIn("secret_key", api.get("secrets", []))
+        self.assertNotIn("DATABASE_URL", api.get("environment", {}))
+        self.assertNotIn("REDIS_URL", api.get("environment", {}))
+
+        # Evolution API
+        evolution = services["evolution-api"]
+        self.assertIn("whatsapp_token", evolution.get("secrets", []))
+        self.assertNotIn("AUTHENTICATION_API_KEY", evolution.get("environment", {}))
+
+    def test_glpi_compose_secrets(self):
+        """Valida que docker-compose.glpi.yml utiliza secrets e valida sintaxe."""
+        glpi_compose = self.root_dir / "docker-compose.glpi.yml"
+        self.assertTrue(glpi_compose.exists())
+
+        with open(glpi_compose, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        secrets = data.get("secrets", {})
+        self.assertIn("glpi_db_root_password", secrets)
+        self.assertIn("glpi_db_password", secrets)
+
+        glpi_db = data["services"]["glpi-db"]
+        self.assertIn("MYSQL_ROOT_PASSWORD_FILE", glpi_db.get("environment", {}))
+        self.assertIn("MYSQL_PASSWORD_FILE", glpi_db.get("environment", {}))
+        self.assertNotIn("MYSQL_ROOT_PASSWORD", glpi_db.get("environment", {}))
+        self.assertNotIn("MYSQL_PASSWORD", glpi_db.get("environment", {}))
+
+        glpi_app = data["services"]["glpi-app"]
+        self.assertIn("glpi_db_password", glpi_app.get("secrets", []))
+        self.assertNotIn("MARIADB_PASSWORD", glpi_app.get("environment", {}))
+
+        if shutil.which("docker") is not None:
+            result = subprocess.run(
+                ["docker", "compose", "-f", str(glpi_compose), "config"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, f"Falha no config do GLPI: {result.stderr}")
+
+    def test_zabbix_compose_secrets(self):
+        """Valida que docker-compose.zabbix.yml utiliza secrets e valida sintaxe."""
+        zabbix_compose = self.root_dir / "docker-compose.zabbix.yml"
+        self.assertTrue(zabbix_compose.exists())
+
+        with open(zabbix_compose, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        secrets = data.get("secrets", {})
+        self.assertIn("zabbix_db_password", secrets)
+
+        services = data["services"]
+        for svc_name in ["zabbix-db", "zabbix-server", "zabbix-web"]:
+            svc = services[svc_name]
+            self.assertIn("zabbix_db_password", svc.get("secrets", []))
+            self.assertIn("POSTGRES_PASSWORD_FILE", svc.get("environment", {}))
+            self.assertNotIn("POSTGRES_PASSWORD", svc.get("environment", {}))
+
+        if shutil.which("docker") is not None:
+            result = subprocess.run(
+                ["docker", "compose", "-f", str(zabbix_compose), "config"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, f"Falha no config do Zabbix: {result.stderr}")
 
 
 if __name__ == "__main__":
