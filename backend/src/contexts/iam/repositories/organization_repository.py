@@ -28,6 +28,12 @@ class OrganizationRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
+    async def save(self, organization: OrganizationModel) -> OrganizationModel:
+        """Persiste ou atualiza uma organização na sessão ativa."""
+        self.session.add(organization)
+        await self.session.flush()
+        return organization
+
     async def create(
         self,
         *,
@@ -39,7 +45,7 @@ class OrganizationRepository:
         tier: str | OrgTier = OrgTier.STANDARD,
         is_active: bool = True,
     ) -> OrganizationModel:
-        """Cria e persiste uma nova organização / tenant."""
+        """Cria e persiste uma nova organização / tenant (conveniência para save)."""
         org = OrganizationModel(
             name=name.strip(),
             slug=slug.strip().lower(),
@@ -49,9 +55,8 @@ class OrganizationRepository:
             tier=str(tier),
             is_active=is_active,
         )
-        self.session.add(org)
-        await self.session.flush()
-        return org
+        return await self.save(org)
+
 
     async def list_all(self, *, offset: int = 0, limit: int = 50) -> list[OrganizationModel]:
         """Lista organizações ativas ou inativas com paginação."""

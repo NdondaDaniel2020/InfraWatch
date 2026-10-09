@@ -39,14 +39,16 @@ class NotificationService:
         details: dict[str, Any] | None = None,
     ) -> NotificationModel:
         """Persiste a notificação no banco de dados e transmite em tempo real via SSE para o usuário."""
-        notification = await self.repository.create(
-            user_id=user_id,
+        uid = UUID(str(user_id)) if isinstance(user_id, str) else user_id
+        notification = NotificationModel(
+            user_id=uid,
             event_type=event_type,
             title=title,
             message=message,
             channel=channel,
             details=details,
         )
+        notification = await self.repository.save(notification)
 
         # Prepara evento serializável para SSE
         sse_event = {

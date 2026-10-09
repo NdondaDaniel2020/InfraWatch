@@ -39,6 +39,12 @@ class MfaRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
+    async def save(self, mfa_method: MfaMethodModel) -> MfaMethodModel:
+        """Persiste ou atualiza um método MFA na sessão ativa."""
+        self.session.add(mfa_method)
+        await self.session.flush()
+        return mfa_method
+
     async def upsert_pending_secret(
         self, user_id: UUID, secret: str, type: str = "totp"
     ) -> MfaMethodModel:
@@ -54,9 +60,7 @@ class MfaRepository:
                 secret=secret,
                 is_active=False,
             )
-            self.session.add(mfa_method)
-        await self.session.flush()
-        return mfa_method
+        return await self.save(mfa_method)
 
     async def activate_method(
         self,

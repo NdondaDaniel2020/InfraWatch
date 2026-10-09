@@ -86,6 +86,10 @@ class AuditRepository:
             hash=record_hash,
         )
 
+        return await self.save(record)
+
+    async def save(self, record: AuditLogModel) -> AuditLogModel:
+        """Persiste um registro de auditoria na sessão ativa."""
         self.session.add(record)
         await self.session.flush()
         return record

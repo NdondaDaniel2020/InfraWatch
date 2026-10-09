@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Any, Sequence
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -16,7 +16,8 @@ class DeviceRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def save(self, device) -> None:
+    async def save(self, device: Any) -> DeviceModel:
+        """Persiste ou atualiza a entidade de domínio ou modelo de dispositivo na sessão ativa."""
         model = await self.get_by_id(device.id)
         if not model:
             model = DeviceModel(
@@ -26,7 +27,7 @@ class DeviceRepository:
             self.session.add(model)
         
         model.name = device.name
-        model.hostname = None
+        model.hostname = getattr(device, "hostname", None)
         model.ip_address = device.ip_address
         model.port = device.port
         model.protocol = device.protocol
@@ -36,6 +37,8 @@ class DeviceRepository:
         model.is_paused = device.is_paused
         model.status = device.status
         model.maintenance_until = device.maintenance_until
+        await self.session.flush()
+        return model
 
     async def search_devices(
         self,

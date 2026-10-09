@@ -48,6 +48,12 @@ class UserRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
+    async def save(self, user: UserModel) -> UserModel:
+        """Persiste ou atualiza um usuário na sessão ativa."""
+        self.session.add(user)
+        await self.session.flush()
+        return user
+
     async def create(
         self,
         *,
@@ -61,7 +67,7 @@ class UserRepository:
         oauth_provider: str | None = None,
         google_id: str | None = None,
     ) -> UserModel:
-        """Cria e persiste um novo usuário no banco de dados."""
+        """Cria e persiste um novo usuário no banco de dados (conveniência para save)."""
         user = UserModel(
             email=email.strip().lower(),
             hashed_password=hashed_password,
@@ -73,9 +79,8 @@ class UserRepository:
             oauth_provider=oauth_provider,
             google_id=google_id,
         )
-        self.session.add(user)
-        await self.session.flush()
-        return user
+        return await self.save(user)
+
 
     async def list_by_organization(
         self,

@@ -73,14 +73,15 @@ class OrganizationService:
                 code="ORGANIZATION_SLUG_CONFLICT",
             )
 
-        org = await self.org_repo.create(
-            name=data.name,
+        org = OrganizationModel(
+            name=data.name.strip(),
             slug=clean_slug,
             contact_email=data.contact_email,
             contact_phone=data.contact_phone,
-            tier=data.tier,
+            tier=str(data.tier),
             sla_target_default=data.sla_target_default,
         )
+        org = await self.org_repo.save(org)
 
         # Registra evento no Transactional Outbox
         event = OrganizationCreatedEvent(

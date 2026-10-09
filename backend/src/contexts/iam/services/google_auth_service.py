@@ -279,15 +279,16 @@ class GoogleAuthService:
 
         # 2. Se não existir, auto-cadastra como usuário verificado
         if user is None:
-            user = await self.user_repo.create(
+            user = UserModel(
                 email=email,
                 full_name=name,
-                role=UserRole.CLIENT_VIEWER,
+                role=str(UserRole.CLIENT_VIEWER),
                 oauth_provider="google",
                 google_id=google_id,
                 is_active=True,
                 is_verified=True,
             )
+            user = await self.user_repo.save(user)
             logger.info("Novo usuário registrado via Google OAuth: %s (id=%s)", email, user.id)
         else:
             # Vincula ou atualiza atributos OAuth
