@@ -20,8 +20,8 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.contexts.iam.domain.events import UserLoggedOutEvent
 from src.contexts.iam.database.models import RefreshTokenModel, UserModel
+from src.contexts.iam.domain.events import UserLoggedOutEvent
 from src.contexts.iam.security.tokens import (
     create_access_token,
     decode_access_token,
@@ -29,7 +29,7 @@ from src.contexts.iam.security.tokens import (
     hash_token,
 )
 from src.core.config import get_settings
-from src.core.database.outbox_repository import OutboxRepository
+from src.core.database import OutboxRepository
 from src.core.exceptions import (
     InvalidTokenError,
     TokenExpiredError,
