@@ -108,9 +108,11 @@ def setup_logging(service_name: str = "infrawatch-api") -> None:
     root_logger.handlers = [handler]
     root_logger.setLevel(log_level)
 
-    # Ajusta verbosidade de bibliotecas de terceiros - usa o mesmo handler JSON
-    _replace_handlers(logging.getLogger("uvicorn.access"), handler)
-    logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+    # Silencia o logger de acesso padrão do uvicorn para evitar duplicidade de logs
+    # (o RequestLoggingMiddleware da aplicação emite o registro padronizado e enriquecido)
+    uvicorn_access = logging.getLogger("uvicorn.access")
+    uvicorn_access.handlers = [logging.NullHandler()]
+    uvicorn_access.propagate = False
 
     _replace_handlers(logging.getLogger("uvicorn.error"), handler)
     logging.getLogger("uvicorn.error").setLevel(log_level)
