@@ -6,21 +6,19 @@ from unittest.mock import MagicMock
 import src.workers.consumers as legacy_workers_consumers
 import src.workers.consumers.glpi_ticket_consumer as legacy_glpi_module
 import src.workers.consumers.inventory_changes_consumer as legacy_inventory_module
-
-# Novos bounded contexts
-from src.contexts.iam.consumers import IAM_EMAIL_TOPICS, IamEmailConsumer
-from src.contexts.integrations.consumers import (
-    CONSUMER_GROUP as INTEGRATIONS_CONSUMER_GROUP,
+from src.contexts.alerting.consumers import (
+    CONSUMER_GROUP as ALERTING_CONSUMER_GROUP,
 )
-from src.contexts.integrations.consumers import (
-    CRITICAL_SEVERITIES as INTEGRATIONS_CRITICAL_SEVERITIES,
+from src.contexts.alerting.consumers import (
+    CRITICAL_SEVERITIES as ALERTING_CRITICAL_SEVERITIES,
 )
-from src.contexts.integrations.consumers import (
-    STREAM_TOPIC as INTEGRATIONS_STREAM_TOPIC,
+from src.contexts.alerting.consumers import (
+    STREAM_TOPIC as ALERTING_STREAM_TOPIC,
 )
-from src.contexts.integrations.consumers import (
+from src.contexts.alerting.consumers import (
     GlpiTicketConsumer,
 )
+from src.contexts.iam.consumers import IAM_EMAIL_TOPICS, IamEmailConsumer
 from src.contexts.inventory.consumers import (
     CONSUMER_GROUP as INVENTORY_CONSUMER_GROUP,
 )
@@ -41,11 +39,11 @@ def test_inventory_changes_consumer_backward_compatibility():
 
 
 def test_glpi_ticket_consumer_backward_compatibility():
-    """Valida que o módulo legado em src.workers.consumers aponta para o bounded context integrations."""
+    """Valida que o módulo legado em src.workers.consumers aponta para o bounded context alerting."""
     assert legacy_glpi_module.GlpiTicketConsumer is GlpiTicketConsumer
-    assert legacy_glpi_module.STREAM_TOPIC == INTEGRATIONS_STREAM_TOPIC
-    assert legacy_glpi_module.CONSUMER_GROUP == INTEGRATIONS_CONSUMER_GROUP
-    assert legacy_glpi_module.CRITICAL_SEVERITIES == INTEGRATIONS_CRITICAL_SEVERITIES
+    assert legacy_glpi_module.STREAM_TOPIC == ALERTING_STREAM_TOPIC
+    assert legacy_glpi_module.CONSUMER_GROUP == ALERTING_CONSUMER_GROUP
+    assert legacy_glpi_module.CRITICAL_SEVERITIES == ALERTING_CRITICAL_SEVERITIES
     assert legacy_workers_consumers.GlpiTicketConsumer is GlpiTicketConsumer
 
 

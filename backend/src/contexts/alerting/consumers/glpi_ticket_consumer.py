@@ -27,7 +27,7 @@ from src.integrations.glpi.schemas import (
     GlpiUrgency,
 )
 
-logger = logging.getLogger("infrawatch.integrations.consumers.glpi_ticket")
+logger = logging.getLogger("infrawatch.alerting.consumers.glpi_ticket")
 
 STREAM_TOPIC = "stream:incidents"
 CONSUMER_GROUP = "cg:glpi_workers"

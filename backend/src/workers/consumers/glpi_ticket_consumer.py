@@ -1,9 +1,9 @@
 """Módulo de compatibilidade reversa para GlpiTicketConsumer (ADR-001).
 
-Redireciona para src.contexts.integrations.consumers.glpi_ticket_consumer.
+Redireciona para src.contexts.alerting.consumers.glpi_ticket_consumer.
 """
 
-from src.contexts.integrations.consumers.glpi_ticket_consumer import (
+from src.contexts.alerting.consumers.glpi_ticket_consumer import (
     CONSUMER_GROUP,
     CRITICAL_SEVERITIES,
     STREAM_TOPIC,
