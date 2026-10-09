@@ -1,4 +1,3 @@
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,14 +20,30 @@ from src.contexts.inventory.schemas.requests import (
     UpdateDeviceRequest,
 )
 from src.core.database.outbox_repository import OutboxRepository
+from src.core.database.unit_of_work import AbstractUnitOfWork, SqlAlchemyUnitOfWork
 from src.core.domain.entity import generate_uuid7
 
 
 class DeviceCommandService:
-    def __init__(self, session: AsyncSession, repository: DeviceRepository):
-        self.session = session
-        self.repository = repository
-        self.audit_service = AuditService(session)
+    def __init__(
+        self,
+        uow_or_session: AbstractUnitOfWork | AsyncSession | None = None,
+        repository: DeviceRepository | None = None,
+        session: AsyncSession | None = None,
+    ):
+        target = uow_or_session if uow_or_session is not None else session
+        if target is None:
+            raise ValueError("uow_or_session or session is required")
+
+        if isinstance(target, AbstractUnitOfWork):
+            self.uow = target
+            self.session = target.session
+        else:
+            self.session = target
+            self.uow = SqlAlchemyUnitOfWork(session=target)
+
+        self.repository = repository or DeviceRepository(self.session)
+        self.audit_service = AuditService(self.session)
 
     async def create_device(
         self,
@@ -80,7 +95,6 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
-        await self.session.commit()
         return device
 
     async def update_device(
@@ -134,7 +148,6 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
-        await self.session.commit()
         return device
 
     async def pause_device(
@@ -182,7 +195,6 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
-        await self.session.commit()
         return device
 
     async def resume_device(
@@ -222,7 +234,6 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
-        await self.session.commit()
         return device
 
     async def set_maintenance(
@@ -271,5 +282,4 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
-        await self.session.commit()
         return device

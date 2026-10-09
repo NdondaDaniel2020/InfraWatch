@@ -8,14 +8,16 @@ from src.contexts.inventory.services.device_command_service import DeviceCommand
 from src.contexts.inventory.services.device_query_service import DeviceQueryService
 from src.core.database.session import get_db_session
 
+from src.core.database.unit_of_work import UnitOfWorkDep
+
 def get_device_repository(session: AsyncSession = Depends(get_db_session)) -> DeviceRepository:
     return DeviceRepository(session)
 
 def get_device_command_service(
-    session: AsyncSession = Depends(get_db_session),
+    uow: UnitOfWorkDep,
     repository: DeviceRepository = Depends(get_device_repository),
 ) -> DeviceCommandService:
-    return DeviceCommandService(session, repository)
+    return DeviceCommandService(uow, repository)
 
 def get_device_query_service(
     session: AsyncSession = Depends(get_db_session)
