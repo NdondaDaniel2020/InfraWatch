@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -23,7 +24,7 @@ class DeviceListItem(BaseModel):
     protocol: str
     
     @classmethod
-    def for_viewer(cls, device: "DeviceListItem") -> "DeviceListItem":
+    def for_viewer(cls, device: "DeviceListItem") -> Self:
         """Factory que instancia um novo DeviceListItem com dados sensíveis mascarados para viewers."""
         base = device if isinstance(device, cls) else cls.model_validate(device)
         return cls(
@@ -37,7 +38,7 @@ class DeviceListItem(BaseModel):
         )
 
     @classmethod
-    def sanitize_for_viewer(cls, device: "DeviceListItem") -> "DeviceListItem":
+    def sanitize_for_viewer(cls, device: "DeviceListItem") -> Self:
         """Método mantido para retrocompatibilidade delegando para a factory for_viewer."""
         return cls.for_viewer(device)
 
@@ -61,7 +62,7 @@ class DeviceDetail(BaseModel):
     updated_at: datetime
 
     @classmethod
-    def for_viewer(cls, device: "DeviceDetail") -> "DeviceDetail":
+    def for_viewer(cls, device: "DeviceDetail") -> Self:
         """Factory que instancia um novo DeviceDetail com dados sensíveis mascarados para viewers."""
         base = device if isinstance(device, cls) else cls.model_validate(device)
         return cls(

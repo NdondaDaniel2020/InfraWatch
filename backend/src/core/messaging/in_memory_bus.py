@@ -8,7 +8,6 @@ import asyncio
 import inspect
 import logging
 from collections import defaultdict
-from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -150,12 +149,12 @@ class InMemoryEventBus(EventBus):
         """Invoca o handler com suporte a EventHandler ou corrotinas com 1 ou 2 parâmetros."""
         if isinstance(handler, EventHandler):
             await handler.handle(topic, payload)
-        elif isinstance(handler, Callable):
+        elif callable(handler):
             sig = inspect.signature(handler)
             if len(sig.parameters) == 1:
-                await handler(payload)  # type: ignore[call-arg]
+                await handler(payload)  # type: ignore[call-arg,arg-type]
             else:
-                await handler(topic, payload)  # type: ignore[call-arg]
+                await handler(topic, payload)
 
     async def subscribe(
         self,

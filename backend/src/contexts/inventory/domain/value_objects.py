@@ -8,6 +8,7 @@ e autovalidantes — rejeitar dados inválidos no momento da construção.
 import ipaddress as _ipaddress
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 
 class DeviceCategory(str, Enum):
@@ -113,7 +114,7 @@ class ThresholdConfig:
 
     def to_dict(self) -> dict:
         """Serializa para dicionário compatível com JSONB."""
-        data = {
+        data: dict[str, Any] = {
             "max_latency_ms": self.max_latency_ms,
             "max_jitter_ms": self.max_jitter_ms,
             "max_loss_percent": self.max_loss_percent,
