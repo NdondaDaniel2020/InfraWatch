@@ -175,7 +175,7 @@ services:
     networks:
       - infrawatch-net
 
-  evolution-api:
+  infrawatch-whatsapp-gateway:
     image: atendai/evolution-api:v2.2.3
     container_name: infrawatch-whatsapp-gateway
     restart: unless-stopped
