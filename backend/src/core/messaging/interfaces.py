@@ -26,12 +26,8 @@ EventHandlerCallable = Callable[[str, dict[str, Any]], Awaitable[None]]
 # Assinatura legada de argumento único mantida para retrocompatibilidade (ADR-001)
 LegacyEventHandlerCallable = Callable[[dict[str, Any]], Awaitable[None]]
 
-# Tipo unificado para manipuladores de eventos assíncronos
-HandlerType = (
-    EventHandler
-    | EventHandlerCallable
-    | LegacyEventHandlerCallable
-)
+# Tipo unificado e estrito para manipuladores de eventos assíncronos
+HandlerType = EventHandler | EventHandlerCallable
 
 
 class EventBus(ABC):

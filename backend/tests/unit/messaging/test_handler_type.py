@@ -10,7 +10,6 @@ from src.core.messaging.interfaces import (
     EventHandler,
     EventHandlerCallable,
     HandlerType,
-    LegacyEventHandlerCallable,
 )
 from src.core.messaging.redis_streams_bus import RedisStreamsEventBus
 
@@ -22,7 +21,7 @@ def test_handler_type_definitions():
     args = typing.get_args(HandlerType)
     assert EventHandler in args
     assert EventHandlerCallable in args
-    assert LegacyEventHandlerCallable in args
+    assert len(args) == 2
 
 
 class ConcreteEventHandler:

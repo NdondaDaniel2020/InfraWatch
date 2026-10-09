@@ -6,7 +6,6 @@ controladas e emissão de eventos de domínio.
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from src.contexts.inventory.domain.value_objects import (
@@ -41,10 +40,13 @@ class Device(Entity):
         category: str,
         interval_seconds: int,
         thresholds: dict,
+        hostname: str | None = None,
+        created_at: datetime | None = None,
     ) -> None:
-        super().__init__(id)
+        super().__init__(id, created_at=created_at)
         self.organization_id = organization_id
         self.name = name
+        self.hostname = hostname
 
         # Validação via Value Objects
         self._ip_address = IPAddress(ip_address)
@@ -56,7 +58,8 @@ class Device(Entity):
         self.interval_seconds = interval_seconds
         self.is_paused = False
         self.status = DeviceStatus.UP.value
-        self.maintenance_until: Optional[datetime] = None
+        self.maintenance_until: datetime | None = None
+        self.updated_at: datetime | None = None
 
     # -- Propriedades de acesso para manter compatibilidade com o ORM e API --
 
@@ -96,12 +99,13 @@ class Device(Entity):
 
     def update(
         self,
-        name: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        port: Optional[int] = None,
-        protocol: Optional[str] = None,
-        interval_seconds: Optional[int] = None,
-        thresholds: Optional[dict] = None,
+        name: str | None = None,
+        ip_address: str | None = None,
+        port: int | None = None,
+        protocol: str | None = None,
+        interval_seconds: int | None = None,
+        thresholds: dict | None = None,
+        hostname: str | None = None,
     ) -> None:
         """Atualiza campos opcionais do dispositivo com validação."""
         if name:
@@ -116,6 +120,8 @@ class Device(Entity):
             self.interval_seconds = interval_seconds
         if thresholds:
             self.thresholds = thresholds
+        if hostname is not None:
+            self.hostname = hostname
 
     def update_status(self, new_status: str, latency: float = 0.0, loss: float = 0.0) -> None:
         """Atualiza o status do dispositivo com base em métricas recebidas.
