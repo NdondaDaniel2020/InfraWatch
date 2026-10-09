@@ -21,6 +21,8 @@ from src.contexts.iam.services.token_service import (
     TokenPairResponse,
     TokenService,
 )
+from src.contexts.iam.services.user_command_service import UserCommandService
+from src.contexts.iam.services.user_query_service import UserQueryService
 from src.contexts.iam.services.user_service import UserService
 
 __all__ = [
@@ -39,5 +41,7 @@ __all__ = [
     "TokenPairResponse",
     "TokenService",
     "TopologySanitizer",
+    "UserCommandService",
+    "UserQueryService",
     "UserService",
 ]

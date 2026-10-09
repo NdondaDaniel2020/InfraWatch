@@ -1,150 +1,131 @@
-"""Serviço de gestão e ciclo de vida de usuários (UserService)."""
+"""Serviço unificado de gestão e ciclo de vida de usuários (UserService).
+
+Atua como fachada de conveniência integrando UserCommandService (escrita)
+e UserQueryService (leitura) para manter total retrocompatibilidade arquitetural.
+"""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.iam.domain.enums import UserRole
-from src.contexts.iam.domain.events import (
-    AccountDeactivatedEvent,
-    EmailVerificationRequestedEvent,
-    ProfileUpdatedEvent,
-    RolesChangedEvent,
-)
 from src.contexts.iam.database.models import UserModel
-from src.contexts.iam.repositories.email_verification_repository import (
-    EmailVerificationRepository,
+from src.contexts.iam.domain.commands import (
+    ActivateUserCommand,
+    AdminDisableMfaCommand,
+    ChangeUserRoleCommand,
+    DeactivateUserCommand,
+    RegisterUserCommand,
+    UpdateProfileCommand,
 )
-from src.contexts.iam.repositories.mfa_repository import MfaRepository
-from src.contexts.iam.repositories.refresh_token_repository import (
-    RefreshTokenRepository,
-)
-from src.contexts.iam.repositories.user_repository import UserRepository
-from src.contexts.iam.security.password import password_hasher
-from src.contexts.iam.security.tokens import generate_opaque_token
-from src.core.config import get_settings
-from src.core.database.outbox_repository import OutboxRepository
-from src.core.database.unit_of_work import AbstractUnitOfWork, SqlAlchemyUnitOfWork
-from src.core.exceptions import (
-    EmailAlreadyExistsError,
-    NotFoundError,
-)
+from src.contexts.iam.domain.enums import UserRole
+from src.contexts.iam.services.user_command_service import UserCommandService
+from src.contexts.iam.services.user_query_service import UserQueryService
+from src.core.database.unit_of_work import AbstractUnitOfWork
 
 
 class UserService:
-    """Serviço de domínio para gestão e ciclo de vida de contas de usuários."""
+    """Fachada agregadora para comandos e consultas de usuários."""
 
     def __init__(
         self,
         uow_or_session: AbstractUnitOfWork | AsyncSession | None = None,
         session: AsyncSession | None = None,
     ) -> None:
-        target = uow_or_session if uow_or_session is not None else session
-        if target is None:
-            raise ValueError("uow_or_session or session is required")
+        self._command_service = UserCommandService(uow_or_session, session=session)
+        self._query_service = UserQueryService(self._command_service.session)
 
-        if isinstance(target, AbstractUnitOfWork):
-            self.uow = target
-            self.session = target.session
-        else:
-            self.session = target
-            self.uow = SqlAlchemyUnitOfWork(session=target)
+        # Exposição de propriedades para compatibilidade
+        self.uow = self._command_service.uow
+        self.session = self._command_service.session
+        self.user_repo = self._command_service.user_repo
+        self.email_token_repo = self._command_service.email_token_repo
+        self.mfa_repo = self._command_service.mfa_repo
+        self.refresh_token_repo = self._command_service.refresh_token_repo
 
-        self.user_repo = UserRepository(self.session)
-        self.email_token_repo = EmailVerificationRepository(self.session)
-        self.mfa_repo = MfaRepository(self.session)
-        self.refresh_token_repo = RefreshTokenRepository(self.session)
+    # -- Delegações de Comandos (UserCommandService) --
 
     async def register_user(
         self,
+        cmd: RegisterUserCommand | None = None,
         *,
-        email: str,
-        password: str,
-        full_name: str,
+        email: str | None = None,
+        password: str | None = None,
+        full_name: str | None = None,
         organization_id: UUID | None = None,
         role: UserRole | str = UserRole.CLIENT_VIEWER,
     ) -> tuple[UserModel, str]:
-        """Cadastra novo usuário, gera token de verificação de e-mail e salva no banco."""
-        norm_email = email.strip().lower()
-        existing = await self.user_repo.get_by_email(norm_email)
-        if existing:
-            raise EmailAlreadyExistsError()
-
-        hashed_pwd = password_hasher.hash(password)
-        user = UserModel(
-            email=norm_email,
-            hashed_password=hashed_pwd,
-            full_name=full_name.strip(),
-            role=str(role),
+        return await self._command_service.register_user(
+            cmd,
+            email=email,
+            password=password,
+            full_name=full_name,
             organization_id=organization_id,
-            is_active=True,
+            role=role,
         )
-        user = await self.user_repo.save(user)
-
-        # Gera token de ativação/verificação de e-mail (parametrizado via Settings)
-        raw_token = generate_opaque_token(32)
-        settings = get_settings()
-        expires_at = datetime.now(UTC) + timedelta(
-            hours=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS
-        )
-        await self.email_token_repo.create(
-            user_id=user.id,
-            token=raw_token,
-            expires_at=expires_at,
-        )
-
-        event = EmailVerificationRequestedEvent(
-            aggregate_id=user.id,
-            email=user.email,
-            verify_token=raw_token,
-        )
-        OutboxRepository.add_event(self.session, event, aggregate_type="User")
-        await self.session.flush()
-        await self.session.refresh(user)
-
-        return user, raw_token
 
     async def update_profile(
         self,
         user_id: UUID,
+        cmd: UpdateProfileCommand | None = None,
         *,
         full_name: str | None = None,
     ) -> UserModel:
-        """Atualiza dados cadastrais do perfil e notifica o usuário."""
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise NotFoundError("Usuário não encontrado.")
+        return await self._command_service.update_profile(
+            user_id,
+            cmd=cmd,
+            full_name=full_name,
+        )
 
-        changed_fields: list[str] = []
-        if full_name is not None and user.full_name != full_name.strip():
-            user.full_name = full_name.strip()
-            changed_fields.append("Nome Completo")
+    async def update_roles(
+        self,
+        user_id: UUID,
+        role: UserRole | str | None = None,
+        cmd: ChangeUserRoleCommand | None = None,
+    ) -> UserModel:
+        return await self._command_service.update_roles(
+            user_id,
+            role=role,
+            cmd=cmd,
+        )
 
-        await self.session.flush()
-        await self.session.refresh(user)
+    update_user_role = update_roles
 
-        if changed_fields:
-            event = ProfileUpdatedEvent(
-                aggregate_id=user.id,
-                email=user.email,
-                changed_fields=", ".join(changed_fields),
-            )
-            OutboxRepository.add_event(self.session, event, aggregate_type="User")
-            await self.session.flush()
+    async def activate_user(
+        self,
+        user_id: UUID,
+        cmd: ActivateUserCommand | None = None,
+    ) -> UserModel:
+        return await self._command_service.activate_user(user_id, cmd=cmd)
 
-        return user
+    async def deactivate_user(
+        self,
+        user_id: UUID,
+        cmd: DeactivateUserCommand | None = None,
+        *,
+        reason: str | None = None,
+    ) -> UserModel:
+        return await self._command_service.deactivate_user(user_id, cmd=cmd, reason=reason)
+
+    async def admin_disable_mfa(
+        self,
+        user_id: UUID,
+        cmd: AdminDisableMfaCommand | None = None,
+    ) -> UserModel:
+        return await self._command_service.admin_disable_mfa(user_id, cmd=cmd)
+
+    # -- Delegações de Consultas (UserQueryService) --
 
     async def get_user_by_id(self, user_id: UUID) -> UserModel:
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise NotFoundError("Usuário não encontrado.")
-        return user
+        return await self._query_service.get_user_by_id(user_id)
 
     get_by_id = get_user_by_id
+
+    async def get_user_by_email(self, email: str) -> UserModel | None:
+        return await self._query_service.get_user_by_email(email)
+
+    get_by_email = get_user_by_email
 
     async def list_users(
         self,
@@ -153,91 +134,11 @@ class UserService:
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[UserModel], int]:
-        """Lista usuários paginados com filtro opcional por tenant."""
-        query = select(UserModel)
-        count_query = select(func.count()).select_from(UserModel)
-
-        if organization_id is not None:
-            query = query.where(UserModel.organization_id == organization_id)
-            count_query = count_query.where(UserModel.organization_id == organization_id)
-
-        query = query.order_by(UserModel.created_at.desc()).offset(offset).limit(limit)
-        items_res = await self.session.execute(query)
-        count_res = await self.session.execute(count_query)
-
-        return list(items_res.scalars().all()), int(count_res.scalar_one())
-
-    async def update_roles(self, user_id: UUID, role: UserRole | str) -> UserModel:
-        """Atualiza papel/role RBAC de um usuário e envia notificação."""
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise NotFoundError("Usuário não encontrado.")
-
-        role_str = str(role.value if isinstance(role, UserRole) else role)
-        old_role = str(user.role)
-        user.role = role_str
-        await self.session.flush()
-        await self.session.refresh(user)
-
-        if old_role != role_str:
-            event = RolesChangedEvent(
-                aggregate_id=user.id,
-                email=user.email,
-                new_roles=role_str,
-            )
-            OutboxRepository.add_event(self.session, event, aggregate_type="User")
-            await self.session.flush()
-
-        return user
-
-    update_user_role = update_roles
-
-    async def activate_user(self, user_id: UUID) -> UserModel:
-        """Ativa a conta do usuário."""
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise NotFoundError("Usuário não encontrado.")
-
-        user.is_active = True
-        await self.session.flush()
-        await self.session.refresh(user)
-        return user
-
-    async def deactivate_user(
-        self,
-        user_id: UUID,
-        *,
-        reason: str = "Suspensão administrativa por conformidade de segurança",
-    ) -> UserModel:
-        """Suspende a conta do usuário, revoga sessões e notifica por e-mail."""
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise NotFoundError("Usuário não encontrado.")
-
-        user.is_active = False
-        await self.refresh_token_repo.revoke_other_sessions(user_id)
-        event = AccountDeactivatedEvent(
-            aggregate_id=user.id,
-            email=user.email,
-            reason=reason,
+        return await self._query_service.list_users(
+            organization_id=organization_id,
+            offset=offset,
+            limit=limit,
         )
-        OutboxRepository.add_event(self.session, event, aggregate_type="User")
-        await self.session.flush()
-        await self.session.refresh(user)
-        return user
 
-    async def admin_disable_mfa(self, user_id: UUID) -> UserModel:
-        """Desativação administrativa de emergência do MFA de um usuário."""
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise NotFoundError("Usuário não encontrado.")
 
-        method = await self.mfa_repo.get_active_by_user_and_type(user_id, type="totp")
-        if method:
-            await self.mfa_repo.deactivate_method(method)
-
-        user.mfa_enabled = False
-        user.mfa_type = None
-        await self.session.flush()
-        await self.session.refresh(user)
-        return user
+__all__ = ["UserService"]
