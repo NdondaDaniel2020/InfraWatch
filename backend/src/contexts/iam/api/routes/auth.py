@@ -19,9 +19,9 @@ from src.contexts.iam.api.dependencies import (
     UserQueryServiceDep,
 )
 from src.contexts.iam.schemas.auth import (
-    AuthResponse,
     EmailVerificationConfirm,
     LoginRequest,
+    MfaChallengeResponse,
     PasswordResetConfirm,
     PasswordResetRequest,
     RefreshTokenRequest,
@@ -81,7 +81,7 @@ async def register(
 
 @router.post(
     "/login",
-    response_model=AuthResponse,
+    response_model=MfaChallengeResponse | TokenResponse,
     summary="Autenticação com e-mail e senha (JSON)",
 )
 async def login(
@@ -89,11 +89,11 @@ async def login(
     request: Request,
     client_ip: ClientIPDep,
     auth_service: AuthServiceDep,
-) -> AuthResponse:
+) -> MfaChallengeResponse | TokenResponse:
     """Valida credenciais do usuário sob proteção contra Timing Attack e Rate Limiting.
 
-    Se o usuário possuir MFA ativo, retorna mfa_required=True com mfa_pending_token.
-    Caso contrário, emite o par de tokens JWT/opaco e registra o evento UserLoggedInEvent no Outbox.
+    Se o usuário possuir MFA ativo, retorna MfaChallengeResponse com mfa_required=True e mfa_pending_token.
+    Caso contrário, emite TokenResponse contendo o par de tokens JWT/opaco e registra o evento UserLoggedInEvent no Outbox.
     """
     user_agent = request.headers.get("user-agent")
     try:
@@ -120,12 +120,12 @@ async def login(
 
     if user.mfa_enabled or isinstance(token_pair, str):
         # MFA é obrigatório para este usuário
-        return AuthResponse(
+        return MfaChallengeResponse(
             mfa_required=True,
             mfa_pending_token=str(token_pair),
         )
 
-    return AuthResponse(
+    return TokenResponse(
         access_token=token_pair.access_token,
         refresh_token=token_pair.refresh_token,
         token_type="Bearer",
@@ -136,7 +136,7 @@ async def login(
 
 @router.post(
     "/login-form",
-    response_model=AuthResponse,
+    response_model=MfaChallengeResponse | TokenResponse,
     summary="Autenticação compatível com formulário OAuth2 (Swagger UI /docs)",
 )
 async def login_form(
@@ -144,7 +144,7 @@ async def login_form(
     request: Request,
     client_ip: ClientIPDep,
     auth_service: AuthServiceDep,
-) -> AuthResponse:
+) -> MfaChallengeResponse | TokenResponse:
     """Suporta autenticação nativa através do botão Authorize da documentação OpenAPI."""
     return await login(
         body=LoginRequest(email=form_data.username, password=form_data.password),
@@ -156,7 +156,7 @@ async def login_form(
 
 @router.post(
     "/login/mfa-challenge",
-    response_model=AuthResponse,
+    response_model=TokenResponse,
     summary="Resolução de desafio MFA após o login inicial",
 )
 async def login_mfa_challenge(
@@ -164,7 +164,7 @@ async def login_mfa_challenge(
     request: Request,
     client_ip: ClientIPDep,
     auth_service: AuthServiceDep,
-) -> AuthResponse:
+) -> TokenResponse:
     """Valida o token intermediário e o código TOTP ou de backup, emitindo a sessão definitiva."""
     user_agent = request.headers.get("user-agent")
     try:
@@ -182,7 +182,7 @@ async def login_mfa_challenge(
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
 
-    return AuthResponse(
+    return TokenResponse(
         access_token=token_pair.access_token,
         refresh_token=token_pair.refresh_token,
         token_type="Bearer",

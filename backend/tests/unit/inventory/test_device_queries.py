@@ -1,11 +1,10 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import uuid4
-
-import pytest
 
 from src.contexts.inventory.schemas.device_schemas import DeviceDetail, DeviceListItem
 from src.contexts.inventory.schemas.filters import DeviceFilters
 from src.core.web.pagination import PaginationParams
+
 
 def test_mask_ip_address():
     from src.contexts.inventory.schemas.device_schemas import mask_ip_address
@@ -21,11 +20,19 @@ def test_sanitize_list_item():
         status="UP",
         is_paused=False,
         ip_address="192.168.0.50",
-        protocol="ssh"
+        protocol="ssh",
     )
-    sanitized = DeviceListItem.sanitize_for_viewer(item)
+    # Testa factory for_viewer
+    sanitized = DeviceListItem.for_viewer(item)
+    assert sanitized is not item
     assert sanitized.ip_address == "***.***.0.50"
     assert sanitized.name == "Router"
+    assert item.ip_address == "192.168.0.50"
+
+    # Testa retrocompatibilidade de sanitize_for_viewer
+    legacy_sanitized = DeviceListItem.sanitize_for_viewer(item)
+    assert legacy_sanitized.ip_address == "***.***.0.50"
+
 
 def test_sanitize_detail():
     detail = DeviceDetail(
@@ -41,11 +48,20 @@ def test_sanitize_detail():
         status="UP",
         is_paused=False,
         created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC)
+        updated_at=datetime.now(UTC),
     )
-    sanitized = DeviceDetail.sanitize_for_viewer(detail)
+    # Testa factory for_viewer
+    sanitized = DeviceDetail.for_viewer(detail)
+    assert sanitized is not detail
     assert sanitized.ip_address == "***.***.10.254"
     assert sanitized.port == 0
+    assert detail.port == 22
+    assert detail.ip_address == "10.10.10.254"
+
+    # Testa retrocompatibilidade de sanitize_for_viewer
+    legacy_sanitized = DeviceDetail.sanitize_for_viewer(detail)
+    assert legacy_sanitized.ip_address == "***.***.10.254"
+    assert legacy_sanitized.port == 0
 
 def test_device_filters_creation():
     f = DeviceFilters(status="UP", category="ROUTER", protocol="snmp", is_paused=False)

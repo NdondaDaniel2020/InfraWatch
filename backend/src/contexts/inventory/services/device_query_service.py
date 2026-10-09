@@ -1,4 +1,3 @@
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -47,7 +46,7 @@ class DeviceQueryService:
 
         items = [DeviceListItem.model_validate(d) for d in devices]
         if is_viewer:
-            items = [DeviceListItem.sanitize_for_viewer(item) for item in items]
+            items = [DeviceListItem.for_viewer(item) for item in items]
 
         return PaginatedResponse(
             items=items,
@@ -90,7 +89,7 @@ class DeviceQueryService:
 
         items = [DeviceSearchResult.model_validate(d) for d in devices]
         if is_viewer:
-            items = [DeviceSearchResult.sanitize_for_viewer(item) for item in items]
+            items = [DeviceSearchResult.for_viewer(item) for item in items]
 
         return PaginatedResponse(
             items=items,
@@ -101,7 +100,7 @@ class DeviceQueryService:
 
     async def get_device_detail(
         self, org_id: UUID, device_id: UUID, is_viewer: bool = False
-    ) -> Optional[DeviceDetail]:
+    ) -> DeviceDetail | None:
         stmt = select(DeviceModel).where(
             DeviceModel.id == device_id,
             DeviceModel.organization_id == org_id
@@ -114,5 +113,5 @@ class DeviceQueryService:
 
         detail = DeviceDetail.model_validate(device)
         if is_viewer:
-            return DeviceDetail.sanitize_for_viewer(detail)
+            return DeviceDetail.for_viewer(detail)
         return detail

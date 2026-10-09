@@ -42,6 +42,7 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "Bearer"
     expires_in: int = Field(description="Tempo de expiração do access token em segundos")
+    user: UserResponse | None = None
 
 
 class UserResponse(BaseModel):
@@ -60,8 +61,18 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
+class MfaChallengeResponse(BaseModel):
+    """Resposta emitida quando o segundo fator de autenticação (MFA) é obrigatório."""
+
+    mfa_required: bool = True
+    mfa_pending_token: str = Field(description="Token temporário para validação do segundo fator")
+
+
 class AuthResponse(BaseModel):
-    """Resposta flexível de autenticação suportando desafio MFA intermediário."""
+    """Resposta legada de autenticação para compatibilidade reversa (ADR-001).
+
+    Preterido em favor da separação de MfaChallengeResponse e TokenResponse.
+    """
 
     mfa_required: bool = False
     mfa_pending_token: str | None = None
