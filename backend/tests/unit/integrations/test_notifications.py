@@ -290,6 +290,19 @@ async def test_smtp_channel_send_failure(sample_alert: AlertMessage) -> None:
     assert success is False
 
 
+def test_smtp_channel_renders_html_template(sample_alert: AlertMessage) -> None:
+    channel = SmtpNotificationChannel(smtp_host="smtp.example.com")
+    html_content = channel._render_html(sample_alert)
+
+    assert "InfraWatch - Alerta" in html_content
+    assert "#DC2626" in html_content
+    assert "CRITICAL" in html_content
+    assert "Host Inacessível" in html_content
+    assert "Switch-Core-01" in html_content
+    assert "192.168.10.1" in html_content
+    assert "15.5 minutos" in html_content
+
+
 # ============================================================================
 # WebhookChannel Tests
 # ============================================================================
