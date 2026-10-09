@@ -11,6 +11,7 @@ from src.core.observability.context import (
 from src.core.observability.logging import (
     JSONFormatter,
     get_logger,
+    get_uvicorn_log_config,
     setup_logging,
 )
 from src.core.observability.metrics_auth import verify_metrics_auth
@@ -27,6 +28,7 @@ __all__ = [
     "get_logger",
     "get_request_id",
     "get_user_id",
+    "get_uvicorn_log_config",
     "metrics_response",
     "request_id_ctx",
     "set_request_id",
