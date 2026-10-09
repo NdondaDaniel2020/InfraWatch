@@ -13,7 +13,7 @@ from src.contexts.iam.database.models import AuditLogModel
 from src.contexts.iam.repositories.audit_repository import AuditRepository
 from src.core.security.audit import GENESIS_HASH, compute_audit_hash
 
-logger = logging.getLogger("infrawatch.identity.audit")
+logger = logging.getLogger("infrawatch.iam.audit")
 
 
 class AuditService:

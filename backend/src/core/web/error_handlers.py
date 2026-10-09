@@ -55,12 +55,19 @@ async def handle_infrawatch_exception(
     exc: InfraWatchException,
 ) -> JSONResponse:
     """Converte exceções de domínio do InfraWatch em respostas JSON canônicas com HTTP Status e Code."""
-    logger.info(
-        "InfraWatchException [%s]: %s | %s %s",
+    level = logging.ERROR if exc.status_code >= 500 else logging.WARNING
+    logger.log(
+        level,
+        "InfraWatchException [%s]: %s",
         exc.code,
         exc.message,
-        request.method,
-        request.url.path,
+        extra={
+            "error_type": exc.__class__.__name__,
+            "error_code": exc.code,
+            "status_code": exc.status_code,
+            "method": request.method,
+            "path": request.url.path,
+        },
     )
     content = _error_payload(
         request,
@@ -83,12 +90,18 @@ async def handle_http_exception(
 ) -> JSONResponse:
     """Padroniza exceções nativas HTTPException disparadas pelo FastAPI ou Starlette."""
     detail = getattr(exc, "detail", "Erro na requisição.")
-    logger.info(
-        "HTTPException %s: %s | %s %s",
+    level = logging.ERROR if exc.status_code >= 500 else logging.WARNING
+    logger.log(
+        level,
+        "HTTPException %s: %s",
         exc.status_code,
         detail,
-        request.method,
-        request.url.path,
+        extra={
+            "error_type": "HTTPException",
+            "status_code": exc.status_code,
+            "method": request.method,
+            "path": request.url.path,
+        },
     )
     content = _error_payload(
         request,
@@ -122,14 +135,25 @@ async def handle_validation_error(
     exc: RequestValidationError,
 ) -> JSONResponse:
     """Trata erros de validação de schemas Pydantic devolvendo formato estruturado 422."""
-    logger.info("RequestValidationError: %s %s", request.method, request.url.path)
+    validation_details = _normalize_validation_details(exc.errors())
+    logger.warning(
+        "Erro de validação na requisição (422)",
+        extra={
+            "error_type": "RequestValidationError",
+            "status_code": 422,
+            "error_code": "VALIDATION_ERROR",
+            "method": request.method,
+            "path": request.url.path,
+            "validation_details": validation_details,
+        },
+    )
     content = _error_payload(
         request,
         exc_type="RequestValidationError",
         message="Erro de validação nos dados fornecidos.",
         status_code=422,
         code="VALIDATION_ERROR",
-        details=_normalize_validation_details(exc.errors()),
+        details=validation_details,
     )
     return JSONResponse(status_code=422, content=content)
 
@@ -140,9 +164,14 @@ async def handle_generic_exception(
 ) -> JSONResponse:
     """Captura exceções inesperadas, registrando stack trace sem vazar detalhes aos clientes."""
     logger.exception(
-        "Exceção não tratada durante requisição: %s %s",
-        request.method,
-        request.url,
+        "Exceção não tratada durante requisição",
+        extra={
+            "error_type": exc.__class__.__name__,
+            "status_code": 500,
+            "error_code": "INTERNAL_SERVER_ERROR",
+            "method": request.method,
+            "path": request.url.path,
+        },
     )
     content = _error_payload(
         request,

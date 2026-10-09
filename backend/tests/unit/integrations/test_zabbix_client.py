@@ -92,16 +92,22 @@ def test_zabbix_item_float_parsing():
 @pytest.mark.asyncio
 async def test_zabbix_get_api_version():
     """Valida chamada do método apiinfo.version sem necessidade de autenticação."""
-    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php")
+    # Mesmo com api_token configurado, apiinfo.version não pode enviar header Authorization
+    client = ZabbixClient(
+        api_url="http://zabbix.test/api_jsonrpc.php",
+        api_token="token_that_must_not_be_sent_to_apiinfo_version",
+    )
 
-    mock_resp = make_jsonrpc_response(result="6.4.12")
+    mock_resp = make_jsonrpc_response(result="7.0.0")
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp) as mock_post:
         version = await client.get_api_version()
-        assert version == "6.4.12"
+        assert version == "7.0.0"
         mock_post.assert_called_once()
         sent_json = mock_post.call_args[1]["json"]
+        sent_headers = mock_post.call_args[1]["headers"]
         assert sent_json["method"] == "apiinfo.version"
         assert "auth" not in sent_json or sent_json["auth"] is None
+        assert "Authorization" not in sent_headers
 
 
 @pytest.mark.asyncio
@@ -137,6 +143,27 @@ async def test_zabbix_login_failure():
     ):
         await client.login("Admin", "wrong_password")
 
+
+@pytest.mark.asyncio
+async def test_zabbix_invalid_api_token_triggers_auth_error():
+    """Valida que token inválido/expirado com resposta 'Session terminated' lança ZabbixAuthError."""
+    client = ZabbixClient(
+        api_url="http://zabbix.test/api_jsonrpc.php",
+        api_token="invalid_or_fake_token",
+    )
+
+    error_payload = {
+        "code": -32602,
+        "message": "Invalid params.",
+        "data": "Session terminated, re-login, please.",
+    }
+    mock_resp = make_jsonrpc_response(error=error_payload)
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp),
+        pytest.raises(ZabbixAuthError, match="Erro de autenticação Zabbix"),
+    ):
+        async with client:
+            await client.get_hosts()
 
 
 @pytest.mark.asyncio
@@ -327,3 +354,75 @@ async def test_zabbix_sync_worker_resilience_on_zabbix_error():
     # Não deve lançar exceção, deve retornar None e não gravar métricas
     assert result is None
     mock_session.add_all.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Testes de Startup Heartbeat
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_zabbix_send_startup_heartbeat_success():
+    """Valida envio de batimento cardíaco (startup heartbeat) com sucesso."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    hosts_resp = make_jsonrpc_response(result=[{"hostid": "10084", "host": "srv-prod-01"}])
+    version_resp = make_jsonrpc_response(result="7.0.0")
+    items_resp = make_jsonrpc_response(result=[{"itemid": "50740"}])
+    push_resp = make_jsonrpc_response(result={"response": "success", "data": [{"itemid": 50740}]})
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[version_resp, hosts_resp, items_resp, push_resp],
+    ):
+        res = await client.send_startup_heartbeat(
+            app_name="InfraWatch",
+            version="0.1.0",
+            environment="production",
+        )
+        assert res["status"] == "ok"
+        assert res["api_version"] == "7.0.0"
+        assert res["hosts_count"] == 1
+        assert res["item_id"] == "50740"
+        assert res["heartbeat_pushed"] is True
+
+
+@pytest.mark.asyncio
+async def test_zabbix_send_startup_heartbeat_graceful_on_push_error():
+    """Valida que falha em history.push (ex: erro no servidor) não invalida o heartbeat."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    version_resp = make_jsonrpc_response(result="7.0.0")
+    hosts_resp = make_jsonrpc_response(result=[{"hostid": "10084", "host": "srv-prod-01"}])
+    items_resp = make_jsonrpc_response(result=[{"itemid": "50740"}])
+    push_err = make_jsonrpc_response(error={"code": -32602, "message": "Failed to push"})
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[version_resp, hosts_resp, items_resp, push_err],
+    ):
+        res = await client.send_startup_heartbeat()
+        assert res["status"] == "ok"
+        assert res["api_version"] == "7.0.0"
+        assert res["hosts_count"] == 1
+        assert res["item_id"] == "50740"
+        assert res["heartbeat_pushed"] is False
+
+
+@pytest.mark.asyncio
+async def test_zabbix_send_startup_heartbeat_without_hosts():
+    """Valida comportamento seguro quando nenhum host está cadastrado."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    version_resp = make_jsonrpc_response(result="6.4.0")
+    hosts_resp = make_jsonrpc_response(result=[])
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp]):
+        res = await client.send_startup_heartbeat()
+        assert res["status"] == "ok"
+        assert res["api_version"] == "6.4.0"
+        assert res["hosts_count"] == 0
+        assert res["heartbeat_pushed"] is False
+

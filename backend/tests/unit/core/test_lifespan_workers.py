@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 
 from src.core.config import Settings
-from src.core.web.lifespan import lifespan
+from src.core.web.lifespan import _notify_zabbix_startup, lifespan
 
 
 @pytest.mark.asyncio
@@ -315,3 +315,167 @@ async def test_outbox_relay_jitter_applied_to_fallback():
     assert len(captured_timeouts) == 1
     # Timeout base 10.0 com jitter ±10% deve estar no intervalo [9.0, 11.0]
     assert 9.0 <= captured_timeouts[0] <= 11.0
+
+
+# ---------------------------------------------------------------------------
+# Testes do Heartbeat de Startup do Zabbix
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_notify_zabbix_startup_disabled():
+    """Valida que a notificação de startup é ignorada se desabilitada por configuração."""
+    settings = Settings(
+        ENVIRONMENT="development",
+        ZABBIX_ENABLED=True,
+        ZABBIX_NOTIFY_STARTUP=False,
+    )
+    with patch("src.core.web.lifespan.ZabbixClient") as mock_client_cls:
+        await _notify_zabbix_startup(settings)
+        mock_client_cls.assert_not_called()
+
+    settings_disabled = Settings(
+        ENVIRONMENT="development",
+        ZABBIX_ENABLED=False,
+        ZABBIX_NOTIFY_STARTUP=True,
+    )
+    with patch("src.core.web.lifespan.ZabbixClient") as mock_client_cls:
+        await _notify_zabbix_startup(settings_disabled)
+        mock_client_cls.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notify_zabbix_startup_skips_in_test_environment():
+    """Valida que em ENVIRONMENT=test a notificação de startup não é executada."""
+    settings = Settings(
+        ENVIRONMENT="test",
+        ZABBIX_ENABLED=True,
+        ZABBIX_NOTIFY_STARTUP=True,
+        ZABBIX_API_TOKEN="some_token",
+    )
+    with patch("src.core.web.lifespan.ZabbixClient") as mock_client_cls:
+        await _notify_zabbix_startup(settings)
+        mock_client_cls.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notify_zabbix_startup_success():
+    """Valida emissão bem-sucedida de batimento e debounce no Redis."""
+    settings = Settings(
+        ENVIRONMENT="development",
+        ZABBIX_ENABLED=True,
+        ZABBIX_NOTIFY_STARTUP=True,
+        ZABBIX_API_URL="http://zabbix.test/api_jsonrpc.php",
+        ZABBIX_API_TOKEN="secret_token",
+    )
+
+    mock_redis = AsyncMock()
+    mock_redis.set.return_value = True
+
+    mock_client = AsyncMock()
+    mock_client.send_startup_heartbeat.return_value = {
+        "status": "ok",
+        "api_version": "7.0.0",
+        "hosts_count": 2,
+        "heartbeat_pushed": True,
+    }
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+
+    with (
+        patch("src.core.web.lifespan.get_redis_client", return_value=mock_redis),
+        patch("src.core.web.lifespan.ZabbixClient", return_value=mock_client) as mock_client_cls,
+    ):
+        await _notify_zabbix_startup(settings)
+
+        mock_redis.set.assert_awaited_once_with(
+            "infrawatch:zabbix:startup_heartbeat_sent", "1", nx=True, ex=86400
+        )
+        mock_client_cls.assert_called_once_with(
+            api_url="http://zabbix.test/api_jsonrpc.php",
+            api_token="secret_token",
+            username="Admin",
+            password="zabbix",
+            timeout=10.0,
+        )
+        mock_client.send_startup_heartbeat.assert_awaited_once_with(
+            app_name=settings.PROJECT_NAME,
+            version="0.1.0",
+            environment="development",
+        )
+
+
+@pytest.mark.asyncio
+async def test_notify_zabbix_startup_debounced_by_redis():
+    """Valida que quando a chave de debounce já existe no Redis, a chamada ao Zabbix não ocorre."""
+    settings = Settings(
+        ENVIRONMENT="development",
+        ZABBIX_ENABLED=True,
+        ZABBIX_NOTIFY_STARTUP=True,
+        ZABBIX_API_TOKEN="secret_token",
+    )
+
+    mock_redis = AsyncMock()
+    mock_redis.set.return_value = False  # Já adquirido nas últimas 24h
+
+    with (
+        patch("src.core.web.lifespan.get_redis_client", return_value=mock_redis),
+        patch("src.core.web.lifespan.ZabbixClient") as mock_client_cls,
+    ):
+        await _notify_zabbix_startup(settings)
+        mock_redis.set.assert_awaited_once()
+        mock_client_cls.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notify_zabbix_startup_catches_exceptions_gracefully():
+    """Valida que falhas de conexão com o Zabbix no startup não quebram o ciclo de vida."""
+    settings = Settings(
+        ENVIRONMENT="development",
+        ZABBIX_ENABLED=True,
+        ZABBIX_NOTIFY_STARTUP=True,
+        ZABBIX_API_TOKEN="secret_token",
+    )
+
+    mock_redis = AsyncMock()
+    mock_redis.set.return_value = True
+
+    mock_client = AsyncMock()
+    mock_client.send_startup_heartbeat.side_effect = RuntimeError("Falha de conexão com o Zabbix")
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+
+    with (
+        patch("src.core.web.lifespan.get_redis_client", return_value=mock_redis),
+        patch("src.core.web.lifespan.ZabbixClient", return_value=mock_client),
+    ):
+        # Não deve lançar exceção
+        await _notify_zabbix_startup(settings)
+
+
+@pytest.mark.asyncio
+async def test_lifespan_dispatches_zabbix_startup_notification_when_enabled():
+    """Valida que o lifespan cria a task assíncrona _notify_zabbix_startup quando ZABBIX_ENABLED=True."""
+    app = FastAPI()
+    settings = Settings(
+        ENVIRONMENT="development",
+        ENABLE_BACKGROUND_WORKERS=False,
+        ZABBIX_ENABLED=True,
+        ZABBIX_NOTIFY_STARTUP=True,
+    )
+    mock_engine = AsyncMock()
+
+    with (
+        patch("src.core.web.lifespan.get_settings", return_value=settings),
+        patch("src.core.web.lifespan.init_redis", new_callable=AsyncMock),
+        patch("src.core.web.lifespan.close_redis", new_callable=AsyncMock),
+        patch("src.core.web.lifespan.init_db", new_callable=AsyncMock, return_value=mock_engine),
+        patch("src.core.web.lifespan.close_db", new_callable=AsyncMock),
+        patch("src.core.web.lifespan._notify_zabbix_startup", new_callable=AsyncMock) as mock_notify,
+    ):
+        async with lifespan(app):
+            # Dá chance para a task criada rodar no loop
+            await asyncio.sleep(0.01)
+            mock_notify.assert_awaited_once_with(settings)
+
+

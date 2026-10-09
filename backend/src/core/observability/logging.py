@@ -11,7 +11,6 @@ from typing import Any
 from src.core.config import get_settings
 from src.core.observability.context import get_request_id, get_user_id
 
-
 # Campos padrão do LogRecord que não devem ser incluídos como extra
 _STANDARD_LOG_RECORD_ATTRS = {
     "name",
@@ -36,18 +35,26 @@ _STANDARD_LOG_RECORD_ATTRS = {
     "process",
     "message",
     "asctime",
+    # Atributos internos do Python 3.12+ e Uvicorn
+    "taskName",
+    "color_message",
 }
 
 
 class JSONFormatter(logging.Formatter):
     """Formatador de logs estruturados em JSON para ambientes corporativos e Docker/K8s."""
 
+    def __init__(self, service_name: str = "infrawatch-api") -> None:
+        super().__init__()
+        self.service_name = service_name
+
     def format(self, record: logging.LogRecord) -> str:
+        service = getattr(record, "service", None) or self.service_name
         payload: dict[str, Any] = {
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "service": "infrawatch-api",
+            "service": service,
             "message": record.getMessage(),
         }
 
@@ -85,25 +92,34 @@ def _replace_handlers(logger: logging.Logger, handler: logging.Handler) -> None:
     logger.propagate = False
 
 
-def setup_logging() -> None:
+def setup_logging(service_name: str = "infrawatch-api") -> None:
     """Configura o root logger para emitir logs JSON estruturados."""
     settings = get_settings()
-    log_level = logging.DEBUG if settings.DEBUG else logging.INFO
+    env_level = getattr(settings, "LOG_LEVEL", "INFO").upper()
+    default_level = logging.DEBUG if settings.DEBUG else logging.INFO
+    log_level = getattr(logging, env_level, default_level)
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(log_level)
-    handler.setFormatter(JSONFormatter())
+    handler.setFormatter(JSONFormatter(service_name=service_name))
 
     root_logger = logging.getLogger()
     root_logger.handlers = [handler]
     root_logger.setLevel(log_level)
 
-    # Ajusta verbosidade de bibliotecas de terceiros - usa o mesmo handler JSON
-    _replace_handlers(logging.getLogger("uvicorn.access"), handler)
-    logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+    # Silencia o logger de acesso padrão do uvicorn para evitar duplicidade de logs
+    # (o RequestLoggingMiddleware da aplicação emite o registro padronizado e enriquecido)
+    uvicorn_access = logging.getLogger("uvicorn.access")
+    uvicorn_access.handlers = [logging.NullHandler()]
+    uvicorn_access.propagate = False
 
     _replace_handlers(logging.getLogger("uvicorn.error"), handler)
     logging.getLogger("uvicorn.error").setLevel(log_level)
+
+    # Silencia bibliotecas de rede e assíncronas ruidosas
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     # SQLAlchemy: desabilita echo (já feito em session.py) e define nível WARNING
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)

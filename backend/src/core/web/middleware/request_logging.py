@@ -22,7 +22,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         elapsed = time.perf_counter() - start_time
 
-        client_host = request.client.host if request.client else "unknown"
+        # Obtém o IP seguro resolvido pelo TrustedProxyMiddleware com fallback defensivo
+        client_host = getattr(request.state, "client_ip", None)
+        if not client_host:
+            client_host = request.client.host if request.client else "unknown"
+
         request_id = get_request_id()
 
         logger.info(

@@ -138,6 +138,23 @@ class TestDockerComposeConfig(unittest.TestCase):
             result.returncode, 0, f"Falha na validação do docker compose config: {result.stderr}"
         )
 
+    def test_zabbix_compose_file_exists_and_valid(self):
+        """Valida se docker-compose.zabbix.yml existe e possui serviços requeridos."""
+        zabbix_compose = self.root_dir / "docker-compose.zabbix.yml"
+        self.assertTrue(zabbix_compose.exists(), "docker-compose.zabbix.yml não encontrado")
+
+        with open(zabbix_compose, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        self.assertIn("services", data)
+        services = data["services"]
+        expected = {"zabbix-db", "zabbix-server", "zabbix-web", "zabbix-agent"}
+        self.assertTrue(expected.issubset(services.keys()))
+
+        # Porta web exposta em 8081:8080
+        web = services["zabbix-web"]
+        self.assertIn("8081:8080", web.get("ports", []))
+
 
 if __name__ == "__main__":
     unittest.main()

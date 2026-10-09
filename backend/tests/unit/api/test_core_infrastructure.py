@@ -219,3 +219,85 @@ def test_json_formatter_with_context() -> None:
     finally:
         request_id_ctx.reset(token_req)
         user_id_ctx.reset(token_user)
+
+
+def test_json_formatter_sanitizes_task_name_and_ansi_colors() -> None:
+    """Garante que atributos internos do Python 3.12 (taskName) e Uvicorn (color_message) são eliminados."""
+    import logging
+
+    formatter = JSONFormatter(service_name="infrawatch-worker")
+    record = logging.LogRecord(
+        name="test.worker",
+        level=logging.INFO,
+        pathname="worker.py",
+        lineno=42,
+        msg="Execução de tarefa assíncrona",
+        args=(),
+        exc_info=None,
+    )
+    record.taskName = "starlette.middleware.coro"  # type: ignore[attr-defined]
+    record.color_message = "\u001b[36mcolor\u001b[0m"  # type: ignore[attr-defined]
+
+    formatted_json = formatter.format(record)
+    data = json.loads(formatted_json)
+
+    assert "taskName" not in data
+    assert "color_message" not in data
+    assert data["service"] == "infrawatch-worker"
+    assert data["message"] == "Execução de tarefa assíncrona"
+
+
+def test_security_formatter_contract() -> None:
+    """Valida que o formatter de segurança adere ao contrato canônico com timestamp, request_id e service."""
+    import logging
+
+    from src.core.security.security_logger import _SecurityJsonFormatter
+
+    formatter = _SecurityJsonFormatter()
+    token_req = set_request_id("sec-req-trace-456")
+
+    try:
+        record = logging.LogRecord(
+            name="infrawatch.security",
+            level=logging.WARNING,
+            pathname="security.py",
+            lineno=10,
+            msg="LOGIN_FAILED",
+            args=(),
+            exc_info=None,
+        )
+        record.security_fields = {"ip": "10.0.0.1", "email": "admin@infrawatch.io"}  # type: ignore[attr-defined]
+
+        formatted = formatter.format(record)
+        data = json.loads(formatted)
+
+        assert data["level"] == "WARNING"
+        assert data["logger"] == "infrawatch.security"
+        assert data["service"] == "infrawatch-api"
+        assert data["message"] == "LOGIN_FAILED"
+        assert data["event"] == "LOGIN_FAILED"
+        assert data["request_id"] == "sec-req-trace-456"
+        assert data["ip"] == "10.0.0.1"
+        assert data["email"] == "admin@infrawatch.io"
+    finally:
+        request_id_ctx.reset(token_req)
+
+
+def test_error_handlers_emit_warning_with_structured_fields(test_app: FastAPI) -> None:
+    """Verifica se erro 404 de domínio é registrado como WARNING e com metadados estruturados."""
+    import logging
+
+    client = TestClient(test_app)
+
+    with patch.object(logging.getLogger("infrawatch.core.errors"), "log") as mock_log:
+        response = client.get("/test/domain-error")
+        assert response.status_code == 404
+        assert mock_log.called
+
+        args, kwargs = mock_log.call_args
+        assert args[0] == logging.WARNING
+        extra = kwargs["extra"]
+        assert extra["status_code"] == 404
+        assert extra["error_code"] == "NOT_FOUND"
+        assert extra["method"] == "GET"
+        assert extra["path"] == "/test/domain-error"

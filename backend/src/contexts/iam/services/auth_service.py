@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.contexts.iam.database.models import UserModel
 from src.contexts.iam.domain.events import (
     AccountLockedEvent,
     EmailVerificationRequestedEvent,
@@ -17,7 +18,6 @@ from src.contexts.iam.domain.events import (
     PasswordResetRequestedEvent,
     UserLoggedInEvent,
 )
-from src.contexts.iam.database.models import UserModel
 from src.contexts.iam.repositories.email_verification_repository import (
     EmailVerificationRepository,
 )
@@ -51,8 +51,9 @@ from src.core.exceptions import (
     InvalidOrExpiredTokenError,
     TokenAlreadyUsedError,
 )
+from src.core.security.security_logger import log_security_event
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("infrawatch.iam.auth")
 
 
 def _ensure_utc(dt: datetime | None) -> datetime | None:
@@ -132,9 +133,27 @@ class AuthService:
                     )
                     OutboxRepository.add_event(self.session, locked_event, aggregate_type="User")
                     await self.session.commit()
+                log_security_event(
+                    "ACCOUNT_LOCKED",
+                    user_id=str(user.id) if user else None,
+                    ip=client_ip,
+                    metadata={"email": norm_email},
+                    level=logging.WARNING,
+                )
                 raise
-            logger.info(
-                "Falha de autenticação para o identificador %s (IP: %s)", norm_email, client_ip
+
+            log_security_event(
+                "LOGIN_FAILED",
+                user_id=str(user.id) if user else None,
+                ip=client_ip,
+                metadata={"email": norm_email},
+                level=logging.WARNING,
+            )
+            logger.warning(
+                "Falha de autenticação para o identificador %s (IP: %s)",
+                norm_email,
+                client_ip,
+                extra={"email": norm_email, "client_ip": client_ip},
             )
             raise AuthenticationError(INVALID_CREDENTIALS_MSG)
 
@@ -146,7 +165,13 @@ class AuthService:
         # 6. Se MFA estiver ativo, emite token intermediário mfa_pending (3 min)
         if user.mfa_enabled:
             pending_token = create_mfa_pending_token(user.id)
-            logger.info("Desafio de MFA exigido para usuário: %s", user.email)
+            log_security_event(
+                "MFA_CHALLENGE_REQUIRED",
+                user_id=str(user.id),
+                ip=client_ip,
+                metadata={"email": user.email},
+            )
+            logger.info("Desafio de MFA exigido para usuário: %s", user.email, extra={"user_id": str(user.id)})
             return user, pending_token
 
         # 7. Emissão final de tokens
@@ -168,7 +193,18 @@ class AuthService:
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
         await self.session.commit()
 
-        logger.info("Usuário autenticado com sucesso: %s (ID: %s)", user.email, user.id)
+        log_security_event(
+            "LOGIN_SUCCESS",
+            user_id=str(user.id),
+            ip=client_ip,
+            metadata={"email": user.email, "device_name": device_name},
+        )
+        logger.info(
+            "Usuário autenticado com sucesso: %s (ID: %s)",
+            user.email,
+            user.id,
+            extra={"user_id": str(user.id), "email": user.email},
+        )
         return user, tokens
 
     async def authenticate_mfa_challenge(
@@ -198,6 +234,12 @@ class AuthService:
         mfa_service = MfaService(self.session)
         is_valid = await mfa_service.verify_challenge(user.id, code)
         if not is_valid:
+            log_security_event(
+                "MFA_CHALLENGE_FAILED",
+                user_id=str(user.id),
+                ip=client_ip,
+                level=logging.WARNING,
+            )
             raise InvalidMfaChallengeError()
 
         tokens = await self.token_service.create_token_pair(
@@ -218,6 +260,12 @@ class AuthService:
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
         await self.session.commit()
 
+        log_security_event(
+            "MFA_LOGIN_SUCCESS",
+            user_id=str(user.id),
+            ip=client_ip,
+            metadata={"email": user.email, "device_name": device_name},
+        )
         return user, tokens
 
     async def request_password_reset(

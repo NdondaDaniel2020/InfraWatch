@@ -7,11 +7,10 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI
-
-from datetime import datetime, UTC
 
 from src.core.config import get_settings
 from src.core.database.init_db import close_db, init_db
@@ -19,7 +18,6 @@ from src.core.database.session import get_session_factory
 from src.core.infrastructure.redis import close_redis, get_redis_client, init_redis
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
-from src.core.observability.logging import setup_logging
 from src.integrations.glpi import GlpiClient, render_glpi_template
 from src.integrations.glpi.schemas import (
     GlpiImpact,
@@ -27,6 +25,7 @@ from src.integrations.glpi.schemas import (
     GlpiTicketCreate,
     GlpiUrgency,
 )
+from src.integrations.zabbix import ZabbixClient
 from src.workers.daemons.outbox_relay_worker import OutboxRelayWorker
 from src.workers.daemons.token_cleanup_worker import TokenCleanupWorker
 
@@ -60,7 +59,7 @@ async def _notify_glpi_startup(settings: Any) -> None:
             if not acquired:
                 logger.debug("Ticket de inicialização já emitido nas últimas 24h (Redis debounce ativo).")
                 return
-        except Exception:
+        except Exception:  # noqa: BLE001
             logger.debug("Redis indisponível para lock de startup GLPI; prosseguindo com segurança.")
 
         async with GlpiClient(
@@ -86,8 +85,63 @@ async def _notify_glpi_startup(settings: Any) -> None:
             )
             ticket_id = await glpi.open_ticket(ticket_payload)
             logger.info("Ticket de inicialização criado com sucesso no GLPI (#%d)", ticket_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.warning("Não foi possível enviar notificação de inicialização ao GLPI: %s", exc)
+
+
+async def _notify_zabbix_startup(settings: Any) -> None:
+    """Valida conectividade e emite batimento de startup no Zabbix indicando que o InfraWatch está operacional.
+
+    Proteções contra spam:
+    1. Desabilitado se ZABBIX_NOTIFY_STARTUP for False (evita sobrecarga a cada reload de código).
+    2. Debounce no Redis com TTL de 24h (mesmo habilitado, limita a 1 batimento por dia).
+    """
+    if not getattr(settings, "ZABBIX_ENABLED", False) or not getattr(settings, "ZABBIX_NOTIFY_STARTUP", False):
+        return
+
+    if settings.ENVIRONMENT == "test":
+        return
+
+    api_token = getattr(settings, "ZABBIX_API_TOKEN", "")
+    username = getattr(settings, "ZABBIX_USER", "")
+    password = getattr(settings, "ZABBIX_PASSWORD", "")
+
+    if not api_token and not (username and password):
+        logger.debug("Credenciais/Token do Zabbix não configurados. Notificação de startup ignorada.")
+        return
+
+    try:
+        # Trava de idempotência via Redis (TTL de 24 horas = 86400s)
+        try:
+            redis_client = get_redis_client()
+            acquired = await redis_client.set("infrawatch:zabbix:startup_heartbeat_sent", "1", nx=True, ex=86400)
+            if not acquired:
+                logger.debug("Heartbeat de inicialização Zabbix já emitido nas últimas 24h (Redis debounce ativo).")
+                return
+        except Exception:  # noqa: BLE001
+            logger.debug("Redis indisponível para lock de startup Zabbix; prosseguindo com segurança.")
+
+        async with ZabbixClient(
+            api_url=settings.ZABBIX_API_URL,
+            api_token=api_token or None,
+            username=username or None,
+            password=password or None,
+            timeout=getattr(settings, "ZABBIX_TIMEOUT_SECONDS", 10.0),
+        ) as zabbix:
+            app_name = getattr(settings, "PROJECT_NAME", getattr(settings, "APP_NAME", "InfraWatch"))
+            app_version = getattr(settings, "APP_VERSION", "0.1.0")
+            result = await zabbix.send_startup_heartbeat(
+                app_name=app_name,
+                version=app_version,
+                environment=settings.ENVIRONMENT,
+            )
+            logger.info(
+                "Notificação de inicialização registrada com sucesso no Zabbix (v%s, %d hosts)",
+                result.get("api_version", "unknown"),
+                result.get("hosts_count", 0),
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Não foi possível enviar notificação de inicialização ao Zabbix: %s", exc)
 
 
 @asynccontextmanager
@@ -168,6 +222,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 6. Heartbeat de inicialização no GLPI (não bloqueante)
     if settings.GLPI_ENABLED and settings.ENVIRONMENT != "test":
         asyncio.create_task(_notify_glpi_startup(settings))
+
+    # 7. Heartbeat de inicialização no Zabbix (não bloqueante)
+    if settings.ZABBIX_ENABLED and settings.ENVIRONMENT != "test":
+        asyncio.create_task(_notify_zabbix_startup(settings))
 
     try:
         yield

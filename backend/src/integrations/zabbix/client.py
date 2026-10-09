@@ -109,8 +109,6 @@ class ZabbixClient:
                 "Content-Type": "application/json-rpc",
                 "User-Agent": "InfraWatch-ZabbixConnector/1.0",
             }
-            if self._api_token:
-                headers["Authorization"] = f"Bearer {self._api_token}"
 
             self._client = httpx.AsyncClient(
                 timeout=self._timeout,
@@ -153,18 +151,27 @@ class ZabbixClient:
         # O Zabbix aceita o token no campo auth ou via cabeçalho Authorization
         effective_auth = auth if auth is not None else self._auth_token
 
+        # Headers por requisição: métodos como apiinfo.version PROÍBEM header de Authorization
+        request_headers: dict[str, str] = {}
+        payload_auth: str | None = None
+
+        if method not in ("apiinfo.version", "user.login") and effective_auth:
+            request_headers["Authorization"] = f"Bearer {effective_auth}"
+            if not self._api_token:
+                payload_auth = effective_auth
+
         payload = JsonRpcRequest(
             method=method,
             params=params if params is not None else {},
             id=self._next_id(),
-            auth=effective_auth,
+            auth=payload_auth,
         ).model_dump(exclude_none=True)
 
         last_exception: Exception | None = None
 
         for attempt in range(1, _MAX_RETRIES + 1):
             try:
-                response = await self._client.post(self._api_url, json=payload)
+                response = await self._client.post(self._api_url, json=payload, headers=request_headers)
 
                 if response.status_code == 401 or response.status_code == 403:
                     raise ZabbixAuthError(
@@ -177,8 +184,15 @@ class ZabbixClient:
 
                 if rpc_response.error:
                     err = rpc_response.error
+                    err_data_str = str(err.data) if err.data else ""
                     # Mensagens conhecidas de auth inválida no Zabbix
-                    if "Not authorized" in err.message or "Session terminated" in err.message or err.code == -32602 and "login" in method:
+                    if (
+                        "Not authorized" in err.message
+                        or "Session terminated" in err.message
+                        or "Session terminated" in err_data_str
+                        or "Not authorized" in err_data_str
+                        or (err.code == -32602 and "login" in method)
+                    ):
                         raise ZabbixAuthError(f"Erro de autenticação Zabbix: {err.message} ({err.data})")
 
                     raise ZabbixApiError(code=err.code, message=err.message, data=err.data)
@@ -339,3 +353,82 @@ class ZabbixClient:
             )
 
         return metrics
+
+    async def get_or_create_status_item(self, hostid: str) -> str | None:
+        """Busca ou cria automaticamente o item trapper infrawatch.status no host indicado."""
+        try:
+            items = await self.call(
+                "item.get",
+                params={
+                    "hostids": [hostid],
+                    "filter": {"key_": "infrawatch.status"},
+                    "output": ["itemid", "name", "key_"],
+                },
+            )
+            if items and isinstance(items, list) and len(items) > 0:
+                return str(items[0]["itemid"])
+
+            # Se ainda não existe, provisiona o item como Zabbix trapper (type: 2, value_type: 4 = text)
+            created = await self.call(
+                "item.create",
+                params={
+                    "name": "InfraWatch API Status (Startup)",
+                    "key_": "infrawatch.status",
+                    "hostid": hostid,
+                    "type": 2,  # Zabbix trapper
+                    "value_type": 4,  # Text
+                },
+            )
+            if created and isinstance(created, dict) and "itemids" in created and created["itemids"]:
+                logger.info(
+                    "Item trapper infrawatch.status provisionado com sucesso no Zabbix (itemid: %s)",
+                    created["itemids"][0],
+                )
+                return str(created["itemids"][0])
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Não foi possível obter ou provisionar item infrawatch.status no Zabbix: %s", exc)
+        return None
+
+    async def send_startup_heartbeat(
+        self,
+        app_name: str = "InfraWatch",
+        version: str = "0.1.0",
+        environment: str = "development",
+    ) -> dict[str, Any]:
+        """Valida conectividade e registra batimento cardíaco (startup heartbeat) no Zabbix."""
+        api_version = await self.get_api_version()
+        hosts = await self.get_hosts()
+
+        pushed = False
+        item_id: str | None = None
+        # No Zabbix 7.0+, localiza ou provisiona o item trapper e envia o histórico via itemid
+        if hosts:
+            target_host = hosts[0]
+            item_id = await self.get_or_create_status_item(target_host.hostid)
+            if item_id:
+                try:
+                    res = await self.call(
+                        "history.push",
+                        params=[
+                            {
+                                "itemid": item_id,
+                                "value": f"{app_name} v{version} ONLINE ({environment})",
+                            }
+                        ],
+                    )
+                    if res and isinstance(res, dict) and res.get("response") == "success":
+                        data_list = res.get("data", [])
+                        if data_list and "error" not in data_list[0]:
+                            pushed = True
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("Tentativa de history.push no Zabbix falhou: %s", exc)
+
+        return {
+            "status": "ok",
+            "api_version": api_version,
+            "hosts_count": len(hosts),
+            "item_id": item_id,
+            "heartbeat_pushed": pushed,
+        }
+
+

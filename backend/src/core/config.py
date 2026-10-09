@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = Field(default="InfraWatch", alias="PROJECT_NAME")
     APP_NAME: str = Field(default="InfraWatch", alias="APP_NAME")
     APP_VERSION: str = Field(default="0.1.0", alias="APP_VERSION")
+    LOG_LEVEL: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # Configurações do Banco de Dados Relacional (PostgreSQL 16+)
     DATABASE_URL: str = Field(
@@ -172,8 +173,11 @@ class Settings(BaseSettings):
 
     # Integração Zabbix JSON-RPC
     ZABBIX_ENABLED: bool = Field(default=False, alias="ZABBIX_ENABLED")
+    ZABBIX_NOTIFY_STARTUP: bool = Field(default=False, alias="ZABBIX_NOTIFY_STARTUP")
     ZABBIX_API_URL: str = Field(default="https://zabbix.rcsangola.co.ao/api_jsonrpc.php", alias="ZABBIX_API_URL")
     ZABBIX_API_TOKEN: str = Field(default="", alias="ZABBIX_API_TOKEN")
+    ZABBIX_USER: str = Field(default="Admin", alias="ZABBIX_USER")
+    ZABBIX_PASSWORD: str = Field(default="zabbix", alias="ZABBIX_PASSWORD")
     ZABBIX_TIMEOUT_SECONDS: float = Field(default=10.0, alias="ZABBIX_TIMEOUT_SECONDS")
 
     @model_validator(mode="after")

@@ -107,3 +107,13 @@ glpi-down:
 test-glpi:
 	@echo "Executando teste de integração com GLPI..."
 	@cd backend && .venv/bin/python ../scripts/test_glpi.py
+
+zabbix-up:
+	docker compose -f docker-compose.zabbix.yml up -d
+
+zabbix-down:
+	docker compose -f docker-compose.zabbix.yml down
+
+test-zabbix:
+	@echo "Executando teste de integração com Zabbix..."
+	@cd backend && .venv/bin/python ../scripts/test_zabbix.py

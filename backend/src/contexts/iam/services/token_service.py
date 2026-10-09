@@ -37,7 +37,7 @@ from src.core.exceptions import (
 )
 from src.core.web.client_info import parse_user_agent
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("infrawatch.iam.token")
 
 # Fallback em memória para blacklist de tokens quando o Redis estiver inacessível
 _in_memory_blacklist: dict[str, float] = {}
