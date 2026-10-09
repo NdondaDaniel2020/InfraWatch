@@ -20,14 +20,17 @@ warnings.filterwarnings(
 from src.contexts.iam.api.router import router as iam_router
 from src.contexts.inventory.api.routes.devices import router as inventory_router
 from src.core.config import get_settings
-from src.core.web.lifespan import lifespan
 from src.core.observability.metrics_auth import verify_metrics_auth
 from src.core.observability.observability import (
     get_health_status,
     metrics_response,
 )
-from src.core.web.error_handlers import register_exception_handlers
-from src.core.web.middleware import setup_middlewares
+from src.core.web import (
+    lifespan,
+    register_exception_handlers,
+    setup_middlewares,
+)
+
 
 
 def create_app() -> FastAPI:
