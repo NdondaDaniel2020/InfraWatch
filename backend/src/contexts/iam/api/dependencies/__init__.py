@@ -34,12 +34,13 @@ from src.contexts.iam.api.dependencies.services import (
     get_token_service,
     get_user_service,
 )
-from src.core.web.pagination import (
+from src.core.web import (
     PaginatedResponse,
     PaginationParams,
     PaginationParamsDep,
     get_pagination_params,
 )
+
 
 __all__ = [
     "AuditServiceDep",

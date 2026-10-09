@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from src.core.web.client_info import extract_client_ip, parse_user_agent
+from src.core.web import extract_client_ip, parse_user_agent
+
 
 
 def test_parse_user_agent_empty_and_unknown() -> None:
