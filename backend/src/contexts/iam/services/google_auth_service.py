@@ -28,7 +28,7 @@ from src.core.exceptions import (
     InvalidGoogleTokenError,
 )
 
-logger = logging.getLogger("infrawatch.identity.google_auth")
+logger = logging.getLogger("infrawatch.iam.google_auth")
 
 
 def ensure_google_login_enabled() -> None:

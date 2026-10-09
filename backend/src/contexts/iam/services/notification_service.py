@@ -13,7 +13,7 @@ from src.contexts.iam.database.models import NotificationModel
 from src.contexts.iam.repositories.notification_repository import NotificationRepository
 from src.core.messaging.sse_broadcaster import SSEBroadcaster, get_sse_broadcaster
 
-logger = logging.getLogger("infrawatch.identity.notifications")
+logger = logging.getLogger("infrawatch.iam.notifications")
 
 
 class NotificationService:

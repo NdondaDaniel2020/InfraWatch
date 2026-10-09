@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 from src.contexts.iam.domain.enums import UserRole
 
-logger = logging.getLogger("infrawatch.identity.sanitizer")
+logger = logging.getLogger("infrawatch.iam.sanitizer")
 
 MASKED_IP = "***.***.***.***"
 MASKED_SECRET = "********"

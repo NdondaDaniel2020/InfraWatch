@@ -14,7 +14,7 @@ from typing import Any
 
 from src.core.config import get_settings
 
-logger = logging.getLogger("infrawatch.identity.email")
+logger = logging.getLogger("infrawatch.iam.email")
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates" / "emails"
 

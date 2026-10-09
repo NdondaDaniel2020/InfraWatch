@@ -7,7 +7,7 @@ import logging
 from src.contexts.iam.security.rate_limiter import DualKeyRateLimiter
 from src.core.exceptions import AccountLockedOutError, RateLimitExceededError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("infrawatch.iam.rate_limit")
 
 
 class AuthRateLimitService:
