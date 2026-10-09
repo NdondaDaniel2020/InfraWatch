@@ -1,10 +1,12 @@
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.inventory.domain.aggregate import Device
 
 
 class DeviceRepository:
@@ -15,6 +17,30 @@ class DeviceRepository:
         stmt = select(DeviceModel).where(DeviceModel.id == device_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def find_by_id(self, device_id: UUID) -> Device | None:
+        """Busca o modelo por ID e reconstrói o agregado de domínio Device."""
+        model = await self.get_by_id(device_id)
+        if not model:
+            return None
+        device = Device(
+            id=model.id,
+            organization_id=model.organization_id,
+            name=model.name,
+            ip_address=model.ip_address,
+            port=model.port,
+            protocol=model.protocol,
+            category=model.category,
+            interval_seconds=model.interval_seconds,
+            thresholds=model.thresholds,
+            hostname=model.hostname,
+            created_at=model.created_at,
+        )
+        device.status = model.status
+        device.is_paused = model.is_paused
+        device.maintenance_until = model.maintenance_until
+        device.updated_at = model.updated_at
+        return device
 
     async def save(self, device: Any) -> DeviceModel:
         """Persiste ou atualiza a entidade de domínio ou modelo de dispositivo na sessão ativa."""
