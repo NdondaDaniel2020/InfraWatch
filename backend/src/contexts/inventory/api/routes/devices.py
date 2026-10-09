@@ -16,15 +16,10 @@ from src.contexts.inventory.api.dependencies.dependencies import (
 )
 from src.contexts.inventory.schemas.requests import (
     CreateDeviceRequest,
+    PauseDeviceRequest,
+    ResumeDeviceRequest,
     SetMaintenanceRequest,
     UpdateDeviceRequest,
-)
-from src.contexts.inventory.domain.commands import (
-    CreateDeviceCommand,
-    PauseDeviceCommand,
-    ResumeDeviceCommand,
-    SetMaintenanceCommand,
-    UpdateDeviceCommand,
 )
 from src.contexts.inventory.schemas.device_schemas import (
     DeviceDetail,
@@ -59,18 +54,12 @@ async def create_device(
             detail="O usuário não está vinculado a uma organização para cadastrar dispositivos.",
         )
 
-    cmd = CreateDeviceCommand(
+    device = await command_service.create_device(
+        cmd=payload,
+        actor_user_id=UUID(user.id),
+        actor_ip=client_ip,
         organization_id=org_id,
-        name=payload.name,
-        ip_address=payload.ip_address,
-        port=payload.port,
-        protocol=payload.protocol,
-        category=payload.category,
-        interval_seconds=payload.interval_seconds,
-        thresholds=payload.thresholds,
     )
-    
-    device = await command_service.create_device(cmd, UUID(user.id), client_ip)
     await command_service.session.commit()
 
     return await query_service.get_device_detail(org_id, device.id)
@@ -147,18 +136,13 @@ async def update_device(
     """Atualiza propriedades de um dispositivo."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
     
-    cmd = UpdateDeviceCommand(
+    await command_service.update_device(
+        cmd=payload,
+        actor_user_id=UUID(user.id),
+        actor_ip=client_ip,
         device_id=device_id,
         organization_id=target_org,
-        name=payload.name,
-        ip_address=payload.ip_address,
-        port=payload.port,
-        protocol=payload.protocol,
-        interval_seconds=payload.interval_seconds,
-        thresholds=payload.thresholds,
     )
-    
-    await command_service.update_device(cmd, UUID(user.id), client_ip)
     await command_service.session.commit()
     
     return await query_service.get_device_detail(target_org, device_id)
@@ -171,14 +155,20 @@ async def pause_device(
     client_ip: ClientIPDep,
     command_service: DeviceCommandServiceDep,
     query_service: DeviceQueryServiceDep,
+    payload: PauseDeviceRequest | None = None,
     org_id: UUID | None = None,
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Pausa o monitoramento de um dispositivo."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
     
-    cmd = PauseDeviceCommand(device_id=device_id, organization_id=target_org, reason="Pausado via API")
-    await command_service.pause_device(cmd, UUID(user.id), client_ip)
+    await command_service.pause_device(
+        cmd=payload,
+        actor_user_id=UUID(user.id),
+        actor_ip=client_ip,
+        device_id=device_id,
+        organization_id=target_org,
+    )
     await command_service.session.commit()
     
     return await query_service.get_device_detail(target_org, device_id)
@@ -191,14 +181,20 @@ async def resume_device(
     client_ip: ClientIPDep,
     command_service: DeviceCommandServiceDep,
     query_service: DeviceQueryServiceDep,
+    payload: ResumeDeviceRequest | None = None,
     org_id: UUID | None = None,
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Retoma o monitoramento de um dispositivo pausado."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
     
-    cmd = ResumeDeviceCommand(device_id=device_id, organization_id=target_org)
-    await command_service.resume_device(cmd, UUID(user.id), client_ip)
+    await command_service.resume_device(
+        cmd=payload,
+        actor_user_id=UUID(user.id),
+        actor_ip=client_ip,
+        device_id=device_id,
+        organization_id=target_org,
+    )
     await command_service.session.commit()
     
     return await query_service.get_device_detail(target_org, device_id)
@@ -218,14 +214,13 @@ async def set_maintenance(
     """Agenda janela de manutenção para um dispositivo."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
     
-    cmd = SetMaintenanceCommand(
-        device_id=device_id, 
-        organization_id=target_org, 
-        maintenance_until=payload.until,
-        title="Manutenção API",
-        reason="Manutenção agendada via API"
+    await command_service.set_maintenance(
+        cmd=payload,
+        actor_user_id=UUID(user.id),
+        actor_ip=client_ip,
+        device_id=device_id,
+        organization_id=target_org,
     )
-    await command_service.set_maintenance(cmd, UUID(user.id), client_ip)
     await command_service.session.commit()
     
     return await query_service.get_device_detail(target_org, device_id)
