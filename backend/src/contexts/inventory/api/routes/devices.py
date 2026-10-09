@@ -60,7 +60,7 @@ async def create_device(
         actor_ip=client_ip,
         organization_id=org_id,
     )
-    await command_service.session.commit()
+    await command_service.uow.commit()
 
     return await query_service.get_device_detail(org_id, device.id)
 
@@ -143,7 +143,7 @@ async def update_device(
         device_id=device_id,
         organization_id=target_org,
     )
-    await command_service.session.commit()
+    await command_service.uow.commit()
     
     return await query_service.get_device_detail(target_org, device_id)
 
@@ -169,7 +169,7 @@ async def pause_device(
         device_id=device_id,
         organization_id=target_org,
     )
-    await command_service.session.commit()
+    await command_service.uow.commit()
     
     return await query_service.get_device_detail(target_org, device_id)
 
@@ -195,7 +195,7 @@ async def resume_device(
         device_id=device_id,
         organization_id=target_org,
     )
-    await command_service.session.commit()
+    await command_service.uow.commit()
     
     return await query_service.get_device_detail(target_org, device_id)
 
@@ -221,6 +221,6 @@ async def set_maintenance(
         device_id=device_id,
         organization_id=target_org,
     )
-    await command_service.session.commit()
+    await command_service.uow.commit()
     
     return await query_service.get_device_detail(target_org, device_id)
