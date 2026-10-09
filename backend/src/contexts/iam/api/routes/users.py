@@ -10,7 +10,8 @@ from src.contexts.iam.api.dependencies import (
     CurrentUserDep,
     PaginationParamsDep,
     SessionServiceDep,
-    UserServiceDep,
+    UserCommandServiceDep,
+    UserQueryServiceDep,
     require_roles,
 )
 from src.contexts.iam.domain.enums import UserRole
@@ -37,11 +38,11 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users & Sessions"])
 )
 async def get_my_user_profile(
     current_user: CurrentUserDep,
-    user_service: UserServiceDep,
+    query_service: UserQueryServiceDep,
 ) -> UserPublicResponse:
     """Retorna os dados públicos da conta autenticada."""
     try:
-        user = await user_service.get_user_by_id(UUID(current_user.id))
+        user = await query_service.get_user_by_id(UUID(current_user.id))
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -56,13 +57,13 @@ async def get_my_user_profile(
 async def update_my_user_profile(
     body: UserUpdate,
     current_user: CurrentUserDep,
-    user_service: UserServiceDep,
+    command_service: UserCommandServiceDep,
 ) -> UserPublicResponse:
     """Atualiza dados permitidos da conta (como full_name)."""
     user_uuid = UUID(current_user.id)
     try:
-        updated = await user_service.update_profile(user_uuid, full_name=body.full_name)
-        await user_service.uow.commit()
+        updated = await command_service.update_profile(user_uuid, full_name=body.full_name)
+        await command_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -158,7 +159,7 @@ async def revoke_all_sessions(
 async def list_users(
     current_user: CurrentUserDep,
     pagination: PaginationParamsDep,
-    user_service: UserServiceDep,
+    query_service: UserQueryServiceDep,
     organization_id: UUID | None = None,
 ) -> UserListResponse:
     """Lista usuários cadastrados respeitando o isolamento do tenant caso não seja Super Admin."""
@@ -170,7 +171,7 @@ async def list_users(
     ):
         effective_org = UUID(current_user.organization_id)
 
-    users, total = await user_service.list_users(
+    users, total = await query_service.list_users(
         organization_id=effective_org,
         offset=pagination.offset,
         limit=pagination.limit,
@@ -201,11 +202,11 @@ async def list_users(
 )
 async def get_user_by_id(
     user_id: UUID,
-    user_service: UserServiceDep,
+    query_service: UserQueryServiceDep,
 ) -> UserPublicResponse:
     """Busca os detalhes cadastrais de um usuário específico."""
     try:
-        user = await user_service.get_user_by_id(user_id)
+        user = await query_service.get_user_by_id(user_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -221,12 +222,12 @@ async def get_user_by_id(
 async def update_user_role(
     user_id: UUID,
     body: UserRolesUpdate,
-    user_service: UserServiceDep,
+    command_service: UserCommandServiceDep,
 ) -> UserPublicResponse:
     """Atualiza o papel de permissão atribuído ao usuário."""
     try:
-        updated = await user_service.update_user_role(user_id, body.role)
-        await user_service.uow.commit()
+        updated = await command_service.update_user_role(user_id, body.role)
+        await command_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -248,12 +249,12 @@ async def update_user_role(
 )
 async def activate_user(
     user_id: UUID,
-    user_service: UserServiceDep,
+    command_service: UserCommandServiceDep,
 ) -> UserPublicResponse:
     """Reativa conta de usuário."""
     try:
-        user = await user_service.activate_user(user_id)
-        await user_service.uow.commit()
+        user = await command_service.activate_user(user_id)
+        await command_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -276,7 +277,7 @@ async def activate_user(
 async def deactivate_user(
     user_id: UUID,
     current_user: CurrentUserDep,
-    user_service: UserServiceDep,
+    command_service: UserCommandServiceDep,
 ) -> UserPublicResponse:
     """Desativa a conta do usuário e revoga todos os tokens ativos. Administrador não pode desativar a si mesmo."""
     if str(user_id) == str(current_user.id):
@@ -286,8 +287,8 @@ async def deactivate_user(
         )
 
     try:
-        user = await user_service.deactivate_user(user_id)
-        await user_service.uow.commit()
+        user = await command_service.deactivate_user(user_id)
+        await command_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
@@ -302,12 +303,12 @@ async def deactivate_user(
 )
 async def admin_disable_mfa(
     user_id: UUID,
-    user_service: UserServiceDep,
+    command_service: UserCommandServiceDep,
 ) -> UserPublicResponse:
     """Desativa o MFA de um usuário por intervenção de suporte quando há perda irrecuperável de chaves."""
     try:
-        user = await user_service.admin_disable_mfa(user_id)
-        await user_service.uow.commit()
+        user = await command_service.admin_disable_mfa(user_id)
+        await command_service.uow.commit()
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
