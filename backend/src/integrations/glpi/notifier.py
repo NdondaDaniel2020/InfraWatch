@@ -35,6 +35,8 @@ class GlpiNotifier:
 
         try:
             redis_client = get_redis_client()
+            if redis_client is None:
+                return True  # Fail-open se Redis não estiver configurado
             acquired = await redis_client.set(
                 "infrawatch:glpi:startup_heartbeat_sent", "1", nx=True, ex=86400
             )

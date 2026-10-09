@@ -52,77 +52,98 @@ async def lifespan(app: FastAPI) -> Any:
         settings.DEBUG,
     )
 
-    # 1. Infraestrutura core (ordem: DB -> Redis -> Messaging)
-    engine = await init_db()
-    app.state.engine = engine
-
-    await init_redis()
-
-    event_bus = get_event_bus()
-    app.state.event_bus = event_bus
-
-    # 2. Workers de background (se habilitados)
+    engine = None
+    event_bus = None
     outbox_worker = None
     token_cleanup_worker = None
 
-    if settings.ENABLE_BACKGROUND_WORKERS and settings.ENVIRONMENT != "test":
-        logger.info("Inicializando workers de segundo plano...")
-        try:
-            # Outbox Relay Worker
-            outbox_worker = get_outbox_relay_worker(
-                event_bus=event_bus,
-                sse_broadcaster=get_sse_broadcaster(),
-                session_factory=None,  # usa factory global
-                batch_size=settings.OUTBOX_RELAY_BATCH_SIZE,
-                poll_interval=settings.OUTBOX_RELAY_POLL_INTERVAL_SECONDS,
-                worker_id="outbox-main",
-            )
-            await outbox_worker.start()
-
-            # Token Cleanup Worker
-            token_cleanup_worker = get_token_cleanup_worker(
-                redis_client=None,  # usa client global
-                session_factory=None,  # usa factory global
-                interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
-                lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
-                retention_days=settings.TOKEN_CLEANUP_RETENTION_DAYS,
-            )
-            # start() é síncrono - retorna Task
-            token_cleanup_worker.start()
-
-            app.state.outbox_worker = outbox_worker
-            app.state.token_cleanup_worker = token_cleanup_worker
-            if hasattr(outbox_worker, "_task") and outbox_worker._task:
-                app.state.outbox_task = outbox_worker._task
-            logger.info("Workers de segundo plano iniciados com sucesso.")
-        except Exception:
-            logger.exception("Falha ao inicializar workers de segundo plano no startup")
-
-    # 3. Notificações de startup (não bloqueantes, fire-and-forget)
-    if settings.ENVIRONMENT != "test":
-        glpi_notifier = get_glpi_notifier()
-        if glpi_notifier.enabled:
-            asyncio.create_task(glpi_notifier.notify_startup())
-
-        zabbix_notifier = get_zabbix_notifier()
-        if zabbix_notifier.enabled:
-            asyncio.create_task(zabbix_notifier.notify_startup())
-
     try:
+        # 1. Infraestrutura core (ordem: DB -> Redis -> Messaging)
+        engine = await init_db()
+        app.state.engine = engine
+
+        await init_redis()
+
+        event_bus = get_event_bus()
+        app.state.event_bus = event_bus
+
+        # 2. Workers de background (se habilitados)
+        if settings.ENABLE_BACKGROUND_WORKERS and settings.ENVIRONMENT != "test":
+            logger.info("Inicializando workers de segundo plano...")
+            try:
+                # Outbox Relay Worker
+                outbox_worker = get_outbox_relay_worker(
+                    event_bus=event_bus,
+                    sse_broadcaster=get_sse_broadcaster(),
+                    session_factory=None,  # usa factory global
+                    batch_size=settings.OUTBOX_RELAY_BATCH_SIZE,
+                    poll_interval=settings.OUTBOX_RELAY_POLL_INTERVAL_SECONDS,
+                    worker_id="outbox-main",
+                )
+                await outbox_worker.start()
+
+                # Token Cleanup Worker
+                token_cleanup_worker = get_token_cleanup_worker(
+                    redis_client=None,  # usa client global
+                    session_factory=None,  # usa factory global
+                    interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
+                    lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
+                    retention_days=settings.TOKEN_CLEANUP_RETENTION_DAYS,
+                )
+                # start() é síncrono - retorna Task
+                token_cleanup_worker.start()
+
+                app.state.outbox_worker = outbox_worker
+                app.state.token_cleanup_worker = token_cleanup_worker
+                if hasattr(outbox_worker, "_task") and outbox_worker._task:
+                    app.state.outbox_task = outbox_worker._task
+                logger.info("Workers de segundo plano iniciados com sucesso.")
+            except Exception:
+                logger.exception("Falha ao inicializar workers de segundo plano no startup")
+
+        # 3. Notificações de startup (não bloqueantes, fire-and-forget)
+        if settings.ENVIRONMENT != "test":
+            glpi_notifier = get_glpi_notifier()
+            if glpi_notifier.enabled:
+                asyncio.create_task(glpi_notifier.notify_startup())
+
+            zabbix_notifier = get_zabbix_notifier()
+            if zabbix_notifier.enabled:
+                asyncio.create_task(zabbix_notifier.notify_startup())
+
         yield
     finally:
         logger.info("Encerrando workers e conexões...")
 
         # 1. Workers (ordem inversa da inicialização)
         if outbox_worker:
-            await outbox_worker.stop()
+            try:
+                await outbox_worker.stop()
+            except Exception:
+                logger.exception("Erro ao parar outbox worker durante teardown")
 
         if token_cleanup_worker:
-            await token_cleanup_worker.stop()
+            try:
+                await token_cleanup_worker.stop()
+            except Exception:
+                logger.exception("Erro ao parar token cleanup worker durante teardown")
 
         # 2. Infraestrutura core (ordem inversa)
-        await close_redis()
-        await event_bus.close()
-        await close_db(engine)
+        try:
+            await close_redis()
+        except Exception:
+            logger.exception("Erro ao fechar conexao com Redis durante teardown")
+
+        if event_bus:
+            try:
+                await event_bus.close()
+            except Exception:
+                logger.exception("Erro ao fechar event bus durante teardown")
+
+        if engine:
+            try:
+                await close_db(engine)
+            except Exception:
+                logger.exception("Erro ao fechar conexoes com banco de dados durante teardown")
 
         logger.info("Encerramento do ciclo de vida concluído.")

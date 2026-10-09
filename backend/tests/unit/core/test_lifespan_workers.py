@@ -568,3 +568,27 @@ def test_get_outbox_relay_worker_forwards_poll_interval():
         assert worker.worker_id == "test-poll-worker"
     finally:
         daemons_module._outbox_worker = None
+
+
+@pytest.mark.asyncio
+async def test_lifespan_cleans_up_database_when_redis_fails_during_startup():
+    """Valida que close_db e close_redis são chamados no teardown mesmo se init_redis falhar."""
+    app = FastAPI()
+    settings = Settings(ENVIRONMENT="development")
+    mock_engine = AsyncMock()
+    mock_close_db = AsyncMock()
+    mock_close_redis = AsyncMock()
+
+    with (
+        patch("src.core.web.lifespan.get_settings", return_value=settings),
+        patch("src.core.web.lifespan.init_db", new_callable=AsyncMock, return_value=mock_engine),
+        patch("src.core.web.lifespan.init_redis", new_callable=AsyncMock, side_effect=ConnectionError("Redis down")),
+        patch("src.core.web.lifespan.close_db", mock_close_db),
+        patch("src.core.web.lifespan.close_redis", mock_close_redis),
+    ):
+        with pytest.raises(ConnectionError, match="Redis down"):
+            async with lifespan(app):
+                pass
+
+        mock_close_db.assert_awaited_once_with(mock_engine)
+        mock_close_redis.assert_awaited_once()
