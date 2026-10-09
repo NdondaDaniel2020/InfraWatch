@@ -98,7 +98,7 @@ class RedisStreamsEventBus(EventBus):
             event_type = str(payload_dict.get("event_type", "UnknownEvent"))
             event_id = str(payload_dict.get("event_id", ""))
 
-            fields = {
+            fields: dict[Any, Any] = {
                 "event_id": event_id,
                 "event_type": event_type,
                 "payload": json.dumps(payload_dict),
@@ -224,11 +224,15 @@ class RedisStreamsEventBus(EventBus):
             return results
 
         # read_res formato: [[stream_name, [(msg_id, fields_dict), ...]]]
-        for stream_entry in read_res:
-            if len(stream_entry) >= 2:
+        for stream_entry in read_res:  # type: ignore[union-attr]
+            if isinstance(stream_entry, (list, tuple)) and len(stream_entry) >= 2:
                 messages = stream_entry[1]
-                for msg_id, fields in messages:
-                    results.append((str(msg_id), self._parse_message(fields)))
+                if isinstance(messages, (list, tuple)):
+                    for msg_entry in messages:
+                        if isinstance(msg_entry, (list, tuple)) and len(msg_entry) >= 2:
+                            msg_id, fields = msg_entry[0], msg_entry[1]
+                            if isinstance(fields, dict):
+                                results.append((str(msg_id), self._parse_message(fields)))
 
         return results
 
