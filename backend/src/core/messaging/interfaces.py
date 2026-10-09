@@ -16,14 +16,21 @@ class EventHandler(Protocol):
     """Protocolo abstrato para manipuladores assíncronos de eventos."""
 
     async def handle(self, topic: str, event_data: dict[str, Any]) -> None:
-        """Processa o evento recebido no tópico especificado."""
+        """Processa o evento recebido no tópico especificado com assinatura padrão (topic, event_data)."""
         ...
 
 
+# Assinatura canônica padronizada equivalente a EventHandler.handle(topic, event_data)
+EventHandlerCallable = Callable[[str, dict[str, Any]], Awaitable[None]]
+
+# Assinatura legada de argumento único mantida para retrocompatibilidade (ADR-001)
+LegacyEventHandlerCallable = Callable[[dict[str, Any]], Awaitable[None]]
+
+# Tipo unificado para manipuladores de eventos assíncronos
 HandlerType = (
     EventHandler
-    | Callable[[dict[str, Any]], Awaitable[None]]
-    | Callable[[str, dict[str, Any]], Awaitable[None]]
+    | EventHandlerCallable
+    | LegacyEventHandlerCallable
 )
 
 
