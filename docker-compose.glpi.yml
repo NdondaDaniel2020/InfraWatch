@@ -4,14 +4,17 @@ services:
     container_name: infrawatch-glpi-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root_password_2026
       MYSQL_DATABASE: glpidb
       MYSQL_USER: glpi
-      MYSQL_PASSWORD: glpi_secure_password_2026
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/glpi_db_root_password
+      MYSQL_PASSWORD_FILE: /run/secrets/glpi_db_password
     volumes:
       - glpi_db_data:/var/lib/mysql
     networks:
       - infrawatch-glpi-net
+    secrets:
+      - glpi_db_root_password
+      - glpi_db_password
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -30,7 +33,8 @@ services:
       MARIADB_PORT: 3306
       MARIADB_DATABASE: glpidb
       MARIADB_USER: glpi
-      MARIADB_PASSWORD: glpi_secure_password_2026
+    secrets:
+      - glpi_db_password
     volumes:
       - glpi_data:/var/www/html/glpi
     depends_on:
@@ -38,6 +42,12 @@ services:
         condition: service_healthy
     networks:
       - infrawatch-glpi-net
+
+secrets:
+  glpi_db_root_password:
+    file: ./secrets/glpi_db_root_password.txt
+  glpi_db_password:
+    file: ./secrets/glpi_db_password.txt
 
 volumes:
   glpi_db_data:
