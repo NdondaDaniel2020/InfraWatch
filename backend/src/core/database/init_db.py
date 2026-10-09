@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from src.core.config import get_settings
@@ -48,7 +49,7 @@ async def init_db(engine: AsyncEngine | None = None) -> AsyncEngine:
             logger.info("Database schema validated/created for %s environment", settings.ENVIRONMENT)
         else:
             # Production: just test connectivity
-            await connection.execute(logging.text("SELECT 1"))
+            await connection.execute(text("SELECT 1"))
             logger.info("Database connectivity validated for production environment")
 
     return engine
