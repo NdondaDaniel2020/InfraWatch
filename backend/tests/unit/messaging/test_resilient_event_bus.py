@@ -105,7 +105,7 @@ class TestInMemoryEventBus:
         consumer = "order-worker"
         received_events: list[dict[str, Any]] = []
 
-        async def handler(payload: dict[str, Any]) -> None:
+        async def handler(t: str, payload: dict[str, Any]) -> None:
             received_events.append(payload)
 
         await bus.subscribe(topic, group, consumer, handler)
