@@ -14,6 +14,8 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+import src.contexts.iam.database.models  # noqa: F401
+import src.contexts.inventory.database.models  # noqa: F401
 import src.core.database.models  # noqa: F401
 from src.core.config import get_settings
 from src.core.database.base_model import Base
