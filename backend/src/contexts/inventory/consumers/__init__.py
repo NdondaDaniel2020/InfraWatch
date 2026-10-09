@@ -1,7 +1,4 @@
-"""Módulo de compatibilidade reversa para InventoryChangesConsumer (ADR-001).
-
-Redireciona para src.contexts.inventory.consumers.inventory_changes_consumer.
-"""
+"""Consumers assíncronos de eventos do Bounded Context Inventory."""
 
 from src.contexts.inventory.consumers.inventory_changes_consumer import (
     CONSUMER_GROUP,
