@@ -17,6 +17,8 @@ from src.contexts.iam.services.notification_service import NotificationService
 from src.contexts.iam.services.organization_service import OrganizationService
 from src.contexts.iam.services.session_service import SessionService
 from src.contexts.iam.services.token_service import TokenService
+from src.contexts.iam.services.user_command_service import UserCommandService
+from src.contexts.iam.services.user_query_service import UserQueryService
 from src.contexts.iam.services.user_service import UserService
 from src.core.database.session import DbSessionDep
 from src.core.database.unit_of_work import UnitOfWorkDep
@@ -25,6 +27,16 @@ from src.core.database.unit_of_work import UnitOfWorkDep
 def get_user_service(uow: UnitOfWorkDep) -> UserService:
     """Fábrica de injeção para o UserService com Unit of Work."""
     return UserService(uow)
+
+
+def get_user_command_service(uow: UnitOfWorkDep) -> UserCommandService:
+    """Fábrica de injeção para o UserCommandService com Unit of Work."""
+    return UserCommandService(uow)
+
+
+def get_user_query_service(db: DbSessionDep) -> UserQueryService:
+    """Fábrica de injeção para o UserQueryService."""
+    return UserQueryService(db)
 
 
 def get_auth_service(uow: UnitOfWorkDep) -> AuthService:
@@ -68,6 +80,8 @@ def get_google_auth_service(db: DbSessionDep) -> GoogleAuthService:
 
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
+UserCommandServiceDep = Annotated[UserCommandService, Depends(get_user_command_service)]
+UserQueryServiceDep = Annotated[UserQueryService, Depends(get_user_query_service)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 SessionServiceDep = Annotated[SessionService, Depends(get_session_service)]
 MfaServiceDep = Annotated[MfaService, Depends(get_mfa_service)]

@@ -15,7 +15,8 @@ from src.contexts.iam.api.dependencies import (
     CurrentUserDep,
     SessionServiceDep,
     TokenServiceDep,
-    UserServiceDep,
+    UserCommandServiceDep,
+    UserQueryServiceDep,
 )
 from src.contexts.iam.schemas.auth import (
     AuthResponse,
@@ -57,18 +58,18 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 )
 async def register(
     body: UserCreate,
-    user_service: UserServiceDep,
+    user_command_service: UserCommandServiceDep,
 ) -> UserPublicResponse:
     """Registra uma nova conta de usuário e dispara a geração de token de confirmação de e-mail."""
     try:
-        user, _ = await user_service.register_user(
+        user, _ = await user_command_service.register_user(
             email=body.email,
             password=body.password,
             full_name=body.full_name,
             organization_id=body.organization_id,
             role=body.role,
         )
-        await user_service.uow.commit()
+        await user_command_service.uow.commit()
     except EmailAlreadyExistsError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -327,11 +328,11 @@ async def confirm_password_reset_endpoint(
 @router.get("/me", response_model=UserResponse, summary="Perfil do usuário autenticado")
 async def get_my_profile(
     current_user: CurrentUserDep,
-    user_service: UserServiceDep,
+    user_query_service: UserQueryServiceDep,
 ) -> UserResponse:
     """Retorna os dados cadastrais e permissões do usuário atualmente conectado."""
     try:
-        user = await user_service.get_user_by_id(UUID(current_user.id))
+        user = await user_query_service.get_user_by_id(UUID(current_user.id))
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -23,6 +23,8 @@ from src.contexts.iam.api.dependencies.services import (
     OrganizationServiceDep,
     SessionServiceDep,
     TokenServiceDep,
+    UserCommandServiceDep,
+    UserQueryServiceDep,
     UserServiceDep,
     get_audit_service,
     get_auth_service,
@@ -32,6 +34,8 @@ from src.contexts.iam.api.dependencies.services import (
     get_organization_service,
     get_session_service,
     get_token_service,
+    get_user_command_service,
+    get_user_query_service,
     get_user_service,
 )
 from src.core.web import (
@@ -40,7 +44,6 @@ from src.core.web import (
     PaginationParamsDep,
     get_pagination_params,
 )
-
 
 __all__ = [
     "AuditServiceDep",
@@ -57,6 +60,8 @@ __all__ = [
     "PaginationParamsDep",
     "SessionServiceDep",
     "TokenServiceDep",
+    "UserCommandServiceDep",
+    "UserQueryServiceDep",
     "UserServiceDep",
     "enforce_tenant_scope",
     "get_audit_service",
@@ -70,6 +75,8 @@ __all__ = [
     "get_pagination_params",
     "get_session_service",
     "get_token_service",
+    "get_user_command_service",
+    "get_user_query_service",
     "get_user_service",
     "oauth2_scheme",
     "require_roles",
