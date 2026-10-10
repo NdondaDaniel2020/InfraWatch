@@ -17,6 +17,7 @@ warnings.filterwarnings(
     category=RuntimeWarning,
 )
 
+from src.api.routes.zabbix_webhook import router as zabbix_webhook_router
 from src.contexts.alerting.api.routes.incidents import router as alerting_router
 from src.contexts.iam.api.router import router as iam_router
 from src.contexts.inventory.api.routes.devices import router as inventory_router
@@ -66,6 +67,9 @@ def create_app() -> FastAPI:
     # Inclusão dos roteadores do Bounded Context SLA & Manutenção
     app.include_router(sla_router)
     app.include_router(maintenance_windows_router)
+
+    # Inclusão do roteador de Integrações (Zabbix Webhook)
+    app.include_router(zabbix_webhook_router)
 
     @app.get(
         "/metrics",
