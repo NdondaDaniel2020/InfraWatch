@@ -129,7 +129,7 @@ container: secrets-init
 		-e CACHE_REDIS_ENABLED=true \
 		-e CACHE_REDIS_URI="redis://:$$REDIS_PASS@localhost:6379/6" \
 		-v infrawatch_evolution_instances:/evolution/instances \
-		evoapicloud/evolution-api:v2.2.3
+		evoapicloud/evolution-api:v2.3.7
 
 container-stop:
 	@docker stop infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
@@ -158,3 +158,7 @@ test-zabbix:
 test-notif:
 	@echo "Executando teste de notifications..."
 	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)
+
+whatsapp-qr:
+	@echo "Obtendo QR Code do WhatsApp Gateway..."
+	@curl -s -X GET "http://localhost:8085/instance/connect/infrawatch" -H "apikey: infrawatch_whatsapp_secret_token_2026" | python3 -c 'import sys, json, base64; d=json.load(sys.stdin); b=d.get("base64",""); b=b.split(",")[1] if "," in b else b; open("whatsapp_qr_code.png","wb").write(base64.b64decode(b)) if b else None; print("QR Code atualizado em whatsapp_qr_code.png!" if b else "Status: " + str(d))'
