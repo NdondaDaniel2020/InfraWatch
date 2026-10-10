@@ -138,17 +138,6 @@ class ZabbixHostMetrics(BaseModel):
                 self.disk_utilization_pct,
             )
         )
-
-
-# ---------------------------------------------------------------------------
-# Modelos para Ingestão de Webhooks do Zabbix (Fast-Path)
-# Re-exportados do contexto de Alerting para compatibilidade
-# ---------------------------------------------------------------------------
-from src.contexts.alerting.schemas.zabbix_webhook import (
-    ZabbixWebhookPayload,
-    ZabbixWebhookResponse,
-)
-
 __all__ = [
     "JsonRpcError",
     "JsonRpcRequest",
@@ -156,7 +145,6 @@ __all__ = [
     "ZabbixHost",
     "ZabbixHostMetrics",
     "ZabbixItem",
-    "ZabbixWebhookPayload",
-    "ZabbixWebhookResponse",
 ]
+
 
