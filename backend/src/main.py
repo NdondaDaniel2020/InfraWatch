@@ -17,6 +17,7 @@ warnings.filterwarnings(
     category=RuntimeWarning,
 )
 
+from src.contexts.alerting.api.routes.incidents import router as alerting_router
 from src.contexts.iam.api.router import router as iam_router
 from src.contexts.inventory.api.routes.devices import router as inventory_router
 from src.core.config import get_settings
@@ -30,7 +31,6 @@ from src.core.web import (
     register_exception_handlers,
     setup_middlewares,
 )
-
 
 
 def create_app() -> FastAPI:
@@ -57,6 +57,9 @@ def create_app() -> FastAPI:
     
     # Inclusão do roteador do Bounded Context Inventory
     app.include_router(inventory_router)
+
+    # Inclusão do roteador do Bounded Context Alerting
+    app.include_router(alerting_router)
 
     @app.get(
         "/metrics",
