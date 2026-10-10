@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: infrawatch-postgres
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
       POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infrawatch_user} -d ${POSTGRES_DB:-infrawatch_db}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infrawatch_user} -d ${POSTGRES_DB:-infrawatch_db}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,14 +26,14 @@ services:
   redis:
     image: redis:7-alpine
     container_name: infrawatch-redis
-    restart: unless-stopped
-    command: ["/bin/sh", "-c", "redis-server --appendonly yes --requirepass $$(cat /run/secrets/redis_password)"]
+    restart: always
+    command: [ "/bin/sh", "-c", "redis-server --appendonly yes --requirepass $$(cat /run/secrets/redis_password)" ]
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a $$(cat /run/secrets/redis_password) ping | grep PONG"]
+      test: [ "CMD-SHELL", "redis-cli -a $$(cat /run/secrets/redis_password) ping | grep PONG" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,7 +48,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.api
     container_name: infrawatch-api
-    restart: unless-stopped
+    restart: always
     ports:
       - "8000:8000"
     environment:
@@ -76,8 +76,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.worker
     container_name: infrawatch-probe-worker
-    restart: unless-stopped
-    command: ["python", "-m", "src.workers.daemons.probe_worker"]
+    restart: always
+    command: [ "python", "-m", "src.workers.daemons.probe_worker" ]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -102,8 +102,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.worker
     container_name: infrawatch-integration-worker
-    restart: unless-stopped
-    command: ["python", "-m", "src.workers.integration_worker"]
+    restart: always
+    command: [ "python", "-m", "src.workers.integration_worker" ]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -128,8 +128,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.worker
     container_name: infrawatch-outbox-worker
-    restart: unless-stopped
-    command: ["python", "-m", "src.workers.daemons.outbox_relay_worker"]
+    restart: always
+    command: [ "python", "-m", "src.workers.daemons.outbox_relay_worker" ]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -154,8 +154,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.worker
     container_name: infrawatch-cleanup-worker
-    restart: unless-stopped
-    command: ["python", "-m", "src.workers.daemons.token_cleanup_worker"]
+    restart: always
+    command: [ "python", "-m", "src.workers.daemons.token_cleanup_worker" ]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -176,12 +176,12 @@ services:
       - infrawatch-net
 
   infrawatch-whatsapp-gateway:
-    image: atendai/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.2.3
     container_name: infrawatch-whatsapp-gateway
-    restart: unless-stopped
+    restart: always
     ports:
       - "8085:8085"
-    entrypoint: ["/bin/sh", "-c", "export AUTHENTICATION_API_KEY=$$(cat /run/secrets/whatsapp_token 2>/dev/null || echo \"$$AUTHENTICATION_API_KEY\"); exec npm run start:prod"]
+    entrypoint: [ "/bin/sh", "-c", "export AUTHENTICATION_API_KEY=$$(cat /run/secrets/whatsapp_token 2>/dev/null || echo \"$$AUTHENTICATION_API_KEY\"); exec npm run start:prod" ]
     environment:
       SERVER_URL: http://localhost:8085
     secrets:
