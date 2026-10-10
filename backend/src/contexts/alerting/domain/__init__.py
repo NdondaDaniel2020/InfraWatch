@@ -6,8 +6,21 @@ from src.contexts.alerting.domain.evaluator import (
 )
 from src.contexts.alerting.domain.events import (
     DeviceDegradedEvent,
+    IncidentAcknowledgedEvent,
     IncidentResolvedEvent,
     IncidentTriggeredEvent,
+)
+from src.contexts.alerting.domain.exceptions import (
+    IncidentAlreadyAcknowledgedError,
+    IncidentAlreadyResolvedError,
+    IncidentDomainError,
+    IncidentNotFoundError,
+    InvalidIncidentTransitionError,
+)
+from src.contexts.alerting.domain.incident import (
+    Incident,
+    IncidentSeverity,
+    IncidentStatus,
 )
 from src.contexts.alerting.domain.state_machine import (
     DeviceHealthStatus,
@@ -21,7 +34,16 @@ __all__ = [
     "EvaluationResult",
     "FailureEvaluator",
     "HealthStateMachine",
+    "Incident",
+    "IncidentAcknowledgedEvent",
+    "IncidentAlreadyAcknowledgedError",
+    "IncidentAlreadyResolvedError",
+    "IncidentDomainError",
+    "IncidentNotFoundError",
     "IncidentResolvedEvent",
+    "IncidentSeverity",
+    "IncidentStatus",
     "IncidentTriggeredEvent",
+    "InvalidIncidentTransitionError",
     "InvalidStateTransitionError",
 ]
