@@ -47,10 +47,13 @@ RUN groupadd -g 1000 appgroup && \
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=appuser:appgroup . /app
+COPY --chown=appuser:appgroup entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Permitir ao binario python executar pings ICMP sem precisar ser root
 RUN setcap cap_net_raw+ep /opt/venv/bin/python3.12 || true
 
 USER appuser
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["python", "-m", "src.workers.daemons.probe_worker"]
