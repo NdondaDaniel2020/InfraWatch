@@ -90,6 +90,11 @@ class IncidentModel(Base):
 
     def to_domain(self) -> Incident:
         """Converte o modelo ORM para a entidade de domínio Incident."""
+        def _ensure_utc(dt: datetime | None) -> datetime | None:
+            if dt is None:
+                return None
+            return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
         return Incident(
             id=self.id,
             device_id=self.device_id,
@@ -100,11 +105,11 @@ class IncidentModel(Base):
             glpi_ticket_id=self.glpi_ticket_id,
             operator_id=self.operator_id,
             root_cause=self.root_cause,
-            started_at=self.started_at,
-            acknowledged_at=self.acknowledged_at,
-            resolved_at=self.resolved_at,
+            started_at=_ensure_utc(self.started_at),
+            acknowledged_at=_ensure_utc(self.acknowledged_at),
+            resolved_at=_ensure_utc(self.resolved_at),
             downtime_minutes=self.downtime_minutes,
-            created_at=self.created_at,
+            created_at=_ensure_utc(self.created_at),
         )
 
     @classmethod

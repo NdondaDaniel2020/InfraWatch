@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.alerting.database.repository import IncidentRepository
+from src.contexts.alerting.domain.events import IncidentTriggeredEvent
 from src.contexts.alerting.domain.exceptions import IncidentNotFoundError
 from src.contexts.alerting.domain.incident import Incident, IncidentSeverity
 from src.contexts.alerting.schemas.requests import CreateIncidentRequest
@@ -41,6 +42,13 @@ class IncidentService:
         self._repo = IncidentRepository(self._session)
         self._broadcaster = broadcaster or get_sse_broadcaster()
 
+    async def _commit(self) -> None:
+        """Garante a consolidação ACID da transação corrente."""
+        if self._uow is not None:
+            await self._uow.commit()
+        else:
+            await self._session.commit()
+
     async def create_incident(self, req: CreateIncidentRequest) -> Incident:
         """Cria e persiste um novo incidente disparando eventos associados."""
         incident = Incident(
@@ -51,11 +59,26 @@ class IncidentService:
             if req.severity in IncidentSeverity._value2member_map_
             else IncidentSeverity.CRITICAL,
         )
+        incident.add_domain_event(
+            IncidentTriggeredEvent(
+                incident_id=incident.id,
+                device_id=incident.device_id,
+                organization_id=incident.organization_id,
+                severity=incident.severity,
+                reason=incident.title,
+            )
+        )
         saved = await self._repo.save(incident)
 
         # Registra eventos no Outbox
-        for event in incident.pull_domain_events():
+        events = incident.pull_domain_events()
+        for event in events:
             OutboxRepository.add_event(self._session, event, aggregate_type="Incident")
+
+        await self._commit()
+
+        # Publica eventos via SSE após a transação ser persistida
+        for event in events:
             try:
                 target_org = str(incident.organization_id) if incident.organization_id else None
                 await self._broadcaster.broadcast(event, organization_id=target_org)
@@ -78,9 +101,15 @@ class IncidentService:
         incident.acknowledge(operator_id=operator_id, acknowledged_at=acknowledged_at)
         saved = await self._repo.save(incident)
 
-        # Grava eventos de domínio no Transactional Outbox e publica via SSE
-        for event in incident.pull_domain_events():
+        # Grava eventos de domínio no Transactional Outbox
+        events = incident.pull_domain_events()
+        for event in events:
             OutboxRepository.add_event(self._session, event, aggregate_type="Incident")
+
+        await self._commit()
+
+        # Publica eventos via SSE
+        for event in events:
             try:
                 target_org = str(incident.organization_id) if incident.organization_id else None
                 await self._broadcaster.broadcast(event, organization_id=target_org)
@@ -108,9 +137,15 @@ class IncidentService:
         )
         saved = await self._repo.save(incident)
 
-        # Grava eventos de domínio no Transactional Outbox e publica via SSE
-        for event in incident.pull_domain_events():
+        # Grava eventos de domínio no Transactional Outbox
+        events = incident.pull_domain_events()
+        for event in events:
             OutboxRepository.add_event(self._session, event, aggregate_type="Incident")
+
+        await self._commit()
+
+        # Publica eventos via SSE
+        for event in events:
             try:
                 target_org = str(incident.organization_id) if incident.organization_id else None
                 await self._broadcaster.broadcast(event, organization_id=target_org)

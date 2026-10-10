@@ -41,6 +41,14 @@ class IncidentSeverity(str, Enum):
     INFO = "INFO"
 
 
+def _ensure_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
+
+
 class Incident(AggregateRoot):
     """Raiz de Agregação de Incidente no InfraWatch.
 
@@ -82,9 +90,9 @@ class Incident(AggregateRoot):
         self.glpi_ticket_id = glpi_ticket_id
         self.operator_id = operator_id
         self.root_cause = root_cause
-        self.started_at = started_at or datetime.now(UTC)
-        self.acknowledged_at = acknowledged_at
-        self.resolved_at = resolved_at
+        self.started_at = _ensure_utc(started_at) or datetime.now(UTC)
+        self.acknowledged_at = _ensure_utc(acknowledged_at)
+        self.resolved_at = _ensure_utc(resolved_at)
         self.downtime_minutes = downtime_minutes
 
     def acknowledge(
@@ -98,7 +106,7 @@ class Incident(AggregateRoot):
                 "Não é possível reconhecer um incidente já resolvido."
             )
 
-        ack_time = acknowledged_at or datetime.now(UTC)
+        ack_time = _ensure_utc(acknowledged_at) or datetime.now(UTC)
         self.operator_id = operator_id
         self.acknowledged_at = ack_time
         self.status = IncidentStatus.ACKNOWLEDGED
@@ -130,14 +138,15 @@ class Incident(AggregateRoot):
                 "O incidente já se encontra resolvido."
             )
 
-        res_time = resolved_at or datetime.now(UTC)
+        res_time = _ensure_utc(resolved_at) or datetime.now(UTC)
         self.resolved_at = res_time
         self.root_cause = clean_cause
         if operator_id and not self.operator_id:
             self.operator_id = operator_id
 
         # Cálculo exato do tempo de indisponibilidade em minutos
-        total_seconds = max(0.0, (self.resolved_at - self.started_at).total_seconds())
+        started_utc = _ensure_utc(self.started_at) or res_time
+        total_seconds = max(0.0, (self.resolved_at - started_utc).total_seconds())
         self.downtime_minutes = int(total_seconds // 60)
         self.status = IncidentStatus.RESOLVED
 
