@@ -189,6 +189,7 @@ class Settings(BaseSettings):
     ZABBIX_USER: str = Field(default="Admin", alias="ZABBIX_USER")
     ZABBIX_PASSWORD: str = Field(default="zabbix", alias="ZABBIX_PASSWORD")
     ZABBIX_TIMEOUT_SECONDS: float = Field(default=10.0, alias="ZABBIX_TIMEOUT_SECONDS")
+    ZABBIX_WEBHOOK_SECRET: str = Field(default="", alias="ZABBIX_WEBHOOK_SECRET")
 
     # Notificações Multicanal (Telegram, WhatsApp e Webhooks)
     TELEGRAM_BOT_TOKEN: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
