@@ -6,7 +6,6 @@ e segurança reforçada em ambientes de produção.
 
 import os
 from functools import lru_cache
-from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import Field, model_validator
@@ -20,9 +19,6 @@ class Settings(BaseSettings):
         env_file=(os.getenv("ENV_FILE", ".env"), "backend/.env"),
         env_file_encoding="utf-8",
         extra="ignore",
-        secrets_dir=os.getenv("SECRETS_DIR", "/run/secrets")
-        if os.path.isdir(os.getenv("SECRETS_DIR", "/run/secrets"))
-        else None,
     )
 
     ENVIRONMENT: Literal["development", "test", "staging", "production"] = Field(
@@ -205,20 +201,19 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _assemble_connection_urls(self) -> Self:
-        """Monta dinamicamente DATABASE_URL e REDIS_URL a partir das credenciais e segredos se não fornecidas."""
-        if not self.DATABASE_URL:
+        """Monta dinamicamente DATABASE_URL e REDIS_URL a partir das credenciais se não fornecidas."""
+        if not self.DATABASE_URL or (
+            self.POSTGRES_HOST != "localhost" and "@localhost:" in self.DATABASE_URL
+        ):
             self.DATABASE_URL = (
                 f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
                 f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
             )
-        if not self.REDIS_URL:
+        if not self.REDIS_URL or (
+            self.REDIS_HOST != "localhost" and "@localhost:" in self.REDIS_URL
+        ):
             pwd_part = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
             self.REDIS_URL = f"redis://{pwd_part}{self.REDIS_HOST}:{self.REDIS_PORT}/0"
-
-        if not self.WHATSAPP_API_TOKEN:
-            whatsapp_secret = Path("/run/secrets/whatsapp_token")
-            if whatsapp_secret.is_file():
-                self.WHATSAPP_API_TOKEN = whatsapp_secret.read_text(encoding="utf-8").strip()
 
         return self
 

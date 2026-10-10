@@ -1,6 +1,15 @@
 .PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean
 
-UV = uv
+UV := $(shell which uv 2>/dev/null)
+ifeq ($(UV),)
+  RUN_PY := .venv/bin/python
+  RUN_PYTEST := .venv/bin/pytest
+  RUN_RUFF := .venv/bin/ruff
+else
+  RUN_PY := uv run python
+  RUN_PYTEST := uv run pytest
+  RUN_RUFF := uv run ruff
+endif
 
 help:
 	@echo "Comandos disponíveis:"
@@ -13,9 +22,9 @@ help:
 	@echo "  make worker-outbox  - Inicia o worker de Outbox Relay independente"
 	@echo "  make worker-cleanup - Inicia o worker de expurgo de tokens independente"
 	@echo "  make worker-zabbix  - Inicia o worker de sincronização de telemetria Zabbix"
-	@echo "  make test           - Executa os testes automatizados com uv run pytest"
-	@echo "  make lint           - Executa checagem de código com uv run ruff"
-	@echo "  make format         - Formata o código com uv run ruff format"
+	@echo "  make test           - Executa os testes automatizados com uv run pytest ou .venv"
+	@echo "  make lint           - Executa checagem de código com uv run ruff ou .venv"
+	@echo "  make format         - Formata o código com uv run ruff format ou .venv"
 	@echo "  make secrets-init   - Inicializa arquivos locais em secrets/ para Docker Compose"
 	@echo "  make secrets-clean  - Remove arquivos de segredos locais de secrets/"
 	@echo "  make up             - Sobe os containers da infraestrutura com Docker Compose"
@@ -29,44 +38,44 @@ help:
 dev: container
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
 		sleep 1; \
-		(cd backend && $(UV) run python main.py)"
+		(cd backend && $(RUN_PY) main.py)"
 
 app:
-	cd backend && $(UV) run python main.py
+	cd backend && $(RUN_PY) main.py
 
 run: app
 
 api: app
 
 worker-probe:
-	cd backend && $(UV) run python -m src.workers.daemons.probe_worker
+	cd backend && $(RUN_PY) -m src.workers.daemons.probe_worker
 
 worker-outbox:
-	cd backend && $(UV) run python -m src.workers.daemons.outbox_relay_worker
+	cd backend && $(RUN_PY) -m src.workers.daemons.outbox_relay_worker
 
 worker-cleanup:
-	cd backend && $(UV) run python -m src.workers.daemons.token_cleanup_worker
+	cd backend && $(RUN_PY) -m src.workers.daemons.token_cleanup_worker
 
 worker-zabbix:
-	cd backend && $(UV) run python -m src.workers.daemons.zabbix_sync_worker
+	cd backend && $(RUN_PY) -m src.workers.daemons.zabbix_sync_worker
 
 
 workers:
 	@echo "Iniciando Daemons de workers..."
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
-		(cd backend && $(UV) run python -m src.workers.daemons.probe_worker) & \
-		(cd backend && $(UV) run python -m src.workers.daemons.outbox_relay_worker) & \
-		(cd backend && $(UV) run python -m src.workers.daemons.token_cleanup_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.probe_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.outbox_relay_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.token_cleanup_worker) & \
 		wait"
 
 test:
-	cd backend && $(UV) run pytest tests -v
+	cd backend && $(RUN_PYTEST) tests -v
 
 lint:
-	cd backend && $(UV) run ruff check .
+	cd backend && $(RUN_RUFF) check .
 
 format:
-	cd backend && $(UV) run ruff check --fix . && $(UV) run ruff format .
+	cd backend && $(RUN_RUFF) check --fix . && $(RUN_RUFF) format .
 
 secrets-init:
 	@./scripts/init-secrets.sh
@@ -77,7 +86,7 @@ secrets-clean:
 	@echo "Segredos removidos."
 
 up: secrets-init
-	docker compose up -d postgres redis
+	docker compose up -d
 
 down:
 	docker compose down

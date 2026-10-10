@@ -2,7 +2,7 @@ services:
   glpi-db:
     image: mariadb:10.11
     container_name: infrawatch-glpi-db
-    restart: unless-stopped
+    restart: always
     environment:
       MYSQL_DATABASE: glpidb
       MYSQL_USER: glpi
@@ -16,7 +16,7 @@ services:
       - glpi_db_root_password
       - glpi_db_password
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
   glpi-app:
     image: diouxx/glpi:latest
     container_name: infrawatch-glpi-app
-    restart: unless-stopped
+    restart: always
     ports:
       - "8080:80"
     environment:
