@@ -15,6 +15,8 @@ from src.integrations.zabbix.schemas import (
     ZabbixHost,
     ZabbixHostMetrics,
     ZabbixItem,
+    ZabbixWebhookPayload,
+    ZabbixWebhookResponse,
 )
 
 __all__ = [
@@ -30,5 +32,7 @@ __all__ = [
     "ZabbixHostMetrics",
     "ZabbixItem",
     "ZabbixNotifier",
+    "ZabbixWebhookPayload",
+    "ZabbixWebhookResponse",
     "get_zabbix_notifier",
 ]
