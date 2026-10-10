@@ -102,6 +102,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   const [retryCount, setRetryCount] = useState<number>(0);
 
   // Refs para manter valores estáveis dentro dos callbacks assíncronos e evitar re-renders
+  const statusRef = useRef<SSEConnectionStatus>("connecting");
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<any>(null);
   const watchdogIntervalRef = useRef<any>(null);
@@ -114,6 +115,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   // Atualização segura de status notificando callback externo
   const updateStatus = useCallback(
     (newStatus: SSEConnectionStatus) => {
+      statusRef.current = newStatus;
       setStatus(newStatus);
       optionsRef.current.onStatusChange?.(newStatus);
     },
@@ -346,7 +348,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
 
       const timeSinceLastActivity = Date.now() - lastActivityTimeRef.current;
       // Se estiver marcado como conectado mas não houver nenhuma atividade dentro da janela de timeout
-      if (status === "connected" && timeSinceLastActivity > heartbeatTimeoutMs) {
+      if (statusRef.current === "connected" && timeSinceLastActivity >= heartbeatTimeoutMs) {
         // Conexão perdida silenciosamente (silent drop)
         cleanupConnection();
         updateStatus("reconnecting");
@@ -382,7 +384,6 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     initialBackoffMs,
     maxBackoffMs,
     backoffMultiplier,
-    status,
     updateStatus,
   ]);
 
