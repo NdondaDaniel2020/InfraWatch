@@ -116,11 +116,18 @@ container: secrets-init
 		postgres:16-alpine
 	@echo "Starting WhatsApp Gateway container..."
 	@WA_TOKEN=$$(cat secrets/whatsapp_token.txt 2>/dev/null || echo "infrawatch_whatsapp_secret_token_2026"); \
+	PG_PASS=$$(cat secrets/postgres_password.txt 2>/dev/null || echo "infrawatch_secure_password_2026"); \
+	REDIS_PASS=$$(cat secrets/redis_password.txt 2>/dev/null || echo "redis_secure_password_2026"); \
 	docker start infrawatch-whatsapp-gateway 2>/dev/null || docker run -d \
 		--name infrawatch-whatsapp-gateway \
-		-p 8085:8085 \
-		-e AUTHENTICATION_API_KEY=$$WA_TOKEN \
+		--network host \
+		-e SERVER_PORT=8085 \
 		-e SERVER_URL=http://localhost:8085 \
+		-e AUTHENTICATION_API_KEY=$$WA_TOKEN \
+		-e DATABASE_PROVIDER=postgresql \
+		-e DATABASE_CONNECTION_URI="postgresql://infrawatch_user:$$PG_PASS@localhost:5432/infrawatch_db?schema=evolution" \
+		-e CACHE_REDIS_ENABLED=true \
+		-e CACHE_REDIS_URI="redis://:$$REDIS_PASS@localhost:6379/6" \
 		-v infrawatch_evolution_instances:/evolution/instances \
 		evoapicloud/evolution-api:v2.2.3
 
@@ -148,3 +155,6 @@ test-zabbix:
 	@echo "Executando teste de integração com Zabbix..."
 	@cd backend && .venv/bin/python ../scripts/test_zabbix.py
 
+test-notif:
+	@echo "Executando teste de notifications..."
+	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)

@@ -148,7 +148,11 @@ async def run_dry_run_tests() -> bool:
     return True
 
 
-async def run_live_tests(target_channel: str, target_severity: AlertSeverity) -> bool:
+async def run_live_tests(
+    target_channel: str,
+    target_severity: AlertSeverity,
+    recipient: str | None = None,
+) -> bool:
     """Executa testes reais contra canais configurados no ambiente."""
     settings = get_settings()
     alert = create_sample_alert(target_severity)
@@ -162,6 +166,7 @@ async def run_live_tests(target_channel: str, target_severity: AlertSeverity) ->
     print(f" WhatsApp Gateway: {'Ativo' if settings.WHATSAPP_ENABLED else 'Desabilitado'}")
     print(f" Webhook Default : {'Configurado' if settings.DEFAULT_WEBHOOK_URL else 'Não configurado'}")
     print(f" SMTP Host       : {settings.SMTP_HOST or 'Não configurado'}")
+    print(f" SMTP Recipient  : {recipient or settings.SMTP_DEFAULT_RECIPIENT or 'Não configurado'}")
     print("=" * 65)
 
     dispatcher = NotificationDispatcher(
@@ -181,8 +186,20 @@ async def run_live_tests(target_channel: str, target_severity: AlertSeverity) ->
         else [target_channel]
     )
 
+    recipients_map: dict[str, str] = {}
+    if recipient:
+        if target_channel == "all":
+            recipients_map["smtp"] = recipient
+            recipients_map["whatsapp"] = recipient
+        else:
+            recipients_map[target_channel] = recipient
+
     print(f"\nDisparando alerta para os canais: {channels_to_test}...")
-    results = await dispatcher.dispatch(alert, channels=channels_to_test)
+    results = await dispatcher.dispatch(
+        alert,
+        channels=channels_to_test,
+        recipients=recipients_map or None,
+    )
 
     print("\nResultados do Envio:")
     all_success = True
@@ -216,6 +233,12 @@ async def main() -> None:
         default="CRITICAL",
         help="Severidade do alerta simulado (padrão: CRITICAL).",
     )
+    parser.add_argument(
+        "--recipient",
+        type=str,
+        default=None,
+        help="Destinatário específico para o teste (ex: e-mail para SMTP ou telefone para WhatsApp).",
+    )
 
     args = parser.parse_args()
     severity_enum = AlertSeverity(args.severity)
@@ -230,7 +253,11 @@ async def main() -> None:
             print("[AVISO] Nenhuma credencial de notificação configurada no .env. Executando em modo --dry-run.")
         ok = await run_dry_run_tests()
     else:
-        ok = await run_live_tests(target_channel=args.channel, target_severity=severity_enum)
+        ok = await run_live_tests(
+            target_channel=args.channel,
+            target_severity=severity_enum,
+            recipient=args.recipient,
+        )
 
     sys.exit(0 if ok else 1)
 
