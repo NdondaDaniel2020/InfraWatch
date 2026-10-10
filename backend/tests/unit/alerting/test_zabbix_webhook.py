@@ -1,4 +1,4 @@
-"""Testes unitários para o endpoint de Webhook do Zabbix (Fast-Path)."""
+"""Testes unitários para o endpoint de Webhook do Zabbix no contexto de Alerting."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.api.routes.zabbix_webhook import router
+from src.contexts.alerting.api.routes.zabbix_webhook import router
 from src.core.infrastructure.redis import get_redis_client
 from src.core.messaging import get_event_bus
 
@@ -50,7 +50,7 @@ def test_webhook_unauthorized_missing_token(client: TestClient) -> None:
         "trigger_name": "Link de Fibra DOWN",
         "host_name": "cr01.luanda",
     }
-    with patch("src.api.routes.zabbix_webhook.get_settings") as mock_settings:
+    with patch("src.contexts.alerting.api.routes.zabbix_webhook.get_settings") as mock_settings:
         mock_settings.return_value.ZABBIX_WEBHOOK_SECRET = "secret-token-123"
         response = client.post("/api/v1/integrations/zabbix/webhook", json=payload)
         assert response.status_code == 401
@@ -65,7 +65,7 @@ def test_webhook_unauthorized_invalid_token(client: TestClient) -> None:
         "trigger_name": "Link de Fibra DOWN",
         "host_name": "cr01.luanda",
     }
-    with patch("src.api.routes.zabbix_webhook.get_settings") as mock_settings:
+    with patch("src.contexts.alerting.api.routes.zabbix_webhook.get_settings") as mock_settings:
         mock_settings.return_value.ZABBIX_WEBHOOK_SECRET = "secret-token-123"
         response = client.post(
             "/api/v1/integrations/zabbix/webhook",
@@ -91,7 +91,7 @@ def test_webhook_problem_disaster_publishes_critical_incident(
         "operational_data": "ICMP 100% loss",
         "occurred_at": "2026-10-10 19:30:00",
     }
-    with patch("src.api.routes.zabbix_webhook.get_settings") as mock_settings:
+    with patch("src.contexts.alerting.api.routes.zabbix_webhook.get_settings") as mock_settings:
         mock_settings.return_value.ZABBIX_WEBHOOK_SECRET = "secure-secret"
         response = client.post(
             "/api/v1/integrations/zabbix/webhook",
@@ -132,7 +132,7 @@ def test_webhook_problem_average_publishes_degraded(
         "host_name": "srv-db-01",
         "operational_data": "CPU 87.2%",
     }
-    with patch("src.api.routes.zabbix_webhook.get_settings") as mock_settings:
+    with patch("src.contexts.alerting.api.routes.zabbix_webhook.get_settings") as mock_settings:
         mock_settings.return_value.ZABBIX_WEBHOOK_SECRET = "secure-secret"
         response = client.post(
             "/api/v1/integrations/zabbix/webhook",
@@ -163,7 +163,7 @@ def test_webhook_resolved_publishes_resolved_incident(
         "host_name": "cr01.luanda",
         "host_ip": "10.200.0.1",
     }
-    with patch("src.api.routes.zabbix_webhook.get_settings") as mock_settings:
+    with patch("src.contexts.alerting.api.routes.zabbix_webhook.get_settings") as mock_settings:
         mock_settings.return_value.ZABBIX_WEBHOOK_SECRET = "secure-secret"
         response = client.post(
             "/api/v1/integrations/zabbix/webhook",
@@ -197,7 +197,7 @@ def test_webhook_duplicate_event_is_ignored(
         "trigger_name": "Alerta duplicado",
         "host_name": "sw01.benguela",
     }
-    with patch("src.api.routes.zabbix_webhook.get_settings") as mock_settings:
+    with patch("src.contexts.alerting.api.routes.zabbix_webhook.get_settings") as mock_settings:
         mock_settings.return_value.ZABBIX_WEBHOOK_SECRET = "secure-secret"
         response = client.post(
             "/api/v1/integrations/zabbix/webhook",

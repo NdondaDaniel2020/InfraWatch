@@ -9,6 +9,10 @@ from src.contexts.alerting.schemas.responses import (
     IncidentListResponse,
     IncidentResponse,
 )
+from src.contexts.alerting.schemas.zabbix_webhook import (
+    ZabbixWebhookPayload,
+    ZabbixWebhookResponse,
+)
 
 __all__ = [
     "AcknowledgeIncidentRequest",
@@ -16,4 +20,7 @@ __all__ = [
     "IncidentListResponse",
     "IncidentResponse",
     "ResolveIncidentRequest",
+    "ZabbixWebhookPayload",
+    "ZabbixWebhookResponse",
 ]
+
