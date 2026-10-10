@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hmac
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from redis.asyncio import Redis
@@ -31,11 +31,13 @@ router = APIRouter(prefix="/api/v1/integrations/zabbix", tags=["Integrations - Z
 
 
 def verify_zabbix_webhook_token(
-    x_zabbix_webhook_token: str | None = Header(
-        default=None,
-        alias="X-Zabbix-Webhook-Token",
-        description="Token secreto de autenticação do Webhook configurado no Zabbix",
-    ),
+    x_zabbix_webhook_token: Annotated[
+        str | None,
+        Header(
+            alias="X-Zabbix-Webhook-Token",
+            description="Token secreto de autenticação do Webhook configurado no Zabbix",
+        ),
+    ] = None,
 ) -> str:
     """Valida o token do webhook em tempo constante para mitigar timing attacks."""
     settings = get_settings()
@@ -60,6 +62,11 @@ def verify_zabbix_webhook_token(
     return x_zabbix_webhook_token
 
 
+AuthTokenDep = Annotated[str, Depends(verify_zabbix_webhook_token)]
+RedisDep = Annotated[Redis, Depends(get_redis_client)]
+EventBusDep = Annotated[ResilientEventBus, Depends(get_event_bus)]
+
+
 @router.post(
     "/webhook",
     status_code=status.HTTP_200_OK,
@@ -72,9 +79,9 @@ def verify_zabbix_webhook_token(
 )
 async def handle_zabbix_webhook(
     payload: ZabbixWebhookPayload,
-    _auth_token: str = Depends(verify_zabbix_webhook_token),
-    redis: Redis[Any] = Depends(get_redis_client),
-    event_bus: ResilientEventBus = Depends(get_event_bus),
+    _auth_token: AuthTokenDep,
+    redis: RedisDep,
+    event_bus: EventBusDep,
 ) -> ZabbixWebhookResponse:
     """Processa o payload do Zabbix com idempotência e despacho desacoplado."""
     # 1. Verificação de Idempotência com Redis (TTL de 24 horas)
