@@ -30,8 +30,8 @@ help:
 	@echo "  make up             - Sobe os containers da infraestrutura com Docker Compose"
 	@echo "  make down           - Encerra os containers do Docker Compose"
 	@echo "  make status         - Exibe o status dos containers"
-	@echo "  make container      - Sobe apenas containers de Postgres e Redis sem Compose"
-	@echo "  make container-stop - Para os containers locais de Postgres e Redis"
+	@echo "  make container      - Sobe containers de Postgres, Redis e WhatsApp Gateway sem Compose"
+	@echo "  make container-stop - Para os containers locais de Postgres, Redis e WhatsApp Gateway"
 	@echo "  make glpi-up        - Sobe os containers do GLPI e MariaDB para testes"
 	@echo "  make glpi-down      - Encerra os containers do GLPI e MariaDB"
 
@@ -114,10 +114,19 @@ container: secrets-init
 		-e POSTGRES_PASSWORD=$$PG_PASS \
 		-v infrawatch_postgres_data:/var/lib/postgresql/data \
 		postgres:16-alpine
+	@echo "Starting WhatsApp Gateway container..."
+	@WA_TOKEN=$$(cat secrets/whatsapp_token.txt 2>/dev/null || echo "infrawatch_whatsapp_secret_token_2026"); \
+	docker start infrawatch-whatsapp-gateway 2>/dev/null || docker run -d \
+		--name infrawatch-whatsapp-gateway \
+		-p 8085:8085 \
+		-e AUTHENTICATION_API_KEY=$$WA_TOKEN \
+		-e SERVER_URL=http://localhost:8085 \
+		-v infrawatch_evolution_instances:/evolution/instances \
+		evoapicloud/evolution-api:v2.2.3
 
 container-stop:
-	@docker stop infrawatch-redis infrawatch-postgres 2>/dev/null || true
-	@docker rm infrawatch-redis infrawatch-postgres 2>/dev/null || true
+	@docker stop infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
+	@docker rm infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
 
 glpi-up: secrets-init
 	docker compose -f docker-compose.glpi.yml up -d
