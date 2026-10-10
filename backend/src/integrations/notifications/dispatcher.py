@@ -30,9 +30,15 @@ class NotificationDispatcher:
         self,
         channels: Sequence[NotificationChannel] | None = None,
         severity_routing: dict[AlertSeverity, list[str]] | None = None,
+        max_retries: int = 2,
+        retry_delay_seconds: float = 0.5,
+        backoff_factor: float = 2.0,
     ) -> None:
         self._channels: dict[str, NotificationChannel] = {}
         self._routing = severity_routing or DEFAULT_SEVERITY_ROUTING
+        self.max_retries = max(0, max_retries)
+        self.retry_delay_seconds = max(0.0, retry_delay_seconds)
+        self.backoff_factor = max(1.0, backoff_factor)
 
         if channels:
             for ch in channels:
@@ -62,7 +68,7 @@ class NotificationDispatcher:
         alert: AlertMessage,
         recipient: str | None,
     ) -> tuple[str, bool]:
-        """Executa o envio isolado para um único canal com tratamento defensivo."""
+        """Executa o envio isolado para um único canal com retentativas e tratamento defensivo."""
         try:
             if not await channel.is_available():
                 logger.debug(
@@ -70,12 +76,55 @@ class NotificationDispatcher:
                     channel.name,
                 )
                 return channel.name, False
-
-            success = await channel.send(alert, recipient=recipient)
-            return channel.name, success
         except Exception:
-            logger.exception("Exceção não tratada ao despachar alerta pelo canal '%s'", channel.name)
+            logger.exception("Falha ao verificar disponibilidade do canal '%s'", channel.name)
             return channel.name, False
+
+        delay = self.retry_delay_seconds
+        total_attempts = self.max_retries + 1
+
+        for attempt in range(1, total_attempts + 1):
+            try:
+                success = await channel.send(alert, recipient=recipient)
+                if success:
+                    return channel.name, True
+
+                if attempt < total_attempts:
+                    logger.warning(
+                        "Tentativa %d/%d de envio no canal '%s' retornou False. Retentando em %.2fs...",
+                        attempt,
+                        total_attempts,
+                        channel.name,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    delay *= self.backoff_factor
+                else:
+                    logger.error(
+                        "Todas as %d tentativas de envio no canal '%s' falharam (retorno False).",
+                        total_attempts,
+                        channel.name,
+                    )
+            except Exception as exc:
+                if attempt < total_attempts:
+                    logger.warning(
+                        "Tentativa %d/%d no canal '%s' gerou exceção (%s). Retentando em %.2fs...",
+                        attempt,
+                        total_attempts,
+                        channel.name,
+                        exc,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    delay *= self.backoff_factor
+                else:
+                    logger.exception(
+                        "Todas as %d tentativas de envio no canal '%s' falharam por exceção não tratada.",
+                        total_attempts,
+                        channel.name,
+                    )
+
+        return channel.name, False
 
     async def dispatch(
         self,

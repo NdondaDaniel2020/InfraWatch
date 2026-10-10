@@ -30,10 +30,12 @@ class WhatsAppChannel:
         gateway_url: str | None = None,
         api_token: str | None = None,
         default_recipient: str | None = None,
+        enabled: bool | None = None,
         timeout_seconds: float = 10.0,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         settings = get_settings()
+        self.enabled = enabled if enabled is not None else settings.WHATSAPP_ENABLED
         self.gateway_url = (
             gateway_url if gateway_url is not None else settings.WHATSAPP_GATEWAY_URL
         )
@@ -47,8 +49,8 @@ class WhatsAppChannel:
         self._custom_client = client
 
     async def is_available(self) -> bool:
-        """Verifica se a URL do gateway e o token/destinatário estão configurados."""
-        return bool(self.gateway_url and (self.api_token or self.default_recipient))
+        """Verifica se o canal WhatsApp está habilitado e devidamente configurado."""
+        return bool(self.enabled and self.gateway_url and (self.api_token or self.default_recipient))
 
     def _format_message(self, alert: AlertMessage) -> str:
         """Formata a mensagem em texto plano com sintaxe Markdown do WhatsApp."""
