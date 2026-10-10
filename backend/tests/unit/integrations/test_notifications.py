@@ -149,13 +149,22 @@ async def test_telegram_channel_send_exception(sample_alert: AlertMessage) -> No
 
 @pytest.mark.asyncio
 async def test_whatsapp_channel_is_available() -> None:
-    channel = WhatsAppChannel(gateway_url="", api_token="", default_recipient="")
+    channel = WhatsAppChannel(gateway_url="", api_token="", default_recipient="", enabled=False)
     assert await channel.is_available() is False
+
+    channel_disabled = WhatsAppChannel(
+        gateway_url="http://evolution-api:8085/message/sendText/infrawatch",
+        api_token="MY_TOKEN",
+        default_recipient="244923000000",
+        enabled=False,
+    )
+    assert await channel_disabled.is_available() is False
 
     channel_ready = WhatsAppChannel(
         gateway_url="http://evolution-api:8085/message/sendText/infrawatch",
         api_token="MY_TOKEN",
         default_recipient="244923000000",
+        enabled=True,
     )
     assert await channel_ready.is_available() is True
 
@@ -486,6 +495,72 @@ async def test_dispatcher_skips_unavailable_channel(sample_alert: AlertMessage) 
 
     assert result["whatsapp"] is False
     unconfigured_ch.send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_retries_transient_failure(sample_alert: AlertMessage) -> None:
+    """Garante que falha transitória (False) na 1ª tentativa retenta e tem sucesso na 2ª."""
+    flaky_ch = AsyncMock()
+    flaky_ch.name = "webhook"
+    flaky_ch.is_available.return_value = True
+    flaky_ch.send.side_effect = [False, True]
+
+    dispatcher = NotificationDispatcher(
+        channels=[flaky_ch],
+        max_retries=2,
+        retry_delay_seconds=0.01,
+        backoff_factor=1.0,
+    )
+
+    result = await dispatcher.dispatch(sample_alert, channels=["webhook"])
+
+    assert result["webhook"] is True
+    assert flaky_ch.send.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_exhausts_retries_on_persistent_failure(
+    sample_alert: AlertMessage,
+) -> None:
+    """Garante que canal com falhas consecutivas esgota max_retries e retorna False."""
+    failing_ch = AsyncMock()
+    failing_ch.name = "telegram"
+    failing_ch.is_available.return_value = True
+    failing_ch.send.return_value = False
+
+    dispatcher = NotificationDispatcher(
+        channels=[failing_ch],
+        max_retries=2,
+        retry_delay_seconds=0.01,
+        backoff_factor=1.0,
+    )
+
+    result = await dispatcher.dispatch(sample_alert, channels=["telegram"])
+
+    assert result["telegram"] is False
+    # 1 tentativa inicial + 2 retentativas = 3 chamadas
+    assert failing_ch.send.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_retries_on_exception(sample_alert: AlertMessage) -> None:
+    """Garante que exceção de rede na 1ª tentativa é retentada e tem sucesso na 2ª."""
+    flaky_ch = AsyncMock()
+    flaky_ch.name = "telegram"
+    flaky_ch.is_available.return_value = True
+    flaky_ch.send.side_effect = [RuntimeError("Timeout transitório"), True]
+
+    dispatcher = NotificationDispatcher(
+        channels=[flaky_ch],
+        max_retries=2,
+        retry_delay_seconds=0.01,
+        backoff_factor=1.0,
+    )
+
+    result = await dispatcher.dispatch(sample_alert, channels=["telegram"])
+
+    assert result["telegram"] is True
+    assert flaky_ch.send.await_count == 2
 
 
 def test_get_notification_dispatcher_singleton() -> None:
