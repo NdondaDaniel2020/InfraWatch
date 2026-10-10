@@ -9,6 +9,7 @@ import {
   Server,
   ShieldAlert,
   Wrench,
+  Zap,
 } from "lucide-react";
 import {
   Badge,
@@ -22,10 +23,13 @@ import {
   Modal,
   Skeleton,
 } from "./components/ui";
+import { LiveIndicator } from "./components/common/LiveIndicator";
+import { TelemetryProvider, useTelemetry } from "./context/TelemetryContext";
 
-export const App: React.FC = () => {
+const NocCockpitContent: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [btnLoading, setBtnLoading] = useState(false);
+  const { activeAlertsCount, recentEvents } = useTelemetry();
 
   const toggleLoading = () => {
     setBtnLoading(true);
@@ -89,10 +93,9 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <Badge variant="healthy" pulse>
-            TELEMETRIA AO VIVO
-          </Badge>
+        {/* Status de Conexão SSE e Relógio do Sistema */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <LiveIndicator />
           <div
             style={{
               display: "flex",
@@ -109,7 +112,7 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Grid de Métricas Principais (SLA e Saúde de Rede) */}
+      {/* Grid de Métricas Principais (SLA, Dispositivos e Incidentes) */}
       <div
         style={{
           display: "grid",
@@ -188,7 +191,10 @@ export const App: React.FC = () => {
           <CardHeader>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <CardTitle>Incidentes Críticos Abertos</CardTitle>
-              <ShieldAlert size={18} color="var(--color-critical)" />
+              <ShieldAlert
+                size={18}
+                color={activeAlertsCount > 0 ? "var(--color-critical)" : "var(--color-healthy)"}
+              />
             </div>
             <CardDescription>Ocorrências ativas sem resolução</CardDescription>
           </CardHeader>
@@ -198,23 +204,73 @@ export const App: React.FC = () => {
               style={{
                 fontSize: "2.25rem",
                 fontWeight: 700,
-                color: "var(--color-critical)",
+                color: activeAlertsCount > 0 ? "var(--color-critical)" : "var(--color-healthy)",
                 lineHeight: 1,
               }}
             >
-              0
+              {activeAlertsCount}
             </div>
             <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "8px" }}>
-              Zero indisponibilidades ativas na rede no momento
+              {activeAlertsCount === 0
+                ? "Zero indisponibilidades ativas na rede no momento"
+                : `${activeAlertsCount} incidente(s) requerendo atenção do NOC`}
             </p>
           </CardContent>
           <CardFooter>
-            <Badge variant="healthy" size="sm">
-              REDE ÍNTEGRA
+            <Badge variant={activeAlertsCount > 0 ? "critical" : "healthy"} size="sm">
+              {activeAlertsCount > 0 ? "ATENÇÃO REQUERIDA" : "REDE ÍNTEGRA"}
             </Badge>
           </CardFooter>
         </Card>
       </div>
+
+      {/* Feed em Tempo Real de Eventos Recebidos via SSE */}
+      {recentEvents.length > 0 && (
+        <Card elevated>
+          <CardHeader>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <CardTitle>Fluxo de Telemetria Recente (Buffer Local SSE)</CardTitle>
+              <Zap size={18} color="var(--color-primary)" />
+            </div>
+            <CardDescription>
+              Últimas transmissões recebidas via streaming de eventos sem piscamento
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {recentEvents.slice(0, 3).map((evt, idx) => (
+                <div
+                  key={`${evt.event_id || evt.device_id || idx}-${idx}`}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 12px",
+                    borderRadius: "var(--radius-sm)",
+                    backgroundColor: "rgba(255, 255, 255, 0.03)",
+                    border: "var(--border-subtle)",
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Badge variant="healthy" size="sm">
+                      {evt.event_type}
+                    </Badge>
+                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-text-primary)" }}>
+                      {evt.device_id || "broadcast"}
+                    </span>
+                  </div>
+                  {evt.latency_ms !== undefined && (
+                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-healthy)" }}>
+                      {evt.latency_ms} ms
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Showcase de Componentes do Design System */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
@@ -347,5 +403,13 @@ export const App: React.FC = () => {
         </div>
       </Modal>
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <TelemetryProvider>
+      <NocCockpitContent />
+    </TelemetryProvider>
   );
 };
