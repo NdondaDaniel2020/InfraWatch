@@ -27,7 +27,7 @@ sys.path.insert(0, str(backend_dir))
 import httpx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from src.api.routes.zabbix_webhook import router
+from src.contexts.alerting.api.routes.zabbix_webhook import router
 from src.core.config import get_settings
 from src.core.infrastructure.redis import get_redis_client
 from src.core.messaging import get_event_bus
@@ -53,7 +53,7 @@ def run_dry_run_tests() -> bool:
     client = TestClient(app)
     test_secret = "test-zabbix-secret-key"
 
-    with patch("src.api.routes.zabbix_webhook.get_settings") as mock_settings:
+    with patch("src.contexts.alerting.api.routes.zabbix_webhook.get_settings") as mock_settings:
         mock_settings.return_value.ZABBIX_WEBHOOK_SECRET = test_secret
 
         # 1. Validação de Autenticação Segura (Rejeição de Token Inválido)
