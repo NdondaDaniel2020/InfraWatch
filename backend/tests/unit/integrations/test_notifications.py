@@ -249,10 +249,38 @@ async def test_smtp_channel_is_available() -> None:
 
 
 @pytest.mark.asyncio
-async def test_smtp_channel_send_missing_recipient(sample_alert: AlertMessage) -> None:
+async def test_smtp_channel_send_missing_recipient(
+    monkeypatch: pytest.MonkeyPatch, sample_alert: AlertMessage
+) -> None:
+    from src.core.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "SMTP_DEFAULT_RECIPIENT", "")
+
     channel = SmtpNotificationChannel(smtp_host="smtp.infrawatch.ao", default_recipient=None)
     success = await channel.send(sample_alert, recipient=None)
     assert success is False
+
+
+@pytest.mark.asyncio
+async def test_smtp_channel_uses_settings_default_recipient(
+    monkeypatch: pytest.MonkeyPatch, sample_alert: AlertMessage
+) -> None:
+    from src.core.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "SMTP_DEFAULT_RECIPIENT", "alerts-noc@infrawatch.ao")
+
+    mock_sender = AsyncMock()
+    channel = SmtpNotificationChannel(
+        smtp_host="smtp.infrawatch.ao",
+        sender_func=mock_sender,
+    )
+    assert channel.default_recipient == "alerts-noc@infrawatch.ao"
+
+    success = await channel.send(sample_alert)
+    assert success is True
+    assert mock_sender.call_args[0][0]["To"] == "alerts-noc@infrawatch.ao"
 
 
 @pytest.mark.asyncio

@@ -117,6 +117,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str | None = Field(default=None, alias="SMTP_PASSWORD")
     SMTP_FROM: str = Field(default="InfraWatch <no-reply@infrawatch.ao>", alias="SMTP_FROM")
     SMTP_TLS: bool = Field(default=True, alias="SMTP_TLS")
+    SMTP_DEFAULT_RECIPIENT: str = Field(default="", alias="SMTP_DEFAULT_RECIPIENT")
     FRONTEND_URL: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
 
     # Configurações de Paginação da API

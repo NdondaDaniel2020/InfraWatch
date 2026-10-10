@@ -65,7 +65,11 @@ class SmtpNotificationChannel:
         )
         self.smtp_from = smtp_from if smtp_from is not None else settings.SMTP_FROM
         self.smtp_tls = smtp_tls if smtp_tls is not None else settings.SMTP_TLS
-        self.default_recipient = default_recipient
+        self.default_recipient = (
+            default_recipient
+            if default_recipient is not None
+            else (settings.SMTP_DEFAULT_RECIPIENT or None)
+        )
         self.timeout = timeout_seconds
         self._sender_func = sender_func or aiosmtplib.send
 
