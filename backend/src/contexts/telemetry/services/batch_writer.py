@@ -44,6 +44,11 @@ class MetricsBatchWriter:
         """Quantidade de pontos pendentes no buffer."""
         return len(self._buffer)
 
+    @property
+    def flush_interval(self) -> float:
+        """Intervalo (em segundos) entre cada descarga automática do buffer."""
+        return self._flush_interval
+
     def enqueue(self, result: ProbeResult, organization_id: UUID) -> None:
         """Adiciona um resultado de sondagem ao buffer.
 

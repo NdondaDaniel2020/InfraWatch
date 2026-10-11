@@ -179,7 +179,6 @@ class ProbeWorkerDaemon:
                     eval_result.reason,
                 )
                 await self.schedule.update_status(target.device_id, eval_result.status.value)
-                target.status = eval_result.status.value
                 await self._update_device_db_status(target.device_id, eval_result.status.value)
 
             # 5. Persiste e publica eventos analíticos (se houver)
@@ -235,7 +234,7 @@ class ProbeWorkerDaemon:
             try:
                 try:
                     await asyncio.wait_for(
-                        self._stop_event.wait(), timeout=self.batch_writer._flush_interval
+                        self._stop_event.wait(), timeout=self.batch_writer.flush_interval
                     )
                     if self._stop_event.is_set():
                         break
