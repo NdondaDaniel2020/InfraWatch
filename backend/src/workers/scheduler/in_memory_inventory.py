@@ -113,6 +113,13 @@ class InMemorySchedule:
                 target.is_paused = False
                 target.status = "UP"
 
+    async def update_status(self, device_id: UUID, status: str) -> None:
+        """Atualiza o status operacional do dispositivo no cronograma."""
+        async with self._lock:
+            target = self._devices.get(device_id)
+            if target:
+                target.status = status
+
     async def get(self, device_id: UUID) -> ProbeTarget | None:
         """Obtém um dispositivo pelo ID."""
         async with self._lock:
