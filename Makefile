@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean whatsapp-up
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -89,10 +89,13 @@ up: secrets-init
 	docker compose up -d
 
 down:
-	docker compose down
+	docker compose --profile whatsapp down
 
 status:
-	docker compose ps
+	docker compose --profile whatsapp ps
+
+whatsapp-up: secrets-init
+	docker compose --profile whatsapp up -d infrawatch-whatsapp-gateway
 
 container: secrets-init
 	@echo "Starting Redis container..."

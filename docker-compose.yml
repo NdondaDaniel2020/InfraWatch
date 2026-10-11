@@ -179,6 +179,8 @@ services:
     image: evoapicloud/evolution-api:v2.3.7
     container_name: infrawatch-whatsapp-gateway
     restart: always
+    profiles:
+      - whatsapp
     ports:
       - "8085:8085"
     entrypoint:
