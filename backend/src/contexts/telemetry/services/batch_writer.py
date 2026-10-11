@@ -11,7 +11,7 @@ import asyncio
 import logging
 import time
 from collections import deque
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -149,7 +149,7 @@ class MetricsBatchWriter:
                         self._flush_event.wait(),
                         timeout=self._flush_interval,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass  # Flush periódico por tempo
 
                 await self.flush()
