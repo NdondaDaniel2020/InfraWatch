@@ -176,16 +176,35 @@ services:
       - infrawatch-net
 
   infrawatch-whatsapp-gateway:
-    image: evoapicloud/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.3.7
     container_name: infrawatch-whatsapp-gateway
     restart: always
     ports:
       - "8085:8085"
-    entrypoint: [ "/bin/sh", "-c", "export AUTHENTICATION_API_KEY=$$(cat /run/secrets/whatsapp_token 2>/dev/null || echo \"$$AUTHENTICATION_API_KEY\"); exec npm run start:prod" ]
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - >
+        export AUTHENTICATION_API_KEY=$$(cat /run/secrets/whatsapp_token 2>/dev/null || echo "$$AUTHENTICATION_API_KEY");
+        PG_PASS=$$(cat /run/secrets/postgres_password 2>/dev/null);
+        REDIS_PASS=$$(cat /run/secrets/redis_password 2>/dev/null);
+        export DATABASE_CONNECTION_URI="postgresql://${POSTGRES_USER:-infrawatch_user}:$${PG_PASS}@postgres:5432/${POSTGRES_DB:-infrawatch_db}?schema=evolution";
+        export CACHE_REDIS_URI="redis://:$${REDIS_PASS}@redis:6379/6";
+        exec npm run start:prod
     environment:
+      SERVER_PORT: 8085
       SERVER_URL: http://localhost:8085
+      DATABASE_PROVIDER: postgresql
+      CACHE_REDIS_ENABLED: "true"
     secrets:
       - whatsapp_token
+      - postgres_password
+      - redis_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - evolution_instances:/evolution/instances
     networks:

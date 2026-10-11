@@ -204,9 +204,16 @@ async def run_live_tests(
     print("\nResultados do Envio:")
     all_success = True
     for ch_name, success in results.items():
-        status = "SUCESSO" if success else "IGNORADO OU FALHA"
-        print(f"  • {ch_name.upper():<12}: {status}")
-        if not success:
+        channel_obj = dispatcher.get_channel(ch_name)
+        is_avail = await channel_obj.is_available() if channel_obj else False
+        if not is_avail:
+            print(f"  • {ch_name.upper():<12}: DESABILITADO (IGNORADO)")
+            if target_channel != "all":
+                all_success = False
+        elif success:
+            print(f"  • {ch_name.upper():<12}: SUCESSO")
+        else:
+            print(f"  • {ch_name.upper():<12}: FALHA")
             all_success = False
 
     return all_success

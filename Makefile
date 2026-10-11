@@ -158,7 +158,3 @@ test-zabbix:
 test-notif:
 	@echo "Executando teste de notifications..."
 	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)
-
-whatsapp-qr:
-	@echo "Obtendo QR Code do WhatsApp Gateway..."
-	@curl -s -X GET "http://localhost:8085/instance/connect/infrawatch" -H "apikey: infrawatch_whatsapp_secret_token_2026" | python3 -c 'import sys, json, base64; d=json.load(sys.stdin); b=d.get("base64",""); b=b.split(",")[1] if "," in b else b; open("whatsapp_qr_code.png","wb").write(base64.b64decode(b)) if b else None; print("QR Code atualizado em whatsapp_qr_code.png!" if b else "Status: " + str(d))'
