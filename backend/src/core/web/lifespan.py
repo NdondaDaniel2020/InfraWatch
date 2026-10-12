@@ -67,6 +67,17 @@ async def lifespan(app: FastAPI) -> Any:
         event_bus = get_event_bus()
         app.state.event_bus = event_bus
 
+        # 1.1 Carga inicial de dados de demonstração (se habilitada via flag de ambiente)
+        if settings.RUN_SEED_ON_STARTUP and settings.ENVIRONMENT != "test":
+            logger.info("RUN_SEED_ON_STARTUP habilitado. Executando seed inicial idempotente...")
+            try:
+                from src.core.database.seed import seed_all
+
+                await seed_all()
+                logger.info("Seed inicial executado com sucesso.")
+            except Exception:
+                logger.exception("Falha ao executar seed inicial no startup da aplicação")
+
         # 2. Workers de background (se habilitados)
         if settings.ENABLE_BACKGROUND_WORKERS and settings.ENVIRONMENT != "test":
             logger.info("Inicializando workers de segundo plano...")
