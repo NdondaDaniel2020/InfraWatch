@@ -45,9 +45,9 @@ services:
 
 secrets:
   glpi_db_root_password:
-    file: ./secrets/glpi_db_root_password.txt
+    file: ../secrets/glpi_db_root_password.txt
   glpi_db_password:
-    file: ./secrets/glpi_db_password.txt
+    file: ../secrets/glpi_db_password.txt
 
 volumes:
   glpi_db_data:

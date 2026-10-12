@@ -103,4 +103,4 @@ async def test_zabbix_script_connection_error_handling(capsys):
 
     captured = capsys.readouterr()
     assert "[ERRO DE CONEXÃO]" in captured.out
-    assert "docker compose -f docker-compose.zabbix.yml up -d" in captured.out
+    assert "docker compose -f test-monitoramento/docker-compose.zabbix.yml up -d" in captured.out

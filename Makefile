@@ -155,20 +155,20 @@ container-stop:
 	
 
 glpi-up: secrets-init
-	docker compose -f docker-compose.glpi.yml up -d
+	docker compose -f test-monitoramento/docker-compose.glpi.yml up -d
 
 glpi-down:
-	docker compose -f docker-compose.glpi.yml down
+	docker compose -f test-monitoramento/docker-compose.glpi.yml down
 
 test-glpi:
 	@echo "Executando teste de integração com GLPI..."
 	@cd backend && .venv/bin/python ../scripts/test_glpi.py
 
 zabbix-up: secrets-init
-	docker compose -f docker-compose.zabbix.yml up -d
+	docker compose -f test-monitoramento/docker-compose.zabbix.yml up -d
 
 zabbix-down:
-	docker compose -f docker-compose.zabbix.yml down
+	docker compose -f test-monitoramento/docker-compose.zabbix.yml down
 
 test-zabbix:
 	@echo "Executando teste de integração com Zabbix..."
@@ -178,7 +178,7 @@ test-notif:
 	@echo "Executando teste de notifications..."
 	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)
 
-CLAB_CMD := docker run --rm --privileged --network host --pid host -v /var/run/docker.sock:/var/run/docker.sock -v /etc/hosts:/etc/hosts -v $$(pwd):$$(pwd) -w $$(pwd) ghcr.io/srl-labs/clab:latest /usr/bin/containerlab
+CLAB_CMD := docker run --rm --privileged --network host --pid host -v /var/run/docker.sock:/var/run/docker.sock -v /etc/hosts:/etc/hosts -v $$(pwd):$$(pwd) -w $$(pwd)/test-monitoramento ghcr.io/srl-labs/clab:latest /usr/bin/containerlab
 
 clab-deploy:
 	@echo "Implantando topologia Containerlab (lab-infrawatch)..."

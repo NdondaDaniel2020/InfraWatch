@@ -108,7 +108,7 @@ async def main() -> None:
     except ZabbixConnectionError as exc:
         print(f"\n[ERRO DE CONEXÃO] {exc}")
         print("Dica: Certifique-se de que o container do Zabbix está ativo via:")
-        print("      docker compose -f docker-compose.zabbix.yml up -d")
+        print("      docker compose -f test-monitoramento/docker-compose.zabbix.yml up -d")
         sys.exit(1)
     except ZabbixError as exc:
         print(f"\n[ERRO ZABBIX] {exc}")
