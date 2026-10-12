@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -13,10 +13,12 @@ endif
 
 help:
 	@echo "Comandos disponíveis:"
-	@echo "  make dev            - Roda tudo: containers -> workers -> app no fim"
+	@echo "  make dev            - Roda tudo: containers -> migrações -> workers -> app"
 	@echo "  make app            - Inicia apenas a aplicação backend FastAPI com hot-reload (alias: run, api)"
 	@echo "  make run            - Inicia a aplicação backend (alias para app)"
 	@echo "  make api            - Inicia a aplicação backend (alias para app)"
+	@echo "  make migrate        - Executa migrações pendentes do Alembic (upgrade head)"
+	@echo "  make seed           - Executa carga de dados base idempotente (roda migrate previamente)"
 	@echo "  make workers        - Inicia os daemons de workers em segundo plano"
 	@echo "  make worker-probe   - Inicia o Daemon de Sondas (Probe Worker) para pings e checagens"
 	@echo "  make worker-outbox  - Inicia o worker de Outbox Relay independente"
@@ -36,7 +38,7 @@ help:
 	@echo "  make glpi-up        - Sobe os containers do GLPI e MariaDB para testes"
 	@echo "  make glpi-down      - Encerra os containers do GLPI e MariaDB"
 
-dev: container workers
+dev: container migrate workers
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
 		sleep 1; \
 		(cd backend && $(RUN_PY) main.py)"
@@ -63,7 +65,10 @@ worker-zabbix:
 worker-integration:
 	cd backend && $(RUN_PY) -m src.workers.daemons.integration_worker
 
-seed:
+migrate:
+	cd backend && $(RUN_PY) -m alembic upgrade head
+
+seed: migrate
 	cd backend && $(RUN_PY) ../scripts/seed_demo_devices.py
 
 
