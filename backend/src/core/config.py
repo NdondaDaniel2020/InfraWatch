@@ -167,6 +167,11 @@ class Settings(BaseSettings):
     )
     TOKEN_CLEANUP_RETENTION_DAYS: int = Field(default=7, alias="TOKEN_CLEANUP_RETENTION_DAYS")
 
+    # Carga Inicial de Dados de Demonstração / Seed
+    RUN_SEED_ON_STARTUP: bool = Field(default=False, alias="RUN_SEED_ON_STARTUP")
+    ADMIN_EMAIL: str = Field(default="noc-admin@rcsangola.co.ao", alias="ADMIN_EMAIL")
+    ADMIN_PASSWORD: str = Field(default="Ndonda#2026!Admin", alias="ADMIN_PASSWORD")
+
     # Proteção do Endpoint Prometheus /metrics (ADR-025)
     METRICS_REQUIRE_AUTH: bool = Field(default=True, alias="METRICS_REQUIRE_AUTH")
     PROMETHEUS_METRICS_USER: str = Field(default="prometheus", alias="PROMETHEUS_METRICS_USER")

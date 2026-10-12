@@ -78,7 +78,7 @@ services:
 
 secrets:
   zabbix_db_password:
-    file: ./secrets/zabbix_db_password.txt
+    file: ../secrets/zabbix_db_password.txt
 
 volumes:
   zabbix_db_data:

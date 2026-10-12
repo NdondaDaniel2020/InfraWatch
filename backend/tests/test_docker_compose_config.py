@@ -116,7 +116,7 @@ class TestDockerComposeConfig(unittest.TestCase):
         build_cfg = worker.get("build", {})
         self.assertEqual(build_cfg.get("context"), "./backend")
         self.assertEqual(build_cfg.get("dockerfile"), "Dockerfile.worker")
-        self.assertEqual(worker.get("command"), ["python", "-m", "src.workers.integration_worker"])
+        self.assertEqual(worker.get("command"), ["python", "-m", "src.workers.daemons.integration_worker"])
 
     def test_volumes_and_networks_declaration(self):
         """Valida persistência em volumes e rede de comunicação interna."""
@@ -145,7 +145,7 @@ class TestDockerComposeConfig(unittest.TestCase):
 
     def test_zabbix_compose_file_exists_and_valid(self):
         """Valida se docker-compose.zabbix.yml existe e possui serviços requeridos."""
-        zabbix_compose = self.root_dir / "docker-compose.zabbix.yml"
+        zabbix_compose = self.root_dir / "test-monitoramento" / "docker-compose.zabbix.yml"
         self.assertTrue(zabbix_compose.exists(), "docker-compose.zabbix.yml não encontrado")
 
         with open(zabbix_compose, "r", encoding="utf-8") as f:
@@ -192,7 +192,7 @@ class TestDockerComposeConfig(unittest.TestCase):
 
     def test_glpi_compose_secrets(self):
         """Valida que docker-compose.glpi.yml utiliza secrets e valida sintaxe."""
-        glpi_compose = self.root_dir / "docker-compose.glpi.yml"
+        glpi_compose = self.root_dir / "test-monitoramento" / "docker-compose.glpi.yml"
         self.assertTrue(glpi_compose.exists())
 
         with open(glpi_compose, "r", encoding="utf-8") as f:
@@ -223,7 +223,7 @@ class TestDockerComposeConfig(unittest.TestCase):
 
     def test_zabbix_compose_secrets(self):
         """Valida que docker-compose.zabbix.yml utiliza secrets e valida sintaxe."""
-        zabbix_compose = self.root_dir / "docker-compose.zabbix.yml"
+        zabbix_compose = self.root_dir / "test-monitoramento" / "docker-compose.zabbix.yml"
         self.assertTrue(zabbix_compose.exists())
 
         with open(zabbix_compose, "r", encoding="utf-8") as f:
