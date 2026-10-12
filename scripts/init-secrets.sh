@@ -54,7 +54,7 @@ create_secret_if_missing "google_client_secret.txt" "${GOOGLE_CLIENT_SECRET:-dev
 # 5. Admin Seed
 # -----------------------------------------------------------------------------
 create_secret_if_missing "admin_email.txt"          "${ADMIN_EMAIL:-noc-admin@rcsangola.co.ao}"
-create_secret_if_missing "admin_password.txt"       "${ADMIN_PASSWORD:-Admin#Dev2026!ChangeMe}"
+create_secret_if_missing "admin_password.txt"       "${ADMIN_PASSWORD:-Ndonda#2026!Admin}"
 
 # -----------------------------------------------------------------------------
 # 6. GLPI ITSM Integration
