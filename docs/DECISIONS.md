@@ -18,7 +18,7 @@
 8. [ADR-008: Autenticação baseada no Projeto `Auth` com Remoção de WebSockets](#adr-008-autenticação-baseada-no-projeto-auth)
 9. [ADR-009: Privacidade Estrita e Multi-Tenancy sem Páginas Públicas Abertas](#adr-009-privacidade-estrita-e-multi-tenancy)
 10. [ADR-010: Integração Bidirecional Inteligente com o GLPI (ITSM)](#adr-010-integração-bidirecional-inteligente-com-o-glpi)
-11. [ADR-011: Notificações Multi-Canal com WhatsApp/SMS via Número Virtual](#adr-011-notificações-multi-canal-com-whatsapp-sms)
+11. [ADR-011: Notificações Multi-Canal com WhatsApp via Gateway de Mensageria](#adr-011-notificações-multi-canal-com-whatsapp)
 12. [ADR-012: Busca Full-Text Nativa no PostgreSQL (Sem Elasticsearch Prematuro)](#adr-012-busca-full-text-nativa-no-postgresql)
 13. [ADR-013: Modelagem DDD com CQRS em Monólito Modular](#adr-013-modelagem-ddd-com-cqrs-em-monólito-modular)
 14. [ADR-014: Roteamento de Rede Direto via MPLS/VPN para IPs Privados](#adr-014-roteamento-de-rede-direto-via-mplsvpn-para-ips-privados)
@@ -152,11 +152,11 @@
 
 ---
 
-### ADR-011: Notificações Multi-Canal com WhatsApp/SMS via Número Virtual
+### ADR-011: Notificações Multi-Canal com WhatsApp via Gateway de Mensageria
 - **Status:** Aprovado
 - **Origem:** Requisito RF05 em `subject/InfraWatch.md` e seleção de canais no `/grill-me`.
 - **Decisão:** Suporte nativo aos seguintes canais:
-  1. **WhatsApp / SMS:** Conexão com gateway de mensageria com número virtual (Evolution API, Z-API ou Twilio).
+  1. **WhatsApp:** Conexão com gateway de mensageria (Evolution API ou Z-API) para alerta direto no celular dos gestores de plantão.
   2. **Telegram Bot:** Mensagens formatadas em markdown para grupos técnicos.
   3. **Webhooks:** Payloads padronizados para Slack, Discord e Microsoft Teams.
   4. **E-mail (SMTP):** Resumos e relatórios de incidentes.
@@ -220,7 +220,7 @@
 ### ADR-018: Políticas de Horário de Notificação e Escalas de Plantão por Canal
 - **Status:** Aprovado
 - **Origem:** Sessão `/grill-me` (prevenção de fadiga de alertas e respeito a horários).
-- **Decisão:** Cada canal de notificação (especialmente WhatsApp e SMS) possui parâmetros de funcionamento:
+- **Decisão:** Cada canal de notificação (especialmente WhatsApp) possui parâmetros de funcionamento:
   - `active_hours_start` e `active_hours_end` (ex: 08:00 às 18:00).
   - `days_of_week` (dias ativos).
   - `allow_critical_outside_hours` (booleano que permite que quedas críticas `DOWN` ignorem o horário e acordem o plantonista mesmo de madrugada).
