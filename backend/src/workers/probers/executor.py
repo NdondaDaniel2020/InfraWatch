@@ -5,9 +5,9 @@ com limite global de concorrência para proteger o OS (Too many open files).
 """
 
 import asyncio
-from typing import Dict
 
 from src.workers.probers.base import BaseProber, ProbeResult
+from src.workers.probers.docker import DockerProber
 from src.workers.probers.http import HttpProber
 from src.workers.probers.icmp import IcmpProber
 from src.workers.probers.tcp import TcpProber
@@ -22,11 +22,12 @@ class ProbeExecutor:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         
         # Instancia os probers (eles são thread-safe / coroutine-safe por natureza)
-        self.probers: Dict[str, BaseProber] = {
+        self.probers: dict[str, BaseProber] = {
             "icmp": IcmpProber(),
             "http": HttpProber(),
             "https": HttpProber(),
             "tcp": TcpProber(),
+            "docker": DockerProber(),
         }
 
     async def execute(self, target: ProbeTarget, timeout_ms: int = 2000) -> ProbeResult:

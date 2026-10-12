@@ -91,6 +91,7 @@ def create_app() -> FastAPI:
         """Health check profundo de disponibilidade da API e conectividade com banco de dados."""
         return await get_health_status()
 
+    @app.get("/", include_in_schema=False)
     @app.get("/api/live", tags=["Health"])
     async def liveness_probe() -> dict[str, str]:
         """Liveness probe simples para orquestradores (Kubernetes / Docker)."""

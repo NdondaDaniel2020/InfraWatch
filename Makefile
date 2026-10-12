@@ -35,7 +35,7 @@ help:
 	@echo "  make glpi-up        - Sobe os containers do GLPI e MariaDB para testes"
 	@echo "  make glpi-down      - Encerra os containers do GLPI e MariaDB"
 
-dev: container
+dev: container workers
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
 		sleep 1; \
 		(cd backend && $(RUN_PY) main.py)"
@@ -85,6 +85,10 @@ secrets-clean:
 	@rm -f secrets/*.txt
 	@echo "Segredos removidos."
 
+
+build:
+	docker compose --profile whatsapp build
+
 up: secrets-init
 	docker compose up -d
 
@@ -117,6 +121,8 @@ container: secrets-init
 		-e POSTGRES_PASSWORD=$$PG_PASS \
 		-v infrawatch_postgres_data:/var/lib/postgresql/data \
 		postgres:16-alpine
+
+container-WhatsApp: container
 	@echo "Starting WhatsApp Gateway container..."
 	@WA_TOKEN=$$(cat secrets/whatsapp_token.txt 2>/dev/null || echo "infrawatch_whatsapp_secret_token_2026"); \
 	PG_PASS=$$(cat secrets/postgres_password.txt 2>/dev/null || echo "infrawatch_secure_password_2026"); \
@@ -137,6 +143,7 @@ container: secrets-init
 container-stop:
 	@docker stop infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
 	@docker rm infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
+	
 
 glpi-up: secrets-init
 	docker compose -f docker-compose.glpi.yml up -d

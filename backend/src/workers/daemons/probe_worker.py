@@ -235,7 +235,7 @@ class ProbeWorkerDaemon:
             try:
                 try:
                     await asyncio.wait_for(
-                        self._stop_event.wait(), timeout=self.batch_writer._flush_interval
+                        self._stop_event.wait(), timeout=self.batch_writer.flush_interval
                     )
                     if self._stop_event.is_set():
                         break

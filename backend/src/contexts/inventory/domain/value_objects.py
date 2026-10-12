@@ -20,6 +20,7 @@ class DeviceCategory(str, Enum):
     DATABASE = "DATABASE"
     ACCESS_POINT = "ACCESS_POINT"
     MICROWAVE_LINK = "MICROWAVE_LINK"
+    CONTAINER = "CONTAINER"
 
 
 class DeviceStatus(str, Enum):
