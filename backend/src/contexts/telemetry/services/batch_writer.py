@@ -79,14 +79,18 @@ class MetricsBatchWriter:
             "packet_loss": result.packet_loss_pct,
         })
 
-        # Métricas extras (TLS, status_code, etc.)
+        # Métricas extras (TLS, status_code, CPU, memória, etc.)
         if result.extra_data:
             for key, val in result.extra_data.items():
                 if val is not None:
+                    try:
+                        numeric_val = float(val)
+                    except (ValueError, TypeError):
+                        continue
                     self._buffer.append({
                         **base,
                         "metric_type": key,
-                        "value": float(val),
+                        "value": numeric_val,
                         "packet_loss": 0.0,
                     })
 

@@ -59,6 +59,9 @@ worker-cleanup:
 worker-zabbix:
 	cd backend && $(RUN_PY) -m src.workers.daemons.zabbix_sync_worker
 
+seed:
+	cd backend && $(RUN_PY) ../scripts/seed_demo_devices.py
+
 
 workers:
 	@echo "Iniciando Daemons de workers..."
