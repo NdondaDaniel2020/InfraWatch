@@ -59,6 +59,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      ENABLE_BACKGROUND_WORKERS: "false"
     secrets:
       - postgres_password
       - redis_password
@@ -239,6 +240,53 @@ services:
     container_name: infrawatch-cleanup-worker
     restart: always
     command: [ "python", "-m", "src.workers.daemons.token_cleanup_worker" ]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
+      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    secrets:
+      - postgres_password
+      - redis_password
+      - secret_key
+      - refresh_secret_key
+      - oauth_state_secret
+      - mfa_pending_secret
+      - smtp_password
+      - google_client_id
+      - google_client_secret
+      - admin_email
+      - admin_password
+      - glpi_app_token
+      - glpi_user_token
+      - zabbix_api_url
+      - zabbix_api_token
+      - zabbix_password
+      - telegram_bot_token
+      - telegram_chat_id
+      - whatsapp_token
+      - whatsapp_gateway_url
+      - default_webhook_url
+      - prometheus_metrics_user
+      - prometheus_metrics_pass
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - infrawatch-net
+
+  infrawatch-zabbix-sync-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: infrawatch-zabbix-sync-worker
+    restart: always
+    command: [ "python", "-m", "src.workers.daemons.zabbix_sync_worker" ]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432

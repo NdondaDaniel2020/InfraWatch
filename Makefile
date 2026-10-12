@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean whatsapp-up
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -22,6 +22,7 @@ help:
 	@echo "  make worker-outbox  - Inicia o worker de Outbox Relay independente"
 	@echo "  make worker-cleanup - Inicia o worker de expurgo de tokens independente"
 	@echo "  make worker-zabbix  - Inicia o worker de sincronização de telemetria Zabbix"
+	@echo "  make worker-integration - Inicia o worker de integração (Notificações e GLPI)"
 	@echo "  make test           - Executa os testes automatizados com uv run pytest ou .venv"
 	@echo "  make lint           - Executa checagem de código com uv run ruff ou .venv"
 	@echo "  make format         - Formata o código com uv run ruff format ou .venv"
@@ -59,6 +60,9 @@ worker-cleanup:
 worker-zabbix:
 	cd backend && $(RUN_PY) -m src.workers.daemons.zabbix_sync_worker
 
+worker-integration:
+	cd backend && $(RUN_PY) -m src.workers.integration_worker
+
 seed:
 	cd backend && $(RUN_PY) ../scripts/seed_demo_devices.py
 
@@ -69,6 +73,8 @@ workers:
 		(cd backend && $(RUN_PY) -m src.workers.daemons.probe_worker) & \
 		(cd backend && $(RUN_PY) -m src.workers.daemons.outbox_relay_worker) & \
 		(cd backend && $(RUN_PY) -m src.workers.daemons.token_cleanup_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.zabbix_sync_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.integration_worker) & \
 		wait"
 
 test:
