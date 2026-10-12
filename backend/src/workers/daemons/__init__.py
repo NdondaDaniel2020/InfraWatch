@@ -1,31 +1,30 @@
 """Workers em background (daemons)."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from src.workers.daemons.outbox_relay_worker import (
-    EventPublisher,
-    OutboxRelayWorker,
-    PublishCallback,
-)
-from src.workers.daemons.outbox_relay_worker import (
-    run_standalone as run_outbox_standalone,
-)
-from src.workers.daemons.token_cleanup_worker import (
-    TokenCleanupWorker,
-)
-from src.workers.daemons.token_cleanup_worker import (
-    run_standalone as run_cleanup_standalone,
-)
-from src.workers.daemons.zabbix_sync_worker import (
-    ZabbixSyncWorker,
-)
-from src.workers.daemons.integration_worker import (
-    IntegrationWorker,
-)
+if TYPE_CHECKING:
+    from src.workers.daemons.integration_worker import IntegrationWorker
+    from src.workers.daemons.outbox_relay_worker import (
+        EventPublisher,
+        OutboxRelayWorker,
+        PublishCallback,
+    )
+    from src.workers.daemons.outbox_relay_worker import (
+        run_standalone as run_outbox_standalone,
+    )
+    from src.workers.daemons.token_cleanup_worker import (
+        TokenCleanupWorker,
+    )
+    from src.workers.daemons.token_cleanup_worker import (
+        run_standalone as run_cleanup_standalone,
+    )
+    from src.workers.daemons.zabbix_sync_worker import (
+        ZabbixSyncWorker,
+    )
 
 # Singletons dos workers
-_outbox_worker: OutboxRelayWorker | None = None
-_token_cleanup_worker: TokenCleanupWorker | None = None
+_outbox_worker: Any = None
+_token_cleanup_worker: Any = None
 
 
 def get_outbox_relay_worker(
@@ -35,11 +34,13 @@ def get_outbox_relay_worker(
     batch_size: int = 50,
     poll_interval: float = 30.0,
     worker_id: str = "outbox-main",
-) -> OutboxRelayWorker:
+) -> Any:
     """Retorna instância singleton do OutboxRelayWorker configurada."""
     global _outbox_worker
 
     if _outbox_worker is None:
+        from src.workers.daemons.outbox_relay_worker import OutboxRelayWorker
+
         async def dispatcher(event_type: str, payload: dict[str, Any]) -> None:
             await event_bus.publish(event_type, payload)
             target_user = payload.get("user_id") or payload.get("target_user_id")
@@ -69,11 +70,13 @@ def get_token_cleanup_worker(
     interval_seconds: int = 3600,
     lock_timeout: int = 300,
     retention_days: int = 7,
-) -> TokenCleanupWorker:
+) -> Any:
     """Retorna instância singleton do TokenCleanupWorker."""
     global _token_cleanup_worker
 
     if _token_cleanup_worker is None:
+        from src.workers.daemons.token_cleanup_worker import TokenCleanupWorker
+
         _token_cleanup_worker = TokenCleanupWorker(
             redis_client=redis_client,
             session_factory=session_factory,
@@ -96,6 +99,28 @@ async def close_workers() -> None:
     if _token_cleanup_worker:
         await _token_cleanup_worker.stop()
         _token_cleanup_worker = None
+
+
+def __getattr__(name: str) -> Any:
+    if name in {"EventPublisher", "OutboxRelayWorker", "PublishCallback"}:
+        from src.workers.daemons import outbox_relay_worker
+        return getattr(outbox_relay_worker, name)
+    if name == "run_outbox_standalone":
+        from src.workers.daemons.outbox_relay_worker import run_standalone
+        return run_standalone
+    if name == "TokenCleanupWorker":
+        from src.workers.daemons.token_cleanup_worker import TokenCleanupWorker
+        return TokenCleanupWorker
+    if name == "run_cleanup_standalone":
+        from src.workers.daemons.token_cleanup_worker import run_standalone
+        return run_standalone
+    if name == "ZabbixSyncWorker":
+        from src.workers.daemons.zabbix_sync_worker import ZabbixSyncWorker
+        return ZabbixSyncWorker
+    if name == "IntegrationWorker":
+        from src.workers.daemons.integration_worker import IntegrationWorker
+        return IntegrationWorker
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
