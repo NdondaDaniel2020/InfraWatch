@@ -179,6 +179,7 @@ class ProbeWorkerDaemon:
                     eval_result.reason,
                 )
                 await self.schedule.update_status(target.device_id, eval_result.status.value)
+                target.status = eval_result.status.value
                 await self._update_device_db_status(target.device_id, eval_result.status.value)
 
             # 5. Persiste e publica eventos analíticos (se houver)
