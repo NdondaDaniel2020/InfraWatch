@@ -1,0 +1,53 @@
+name: infrawatch-lab
+
+mgmt:
+  network: infrawatch-clab-mgmt
+  ipv4-subnet: 172.28.0.0/24
+
+topology:
+  nodes:
+    router01:
+      kind: linux
+      image: frrouting/frr:v8.4.0
+      mgmt-ipv4: 172.28.0.10
+      binds:
+        - lab/frr/daemons:/etc/frr/daemons:ro
+        - lab/frr/frr.conf:/etc/frr/frr.conf:ro
+
+    snmpsim:
+      kind: linux
+      image: tandrup/snmpsim:latest
+      mgmt-ipv4: 172.28.0.11
+      cmd: "/bin/sh -c 'snmpsimd.py --agent-udpv4-endpoint=0.0.0.0:161 --process-user=snmpsim --process-group=nogroup'"
+      ports:
+        - "1161:161/udp"
+
+    web01:
+      kind: linux
+      image: nginx:alpine
+      mgmt-ipv4: 172.28.0.21
+      ports:
+        - "8085:80"
+
+    web02:
+      kind: linux
+      image: nginx:alpine
+      mgmt-ipv4: 172.28.0.22
+      ports:
+        - "8086:80"
+
+    dns01:
+      kind: linux
+      image: coredns/coredns:latest
+      mgmt-ipv4: 172.28.0.53
+      cmd: "-conf /etc/coredns/Corefile"
+      binds:
+        - lab/coredns/Corefile:/etc/coredns/Corefile:ro
+      ports:
+        - "1053:53/udp"
+        - "1053:53/tcp"
+
+  links:
+    - endpoints: ["router01:eth1", "web01:eth1"]
+    - endpoints: ["router01:eth2", "web02:eth1"]
+    - endpoints: ["router01:eth3", "dns01:eth1"]

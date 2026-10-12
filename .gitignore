@@ -84,3 +84,9 @@ subject
 .agents
 */pla*
 whatsapp_qr_code.png
+
+# Containerlab runtime
+clab-*/
+.clab/
+bin/
+

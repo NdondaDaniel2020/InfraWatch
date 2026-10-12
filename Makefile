@@ -171,3 +171,19 @@ test-zabbix:
 test-notif:
 	@echo "Executando teste de notifications..."
 	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)
+
+CLAB_CMD := docker run --rm --privileged --network host --pid host -v /var/run/docker.sock:/var/run/docker.sock -v /etc/hosts:/etc/hosts -v $$(pwd):$$(pwd) -w $$(pwd) ghcr.io/srl-labs/clab:latest /usr/bin/containerlab
+
+clab-deploy:
+	@echo "Implantando topologia Containerlab (lab-infrawatch)..."
+	@$(CLAB_CMD) deploy -t lab-infrawatch.clab.yml --reconfigure
+
+clab-destroy:
+	@echo "Destruindo topologia Containerlab..."
+	@$(CLAB_CMD) destroy -t lab-infrawatch.clab.yml --cleanup
+
+clab-inspect:
+	@$(CLAB_CMD) inspect -t lab-infrawatch.clab.yml
+
+clab-graph:
+	@$(CLAB_CMD) graph -t lab-infrawatch.clab.yml
