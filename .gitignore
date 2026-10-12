@@ -80,6 +80,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+log.txt
 subjects
 subject
 .agents

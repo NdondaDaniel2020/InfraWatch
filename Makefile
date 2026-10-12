@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -35,11 +35,20 @@ help:
 	@echo "  make status         - Exibe o status dos containers"
 	@echo "  make container      - Sobe containers de Postgres, Redis e WhatsApp Gateway sem Compose"
 	@echo "  make container-stop - Para os containers locais de Postgres, Redis e WhatsApp Gateway"
-	@echo "  make glpi-up        - Sobe os containers do GLPI e MariaDB para testes"
+	@echo "  make glpi-up        - Sobe containers do GLPI e provisiona API e tokens automaticamente"
 	@echo "  make glpi-down      - Encerra os containers do GLPI e MariaDB"
+	@echo "  make zabbix-up      - Sobe containers do Zabbix e provisiona API token automaticamente"
+	@echo "  make zabbix-down    - Encerra os containers do Zabbix Stack"
+	@echo "  make bootstrap-integrations - Sincroniza tokens de API e credenciais no GLPI e Zabbix"
 
-dev: container migrate workers
+dev: container migrate
+	@echo "Iniciando Daemons de workers e aplicação FastAPI..."
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.probe_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.outbox_relay_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.token_cleanup_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.zabbix_sync_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.integration_worker) & \
 		sleep 1; \
 		(cd backend && $(RUN_PY) main.py)"
 
@@ -82,6 +91,8 @@ workers:
 		(cd backend && $(RUN_PY) -m src.workers.daemons.integration_worker) & \
 		wait"
 
+
+
 test:
 	cd backend && $(RUN_PYTEST) tests -v
 
@@ -91,6 +102,8 @@ lint:
 format:
 	cd backend && $(RUN_RUFF) check --fix . && $(RUN_RUFF) format .
 
+
+
 secrets-init:
 	@./scripts/init-secrets.sh
 
@@ -98,6 +111,7 @@ secrets-clean:
 	@echo "Removendo arquivos de segredos locais..."
 	@rm -f secrets/*.txt
 	@echo "Segredos removidos."
+
 
 
 build:
@@ -111,6 +125,8 @@ down:
 
 status:
 	docker compose --profile whatsapp ps
+
+
 
 whatsapp-up: secrets-init
 	docker compose --profile whatsapp up -d infrawatch-whatsapp-gateway
@@ -157,10 +173,12 @@ container-WhatsApp: container
 container-stop:
 	@docker stop infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
 	@docker rm infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
-	
+
+
 
 glpi-up: secrets-init
 	docker compose -f test-monitoramento/docker-compose.glpi.yml up -d
+	@./scripts/bootstrap_integrations.sh glpi
 
 glpi-down:
 	docker compose -f test-monitoramento/docker-compose.glpi.yml down
@@ -171,9 +189,13 @@ test-glpi:
 
 zabbix-up: secrets-init
 	docker compose -f test-monitoramento/docker-compose.zabbix.yml up -d
+	@./scripts/bootstrap_integrations.sh zabbix
 
 zabbix-down:
 	docker compose -f test-monitoramento/docker-compose.zabbix.yml down
+
+bootstrap-integrations: secrets-init
+	@./scripts/bootstrap_integrations.sh all
 
 test-zabbix:
 	@echo "Executando teste de integração com Zabbix..."
@@ -182,6 +204,16 @@ test-zabbix:
 test-notif:
 	@echo "Executando teste de notifications..."
 	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)
+
+
+
+integration-up: glpi-up zabbix-up bootstrap-integrations
+
+integration-down: glpi-down zabbix-down
+
+integration-test: test-glpi test-zabbix test-notif
+
+
 
 CLAB_CMD := docker run --rm --privileged --network host --pid host -v /var/run/docker.sock:/var/run/docker.sock -v /etc/hosts:/etc/hosts -v $$(pwd):$$(pwd) -w $$(pwd)/test-monitoramento ghcr.io/srl-labs/clab:latest /usr/bin/containerlab
 
