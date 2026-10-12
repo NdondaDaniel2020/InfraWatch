@@ -19,6 +19,9 @@ from src.workers.daemons.token_cleanup_worker import (
 from src.workers.daemons.zabbix_sync_worker import (
     ZabbixSyncWorker,
 )
+from src.workers.daemons.integration_worker import (
+    IntegrationWorker,
+)
 
 # Singletons dos workers
 _outbox_worker: OutboxRelayWorker | None = None
@@ -97,6 +100,7 @@ async def close_workers() -> None:
 
 __all__ = [
     "EventPublisher",
+    "IntegrationWorker",
     "OutboxRelayWorker",
     "PublishCallback",
     "TokenCleanupWorker",

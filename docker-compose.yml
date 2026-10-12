@@ -145,7 +145,7 @@ services:
       dockerfile: Dockerfile.worker
     container_name: infrawatch-integration-worker
     restart: always
-    command: [ "python", "-m", "src.workers.integration_worker" ]
+    command: [ "python", "-m", "src.workers.daemons.integration_worker" ]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432

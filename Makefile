@@ -61,7 +61,7 @@ worker-zabbix:
 	cd backend && $(RUN_PY) -m src.workers.daemons.zabbix_sync_worker
 
 worker-integration:
-	cd backend && $(RUN_PY) -m src.workers.integration_worker
+	cd backend && $(RUN_PY) -m src.workers.daemons.integration_worker
 
 seed:
 	cd backend && $(RUN_PY) ../scripts/seed_demo_devices.py
@@ -74,7 +74,7 @@ workers:
 		(cd backend && $(RUN_PY) -m src.workers.daemons.outbox_relay_worker) & \
 		(cd backend && $(RUN_PY) -m src.workers.daemons.token_cleanup_worker) & \
 		(cd backend && $(RUN_PY) -m src.workers.daemons.zabbix_sync_worker) & \
-		(cd backend && $(RUN_PY) -m src.workers.integration_worker) & \
+		(cd backend && $(RUN_PY) -m src.workers.daemons.integration_worker) & \
 		wait"
 
 test:

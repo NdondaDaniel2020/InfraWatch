@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.workers.integration_worker import IntegrationWorker
+from src.workers.daemons.integration_worker import IntegrationWorker
 
 
 @pytest.mark.asyncio
@@ -10,7 +10,7 @@ async def test_integration_worker_glpi_disabled_by_default() -> None:
     mock_event_bus = MagicMock()
     mock_event_bus.close = AsyncMock()
 
-    with patch("src.workers.integration_worker.get_settings") as mock_settings:
+    with patch("src.workers.daemons.integration_worker.get_settings") as mock_settings:
         mock_settings.return_value.GLPI_ENABLED = False
         mock_settings.return_value.GLPI_APP_TOKEN = ""
         mock_settings.return_value.GLPI_USER_TOKEN = ""
@@ -27,7 +27,7 @@ async def test_integration_worker_glpi_enabled_when_configured() -> None:
     mock_event_bus = MagicMock()
     mock_event_bus.close = AsyncMock()
 
-    with patch("src.workers.integration_worker.get_settings") as mock_settings:
+    with patch("src.workers.daemons.integration_worker.get_settings") as mock_settings:
         mock_settings.return_value.GLPI_ENABLED = True
         mock_settings.return_value.GLPI_APP_TOKEN = "test-app-token"
         mock_settings.return_value.GLPI_USER_TOKEN = "test-user-token"
