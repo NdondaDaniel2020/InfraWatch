@@ -68,6 +68,7 @@ create_secret_if_missing "glpi_user_token.txt"      "${GLPI_USER_TOKEN:-infrawat
 create_secret_if_missing "zabbix_api_url.txt"       "${ZABBIX_API_URL:-http://localhost:8081/api_jsonrpc.php}"
 create_secret_if_missing "zabbix_api_token.txt"     "${ZABBIX_API_TOKEN:-28cf2287b0ea065df89ee92c07171d3f0c2aaec4c2cfd7d829d4d87926f289fb}"
 create_secret_if_missing "zabbix_password.txt"      "${ZABBIX_PASSWORD:-zabbix}"
+create_secret_if_missing "zabbix_webhook_secret.txt" "${ZABBIX_WEBHOOK_SECRET:-infrawatch-zabbix-webhook-secret-2026}"
 
 # -----------------------------------------------------------------------------
 # 8. Notificações — Telegram, WhatsApp, Webhook
