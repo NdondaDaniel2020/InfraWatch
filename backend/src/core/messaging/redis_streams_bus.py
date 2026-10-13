@@ -44,6 +44,8 @@ class RedisStreamsEventBus(EventBus):
     async def _get_client(self) -> aioredis.Redis:
         """Obtém ou instancia o cliente Redis assíncrono."""
         if self._redis is None:
+            if not self.redis_url:
+                raise RuntimeError("REDIS_URL não configurado para RedisStreamsEventBus")
             self._redis = aioredis.from_url(
                 self.redis_url,
                 decode_responses=True,
