@@ -430,3 +430,246 @@ class ZabbixClient:
             "item_id": item_id,
             "heartbeat_pushed": pushed,
         }
+
+    async def get_media_type_by_name(self, name: str) -> dict[str, Any] | None:
+        """Localiza um Media Type no Zabbix pelo nome exato."""
+        try:
+            res = await self.call(
+                "mediatype.get",
+                params={
+                    "filter": {"name": name},
+                    "output": ["mediatypeid", "name", "type", "status"],
+                },
+            )
+            if res and isinstance(res, list) and len(res) > 0:
+                return res[0]
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Erro ao consultar mediatype '%s' no Zabbix: %s", name, exc)
+        return None
+
+    async def create_webhook_media_type(
+        self,
+        name: str,
+        webhook_url: str,
+        secret_token: str,
+        script: str | None = None,
+    ) -> str:
+        """Cria um Media Type do tipo Webhook (type: 4) no Zabbix Server."""
+        js_script = script or DEFAULT_WEBHOOK_JS_SCRIPT
+        parameters = [
+            {"name": "url", "value": webhook_url},
+            {"name": "token", "value": secret_token},
+            {"name": "event_id", "value": "{EVENT.ID}"},
+            {"name": "event_value", "value": "{EVENT.VALUE}"},
+            {"name": "event_severity", "value": "{EVENT.SEVERITY}"},
+            {"name": "trigger_name", "value": "{TRIGGER.NAME}"},
+            {"name": "host_name", "value": "{HOST.NAME}"},
+            {"name": "host_ip", "value": "{HOST.IP}"},
+            {"name": "operational_data", "value": "{EVENT.OPDATA}"},
+            {"name": "occurred_at", "value": "{EVENT.DATE} {EVENT.TIME}"},
+            {"name": "trigger_id", "value": "{TRIGGER.ID}"},
+            {"name": "item_value", "value": "{ITEM.LASTVALUE}"},
+        ]
+
+        res = await self.call(
+            "mediatype.create",
+            params={
+                "name": name,
+                "type": 4,  # Webhook
+                "script": js_script,
+                "timeout": "10s",
+                "parameters": parameters,
+                "description": "InfraWatch Fast-Path Webhook Integration",
+                "status": 0,  # 0 = enabled
+            },
+        )
+        if not res or not isinstance(res, dict) or "mediatypeids" not in res or not res["mediatypeids"]:
+            raise ZabbixApiError(code=-1, message="Falha ao criar Media Type Webhook no Zabbix")
+
+        mediatype_id = str(res["mediatypeids"][0])
+        logger.info(
+            "Media Type Webhook '%s' criado com sucesso no Zabbix (ID: %s)",
+            name,
+            mediatype_id,
+        )
+        return mediatype_id
+
+    async def get_user_by_username(self, username: str) -> dict[str, Any] | None:
+        """Localiza um usuário no Zabbix pelo nome de usuário com suas mídias associadas."""
+        try:
+            # Zabbix 5.4+ / 6.0+ / 7.0+ usa 'username'
+            res = await self.call(
+                "user.get",
+                params={
+                    "filter": {"username": username},
+                    "selectMedias": "extend",
+                    "output": ["userid", "username"],
+                },
+            )
+            if res and isinstance(res, list) and len(res) > 0:
+                return res[0]
+
+            # Fallback para versões legadas do Zabbix (alias)
+            res_alias = await self.call(
+                "user.get",
+                params={
+                    "filter": {"alias": username},
+                    "selectMedias": "extend",
+                    "output": ["userid", "alias"],
+                },
+            )
+            if res_alias and isinstance(res_alias, list) and len(res_alias) > 0:
+                return res_alias[0]
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Erro ao consultar usuário '%s' no Zabbix: %s", username, exc)
+        return None
+
+    async def bind_media_type_to_user(self, username: str, mediatype_id: str) -> bool:
+        """Associa um Media Type ao usuário no Zabbix para habilitar o envio de notificações."""
+        user = await self.get_user_by_username(username)
+        if not user or "userid" not in user:
+            logger.warning(
+                "Usuário '%s' não encontrado no Zabbix para vincular Media Type %s",
+                username,
+                mediatype_id,
+            )
+            return False
+
+        user_id = str(user["userid"])
+        existing_medias: list[dict[str, Any]] = user.get("medias", []) or []
+
+        # Verifica se já está vinculado
+        for media in existing_medias:
+            if str(media.get("mediatypeid")) == str(mediatype_id):
+                logger.debug("Media Type %s já vinculado ao usuário '%s'", mediatype_id, username)
+                return True
+
+        # Prepara lista de mídias preservando existentes e adicionando a nova
+        updated_medias = [
+            {
+                "mediatypeid": str(m["mediatypeid"]),
+                "sendto": m.get("sendto", "InfraWatch"),
+                "active": m.get("active", 0),
+                "severity": m.get("severity", 63),
+                "period": m.get("period", "1-7,00:00-24:00"),
+            }
+            for m in existing_medias
+            if "mediatypeid" in m
+        ]
+        updated_medias.append(
+            {
+                "mediatypeid": str(mediatype_id),
+                "sendto": "InfraWatch",
+                "active": 0,  # 0 = enabled
+                "severity": 63,  # 1|2|4|8|16|32 = todas as severidades
+                "period": "1-7,00:00-24:00",
+            }
+        )
+
+        res = await self.call(
+            "user.update",
+            params={
+                "userid": user_id,
+                "medias": updated_medias,
+            },
+        )
+        if res and isinstance(res, dict) and "userids" in res:
+            logger.info(
+                "Media Type %s vinculado com sucesso ao usuário '%s' (userid: %s)",
+                mediatype_id,
+                username,
+                user_id,
+            )
+            return True
+        return False
+
+    async def get_action_by_name(self, name: str) -> dict[str, Any] | None:
+        """Localiza uma Action no Zabbix pelo nome."""
+        try:
+            res = await self.call(
+                "action.get",
+                params={
+                    "filter": {"name": name},
+                    "output": ["actionid", "name", "eventsource", "status"],
+                },
+            )
+            if res and isinstance(res, list) and len(res) > 0:
+                return res[0]
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Erro ao consultar action '%s' no Zabbix: %s", name, exc)
+        return None
+
+    async def create_trigger_action(self, name: str, mediatype_id: str, user_id: str) -> str:
+        """Cria uma Trigger Action geral no Zabbix para envio de alertas de problema e recuperação."""
+        res = await self.call(
+            "action.create",
+            params={
+                "name": name,
+                "eventsource": 0,  # 0 = EVENT_SOURCE_TRIGGERS
+                "status": 0,  # 0 = ACTION_STATUS_ENABLED
+                "esc_period": "1h",
+                "operations": [
+                    {
+                        "operationtype": 0,  # 0 = Send message
+                        "opmessage": {
+                            "default_msg": 1,
+                            "mediatypeid": str(mediatype_id),
+                        },
+                        "opmessage_usr": [{"userid": str(user_id)}],
+                    }
+                ],
+                "recovery_operations": [
+                    {
+                        "operationtype": 0,  # 0 = Send message
+                        "opmessage": {
+                            "default_msg": 1,
+                            "mediatypeid": str(mediatype_id),
+                        },
+                        "opmessage_usr": [{"userid": str(user_id)}],
+                    }
+                ],
+            },
+        )
+        if not res or not isinstance(res, dict) or "actionids" not in res or not res["actionids"]:
+            raise ZabbixApiError(code=-1, message="Falha ao criar Trigger Action no Zabbix")
+
+        action_id = str(res["actionids"][0])
+        logger.info(
+            "Action de alertas '%s' criada com sucesso no Zabbix (ID: %s)",
+            name,
+            action_id,
+        )
+        return action_id
+
+
+DEFAULT_WEBHOOK_JS_SCRIPT = """try {
+    var params = JSON.parse(value);
+    var req = new HttpRequest();
+    req.addHeader('Content-Type: application/json');
+    req.addHeader('X-Zabbix-Webhook-Token: ' + params.token);
+
+    var payload = {
+        event_id: String(params.event_id),
+        event_value: parseInt(params.event_value, 10),
+        event_severity: String(params.event_severity),
+        trigger_name: String(params.trigger_name),
+        host_name: String(params.host_name),
+        host_ip: params.host_ip ? String(params.host_ip) : null,
+        operational_data: params.operational_data ? String(params.operational_data) : null,
+        occurred_at: params.occurred_at ? String(params.occurred_at) : null,
+        extra_data: {
+            trigger_id: params.trigger_id ? String(params.trigger_id) : null,
+            item_value: params.item_value ? String(params.item_value) : null
+        }
+    };
+
+    var resp = req.post(params.url, JSON.stringify(payload));
+    if (req.getStatus() !== 200) {
+        throw 'HTTP ' + req.getStatus() + ': ' + resp;
+    }
+    return 'OK: ' + resp;
+} catch (error) {
+    Zabbix.log(3, '[InfraWatch Webhook Error] ' + error);
+    throw 'Webhook failed: ' + error;
+}"""
+

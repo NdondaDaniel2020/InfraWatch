@@ -196,6 +196,11 @@ class Settings(BaseSettings):
     ZABBIX_PASSWORD: str = Field(default="zabbix", alias="ZABBIX_PASSWORD")
     ZABBIX_TIMEOUT_SECONDS: float = Field(default=10.0, alias="ZABBIX_TIMEOUT_SECONDS")
     ZABBIX_WEBHOOK_SECRET: str = Field(default="", alias="ZABBIX_WEBHOOK_SECRET")
+    ZABBIX_AUTOCONFIGURE_WEBHOOK: bool = Field(default=True, alias="ZABBIX_AUTOCONFIGURE_WEBHOOK")
+    ZABBIX_INTERNAL_WEBHOOK_URL: str = Field(
+        default="http://infrawatch-api:8000/api/v1/integrations/zabbix/webhook",
+        alias="ZABBIX_INTERNAL_WEBHOOK_URL",
+    )
 
     # Notificações Multicanal (Telegram, WhatsApp e Webhooks)
     TELEGRAM_BOT_TOKEN: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")

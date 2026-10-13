@@ -61,6 +61,8 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       ENABLE_BACKGROUND_WORKERS: "false"
       ZABBIX_ENABLED: "true"
+      ZABBIX_AUTOCONFIGURE_WEBHOOK: "true"
+      ZABBIX_INTERNAL_WEBHOOK_URL: "http://infrawatch-api:8000/api/v1/integrations/zabbix/webhook"
     secrets:
       - postgres_password
       - redis_password
@@ -78,6 +80,7 @@ services:
       - zabbix_api_url
       - zabbix_api_token
       - zabbix_password
+      - zabbix_webhook_secret
       - telegram_bot_token
       - telegram_chat_id
       - whatsapp_token
@@ -403,6 +406,8 @@ secrets:
     file: ./secrets/zabbix_api_token.txt
   zabbix_password:
     file: ./secrets/zabbix_password.txt
+  zabbix_webhook_secret:
+    file: ./secrets/zabbix_webhook_secret.txt
   telegram_bot_token:
     file: ./secrets/telegram_bot_token.txt
   telegram_chat_id:

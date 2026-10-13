@@ -426,3 +426,105 @@ async def test_zabbix_send_startup_heartbeat_without_hosts():
         assert res["hosts_count"] == 0
         assert res["heartbeat_pushed"] is False
 
+
+# ---------------------------------------------------------------------------
+# Testes de Webhook Media Type, User Media e Trigger Actions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_media_type_by_name():
+    """Valida busca de Media Type por nome."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    found_resp = make_jsonrpc_response(result=[{"mediatypeid": "15", "name": "InfraWatch Webhook", "type": 4}])
+    empty_resp = make_jsonrpc_response(result=[])
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[found_resp, empty_resp]):
+        # 1. Encontrado
+        mt = await client.get_media_type_by_name("InfraWatch Webhook")
+        assert mt is not None
+        assert mt["mediatypeid"] == "15"
+
+        # 2. Não encontrado
+        mt_none = await client.get_media_type_by_name("Inexistente")
+        assert mt_none is None
+
+
+@pytest.mark.asyncio
+async def test_create_webhook_media_type():
+    """Valida criação de Media Type Webhook com parâmetros esperados."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    create_resp = make_jsonrpc_response(result={"mediatypeids": ["25"]})
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_resp) as mock_post:
+        mt_id = await client.create_webhook_media_type(
+            name="InfraWatch Webhook",
+            webhook_url="http://api:8000/webhook",
+            secret_token="secret-123",
+        )
+        assert mt_id == "25"
+
+        call_json = mock_post.call_args[1]["json"]
+        assert call_json["method"] == "mediatype.create"
+        params = call_json["params"]
+        assert params["name"] == "InfraWatch Webhook"
+        assert params["type"] == 4
+        param_dict = {p["name"]: p["value"] for p in params["parameters"]}
+        assert param_dict["url"] == "http://api:8000/webhook"
+        assert param_dict["token"] == "secret-123"
+        assert param_dict["event_id"] == "{EVENT.ID}"
+
+
+@pytest.mark.asyncio
+async def test_bind_media_type_to_user():
+    """Valida associação de Media Type ao usuário no Zabbix."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    user_resp = make_jsonrpc_response(result=[{"userid": "1", "username": "Admin", "medias": []}])
+    update_resp = make_jsonrpc_response(result={"userids": ["1"]})
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[user_resp, update_resp]):
+        bound = await client.bind_media_type_to_user("Admin", "25")
+        assert bound is True
+
+
+@pytest.mark.asyncio
+async def test_bind_media_type_to_user_already_bound():
+    """Valida no-op idempotente quando usuário já possui o Media Type."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    user_resp = make_jsonrpc_response(
+        result=[{"userid": "1", "username": "Admin", "medias": [{"mediatypeid": "25"}]}]
+    )
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=user_resp):
+        bound = await client.bind_media_type_to_user("Admin", "25")
+        assert bound is True
+
+
+@pytest.mark.asyncio
+async def test_get_action_by_name_and_create_trigger_action():
+    """Valida busca e criação de Trigger Action para alertas de problema."""
+    client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
+
+    get_none_resp = make_jsonrpc_response(result=[])
+    create_resp = make_jsonrpc_response(result={"actionids": ["50"]})
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[get_none_resp, create_resp]) as mock_post:
+        action = await client.get_action_by_name("InfraWatch - Problem Alerts")
+        assert action is None
+
+        act_id = await client.create_trigger_action("InfraWatch - Problem Alerts", "25", "1")
+        assert act_id == "50"
+
+        last_call_json = mock_post.call_args[1]["json"]
+        assert last_call_json["method"] == "action.create"
+        params = last_call_json["params"]
+        assert params["name"] == "InfraWatch - Problem Alerts"
+        assert params["eventsource"] == 0
+        assert len(params["operations"]) >= 1
+        assert len(params["recovery_operations"]) >= 1
+
+

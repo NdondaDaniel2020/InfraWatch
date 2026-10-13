@@ -122,9 +122,26 @@ async def lifespan(app: FastAPI) -> Any:
             if zabbix_notifier.enabled:
                 asyncio.create_task(zabbix_notifier.notify_startup())
 
+            # 3.1 Auto-configuração idempotente de Webhook e Action no Zabbix
+            if settings.ZABBIX_ENABLED and getattr(settings, "ZABBIX_AUTOCONFIGURE_WEBHOOK", True):
+                from src.integrations.zabbix import get_zabbix_bootstrapper
+
+                bootstrapper = get_zabbix_bootstrapper()
+                zabbix_bootstrap_task = asyncio.create_task(
+                    bootstrapper.run_bootstrap_task(),
+                    name="zabbix-webhook-bootstrap-task",
+                )
+                app.state.zabbix_bootstrap_task = zabbix_bootstrap_task
+
         yield
     finally:
         logger.info("Encerrando workers e conexões...")
+
+        # 0. Tarefas de background do lifespan
+        if hasattr(app.state, "zabbix_bootstrap_task"):
+            bootstrap_task = app.state.zabbix_bootstrap_task
+            if not bootstrap_task.done():
+                bootstrap_task.cancel()
 
         # 1. Workers (ordem inversa da inicialização)
         if outbox_worker:

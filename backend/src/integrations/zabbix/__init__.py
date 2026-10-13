@@ -1,5 +1,9 @@
 """Módulo de integração com Zabbix JSON-RPC do InfraWatch."""
 
+from src.integrations.zabbix.bootstrapper import (
+    ZabbixWebhookBootstrapper,
+    get_zabbix_bootstrapper,
+)
 from src.integrations.zabbix.client import (
     ZabbixApiError,
     ZabbixAuthError,
@@ -30,5 +34,7 @@ __all__ = [
     "ZabbixHostMetrics",
     "ZabbixItem",
     "ZabbixNotifier",
+    "ZabbixWebhookBootstrapper",
+    "get_zabbix_bootstrapper",
     "get_zabbix_notifier",
 ]
