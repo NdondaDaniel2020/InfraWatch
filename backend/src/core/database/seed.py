@@ -41,8 +41,8 @@ logger = logging.getLogger("infrawatch.seed")
 DEMO_DEVICES: list[dict[str, Any]] = [
     {
         "name": "PostgreSQL Database",
-        "hostname": "localhost",
-        "ip_address": "127.0.0.1",
+        "hostname": "postgres",
+        "ip_address": "postgres",
         "port": 5432,
         "protocol": "tcp",
         "category": "DATABASE",
@@ -51,8 +51,8 @@ DEMO_DEVICES: list[dict[str, Any]] = [
     },
     {
         "name": "Redis Cache & Streams",
-        "hostname": "localhost",
-        "ip_address": "127.0.0.1",
+        "hostname": "redis",
+        "ip_address": "redis",
         "port": 6379,
         "protocol": "tcp",
         "category": "DATABASE",
@@ -61,8 +61,8 @@ DEMO_DEVICES: list[dict[str, Any]] = [
     },
     {
         "name": "InfraWatch Backend API",
-        "hostname": "localhost",
-        "ip_address": "127.0.0.1",
+        "hostname": "infrawatch-api",
+        "ip_address": "infrawatch-api",
         "port": 8000,
         "protocol": "http",
         "category": "SERVER",
@@ -71,8 +71,8 @@ DEMO_DEVICES: list[dict[str, Any]] = [
     },
     {
         "name": "InfraWatch Frontend Web",
-        "hostname": "localhost",
-        "ip_address": "127.0.0.1",
+        "hostname": "infrawatch-api",
+        "ip_address": "infrawatch-api",
         "port": 3000,
         "protocol": "http",
         "category": "SERVER",
@@ -81,8 +81,8 @@ DEMO_DEVICES: list[dict[str, Any]] = [
     },
     {
         "name": "Localhost Gateway",
-        "hostname": "localhost",
-        "ip_address": "127.0.0.1",
+        "hostname": "infrawatch-api",
+        "ip_address": "infrawatch-api",
         "port": 0,
         "protocol": "icmp",
         "category": "ROUTER",
@@ -158,7 +158,7 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "icmp",
         "category": "ROUTER",
         "interval_seconds": 10,
-        "thresholds": {"max_latency_ms": 10.0, "max_loss_percent": 0.0},
+        "thresholds": {"max_latency_ms": 10.0, "max_loss_percent": 0.0, "zabbix_host_id": "10683"},
     },
     {
         "name": "clab-router01-container",
