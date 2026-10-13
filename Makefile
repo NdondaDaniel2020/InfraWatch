@@ -230,3 +230,11 @@ clab-inspect:
 
 clab-graph:
 	@$(CLAB_CMD) graph -t lab-infrawatch.clab.yml
+
+
+
+monitoring-test-up: clab-deploy integration-up up
+
+
+monitoring-test-down: clab-destroy integration-down down
+
