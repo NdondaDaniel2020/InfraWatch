@@ -243,6 +243,16 @@ class ZabbixSyncWorker:
                 except (ValueError, TypeError):
                     org_id = device_id
 
+                # Push para Zabbix: cria ou atualiza host
+                await self.push_host_to_zabbix(
+                    device_id=device_id,
+                    org_id=org_id,
+                    name=str(payload.get("name", "Unknown")),
+                    ip_address=str(payload.get("ip_address", "")),
+                    protocol=str(payload.get("protocol", "snmp")),
+                    zabbix_host_id=str(zh_id),
+                )
+
                 self._monitored_hosts[device_id] = ZabbixTarget(
                     device_id=device_id,
                     organization_id=org_id,
@@ -355,6 +365,94 @@ class ZabbixSyncWorker:
                     synced_count += 1
 
         return synced_count
+
+    async def push_host_to_zabbix(
+        self,
+        device_id: UUID,
+        org_id: UUID,
+        name: str,
+        ip_address: str,
+        protocol: str,
+        zabbix_host_id: str | None = None,
+    ) -> str | None:
+        """Cria ou atualiza host no Zabbix e vincula templates SNMP padrão.
+
+        Args:
+            device_id: UUID do dispositivo no InfraWatch
+            org_id: UUID da organização
+            name: Nome do dispositivo
+            ip_address: Endereço IP ou hostname DNS
+            protocol: Protocolo (snmp, icmp, tcp, etc.)
+            zabbix_host_id: HostID existente no Zabbix (se já provisionado)
+
+        Returns:
+            HostID do Zabbix criado/atualizado ou None em caso de falha
+        """
+        try:
+            client = self._get_zabbix_client()
+            async with client:
+                if zabbix_host_id:
+                    # Atualiza host existente
+                    await client.call(
+                        "host.update",
+                        params={
+                            "hostid": zabbix_host_id,
+                            "host": name,
+                            "name": name,
+                            "interfaces": [
+                                {
+                                    "type": 2,  # SNMP
+                                    "main": 1,
+                                    "useip": 1,
+                                    "ip": ip_address,
+                                    "dns": "",
+                                    "port": "161",
+                                    "details": {"version": 2, "community": "public"},
+                                }
+                            ],
+                        },
+                    )
+                    logger.info("Host Zabbix atualizado: %s (hostid=%s)", name, zabbix_host_id)
+                    return zabbix_host_id
+                else:
+                    # Cria novo host
+                    result = await client.call(
+                        "host.create",
+                        params={
+                            "host": name,
+                            "name": name,
+                            "interfaces": [
+                                {
+                                    "type": 2,  # SNMP
+                                    "main": 1,
+                                    "useip": 1,
+                                    "ip": ip_address,
+                                    "dns": "",
+                                    "port": "161",
+                                    "details": {"version": 2, "community": "public"},
+                                }
+                            ],
+                            "groups": [{"groupid": "2"}],  # Linux servers group (default)
+                            "templates": [
+                                {"templateid": "10001"},  # Template OS Linux SNMP
+                                {"templateid": "10002"},  # Template Network Device SNMP
+                            ],
+                        },
+                    )
+                    if result and isinstance(result, dict) and "hostids" in result and result["hostids"]:
+                        new_hostid = str(result["hostids"][0])
+                        logger.info("Host Zabbix criado: %s (hostid=%s)", name, new_hostid)
+                        return new_hostid
+
+        except ZabbixError as exc:
+            logger.warning(
+                "Falha ao provisionar host %s no Zabbix: %s",
+                name,
+                exc,
+            )
+        except Exception:
+            logger.exception("Erro inesperado ao provisionar host %s no Zabbix", name)
+        return None
 
     async def run_forever(self, stop_event: asyncio.Event | None = None) -> None:
         """Loop contínuo de sincronização com registry em memória, eventos e reconciliação."""

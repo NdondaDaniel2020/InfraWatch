@@ -7,6 +7,7 @@ Valida:
 - Loop de reconciliação periódica (self-healing fallback)
 - Execução de sync_once com controle de concorrência via asyncio.Semaphore
 - Comportamento seguro quando ZABBIX_ENABLED está desabilitado
+- Push de hosts para Zabbix (host.create/host.update)
 """
 
 import asyncio
@@ -245,6 +246,172 @@ async def test_reconciliation_loop_calls_load_hosts():
     )
 
     assert worker.load_initial_hosts_from_db.call_count >= 1
+
+
+# ---------------------------------------------------------------------------
+# Testes de Push para Zabbix (host.create/host.update)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_push_host_to_zabbix_create_new():
+    """Valida criação de novo host no Zabbix via host.create."""
+    worker = ZabbixSyncWorker()
+    dev_id = uuid4()
+    org_id = uuid4()
+
+    mock_client = AsyncMock(spec=ZabbixClient)
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    mock_client.call.return_value = {"hostids": ["10999"]}
+
+    worker._get_zabbix_client = MagicMock(return_value=mock_client)
+
+    hostid = await worker.push_host_to_zabbix(
+        device_id=dev_id,
+        org_id=org_id,
+        name="New Server",
+        ip_address="192.168.1.100",
+        protocol="snmp",
+        zabbix_host_id=None,
+    )
+
+    assert hostid == "10999"
+    mock_client.call.assert_called_once()
+    call_args = mock_client.call.call_args
+    assert call_args[0][0] == "host.create"
+    params = call_args[1]["params"]
+    assert params["host"] == "New Server"
+    assert params["interfaces"][0]["ip"] == "192.168.1.100"
+    assert "templates" in params
+
+
+@pytest.mark.asyncio
+async def test_push_host_to_zabbix_update_existing():
+    """Valida atualização de host existente no Zabbix via host.update."""
+    worker = ZabbixSyncWorker()
+    dev_id = uuid4()
+    org_id = uuid4()
+
+    mock_client = AsyncMock(spec=ZabbixClient)
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    mock_client.call.return_value = {"hostids": ["10600"]}
+
+    worker._get_zabbix_client = MagicMock(return_value=mock_client)
+
+    hostid = await worker.push_host_to_zabbix(
+        device_id=dev_id,
+        org_id=org_id,
+        name="Updated Server",
+        ip_address="192.168.1.101",
+        protocol="snmp",
+        zabbix_host_id="10600",
+    )
+
+    assert hostid == "10600"
+    mock_client.call.assert_called_once()
+    call_args = mock_client.call.call_args
+    assert call_args[0][0] == "host.update"
+    params = call_args[1]["params"]
+    assert params["hostid"] == "10600"
+    assert params["host"] == "Updated Server"
+    assert params["interfaces"][0]["ip"] == "192.168.1.101"
+
+
+@pytest.mark.asyncio
+async def test_push_host_to_zabbix_handles_error():
+    """Valida que erro no Zabbix não propaga exceção e retorna None."""
+    worker = ZabbixSyncWorker()
+    dev_id = uuid4()
+    org_id = uuid4()
+
+    mock_client = AsyncMock(spec=ZabbixClient)
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    from src.integrations.zabbix.client import ZabbixError
+    mock_client.call.side_effect = ZabbixError("Connection refused")
+
+    worker._get_zabbix_client = MagicMock(return_value=mock_client)
+
+    hostid = await worker.push_host_to_zabbix(
+        device_id=dev_id,
+        org_id=org_id,
+        name="Fail Server",
+        ip_address="192.168.1.102",
+        protocol="snmp",
+        zabbix_host_id=None,
+    )
+
+    assert hostid is None
+
+
+# ---------------------------------------------------------------------------
+# Testes de Integração handle_inventory_event com Push
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_inventory_event_device_created_triggers_push():
+    """Valida que DeviceCreated dispara push_host_to_zabbix."""
+    worker = ZabbixSyncWorker()
+    dev_id = uuid4()
+    org_id = uuid4()
+
+    worker.push_host_to_zabbix = AsyncMock(return_value="10999")
+
+    payload = {
+        "aggregate_id": str(dev_id),
+        "organization_id": str(org_id),
+        "name": "Firewall Fortinet",
+        "ip_address": "192.168.1.10",
+        "protocol": "snmp",
+        "thresholds": {"zabbix_host_id": "10600"},
+        "is_paused": False,
+    }
+
+    await worker.handle_inventory_event("DeviceCreated", payload)
+
+    assert dev_id in worker._monitored_hosts
+    worker.push_host_to_zabbix.assert_awaited_once_with(
+        device_id=dev_id,
+        org_id=org_id,
+        name="Firewall Fortinet",
+        ip_address="192.168.1.10",
+        protocol="snmp",
+        zabbix_host_id="10600",
+    )
+
+
+@pytest.mark.asyncio
+async def test_handle_inventory_event_device_updated_triggers_push():
+    """Valida que DeviceUpdated dispara push_host_to_zabbix."""
+    worker = ZabbixSyncWorker()
+    dev_id = uuid4()
+    org_id = uuid4()
+
+    worker.push_host_to_zabbix = AsyncMock(return_value="10600")
+
+    payload = {
+        "aggregate_id": str(dev_id),
+        "organization_id": str(org_id),
+        "name": "Firewall Fortinet (Atualizado)",
+        "ip_address": "192.168.1.11",
+        "protocol": "snmp",
+        "thresholds": {"zabbix_host_id": "10600"},
+        "is_paused": False,
+    }
+
+    await worker.handle_inventory_event("DeviceUpdated", payload)
+
+    worker.push_host_to_zabbix.assert_awaited_once_with(
+        device_id=dev_id,
+        org_id=org_id,
+        name="Firewall Fortinet (Atualizado)",
+        ip_address="192.168.1.11",
+        protocol="snmp",
+        zabbix_host_id="10600",
+    )
 
 
 # ---------------------------------------------------------------------------
