@@ -102,6 +102,7 @@ class OutboxRelayWorker:
         raw_dsn = settings.DATABASE_URL
         if not raw_dsn or not raw_dsn.startswith(("postgresql://", "postgresql+", "postgres://")):
             self.is_listener_healthy = False
+            dialect = raw_dsn.split(":", 1)[0] if raw_dsn else "unknown"
             self._log.info(
                 "Dialeto não-PostgreSQL detectado (%s). LISTEN desativado, operando exclusivamente via Polling.",
                 raw_dsn.split(":", 1)[0] if raw_dsn else "None",

@@ -60,6 +60,7 @@ services:
       REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
       ENABLE_BACKGROUND_WORKERS: "false"
+      ZABBIX_ENABLED: "true"
     secrets:
       - postgres_password
       - redis_password
@@ -107,6 +108,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      DOCKER_SOCKET_PATH: /var/run/docker.sock
     secrets:
       - postgres_password
       - redis_password
@@ -131,6 +133,9 @@ services:
       - default_webhook_url
       - prometheus_metrics_user
       - prometheus_metrics_pass
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    user: root
     depends_on:
       postgres:
         condition: service_healthy
@@ -295,6 +300,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      ZABBIX_ENABLED: "true"
     secrets:
       - postgres_password
       - redis_password

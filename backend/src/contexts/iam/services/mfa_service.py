@@ -181,7 +181,7 @@ class MfaService:
         if not user.mfa_enabled:
             raise MfaNotActiveError()
 
-        if not password_hasher.verify(user.hashed_password, password):
+        if not user.hashed_password or not password_hasher.verify(user.hashed_password, password):
             raise AuthenticationError("Senha incorreta para confirmação de segurança.")
 
         method = await self.mfa_repo.get_active_by_user_and_type(user_id, type="totp")
@@ -221,7 +221,7 @@ class MfaService:
         if not user.mfa_enabled:
             raise MfaNotActiveError()
 
-        if not password_hasher.verify(user.hashed_password, password):
+        if not user.hashed_password or not password_hasher.verify(user.hashed_password, password):
             raise AuthenticationError("Senha incorreta para confirmação de segurança.")
 
         method = await self.mfa_repo.get_active_by_user_and_type(user_id, type="totp")
