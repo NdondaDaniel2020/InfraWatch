@@ -100,11 +100,11 @@ class OutboxRelayWorker:
         settings = get_settings()
 
         raw_dsn = settings.DATABASE_URL
-        if not raw_dsn.startswith(("postgresql://", "postgresql+", "postgres://")):
+        if not raw_dsn or not raw_dsn.startswith(("postgresql://", "postgresql+", "postgres://")):
             self.is_listener_healthy = False
             self._log.info(
                 "Dialeto não-PostgreSQL detectado (%s). LISTEN desativado, operando exclusivamente via Polling.",
-                raw_dsn.split(":", 1)[0],
+                raw_dsn.split(":", 1)[0] if raw_dsn else "None",
             )
             return
 
@@ -113,7 +113,7 @@ class OutboxRelayWorker:
             conn = None
             try:
                 # asyncpg aceita o formato postgresql:// nativo (remove driver SQLAlchemy se presente)
-                dsn = settings.DATABASE_URL.replace("+asyncpg", "")
+                dsn = raw_dsn.replace("+asyncpg", "")
                 conn = await asyncpg.connect(dsn)
                 await conn.add_listener("outbox_events_wake", lambda *args: self.wake_signal.set())
                 self.is_listener_healthy = True
