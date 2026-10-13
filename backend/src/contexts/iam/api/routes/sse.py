@@ -1,21 +1,35 @@
-"""Rotas da API para streaming de eventos em tempo real via Server-Sent Events (SSE).
+"""Rotas da API para streaming de eventos em tempo real via Server-Sent Events (SSE) e consultas REST de telemetria.
 
-Disponibiliza canal unidirecional de alta performance com:
-- StreamingResponse nativo sobre HTTP/1.1 e HTTP/2 (ADR-004)
+Disponibiliza:
+- Canal unidirecional SSE de alta performance sobre HTTP/1.1 e HTTP/2 (ADR-004)
 - Headers otimizados para proxies reversos (Nginx X-Accel-Buffering: no)
 - Heartbeat periódico de keep-alive a cada 15s (: ping)
+- Endpoints REST para hidratação de interfaces (Hydrate & Stream) e inspeção de dados monitorados
 - Isolamento estrito de multitenancy por organização
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator
+from uuid import UUID
 
-from fastapi import APIRouter, Header, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func, select
 
 from src.contexts.iam.api.dependencies.auth import AuthenticatedUser, CurrentUserDep
+from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.telemetry.database.models import MetricModel
+from src.contexts.telemetry.schemas.telemetry import (
+    MonitoredDeviceDetail,
+    MonitoredDeviceItem,
+    MonitoredDevicesResponse,
+    TelemetryMetricPoint,
+)
+from src.core.database.session import DbSessionDep
 from src.core.messaging.sse_broadcaster import get_sse_broadcaster
 
 logger = logging.getLogger(__name__)
@@ -106,4 +120,165 @@ async def stream_events(
         ),
         media_type="text/event-stream",
         headers=headers,
+    )
+
+
+@router.get(
+    "/telemetry",
+    response_model=MonitoredDevicesResponse,
+    summary="Listar dados consolidados de dispositivos monitorados",
+    description=(
+        "Retorna a relação de todos os dispositivos monitorados e seu último estado de telemetria "
+        "coletado (latência, perda de pacotes e status de saúde)."
+    ),
+)
+@router.get(
+    "/monitored",
+    response_model=MonitoredDevicesResponse,
+    include_in_schema=False,
+)
+async def list_monitored_telemetry(
+    current_user: CurrentUserDep,
+    session: DbSessionDep,
+    status_filter: str | None = Query(None, alias="status", description="Filtrar por status operacional"),
+    limit: int = Query(50, ge=1, le=200, description="Quantidade máxima de dispositivos"),
+    offset: int = Query(0, ge=0, description="Offset de paginação"),
+) -> MonitoredDevicesResponse:
+    """Consulta REST dos ativos sob monitoramento com telemetria mais recente."""
+    stmt = select(DeviceModel)
+
+    # Isolamento multitenancy: usuários não-administradores só acessam sua própria organização
+    if not current_user.is_super_admin:
+        if current_user.organization_id:
+            stmt = stmt.where(DeviceModel.organization_id == UUID(current_user.organization_id))
+        else:
+            return MonitoredDevicesResponse(total=0, items=[])
+
+    if status_filter:
+        stmt = stmt.where(DeviceModel.status == status_filter.upper())
+
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total_count = (await session.execute(count_stmt)).scalar_one() or 0
+
+    stmt = stmt.order_by(DeviceModel.name.asc()).offset(offset).limit(limit)
+    devices = (await session.execute(stmt)).scalars().all()
+
+    if not devices:
+        return MonitoredDevicesResponse(total=total_count, items=[])
+
+    device_ids = [d.id for d in devices]
+
+    # Busca a última métrica de cada dispositivo em lote
+    latest_subq = (
+        select(
+            MetricModel.device_id,
+            func.max(MetricModel.timestamp).label("max_ts"),
+        )
+        .where(MetricModel.device_id.in_(device_ids))
+        .group_by(MetricModel.device_id)
+        .subquery()
+    )
+
+    metrics_stmt = select(MetricModel).join(
+        latest_subq,
+        (MetricModel.device_id == latest_subq.c.device_id) & (MetricModel.timestamp == latest_subq.c.max_ts),
+    )
+    metrics_result = (await session.execute(metrics_stmt)).scalars().all()
+    latest_by_dev: dict[UUID, MetricModel] = {m.device_id: m for m in metrics_result}
+
+    items: list[MonitoredDeviceItem] = []
+    for dev in devices:
+        metric = latest_by_dev.get(dev.id)
+        items.append(
+            MonitoredDeviceItem(
+                device_id=dev.id,
+                organization_id=dev.organization_id,
+                name=dev.name,
+                ip_address=dev.ip_address,
+                protocol=dev.protocol,
+                category=dev.category,
+                status=dev.status,
+                is_paused=dev.is_paused,
+                interval_seconds=dev.interval_seconds,
+                last_latency_ms=metric.value if metric else None,
+                last_packet_loss=metric.packet_loss if metric else None,
+                last_monitored_at=metric.timestamp if metric else None,
+            )
+        )
+
+    return MonitoredDevicesResponse(total=total_count, items=items)
+
+
+@router.get(
+    "/telemetry/{device_id}",
+    response_model=MonitoredDeviceDetail,
+    summary="Consultar telemetria de um dispositivo específico",
+    description="Retorna os detalhes cadastrais e a série temporal recente de métricas coletadas para o dispositivo.",
+)
+@router.get(
+    "/devices/{device_id}",
+    response_model=MonitoredDeviceDetail,
+    include_in_schema=False,
+)
+async def get_device_telemetry(
+    device_id: UUID,
+    current_user: CurrentUserDep,
+    session: DbSessionDep,
+    metric_limit: int = Query(50, ge=1, le=200, description="Quantidade de pontos históricos a retornar"),
+) -> MonitoredDeviceDetail:
+    """Consulta REST detalhada de telemetria por ativo."""
+    stmt = select(DeviceModel).where(DeviceModel.id == device_id)
+    device = (await session.execute(stmt)).scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dispositivo não encontrado",
+        )
+
+    # Validação de isolamento multitenant
+    if not current_user.can_access_organization(str(device.organization_id)):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dispositivo não encontrado",
+        )
+
+    # Busca a série temporal recente de métricas para este dispositivo
+    metrics_stmt = (
+        select(MetricModel)
+        .where(MetricModel.device_id == device_id)
+        .order_by(MetricModel.timestamp.desc())
+        .limit(metric_limit)
+    )
+    metric_rows = (await session.execute(metrics_stmt)).scalars().all()
+
+    recent_metrics = [
+        TelemetryMetricPoint(
+            metric_type=m.metric_type,
+            value=m.value,
+            packet_loss=m.packet_loss,
+            status=m.status,
+            timestamp=m.timestamp,
+        )
+        for m in metric_rows
+    ]
+
+    last_metric = metric_rows[0] if metric_rows else None
+
+    return MonitoredDeviceDetail(
+        device_id=device.id,
+        organization_id=device.organization_id,
+        name=device.name,
+        hostname=device.hostname,
+        ip_address=device.ip_address,
+        port=device.port,
+        protocol=device.protocol,
+        category=device.category,
+        status=device.status,
+        is_paused=device.is_paused,
+        interval_seconds=device.interval_seconds,
+        last_latency_ms=last_metric.value if last_metric else None,
+        last_packet_loss=last_metric.packet_loss if last_metric else None,
+        last_monitored_at=last_metric.timestamp if last_metric else None,
+        recent_metrics=recent_metrics,
     )
