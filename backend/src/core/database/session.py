@@ -33,6 +33,8 @@ def build_async_database_url(url: str) -> str:
 def get_engine() -> AsyncEngine:
     """Cria e retorna uma instância singleton do AsyncEngine."""
     settings = get_settings()
+    if not settings.DATABASE_URL:
+        raise RuntimeError("DATABASE_URL não configurado")
     db_url = build_async_database_url(settings.DATABASE_URL)
 
     engine_kwargs: dict[str, Any] = {
