@@ -46,6 +46,7 @@ async def test_integration_worker_run_and_graceful_stop() -> None:
 
     mock_notif_consumer = MagicMock()
     mock_glpi_consumer = MagicMock()
+    mock_email_consumer = MagicMock()
 
     async def fake_notif_loop(stop_event):
         await stop_event.wait()
@@ -53,13 +54,18 @@ async def test_integration_worker_run_and_graceful_stop() -> None:
     async def fake_glpi_loop(stop_event):
         await stop_event.wait()
 
+    async def fake_email_loop(stop_event):
+        await stop_event.wait()
+
     mock_notif_consumer.consume_loop = AsyncMock(side_effect=fake_notif_loop)
     mock_glpi_consumer.consume_loop = AsyncMock(side_effect=fake_glpi_loop)
+    mock_email_consumer.consume_loop = AsyncMock(side_effect=fake_email_loop)
 
     worker = IntegrationWorker(
         event_bus=mock_event_bus,
         notification_consumer=mock_notif_consumer,
         glpi_consumer=mock_glpi_consumer,
+        email_consumer=mock_email_consumer,
     )
 
     import asyncio
@@ -75,6 +81,7 @@ async def test_integration_worker_run_and_graceful_stop() -> None:
 
     mock_notif_consumer.consume_loop.assert_awaited_once_with(worker._stop_event)
     mock_glpi_consumer.consume_loop.assert_awaited_once_with(worker._stop_event)
+    mock_email_consumer.consume_loop.assert_awaited_once_with(worker._stop_event)
     mock_event_bus.close.assert_awaited_once()
 
 
@@ -84,16 +91,19 @@ async def test_integration_worker_handles_cancellation() -> None:
     mock_event_bus.close = AsyncMock()
 
     mock_notif_consumer = MagicMock()
+    mock_email_consumer = MagicMock()
 
     async def infinite_loop(stop_event):
         while not stop_event.is_set():
             await asyncio.sleep(1.0)
 
     mock_notif_consumer.consume_loop = AsyncMock(side_effect=infinite_loop)
+    mock_email_consumer.consume_loop = AsyncMock(side_effect=infinite_loop)
 
     worker = IntegrationWorker(
         event_bus=mock_event_bus,
         notification_consumer=mock_notif_consumer,
+        email_consumer=mock_email_consumer,
     )
 
     import asyncio

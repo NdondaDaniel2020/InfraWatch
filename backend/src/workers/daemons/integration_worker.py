@@ -15,6 +15,7 @@ from src.contexts.alerting.consumers.alert_notification_consumer import (
     AlertNotificationConsumer,
 )
 from src.contexts.alerting.consumers.glpi_ticket_consumer import GlpiTicketConsumer
+from src.contexts.iam.consumers.iam_email_consumer import IamEmailConsumer
 from src.core.config import get_settings
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.core.observability.logging import setup_logging
@@ -30,6 +31,7 @@ class IntegrationWorker:
         event_bus: ResilientEventBus | None = None,
         notification_consumer: AlertNotificationConsumer | None = None,
         glpi_consumer: GlpiTicketConsumer | None = None,
+        email_consumer: IamEmailConsumer | None = None,
     ) -> None:
         self._settings = get_settings()
         self._event_bus = event_bus or ResilientEventBus()
@@ -38,6 +40,11 @@ class IntegrationWorker:
         self._notification_consumer = notification_consumer or AlertNotificationConsumer(
             event_bus=self._event_bus,
             consumer_name="integration-notification-consumer",
+        )
+
+        self._email_consumer = email_consumer or IamEmailConsumer(
+            event_bus=self._event_bus,
+            consumer_name="integration-email-consumer",
         )
 
         if glpi_consumer is not None:
@@ -77,6 +84,12 @@ class IntegrationWorker:
             name="alert-notification-consumer-loop",
         )
         tasks.append(notif_task)
+
+        email_task = asyncio.create_task(
+            self._email_consumer.consume_loop(self._stop_event),
+            name="iam-email-consumer-loop",
+        )
+        tasks.append(email_task)
 
         if self._glpi_consumer is not None:
             logger.info("Iniciando GlpiTicketConsumer (integração GLPI ativa)...")
