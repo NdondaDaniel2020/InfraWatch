@@ -8,12 +8,17 @@ Timing Attack na enumeração de contas.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
 from src.contexts.iam.services.email_service import email_service
+from src.core.messaging.resilient_bus import ResilientEventBus
 
 logger = logging.getLogger("infrawatch.iam.consumer.email")
+
+STREAM_TOPIC = "stream:iam:events"
+IAM_EMAIL_CONSUMER_GROUP = "cg:iam_email_workers"
 
 # Mapeamento event_type -> handler method name
 _EVENT_HANDLERS: dict[str, str] = {
@@ -38,6 +43,65 @@ class IamEmailConsumer:
     Projetado para rodar como subscriber assíncrono do EventBus (Redis Streams ou InMemory),
     dentro do processo principal da API ou como worker dedicado.
     """
+
+    def __init__(
+        self,
+        event_bus: ResilientEventBus | None = None,
+        consumer_name: str = "iam-email-worker-1",
+        batch_size: int = 10,
+        poll_timeout_ms: int = 3000,
+    ) -> None:
+        self._event_bus = event_bus or ResilientEventBus()
+        self.consumer_name = consumer_name
+        self.batch_size = batch_size
+        self.poll_timeout_ms = poll_timeout_ms
+
+    async def consume_loop(self, stop_event: asyncio.Event | None = None) -> None:
+        """Loop contínuo de consumo de eventos de identidade via Redis Streams."""
+        logger.info(
+            "Iniciando IamEmailConsumer '%s' no stream '%s' (grupo '%s')",
+            self.consumer_name,
+            STREAM_TOPIC,
+            IAM_EMAIL_CONSUMER_GROUP,
+        )
+
+        while stop_event is None or not stop_event.is_set():
+            try:
+                messages = await self._event_bus.consume_batch(
+                    topic=STREAM_TOPIC,
+                    group=IAM_EMAIL_CONSUMER_GROUP,
+                    consumer_name=self.consumer_name,
+                    batch_size=self.batch_size,
+                    timeout_ms=self.poll_timeout_ms,
+                )
+
+                if not messages:
+                    continue
+
+                acked_ids: list[str] = []
+                for msg_id, payload in messages:
+                    try:
+                        event_type = str(payload.get("event_type", ""))
+                        await self.handle(event_type, payload)
+                        acked_ids.append(msg_id)
+                    except Exception:
+                        logger.exception(
+                            "Falha ao processar e-mail da mensagem %s — retentará no próximo ciclo",
+                            msg_id,
+                        )
+
+                if acked_ids:
+                    await self._event_bus.ack(STREAM_TOPIC, IAM_EMAIL_CONSUMER_GROUP, *acked_ids)
+
+            except asyncio.CancelledError:
+                logger.info(
+                    "IamEmailConsumer '%s' interrompido graciosamente",
+                    self.consumer_name,
+                )
+                break
+            except Exception:
+                logger.exception("Erro inesperado no loop do IamEmailConsumer")
+                await asyncio.sleep(2.0)
 
     async def handle(self, topic: str, event_data: dict[str, Any]) -> None:
         """Despacha o evento recebido para o handler específico do tipo de e-mail."""
@@ -124,3 +188,11 @@ class IamEmailConsumer:
             to_email=data["email"],
             reason=data.get("reason", "Suspensão administrativa por conformidade de segurança"),
         )
+
+
+__all__ = [
+    "IAM_EMAIL_CONSUMER_GROUP",
+    "IAM_EMAIL_TOPICS",
+    "STREAM_TOPIC",
+    "IamEmailConsumer",
+]
