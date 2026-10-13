@@ -75,7 +75,7 @@ class TokenCleanupWorker:
             )
         )
         result = await session.execute(stmt)
-        deleted_count = int(result.rowcount or 0)
+        deleted_count = getattr(result, "rowcount", 0) or 0
         return deleted_count
 
     async def run_once(self) -> int | None:
@@ -148,6 +148,8 @@ async def run_standalone() -> None:
     from src.core.config import get_settings
 
     settings = get_settings()
+    if not settings.REDIS_URL:
+        raise RuntimeError("REDIS_URL não configurado para TokenCleanupWorker")
     redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     worker = TokenCleanupWorker(
         redis_client=redis_client,
