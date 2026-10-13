@@ -61,7 +61,7 @@ class RefreshTokenRepository:
         )
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return bool(result.rowcount and result.rowcount > 0)
+        return bool((getattr(result, "rowcount", 0) or 0) > 0)
 
     async def revoke_other_sessions(
         self, user_id: UUID, current_token_hash: str | None = None
@@ -78,11 +78,11 @@ class RefreshTokenRepository:
         stmt = stmt.values(is_revoked=True, revoked_at=now)
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return int(result.rowcount or 0)
+        return int(getattr(result, "rowcount", 0) or 0)
 
     async def delete_expired(self, before: datetime | None = None) -> int:
         cutoff = before or datetime.now(UTC)
         stmt = delete(RefreshTokenModel).where(RefreshTokenModel.expires_at < cutoff)
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return int(result.rowcount or 0)
+        return int(getattr(result, "rowcount", 0) or 0)
