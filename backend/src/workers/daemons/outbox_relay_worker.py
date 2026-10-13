@@ -32,6 +32,36 @@ class EventPublisher(Protocol):
 
 PublishCallback = Callable[[str, dict[str, Any]], Awaitable[Any]]
 
+# Mapeamento declarativo de tipos de evento para streams contextuais consolidados
+EVENT_STREAM_MAPPING: dict[str, str] = {
+    # Bounded Context: Inventory
+    "DeviceCreated": "stream:inventory:changes",
+    "DeviceUpdated": "stream:inventory:changes",
+    "DeviceDeleted": "stream:inventory:changes",
+    "DevicePaused": "stream:inventory:changes",
+    "DeviceResumed": "stream:inventory:changes",
+    # Bounded Context: Alerting / Incident
+    "IncidentTriggered": "stream:incidents",
+    "IncidentTriggeredEvent": "stream:incidents",
+    "DeviceDegraded": "stream:incidents",
+    "DeviceDegradedEvent": "stream:incidents",
+    "IncidentResolved": "stream:incidents",
+    "IncidentResolvedEvent": "stream:incidents",
+    "IncidentAcknowledged": "stream:incidents",
+    "IncidentAcknowledgedEvent": "stream:incidents",
+    # Bounded Context: IAM
+    "PasswordResetRequestedEvent": "stream:iam:events",
+    "PasswordChangedEvent": "stream:iam:events",
+    "PasswordResetCompletedEvent": "stream:iam:events",
+    "EmailVerificationRequestedEvent": "stream:iam:events",
+    "EmailVerifiedEvent": "stream:iam:events",
+    "AccountLockedEvent": "stream:iam:events",
+    "BackupCodeUsedEvent": "stream:iam:events",
+    "ProfileUpdatedEvent": "stream:iam:events",
+    "RolesChangedEvent": "stream:iam:events",
+    "AccountDeactivatedEvent": "stream:iam:events",
+}
+
 
 class OutboxRelayWorker:
     """Worker de segundo plano que despacha eventos da tabela outbox para o barramento."""
@@ -117,12 +147,18 @@ class OutboxRelayWorker:
                     with contextlib.suppress(Exception):
                         await conn.close()
 
+    @classmethod
+    def resolve_stream_topic(cls, event_type: str) -> str:
+        """Determina o stream canônico do Redis para o tipo de evento."""
+        return EVENT_STREAM_MAPPING.get(event_type, event_type)
+
     async def _dispatch_event(self, event_type: str, payload: dict[str, Any]) -> None:
-        """Chama o publicador (seja classe compatível com EventPublisher ou função assíncrona)."""
+        """Chama o publicador usando o stream contextual consolidado."""
+        topic = self.resolve_stream_topic(event_type)
         if hasattr(self.publisher, "publish"):
-            await self.publisher.publish(event_type, payload)
+            await self.publisher.publish(topic, payload)
         else:
-            await self.publisher(event_type, payload)  # type: ignore[operator]
+            await self.publisher(topic, payload)  # type: ignore[operator]
 
     async def process_batch(self) -> int:
         """Processa um lote de eventos pendentes.

@@ -41,11 +41,12 @@ def get_outbox_relay_worker(
     if _outbox_worker is None:
         from src.workers.daemons.outbox_relay_worker import OutboxRelayWorker
 
-        async def dispatcher(event_type: str, payload: dict[str, Any]) -> None:
-            await event_bus.publish(event_type, payload)
+        async def dispatcher(stream_or_event: str, payload: dict[str, Any]) -> None:
+            await event_bus.publish(stream_or_event, payload)
             target_user = payload.get("user_id") or payload.get("target_user_id")
             if target_user:
                 try:
+                    event_type = str(payload.get("event_type", stream_or_event))
                     await sse_broadcaster.broadcast_to_user(str(target_user), event_type, payload)
                 except Exception:
                     import logging
