@@ -23,7 +23,7 @@ erDiagram
         varchar contact_phone
         numeric sla_target_default
         boolean is_active
-        timestamp created_at
+        timestamptz created_at
     }
 
     USERS ||--o{ INCIDENTS : acknowledges
@@ -35,7 +35,7 @@ erDiagram
         varchar full_name
         varchar role "SUPER_ADMIN, NOC_OPERATOR, ORG_ADMIN, CLIENT_VIEWER"
         boolean is_active
-        timestamp created_at
+        timestamptz created_at
     }
 
     DEVICES ||--o{ METRICS : generates
@@ -49,15 +49,15 @@ erDiagram
         varchar category
         varchar ip_address
         integer port
-        varchar protocol
+        varchar protocol "ICMP, HTTP, HTTPS, TCP, DOCKER, SNMP, WEBHOOK"
         varchar zabbix_host_id "Conector Zabbix"
         integer interval_seconds
         integer retry_threshold
         varchar status
         boolean is_paused
-        timestamp maintenance_until
+        timestamptz maintenance_until
         tsvector search_vector
-        timestamp last_checked_at
+        timestamptz last_checked_at
     }
 
     INCIDENTS {
@@ -68,11 +68,11 @@ erDiagram
         varchar status "TRIGGERED, ACKNOWLEDGED, RESOLVED"
         varchar glpi_ticket_id "ID no GLPI"
         varchar glpi_ticket_url
-        timestamp triggered_at
-        timestamp acknowledged_at
+        timestamptz triggered_at
+        timestamptz acknowledged_at
         uuid acknowledged_by FK
         text acknowledgment_note
-        timestamp resolved_at
+        timestamptz resolved_at
         integer duration_seconds
     }
 
@@ -95,8 +95,8 @@ erDiagram
         jsonb payload
         varchar status "PENDING, PUBLISHED, FAILED"
         integer retry_count
-        timestamp created_at
-        timestamp processed_at
+        timestamptz created_at
+        timestamptz processed_at
     }
 ```
 
@@ -172,7 +172,7 @@ CREATE TABLE devices (
     ip_address VARCHAR(255) NOT NULL,
     port INTEGER DEFAULT NULL,
     protocol VARCHAR(20) NOT NULL DEFAULT 'ICMP' 
-        CHECK (protocol IN ('ICMP', 'HTTP', 'HTTPS', 'TCP', 'SNMP', 'WEBHOOK')),
+        CHECK (protocol IN ('ICMP', 'HTTP', 'HTTPS', 'TCP', 'DOCKER', 'SNMP', 'WEBHOOK')),
     http_path VARCHAR(255) DEFAULT '/',
     expected_status_code INTEGER DEFAULT 200,
     interval_seconds INTEGER NOT NULL DEFAULT 30 CHECK (interval_seconds >= 5),
@@ -357,6 +357,25 @@ CREATE TABLE outbox_events (
 CREATE INDEX idx_outbox_pending ON outbox_events(created_at ASC) 
     WHERE status = 'PENDING';
 ```
+
+### 2.13 Trigger Reativo PostgreSQL para Outbox (LISTEN/NOTIFY)
+O InfraWatch elimina a latência e o consumo de I/O de polling contínuo na tabela `outbox_events` através de triggers nativos que emitem sinais assíncronos no canal `outbox_events_wake`:
+
+```sql
+CREATE OR REPLACE FUNCTION notify_outbox_events()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_notify('outbox_events_wake', NEW.id::text);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_outbox_events_notify
+AFTER INSERT ON outbox_events
+FOR EACH ROW
+EXECUTE FUNCTION notify_outbox_events();
+```
+O daemon `infrawatch-outbox-worker` opera conectado via driver assíncrono escutando o canal `LISTEN outbox_events_wake`. Ao ser inserido um novo evento sob transação ACID, o worker acorda instantaneamente (<5ms) para drenar e publicar a mensagem no Redis Streams (`stream:inventory:changes`).
 
 ---
 
