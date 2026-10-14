@@ -23,15 +23,27 @@ logger = logging.getLogger("infrawatch.workers.probers.docker")
 class DockerProber(BaseProber):
     """Prober que avalia a integridade de contêineres Docker via Docker Engine API."""
 
-    def __init__(self, socket_path: str | None = None) -> None:
+    def __init__(self, socket_path: str | None = None, docker_host: str | None = None) -> None:
+        self.docker_host = (docker_host or os.getenv("DOCKER_HOST") or "").strip()
         self.socket_path = socket_path or os.getenv("DOCKER_SOCKET_PATH", "/var/run/docker.sock")
 
     def _get_client(self, target: ProbeTarget, timeout_s: float) -> httpx.AsyncClient:
-        """Instancia o cliente HTTP assíncrono para o socket UDS ou endpoint TCP."""
+        """Instancia o cliente HTTP assíncrono para o socket UDS ou endpoint TCP/Proxy."""
+        # Se o alvo especifica explicitamente porta e IP próprio, prioriza a conexão remota direcionada
         if target.port > 0 and target.ip_address not in ("", "127.0.0.1", "localhost", "0.0.0.0"):
             base_url = f"http://{target.ip_address}:{target.port}"
             return httpx.AsyncClient(base_url=base_url, timeout=timeout_s)
 
+        # Se DOCKER_HOST estiver configurado (ex.: docker-socket-proxy HTTP/TCP), conecta via rede
+        if self.docker_host:
+            base_url = self.docker_host.rstrip("/")
+            if base_url.startswith("tcp://"):
+                base_url = base_url.replace("tcp://", "http://", 1)
+            elif not base_url.startswith("http://") and not base_url.startswith("https://"):
+                base_url = f"http://{base_url}"
+            return httpx.AsyncClient(base_url=base_url, timeout=timeout_s)
+
+        # Fallback padrão para Unix Domain Socket
         transport = httpx.AsyncHTTPTransport(uds=self.socket_path)
         return httpx.AsyncClient(transport=transport, base_url="http://docker", timeout=timeout_s)
 

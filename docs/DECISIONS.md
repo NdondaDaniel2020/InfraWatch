@@ -33,6 +33,11 @@
 23. [ADR-023: Tratamento de Trusted Proxies e Prevenção de IP Spoofing](#adr-023-tratamento-de-trusted-proxies-e-prevenção-de-ip-spoofing)
 24. [ADR-024: Distributed Lock Não-Bloqueante com Redis para Multi-Réplicas](#adr-024-distributed-lock-não-bloqueante-com-redis-para-multi-réplicas)
 25. [ADR-025: Proteção e Autenticação do Endpoint de Telemetria /metrics](#adr-025-proteção-e-autenticação-do-endpoint-de-telemetria-metrics)
+26. [ADR-026: Monitoramento Nativo de Contêineres Docker via Unix Domain Socket / TCP (DockerProber)](#adr-026-monitoramento-nativo-de-contêineres-docker-via-unix-domain-socket--tcp-dockerprober)
+27. [ADR-027: Gerenciamento Seguro de Credenciais com Docker Secrets e Entrypoint Wrapper](#adr-027-gerenciamento-seguro-de-credenciais-com-docker-secrets-e-entrypoint-wrapper)
+28. [ADR-028: Ingestão de Alertas Zabbix em Tempo Real (Push Webhook) e Autoconfiguração Idempotente](#adr-028-ingestão-de-alertas-zabbix-em-tempo-real-push-webhook-e-autoconfiguração-idempotente)
+29. [ADR-029: Arquitetura de Thin Controllers, Unit of Work e Coesão Modular](#adr-029-arquitetura-de-thin-controllers-unit-of-work-e-coesão-modular)
+30. [ADR-030: Padronização Temporal com Timezone Estrito (TIMESTAMPTZ)](#adr-030-padronização-temporal-com-timezone-estrito-timestamptz)
 
 ---
 
@@ -51,35 +56,49 @@
 ---
 
 ### ADR-002: Resolução de Dual-Write via Transactional Outbox Pattern
-- **Status:** Aprovado
+- **Status:** Aprovado e Otimizado
 - **Origem:** Diretriz explícita em `subject/.md` (*"DUAL WRITE -> Transactional Outbox Pattern"*).
 - **Problema:** Ao atualizar um status ou incidente no banco e disparar uma notificação/Redis em operações separadas, se uma falhar, o sistema entra em inconsistência (ex: banco comita mas o Redis não recebe, ou a mensagem é enviada mas a transação do banco dá rollback).
-- **Decisão:** Toda mutação de negócio salva o registro da entidade e o evento na tabela `outbox_events` na **mesma transação ACID do PostgreSQL**. Um worker de segundo plano despacha os eventos pendentes via `SELECT ... FOR UPDATE SKIP LOCKED`.
-  - **Otimização de Latência (LISTEN/NOTIFY):** Para evitar polling constante (ex: 1 em 1 segundo), o worker aguarda notificações via `LISTEN outbox_events_wake`, disparadas instantaneamente por uma trigger no PostgreSQL no momento do `INSERT`. O sistema mantém um polling de segurança secundário (`max_idle`) para auto-reconciliação caso uma notificação se perca.
-- **Benefício:** Garantia de entrega *at-least-once*, desacoplamento total, consistência de dados estrita e resposta em tempo real aos eventos sem sobrecarga de polling no banco de dados.
+- **Decisão:** Toda mutação de negócio salva o registro da entidade e o evento na tabela `outbox_events` na **mesma transação ACID do PostgreSQL** através do `UnitOfWork` e do `OutboxRepository` centralizado em `src/core/database/outbox_repository.py`.
+  - **Otimização de Latência Reativa (LISTEN/NOTIFY via asyncpg):** Em vez de polling contínuo no banco, o `OutboxRelayWorker` mantém conexão dedicada escutando notificações assíncronas instantâneas emitidas pela trigger `outbox_events_wake` no PostgreSQL no exato momento do commit. O tempo de despacho caiu para **menos de 5ms**.
+  - **Auto-Reconciliação com Polling de Fallback:** Mantém polling periódico secundário (`poll_interval=15s`) e reconexão automática caso o listener caia ou se o ambiente utilizar banco alternativo (ex.: SQLite em testes locais).
+  - **Retentativas com Backoff Exponencial e Jitter:** Falhas de publicação no barramento sofrem retentativas com jitter antes de suspender o lote, preservando a semântica de entrega *at-least-once*.
+- **Benefício:** Garantia estrita de entrega *at-least-once*, eliminação de transações distribuídas frágeis, latência em tempo real e desacoplamento total da API Web.
 
 ---
 
-### ADR-003: Desacoplamento Físico de Processos (API Web vs. Workers)
-- **Status:** Aprovado
+### ADR-003: Desacoplamento Físico de Processos e Daemons Assíncronos Resilientes
+- **Status:** Aprovado e Expandido
 - **Origem:** Requisito levantado na sessão `/grill-me` (*"o monitoramento não pode compartilhar a mesma instância que a API do backend, o backend fica pesado"*).
-- **Decisão:** A aplicação roda separada em **3 processos/containers Docker independentes**:
-  1. `infrawatch-api`: Atende requisições HTTP REST, autenticação, SSE e emissão de comandos.
-  2. `infrawatch-probe-worker`: Daemon dedicado a disparar pings, testes HTTP e TCP em alta concorrência.
-  3. `infrawatch-integration-worker`: Processamento externo com latência imprevisível (GLPI, Zabbix, WhatsApp, Telegram, E-mail).
-- **Benefício:** Se o worker de sondas saturar a rede ou se a API do GLPI estiver lenta, o painel web dos operadores permanece rápido e responsivo.
+- **Decisão:** A aplicação opera fisicamente dividida em **processos/containers Docker independentes** no `docker-compose.yml`:
+  1. `infrawatch-api`: Atende requisições HTTP REST, autenticação, SSE e emissão de comandos (`ENABLE_BACKGROUND_WORKERS=false` em produção).
+  2. `infrawatch-probe-worker`: Daemon dedicado a disparar pings, testes HTTP, TCP e sondas de containers Docker (`DockerProber`).
+  3. `infrawatch-integration-worker`: Processamento externo com latência imprevisível (GLPI, WhatsApp, Telegram, E-mail).
+  4. `infrawatch-outbox-worker`: Daemon dedicado de relay do Transactional Outbox (`outbox_relay_worker.py`).
+  5. `infrawatch-cleanup-worker`: Daemon periódico de limpeza de tokens e sessões com distributed lock (`token_cleanup_worker.py`).
+  6. `infrawatch-zabbix-sync-worker`: Daemon dedicado à coleta de telemetria de hardware Zabbix (`zabbix_sync_worker.py`).
+  7. `infrawatch-whatsapp-gateway`: Container isolado da Evolution API v2.3.7 para mensageria corporativa (profile opcional).
+- **Padrão de Resiliência de Daemons (`async-daemon-resilience`):**
+  - **Controle de Concorrência com Semáforos (`asyncio.Semaphore`):** Limita o número de conexões e sockets simultâneos, evitando o erro de SO `Too many open files` (FD exhaustion).
+  - **Parada Graciosa Determinística (Graceful Shutdown):** Intervalos de sono utilizam `asyncio.wait_for(stop_event.wait(), timeout=...)` em vez de `sleep()`, permitindo encerramento instantâneo no `SIGTERM` sem esperar o ciclo expirar.
+  - **Ciclo Defensivo (`try...finally`):** Teardown isolado para cada recurso (Redis, DB engine, workers) garantindo que uma falha de descarte não impeça os demais.
+- **Benefício:** Isolamento absoluto de falhas (*blast radius* zero entre API e workers), ausência de contenção de CPU e escalabilidade horizontal independente.
 
 ---
 
-### ADR-004: Motor de Monitoramento Híbrido (Worker Próprio + Conector Zabbix)
-- **Status:** Aprovado
+### ADR-004: Motor de Monitoramento Híbrido (Worker Próprio + Conector Zabbix + Docker Engine)
+- **Status:** Aprovado e Expandido
 - **Origem:** Análise factual de viabilidade vs. `subject/InfraWatch.md` (RF01) e referências de `subject/github.md` (Uptime Kuma).
-- **Decisão:** 
+- **Decisão:**
   - **Sondas de Uptime e Latência (Nativo):** Criadas do zero no `infrawatch-probe-worker` (ICMP Ping, HTTP, TCP, SSL, Heartbeat). Autônomas e com cálculo instantâneo de SLA.
-  - **Telemetria de Hardware (Zabbix Connector):** Conexão opcional via API JSON-RPC do Zabbix (`zabbix_host_id`) para buscar dados consolidados de CPU, RAM, Disco e interfaces de rede.
+  - **Monitoramento Nativo de Containers Docker (`DockerProber` - ADR-026):** Conexão via socket Unix `/var/run/docker.sock` ou TCP para coletar estado de saúde, uso de CPU cgroups, consumo real de memória, throttling e reinicializações em tempo de execução.
+  - **Telemetria de Hardware e Ingestão Zabbix (Híbrido - ADR-028):**
+    - Sincronização periódica (pull) via JSON-RPC (`zabbix_sync_worker.py`) para CPU, RAM, Disco e interfaces.
+    - Recepção de incidentes em tempo real (push) via Webhook Zabbix (`/api/v1/integrations/zabbix/webhook`).
+    - Auto-provisionamento idempotente no startup via `ZabbixWebhookBootstrapper`.
 - **Alternativas descartadas:**
-  - *Criar monitoramento SNMP complexo do zero:* Descartado. Implementar parsers de MIBs proprietárias de dezenas de fabricantes (Cisco, Huawei, Mikrotik) exigiria meses de esforço desnecessário.
-  - *Usar apenas a API do Zabbix:* Descartado. Tornaria o InfraWatch dependente do Zabbix para saber se uma URL caiu, além de gerar overhead de requisições JSON-RPC.
+  - *Criar monitoramento SNMP complexo do zero:* Descartado. Implementar parsers de MIBs proprietárias de dezenas de fabricantes (Cisco, Huawei, Mikrotik) exigiria esforço inviável.
+  - *Usar apenas a API do Zabbix:* Descartado por gerar lentidão e dependência externa de monitoramento.
 
 ---
 
@@ -96,13 +115,17 @@
 
 ---
 
-### ADR-006: Resiliência de Barramento com Fallback em Memória
-- **Status:** Aprovado
+### ADR-006: Resiliência de Barramento com Buffer de Reconciliação e Fallback em Memória
+- **Status:** Aprovado e Aprimorado
 - **Origem:** Diretriz em `subject/.md` (*"preparar para rodar com muitas replicas e so com uma. em caso de redis cair armazenar em memoria"*).
-- **Decisão:** O barramento `ResilientEventBus` detecta a disponibilidade do Redis:
-  - **Modo Distribuído:** Publica e consome via Redis Streams / Pub/Sub entre múltiplos containers.
-  - **Fallback In-Memory:** Se o Redis cair ou não estiver configurado (nó único / Edge), chaveia dinamicamente para `asyncio.Queue` local sem interromper o serviço, tentando reconectar ao Redis em background a cada 10s.
-- **Benefício:** A aplicação nunca falha de forma catastrófica por indisponibilidade do cache.
+- **Decisão:** O barramento `ResilientEventBus` detecta dinamicamente a disponibilidade do Redis Streams:
+  - **Modo Distribuído (Primário):** Publica e consome via Redis Streams (`stream:*`) com persistência e grupos de consumidores.
+  - **Fallback In-Memory com Buffer Circular de Reconciliação:** Se o Redis falhar (`RedisConnectionError` ou `ConnectionRefusedError`):
+    1. Comuta instantaneamente e de forma transparente para `InMemoryEventBus` local, garantindo resposta `200 OK` na API sem quebrar a navegação do usuário.
+    2. Armazena as mensagens em um buffer circular (`deque(maxlen=2000)`).
+    3. Aciona uma tarefa em background (`_probe_and_reconcile_loop`) que sonda a conectividade do Redis a cada 3 segundos.
+    4. Ao reconectar, **drena automaticamente o buffer de reconciliação** (`_drain_reconciliation_buffer`) reenviando todos os eventos acumulados para o Redis Streams sem perda de dados.
+- **Benefício:** A aplicação é imune a quedas transitórias do Redis e auto-recupera seu estado distribuído sem intervenção humana.
 
 ---
 
@@ -141,26 +164,31 @@
 
 ---
 
-### ADR-010: Integração Bidirecional Inteligente com o GLPI (ITSM)
-- **Status:** Aprovado
+### ADR-010: Integração Bidirecional Inteligente com o GLPI (ITSM) via Event Consumer
+- **Status:** Aprovado e Otimizado
 - **Origem:** Requisito RF09 em `subject/InfraWatch.md` e refinamento no `/grill-me`.
 - **Decisão:**
-  - Ao confirmar queda crítica (`DOWN` após 3 falhas), o `infrawatch-integration-worker` chama a REST API do GLPI (`POST /Ticket`), salvando o `glpi_ticket_id` no incidente.
-  - Quando o operador faz *Acknowledge* no InfraWatch, adiciona acompanhamento no ticket do GLPI informando que a equipe assumiu o caso.
-  - Quando a sonda detecta o restabelecimento do serviço (`RESOLVED`), calcula o downtime total e atualiza o chamado no GLPI com a solução técnica.
-  - Fornece botão de abertura manual em 1 clique no painel de NOC.
+  - **Desacoplamento Orientado a Eventos:** O envio e atualização de chamados no GLPI não ocorrem mais de forma síncrona na thread de alerta. O `GlpiTicketConsumer` escuta o Redis Stream `stream:incidents` e processa chamados em background com retentativas automáticas e Dead-Letter Queue (DLQ).
+  - **Abertura Automática:** Ao confirmar queda crítica (`DOWN` após 3 falhas), o consumer despacha `POST /Ticket` na REST API do GLPI 10+, registrando `glpi_ticket_id` no incidente.
+  - **Templates HTML Padronizados:** Utilização de geradores HTML dedicados em `src/integrations/glpi/templates.py` para formatar descrição rica, tabela com IPs/portas afetadas e linha do tempo de indisponibilidade.
+  - **Acompanhamento no Acknowledge:** Quando o operador faz *Acknowledge*, adiciona anotação (`ITILFollowup`) informando a equipe responsável.
+  - **Fechamento Inteligente com SLA:** Ao normalizar (`RESOLVED`), calcula o downtime total e atualiza o ticket no GLPI com a solução técnica detalhada.
+  - **Abertura Manual em 1 Clique:** Rota dedicada no backend para o operador forçar a abertura de ticket a partir do painel.
+- **Benefício:** Quedas ou lentidões na API do GLPI não afetam a velocidade de resposta do InfraWatch nem travam o envio de outros alertas.
 
 ---
 
-### ADR-011: Notificações Multi-Canal com WhatsApp via Gateway de Mensageria
-- **Status:** Aprovado
+### ADR-011: Notificações Multi-Canal com WhatsApp Isolado (Descarte de SMS)
+- **Status:** Aprovado e Otimizado
 - **Origem:** Requisito RF05 em `subject/InfraWatch.md` e seleção de canais no `/grill-me`.
-- **Decisão:** Suporte nativo aos seguintes canais:
-  1. **WhatsApp:** Conexão com gateway de mensageria (Evolution API ou Z-API) para alerta direto no celular dos gestores de plantão.
-  2. **Telegram Bot:** Mensagens formatadas em markdown para grupos técnicos.
+- **Decisão:** Suporte nativo e desacoplado através do `AlertNotificationConsumer`:
+  1. **WhatsApp via Evolution API v2.3.7:** Executado em microserviço/container dedicado (`infrawatch-whatsapp-gateway`) sob profile opcional do Compose, com persistência isolada em Postgres/Redis e secrets nativos. Permite alertas instantâneos em grupos técnicos do NOC e plantonistas.
+  2. **Telegram Bot:** Mensagens markdown com formatação visual de severidade (🔴 CRITICAL, 🟡 WARNING, 🟢 RESOLVED).
   3. **Webhooks:** Payloads padronizados para Slack, Discord e Microsoft Teams.
-  4. **E-mail (SMTP):** Resumos e relatórios de incidentes.
-  - Todas as notificações passam por filtro de *Anti-Flapping* e supressão em janelas de manutenção.
+  4. **E-mail (SMTP):** Alertas com layout responsivo HTML desacoplado em template dedicado (`alert_email.html`).
+- **Remoção Expressa do Canal SMS:**
+  - O canal SMS foi **descartado** devido a tarifas abusivas por disparo, baixa taxa de entrega comprovada em operadoras locais de Angola, impossibilidade de formatação rica e total redundância com o WhatsApp.
+- **Filtros e Supressão:** Supressão automática durante janelas de manutenção aprovadas e filtro de *Anti-Flapping*.
 
 ---
 
@@ -285,3 +313,67 @@
 - **Origem:** Análise da Issue #156 do repositório `NdondaDaniel2020/Auth`.
 - **Problema:** O endpoint OpenMetrics/Prometheus expõe métricas de latência, nomes de nós internos, status operacionais e topologia de rede que não devem ser visíveis para o público externo na internet.
 - **Decisão:** A rota `/api/v1/monitoring/metrics` é estritamente restrita através de autenticação via Bearer Token de serviço ou Basic Auth configurado no `prometheus.yml`, bloqueando acessos anônimos da internet.
+
+---
+
+### ADR-026: Monitoramento Nativo de Contêineres Docker via Unix Domain Socket / TCP (DockerProber)
+- **Status:** Aprovado e Implementado
+- **Origem:** Necessidade de observabilidade em infraestruturas conteinerizadas modernas sem depender de agentes pesados externos (Issues #170, #184, #185).
+- **Problema:** O monitoramento de contêineres via Zabbix exige configuração de itens de template complexos e agentes dedicados, resultando em latência e atrito de manutenção para monitorar microserviços locais.
+- **Decisão:** Implementação do `DockerProber` (`src/workers/probers/docker.py`) utilizando a Docker Engine API nativa via Socket Proxy Seguro (`tecnativa/docker-socket-proxy`), Unix Domain Socket (`/var/run/docker.sock`) ou TCP assíncrono com `httpx.AsyncHTTPTransport`:
+  1. **CPU Real:** Cálculo preciso por deltas de cgroups (`cpu_delta / system_delta * online_cpus * 100.0`).
+  2. **Memória Efetiva:** Exclusão do cache inativo de páginas do kernel (`used_bytes = usage - inactive_file/cache`).
+  3. **Métricas Críticas de Saúde:** Detecção de throttling de CPU, contagem de restarts sucessivos e terminação por estouro de memória (`oom_killed`).
+  4. **Healthcheck Nativo:** Leitura direta do status retornado pelas instruções `HEALTHCHECK` dos contêineres inspecionados.
+  5. **Blindagem de Segurança (Zero-Trust Socket Proxy):** O contêiner do worker não monta `/var/run/docker.sock` nem executa como `root`. A comunicação é intermediada pelo serviço `infrawatch-docker-proxy` que bloqueia estritamente todas as chamadas de mutação (`POST=0`, `DELETE=0`, `PUT=0`, `EXEC=0`), permitindo unicamente consultas de leitura (`CONTAINERS=1`, `INFO=1`), mitigando integralmente riscos de container escape.
+- **Benefício:** Observabilidade de contêineres nativa, assíncrona, de alto desempenho, autônoma e com isolamento de segurança Zero-Trust.
+
+---
+
+### ADR-027: Gerenciamento Seguro de Credenciais com Docker Secrets e Entrypoint Wrapper
+- **Status:** Aprovado e Implementado
+- **Origem:** Padrão formalizado na skill `docker-compose-secrets-pattern` e resolução das Issues #150 e #158.
+- **Problema:** Declarar senhas e chaves em arquivos `.env` ou no bloco `environment:` do Compose expõe credenciais em texto puro no `docker inspect`, no diretório `/proc/<pid>/environ` do Linux, em APMs e no histórico do Git.
+- **Decisão:** Migração completa da orquestração para **Docker Secrets**:
+  1. Todas as senhas, tokens e chaves são armazenadas em arquivos restritos (`chmod 600`) no diretório `./secrets/*.txt`, gerados automaticamente por `scripts/init-secrets.sh`.
+  2. O Docker monta os segredos em memória RAM virtual (**tmpfs**) em `/run/secrets/<nome_do_segredo>`, inacessíveis fora do container.
+  3. Serviços com suporte nativo leem segredos via sufixo `_FILE` (ex.: `POSTGRES_PASSWORD_FILE`).
+  4. Para a aplicação Python, o script `backend/entrypoint.sh` atua como wrapper desacoplado, lendo `/run/secrets/` e exportando para o ambiente do processo antes da execução, mantendo o código Python 100% agnóstico e aderente ao Twelve-Factor App.
+- **Benefício:** Eliminação do risco de vazamento de credenciais na infraestrutura e atendimento ao padrão CIS Docker Benchmark.
+
+---
+
+### ADR-028: Ingestão de Alertas Zabbix em Tempo Real (Push Webhook) e Autoconfiguração Idempotente
+- **Status:** Aprovado e Implementado
+- **Origem:** Requisitos de baixa latência em detecção de falhas de hardware e resolução das Issues #161, #162 e #186.
+- **Problema:** O modelo inicial baseado apenas em pull periódico (polling a cada 2-5 min) impunha atraso inaceitável na resposta a falhas corporativas graves. Além disso, a configuração manual de MediaTypes e Actions no Zabbix gerava alto índice de erro humano.
+- **Decisão:**
+  1. **Webhook Push em Tempo Real:** Endpoint `/api/v1/integrations/zabbix/webhook` em `alerting` com validação de segredo compartilhado (`zabbix_webhook_secret`), disparando o incidente no InfraWatch no mesmo segundo em que a trigger do Zabbix dispara.
+  2. **Autoconfiguração Idempotente no Startup (`ZabbixWebhookBootstrapper`):** Durante o lifespan da API, a aplicação consulta a API JSON-RPC do Zabbix e provisiona automaticamente o `MediaType` de Webhook, a `User Media` e a `Action` global se ainda não existirem.
+  3. **Sincronização Periódica Mantida:** O `ZabbixSyncWorker` continua coletando métricas contínuas de CPU, RAM e disco para séries temporais.
+- **Benefício:** Latência zero na recepção de alarmes do Zabbix e provisionamento *zero-touch* da integração.
+
+---
+
+### ADR-029: Arquitetura de Thin Controllers, Unit of Work e Coesão Modular
+- **Status:** Aprovado e Implementado
+- **Origem:** Plano de coesão de módulos (`docs/plano_coesao_modulos.md`) e Issues #87 a #91 e #125 a #141.
+- **Problema:** Controladores HTTP acumulavam lógica transacional e persistência direta no banco; utilitários transversais estavam dispersos soltos em `src/core/`; e havia duplicidade entre dataclasses de comando e schemas de request.
+- **Decisão:**
+  1. **Pacote `src/core/web/`:** Consolidação em pacote coeso de middlewares, manipuladores de erro (`error_handlers.py`), identificação de cliente/dispositivo (`client_info.py`) e paginação padronizada (`pagination.py`).
+  2. **Thin Controllers:** As rotas FastAPI limitam-se a validar requisições e devolver códigos HTTP sem abrir transações manuais.
+  3. **Encapsulamento nos Services com Unit of Work:** Todas as mutações de agregados e gravação atômica em `outbox_events` são geridas estritamente dentro dos Services via `UnitOfWork` (`src/core/database/unit_of_work.py`).
+  4. **Repository Pattern Uniforme:** Padronização do método `save(entity)` em todos os Bounded Contexts (`iam`, `inventory`, `alerting`).
+- **Benefício:** Separação estrita de responsabilidades (SoC), facilidade de manutenção e conformidade com Domain-Driven Design (DDD).
+
+---
+
+### ADR-030: Padronização Temporal com Timezone Estrito (TIMESTAMPTZ)
+- **Status:** Aprovado e Implementado
+- **Origem:** Resolução da Issue #176 e migração Alembic 012 (`012_alter_devices_timestamps_to_timestamptz.py`).
+- **Problema:** A utilização de colunas de timestamp ingênuas (*naive timestamps*) gerava discrepâncias no cálculo de SLA e no agendamento de sondas entre servidores em fusos horários distintos (ex.: UTC nos containers vs WAT UTC+1 da operação local em Angola).
+- **Decisão:**
+  1. Todas as colunas temporais no PostgreSQL foram convertidas para `TIMESTAMPTZ` (`TIMESTAMP WITH TIME ZONE`).
+  2. Toda manipulação de data/hora no backend Python utiliza estritamente `datetime.now(UTC)` consciente de fuso horário.
+- **Benefício:** Consistência matemática absoluta no cálculo de downtime de SLA, expurgo de séries temporais e sincronização de eventos distribuídos.
+

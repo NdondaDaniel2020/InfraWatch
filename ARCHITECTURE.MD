@@ -82,26 +82,33 @@ O **InfraWatch** é estruturado como um **Monólito Modular** orientado a **Doma
 - **Cache, Barramento e Sincronização:** Redis 7+ com Redis Streams, PubSub e Locks distribuídos.
 
 ### 2.2 Resolução de Dual-Write via Transactional Outbox Pattern (ADR-002)
-- Toda operação de escrita (criação de ativo, alteração de status, abertura de incidente) comita atomicamente a entidade de domínio e o registro em `outbox_events` sob a **mesma transação ACID do PostgreSQL**.
-- Um **Outbox Relay Worker** assíncrono executa `SELECT ... FOR UPDATE SKIP LOCKED` para consumir eventos pendentes e publicá-los no barramento sem risco de inconsistência (*at-least-once delivery*).
+- Toda operação de escrita (criação de ativo, alteração de status, abertura de incidente) comita atomicamente a entidade de domínio e o registro em `outbox_events` sob a **mesma transação ACID do PostgreSQL** via `UnitOfWork` e `OutboxRepository` centralizado em `src/core/database/`.
+- O **`OutboxRelayWorker`** assíncrono consome notificações instantâneas emitidas pela trigger `outbox_events_wake` via `LISTEN` dedicado em `asyncpg`, despachando eventos com latência sub-5ms e mantendo polling de fallback (`poll_interval=15s`) com `SELECT ... FOR UPDATE SKIP LOCKED` e backoff exponencial com jitter (*at-least-once delivery*).
 
-### 2.3 Desacoplamento Físico de Processos (API Web vs. Workers) (ADR-003)
-- **`infrawatch-api`:** Atende exclusivamente requisições HTTP REST, autenticação, SSE, CRUD administrativo e relatórios. Não executa rotinas de rede demoradas.
-- **`infrawatch-probe-worker`:** Processo daemon dedicado a disparar sondas de conectividade de rede (ICMP, HTTP, TCP, Heartbeat) com alta concorrência assíncrona.
-- **`infrawatch-integration-worker`:** Processo daemon que isola chamadas com latência externa imprevisível (REST API do GLPI 10+, API JSON-RPC do Zabbix, despacho de WhatsApp/SMS/Telegram).
+### 2.3 Desacoplamento Físico de Processos e Daemons Resilientes (ADR-003)
+- O sistema opera dividido em **daemons independentes** no `docker-compose.yml`:
+  1. `infrawatch-api`: Atende requisições HTTP REST, autenticação, SSE, CRUD administrativo e relatórios (`ENABLE_BACKGROUND_WORKERS=false` em produção).
+  2. `infrawatch-probe-worker`: Daemon dedicado a disparar sondas de rede (ICMP, HTTP, TCP) e containers Docker (`DockerProber`).
+  3. `infrawatch-integration-worker`: Isolamento de consumidores externos com latência imprevisível (GLPI, WhatsApp, Telegram, E-mail).
+  4. `infrawatch-outbox-worker`: Daemon dedicado ao relay transacional da tabela outbox.
+  5. `infrawatch-cleanup-worker`: Daemon de limpeza periódica de tokens/sessões com distributed lock Redis.
+  6. `infrawatch-zabbix-sync-worker`: Ingestão periódica de telemetria de hardware Zabbix.
+  7. `infrawatch-whatsapp-gateway`: Container isolado da Evolution API v2.3.7 para mensageria.
+- **Padrão de Resiliência (`async-daemon-resilience`):** Uso de `asyncio.Semaphore` para controle de concorrência e descritores de rede (FD), cancelamento gracioso instantâneo com `asyncio.wait_for(stop_event.wait(), timeout)` e teardown em `try...finally`.
 
-### 2.4 Motor Híbrido de Coleta: Sondas Nativas + Conector Zabbix (ADR-004)
+### 2.4 Motor Híbrido de Coleta: Sondas Nativas, Docker Engine e Zabbix (ADR-004, ADR-026, ADR-028)
 - **Disponibilidade e SLA em Tempo Real (Sondas Nativas):** O InfraWatch monitora de forma 100% autônoma ping ICMP, tempos de resposta HTTP(S), portas TCP de serviços e heartbeats passivos, garantindo cálculo matemático instantâneo de SLA.
-- **Telemetria Avançada de Hardware (Conector Zabbix):** Dispositivos corporativos com `zabbix_host_id` sincronizam telemetria de hardware (CPU, RAM, Disco, tráfego de interface) via JSON-RPC sem duplicar configurações de MIBs SNMP proprietárias.
+- **Monitoramento Nativo de Containers Docker (`DockerProber` - ADR-026):** Conexão assíncrona intermediada com segurança pelo `infrawatch-docker-proxy` (ou socket Unix/TCP controlado) para coletar CPU real cgroups, memória efetiva, throttling, restarts sucessivos e healthcheck da imagem com blindagem Zero-Trust.
+- **Telemetria e Ingestão Híbrida Zabbix (ADR-028):** Ingestão pull periódica via JSON-RPC somada a webhook push em tempo real (`/api/v1/integrations/zabbix/webhook`) com auto-provisionamento idempotente no boot (`ZabbixWebhookBootstrapper`).
 
 ### 2.5 Orquestração de Sondas sem Perda de Dados (ADR-005)
 - **Agendamento 100% em Memória Local:** O daemon de monitoramento mantém o inventário ativo e cronograma em memória local, eliminando I/O contínuo no PostgreSQL para agendamento.
 - **Sincronização por Redis Streams:** Mutações cadastrais (criação, edição, pausa) são emitidas no stream `stream:inventory:changes` e consumidas por `Consumer Groups` com confirmação `XACK`.
 - **Auto-Reconciliação (Self-Healing):** A cada 5 minutos, o worker executa checagem leve no banco (`SELECT id, updated_at FROM devices`) para assegurar paridade absoluta entre memória e banco relacional.
 
-### 2.6 Resiliência de Barramento com Fallback em Memória (ADR-006)
+### 2.6 Resiliência de Barramento com Buffer de Reconciliação e Fallback em Memória (ADR-006)
 - O barramento `ResilientEventBus` publica e consome primariamente via Redis Streams e Pub/Sub.
-- Em caso de falha de conexão ou indisponibilidade temporária do Redis, o barramento ativa degradação graciosa com fallback transparente para `InMemoryEventBus`, mantendo a aplicação funcional em réplica única de desenvolvimento ou contingência.
+- Em caso de indisponibilidade temporária do Redis, comuta instantaneamente para `InMemoryEventBus`, armazenando mensagens em um buffer circular de reconciliação (`deque(maxlen=2000)`). Uma rotina em background testa a reconexão a cada 3s e, ao restabelecer a conectividade, drena e reenvia todos os eventos acumulados para o Redis Streams sem perda de dados.
 
 ### 2.7 Streaming em Tempo Real com Server-Sent Events (SSE) (ADR-007)
 - Substituição de WebSockets por **Server-Sent Events (SSE)** unidirecionais sobre HTTP padronizado.
@@ -148,14 +155,16 @@ O **InfraWatch** é estruturado como um **Monólito Modular** orientado a **Doma
 - Módulo `src/core/pagination.py` com a estrutura `PaginatedResponse[T]` genérica Pydantic, desacoplando a camada de domínio (`contexts`) da camada de apresentação (`api`) e eliminando dependências circulares.
 - Dependência `PaginationParamsDep` injetável em rotas FastAPI com validação de limites (máximo 100 itens por página).
 
-### 2.11 Integração Inteligente com o GLPI (ITSM) (ADR-010)
-- Ao confirmar incidente `CRITICAL` (3 falhas consecutivas), o worker dispara `POST /Ticket` na REST API do GLPI 10+.
-- O chamado aberto armazena o `glpi_ticket_id` no incidente do InfraWatch.
-- Quando o operador executa *Acknowledge*, uma anotação é inserida no GLPI.
+### 2.11 Integração Inteligente com o GLPI (ITSM) via Event Consumer (ADR-010)
+- Ao confirmar incidente `CRITICAL` (3 falhas consecutivas), o evento trafega via Redis Streams para o `GlpiTicketConsumer`, desacoplando totalmente a API e as sondas de eventuais instabilidades ou latências do GLPI.
+- O chamado armazena o `glpi_ticket_id` no incidente do InfraWatch.
+- Templates HTML dedicados (`src/integrations/glpi/templates.py`) estruturam diagnósticos, tabelas de portas e causas-raiz nos tickets.
+- Quando o operador executa *Acknowledge*, uma anotação é inserida no GLPI via followup.
 - Ao restabelecer a conectividade (`RESOLVED`), o chamado no GLPI é concluído automaticamente com tempo de downtime total e métricas de restauração.
 
 ### 2.12 Notificações Multicanal e Políticas de Plantão (ADR-011, ADR-018)
-- Dispatcher com suporte nativo a Telegram, WhatsApp/SMS (via Gateway SMS / Número Virtual homologado em Angola), E-mail transacional HTML (SMTP com templates em `src/contexts/identity/templates/`) e Webhooks customizados.
+- Dispatcher desacoplado (`AlertNotificationConsumer`) com suporte nativo a Telegram Bot, WhatsApp (Evolution API v2.3.7 em container isolado), E-mail transacional HTML (template dedicado `alert_email.html`) e Webhooks customizados (Slack, Discord, Teams).
+- **Descarte Expresso de SMS:** O canal SMS foi descontinuado do projeto por custos elevados, instabilidade de entrega em Angola e obsolescência.
 - Regras de roteamento de alerta por severidade (`WARNING`, `CRITICAL`), com definição de escalas de plantão e janelas de silêncio para horários fora do expediente.
 
 ### 2.13 Busca Full-Text Nativa no PostgreSQL (ADR-012)
@@ -194,6 +203,28 @@ O **InfraWatch** é estruturado como um **Monólito Modular** orientado a **Doma
   - Inicialização e desligamento gracioso de `OutboxRelayWorker` e `TokenCleanupWorker`.
   - Modo híbrido: execução no lifespan da API para desenvolvimento/testes ou desacoplamento como daemons CLI standalone (`python -m src.workers.outbox_relay_worker`, `python -m src.workers.token_cleanup_worker`) para produção.
   - Proteção `log_storm_guard` para amortecer tempestades de logs em cenários de falhas repetitivas de conexão.
+
+### 2.21 Monitoramento Nativo de Containers Docker via Socket Proxy Seguro (ADR-026)
+- Coletor `DockerProber` (`src/workers/probers/docker.py`) assíncrono conectado prioritariamente ao `infrawatch-docker-proxy` (`tecnativa/docker-socket-proxy`) via HTTP (`DOCKER_HOST`), mantendo fallback transparente para socket Unix e endpoints remotos TCP.
+- Blindagem Zero-Trust: o worker não monta o socket do host nem roda como `root`, operando com permissões mínimas enquanto o proxy bloqueia categoricamente mutações (`POST=0`, `DELETE=0`, `PUT=0`, `EXEC=0`).
+- Extrai métricas reais de CPU cgroups, memória efetiva (descontando cache inativo), throttling, reinicializações e status de healthcheck sem necessitar de agentes em contêineres clientes.
+
+### 2.22 Gerenciamento Seguro com Docker Secrets e Entrypoint Wrapper (ADR-027)
+- Transição completa para **Docker Secrets** montados em `/run/secrets/` em memória tmpfs, com arquivos restritos (`chmod 600`).
+- Elimina totalmente credenciais em texto puro no `docker inspect`, `/proc/environ` e histórico Git.
+- Wrapper `backend/entrypoint.sh` garante que a aplicação permaneça desacoplada e aderente aos princípios Twelve-Factor App.
+
+### 2.23 Ingestão Zabbix Push Webhook e Bootstrapper Idempotente (ADR-028)
+- Endpoint `/api/v1/integrations/zabbix/webhook` para recepção de alarmes do Zabbix em tempo real (latência zero via push).
+- Classe `ZabbixWebhookBootstrapper` que auto-provisiona no startup da API o MediaType, a User Media e a Action de integração no servidor Zabbix de forma totalmente automatizada.
+
+### 2.24 Thin Controllers, Unit of Work e Coesão Modular (ADR-029)
+- Camada web consolidada em `src/core/web/` (middlewares, error_handlers, client_info, pagination).
+- Rotas da API atuam como controladores finos (*Thin Controllers*), transferindo toda a orquestração transacional de banco e despacho atômico de eventos no Outbox para os Services e Unit of Work.
+- Repositórios padronizados com o método `save()`.
+
+### 2.25 Padronização Temporal com Timezone Estrito (TIMESTAMPTZ) (ADR-030)
+- Colunas temporais do PostgreSQL convertidas para `TIMESTAMPTZ` e backend operando com `datetime.now(UTC)` consciente de fuso horário, prevenindo erros de cálculo de SLA entre fusos regionais.
 
 ---
 
@@ -396,11 +427,12 @@ InfraWatch/
 
 | Bounded Context | Responsabilidade Primária | ADRs Aplicáveis | Milestones / Issues |
 | :--- | :--- | :--- | :--- |
-| **Shared Core & Messaging** | Entidades DDD, Unit of Work, Transactional Outbox, EventBus Resiliente, Paginação Desacoplada e SSE | ADR-002, ADR-006, ADR-007, ADR-020 | **Fase 1** (Issues #2 a #6, #65, #77, #85) |
-| **Identity & Access** | Autenticação Unificada, Google OAuth 2.0, MFA TOTP, Rotação JWT, Sessões Ativas, RBAC, Trilha de Auditoria com DDL Triggers | ADR-008, ADR-009, ADR-019, ADR-021 a ADR-024 | **Fase 2** (Issues #7 a #14, #53, #56, #61, #63, #67, #71, #73, #79, #83) |
-| **Notifications & In-App** | Alertas Multicanais (Telegram, WhatsApp, SMTP), Notificações In-App persistidas e streaming SSE | ADR-007, ADR-011, ADR-018 | **Fase 2 & 5** (Issues #23, #56, #63, #69) |
-| **Inventory & Assets** | Agregado Device, Validação de IPs/Portas, Busca Full-Text e Emissão de Eventos | ADR-012, ADR-014 | **Fase 3** (Issues #15 a #16) |
-| **Telemetry & Probing** | Daemon de Sondas, Agendamento em Memória, Particionamento de Métricas e Scraper Prometheus com Basic Auth | ADR-003, ADR-005, ADR-015, ADR-025 | **Fase 4** (Issues #17 a #20, #75, #81) |
-| **Alerting, Incidents & SLA** | Motor de Falhas Consecutivas, Degradação P95, Janelas de Manutenção e Cálculo de SLA | ADR-016, ADR-017 | **Fase 4 & 5** (Issues #24 a #26) |
-| **Corporate Integrations** | REST API GLPI 10+, Conector Zabbix JSON-RPC e Dispatcher Notificações (WhatsApp/SMS) | ADR-004, ADR-010, ADR-011, ADR-018 | **Fase 5** (Issues #21 a #23) |
-| **Frontend Obsidian UI** | Dashboard Operacional NOC, TV Wallboard, Portal do Cliente e Exportação de SLA | ADR-007, ADR-009 | **Fase 6** (Issues #27 a #37) |
+| **Shared Core & Messaging** | Entidades DDD, Unit of Work, Transactional Outbox, EventBus Resiliente, Paginação Desacoplada, SSE e Docker Secrets | ADR-002, ADR-006, ADR-007, ADR-020, ADR-027, ADR-029 | **Fase 1** (Issues #2 a #6, #65, #77, #85, #89, #91, #121, #125, #131, #150, #158) |
+| **Identity & Access** | Autenticação Unificada, Google OAuth 2.0, MFA TOTP, Rotação JWT, Sessões Ativas, RBAC, Trilha de Auditoria com DDL Triggers | ADR-008, ADR-009, ADR-019, ADR-021 a ADR-024 | **Fase 2** (Issues #7 a #14, #53, #56, #61, #63, #67, #71, #73, #79, #83, #87, #98) |
+| **Notifications & In-App** | Alertas Multicanais (Telegram, WhatsApp Evolution v2.3.7, SMTP), Notificações In-App persistidas e streaming SSE | ADR-007, ADR-011, ADR-018 | **Fase 2 & 5** (Issues #23, #56, #63, #69, #148, #149, #151, #159, #164) |
+| **Inventory & Assets** | Agregado Device, Validação de IPs/Portas, Busca Full-Text, Timestamps TIMESTAMPTZ e Emissão de Eventos | ADR-012, ADR-014, ADR-029, ADR-030 | **Fase 3** (Issues #15 a #16, #99 a #103, #129, #176) |
+| **Telemetry & Probing** | Daemons de Sondas, Agendamento em Memória, DockerProber nativo, Particionamento de Métricas e Scraper Prometheus com Basic Auth | ADR-003, ADR-005, ADR-015, ADR-025, ADR-026 | **Fase 4** (Issues #17 a #20, #75, #81, #104 a #106, #166, #170, #180, #184, #185) |
+| **Alerting, Incidents & SLA** | Motor de Falhas Consecutivas, Degradação P95, Zabbix Webhook em Tempo Real, Janelas de Manutenção e Cálculo de SLA | ADR-016, ADR-017, ADR-028 | **Fase 4 & 5** (Issues #24 a #26, #152 a #155, #161, #162, #186) |
+| **Corporate Integrations** | REST API GLPI 10+ via Consumer, Conector Zabbix JSON-RPC com Webhook Bootstrapper e Dispatcher Notificações | ADR-004, ADR-010, ADR-011, ADR-018, ADR-028 | **Fase 5** (Issues #21 a #23, #108, #114, #116, #143, #172, #178, #183, #186) |
+| **Frontend Obsidian UI** | Dashboard Operacional NOC, TV Wallboard, Portal do Cliente e Exportação de SLA | ADR-007, ADR-009 | **Fase 6** (Issues #27 a #37, #156, #157) |
+

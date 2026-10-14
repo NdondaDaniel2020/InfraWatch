@@ -311,6 +311,7 @@ async def test_docker_prober_unhealthy_health(
         result = await prober.probe(docker_target)
 
     assert result.status == "UP"  # Health check não afeta status do prober (apenas extra_data)
+    assert result.extra_data is not None
     assert result.extra_data["health_status"] == "unhealthy"
     assert result.extra_data["health_failing_streak"] == 3
     assert "connection refused" in result.extra_data["health_output"]
@@ -498,3 +499,58 @@ async def test_probe_executor_dispatches_docker(
         result = await executor.execute(docker_target)
 
     assert result.status == "UP"
+
+
+def test_docker_prober_resolves_http_docker_host(docker_target: ProbeTarget) -> None:
+    """Verifica se DockerProber configura o cliente apontando para DOCKER_HOST HTTP."""
+    prober = DockerProber(docker_host="http://infrawatch-docker-proxy:2375")
+    client = prober._get_client(docker_target, timeout_s=2.5)
+
+    assert str(client.base_url) == "http://infrawatch-docker-proxy:2375"
+    assert client.timeout.read == 2.5
+
+
+def test_docker_prober_normalizes_tcp_docker_host(docker_target: ProbeTarget) -> None:
+    """Verifica se DockerProber converte tcp:// para http:// em DOCKER_HOST."""
+    prober = DockerProber(docker_host="tcp://infrawatch-docker-proxy:2375")
+    client = prober._get_client(docker_target, timeout_s=3.0)
+
+    assert str(client.base_url) == "http://infrawatch-docker-proxy:2375"
+    assert client.timeout.read == 3.0
+
+
+def test_docker_prober_reads_env_docker_host(monkeypatch: pytest.MonkeyPatch, docker_target: ProbeTarget) -> None:
+    """Valida leitura automática de DOCKER_HOST a partir do ambiente."""
+    monkeypatch.setenv("DOCKER_HOST", "http://10.0.0.10:2375")
+    prober = DockerProber()
+    client = prober._get_client(docker_target, timeout_s=1.0)
+
+    assert str(client.base_url) == "http://10.0.0.10:2375"
+
+
+def test_docker_prober_fallback_to_unix_socket(monkeypatch: pytest.MonkeyPatch, docker_target: ProbeTarget) -> None:
+    """Valida fallback para socket UDS quando DOCKER_HOST não estiver presente."""
+    monkeypatch.delenv("DOCKER_HOST", raising=False)
+    prober = DockerProber(socket_path="/var/run/custom-docker.sock")
+    client = prober._get_client(docker_target, timeout_s=2.0)
+
+    assert str(client.base_url) == "http://docker"
+    assert prober.socket_path == "/var/run/custom-docker.sock"
+
+
+def test_docker_prober_prioritizes_target_ip_and_port() -> None:
+    """Verifica que alvo remoto com IP e porta próprios tem precedência sobre DOCKER_HOST."""
+    remote_target = ProbeTarget(
+        device_id=uuid4(),
+        organization_id=uuid4(),
+        name="remote-docker-host",
+        ip_address="192.168.1.100",
+        port=2376,
+        protocol="docker",
+        category="CONTAINER",
+        interval_seconds=30,
+    )
+    prober = DockerProber(docker_host="http://infrawatch-docker-proxy:2375")
+    client = prober._get_client(remote_target, timeout_s=4.0)
+
+    assert str(client.base_url) == "http://192.168.1.100:2376"
