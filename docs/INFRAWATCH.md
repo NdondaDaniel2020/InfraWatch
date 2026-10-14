@@ -4,6 +4,15 @@
 *RCS Angola*  
 *Exija Serviços — Clientes são parceiros de valor acrescentado*
 
+> [!NOTE]
+> **Documento Histórico / Rascunho Conceitual Inicial (SDD V0):**  
+> Este documento representa a proposta embrionária inicial do projeto InfraWatch. As definições canônicas de arquitetura, contratos de API, schema de banco e decisões técnicas consolidadas (ADRs 001 a 030) residem nos documentos oficiais:
+> - [ARCHITECTURE.MD](../ARCHITECTURE.MD)
+> - [01-PRD.md](01-PRD.md)
+> - [02-TRD.md](02-TRD.md)
+> - [05-BACKEND_SCHEMA.md](05-BACKEND_SCHEMA.md)
+> - [DECISIONS.md](DECISIONS.md)
+
 ---
 
 ## 1. Introdução

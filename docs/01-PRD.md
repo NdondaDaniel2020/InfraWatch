@@ -44,14 +44,19 @@ O **InfraWatch** é uma plataforma centralizada de observabilidade e monitoramen
   - **HTTP / HTTPS:** Validação de status code (2xx, 3xx), tempo de resposta e expiração de certificado SSL.
   - **TCP Port:** Teste de disponibilidade de portas de banco e serviços (5432, 3306, 8080, 22).
   - **Heartbeat Passivo:** URL de recepção de sinal para monitorar cronjobs e rotinas batch.
-- **RF-MON-02 (Conector Zabbix - Telemetria Avançada):**
-  - Sincronização periódica com a API do Zabbix (`zabbix_host_id`) para ingestão de métricas aprofundadas de hardware (uso de CPU %, memória RAM %, utilização de disco e tráfego de interface).
+- **RF-MON-02 (Conector Zabbix - Telemetria Híbrida Push & Pull):**
+  - **Pull Periódico:** Sincronização periódica via JSON-RPC (`zabbix_host_id`) para ingestão de métricas aprofundadas de hardware (uso de CPU %, memória RAM %, utilização de disco e tráfego de interface).
+  - **Push Webhook em Tempo Real:** Recepção instantânea de eventos e alarmes via webhook (`/api/v1/integrations/zabbix/webhook`) com autoconfiguração idempotente de MediaType, User Media e Action no boot da API (`ZabbixWebhookBootstrapper`).
 - **RF-MON-03 (Tolerância a Flapping e Falsos Positivos):**
   - Confirmação de queda apenas após $N$ falhas consecutivas (padrão: 3).
 - **RF-MON-04 (Detecção de Degradação de Performance):**
   - Identificação de latência anormal (`latency_threshold_warning_ms`, ex: > 250ms ou HTTP > 3s por 3 checagens), disparando alerta de severidade `WARNING` (`DEGRADED`).
 - **RF-MON-05 (Exportador OpenMetrics / Prometheus para Grafana):**
-  - Exposição de métricas no padrão Prometheus (`/api/v1/monitoring/metrics`) para permitir auditoria histórica de longo prazo no Grafana sem sobrecarregar o banco relacional.
+  - Exposição de métricas no padrão Prometheus (`/api/v1/monitoring/metrics`) com proteção por autenticação básica para auditoria histórica e dashboards de infraestrutura.
+- **RF-MON-06 (Monitoramento Nativo de Containers Docker - Docker Engine API & Zero-Trust):**
+  - Coleta assíncrona direta via Docker Engine API (`DockerProber`) para microserviços e contêineres locais sem dependência de agentes externos.
+  - Extração de métricas de CPU real por cgroups, consumo efetivo de memória (excluindo cache inativo do kernel), detecção de throttling, restarts sucessivos e leitura do healthcheck nativo da imagem.
+  - Blindagem estrita de segurança Zero-Trust intermediada por socket proxy (`infrawatch-docker-proxy`), bloqueando categoricamente operações de mutação (`POST=0`, `DELETE=0`, `PUT=0`, `EXEC=0`) e rodando o worker com usuário não-privilegiado `appuser` (UID 1000).
 
 ### 3.3 Gestão de Incidentes e Integração ITSM com GLPI (RF05 / RF06 / RF09)
 - **RF-INC-01 (Ciclo de Vida do Incidente):**
