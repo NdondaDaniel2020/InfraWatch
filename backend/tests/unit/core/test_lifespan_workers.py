@@ -488,18 +488,22 @@ async def test_lifespan_dispatches_zabbix_startup_notification_when_enabled():
     )
     mock_engine = AsyncMock()
 
+    mock_notifier = AsyncMock()
+    mock_notifier.enabled = True
+    mock_notifier.notify_startup = AsyncMock()
+
     with (
         patch("src.core.web.lifespan.get_settings", return_value=settings),
         patch("src.core.web.lifespan.init_redis", new_callable=AsyncMock),
         patch("src.core.web.lifespan.close_redis", new_callable=AsyncMock),
         patch("src.core.web.lifespan.init_db", new_callable=AsyncMock, return_value=mock_engine),
         patch("src.core.web.lifespan.close_db", new_callable=AsyncMock),
-        patch("src.integrations.zabbix.notifier.ZabbixNotifier.notify_startup", new_callable=AsyncMock) as mock_notify,
+        patch("src.core.web.lifespan.get_zabbix_notifier", return_value=mock_notifier),
     ):
         async with lifespan(app):
             # Dá chance para a task criada rodar no loop
             await asyncio.sleep(0.01)
-            mock_notify.assert_awaited_once()
+            mock_notifier.notify_startup.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -509,7 +513,14 @@ async def test_init_db_in_production_environment_uses_text_query():
 
     from src.core.database.init_db import init_db
 
-    prod_settings = Settings(ENVIRONMENT="production", DEBUG=False)
+    prod_settings = Settings(
+        ENVIRONMENT="production",
+        DEBUG=False,
+        SECRET_KEY="a" * 32,
+        REFRESH_SECRET_KEY="b" * 32,
+        OAUTH_STATE_SECRET="c" * 32,
+        MFA_PENDING_SECRET="d" * 32,
+    )
     mock_conn = AsyncMock()
     mock_engine = MagicMock()
     mock_engine.begin.return_value.__aenter__.return_value = mock_conn
