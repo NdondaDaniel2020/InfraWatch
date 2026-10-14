@@ -25,16 +25,17 @@ sequenceDiagram
     API->>DB: Salva Device + OutboxEvent (Atomicamente)
     API-->>Operador: 201 Created
     
-    Note over DB, ProbeWorker: 2. Sincronização Confiável
-    DB->>Streams: Outbox Relay despacha evento
+    Note over DB, ProbeWorker: 2. Sincronização Confiável Reativa
+    DB-->>DB: Trigger notify_outbox_events() (pg_notify)
+    DB->>Streams: Outbox Relay acorda em <5ms e despacha evento
     Streams->>ProbeWorker: XREADGROUP (DeviceCreated)
     ProbeWorker->>ProbeWorker: Cria job em memória
     ProbeWorker->>Streams: XACK
 
-    Note over ProbeWorker, DB: 3. Execução de Sondas
+    Note over ProbeWorker, DB: 3. Execução de Sondas (ICMP, HTTP, TCP, Docker Proxy)
     loop A cada X segundos (em memória)
-        ProbeWorker->>ProbeWorker: Dispara Socket ICMP / HTTP
-        ProbeWorker->>DB: Persiste Métrica (latency_ms)
+        ProbeWorker->>ProbeWorker: Dispara Sonda (ICMP, HTTP, TCP ou DockerProber)
+        ProbeWorker->>DB: Persiste Métrica (latency_ms, timestamptz)
         ProbeWorker->>SSE: Emite probe_result
     end
 
@@ -119,3 +120,9 @@ sequenceDiagram
    - O cliente visualiza apenas os seus próprios servidores e quiosques.
    - Detalhes confidenciais de rede (IPs locais `10.x.x.x`, portas de banco) são sanitizados/ocultos.
    - O cliente acompanha o percentual de SLA acumulado do mês e a saúde geral de seus serviços corporativos.
+
+### 3.4 Fluxo de Ingestão Zabbix Push Webhook & Bootstrapper Idempotente
+1. **Startup da API:** Durante a inicialização do lifespan (`src.core.web.lifespan`), a classe `ZabbixWebhookBootstrapper` conecta-se ao servidor Zabbix via JSON-RPC.
+2. **Auto-Provisionamento:** Verifica e provisiona idempotentemente o MediaType de Webhook, a User Media e a Action de envio de alertas apontando para `/api/v1/integrations/zabbix/webhook`.
+3. **Disparo do Alarme no Zabbix:** Quando um trigger do Zabbix identifica uma anomalia em hardware (ex: CPU > 95%), o Zabbix emite imediatamente um POST HTTP para o endpoint da API com payload estruturado e token secreto.
+4. **Ingestão com Latência Zero:** A API autentica a requisição, processa o alarme, correlaciona com o `zabbix_host_id` do dispositivo e publica o evento no barramento Redis Streams para notificação imediata do NOC via SSE.
