@@ -220,6 +220,7 @@ class AuthService:
             user.id,
             extra={"user_id": str(user.id), "email": user.email},
         )
+        await self.uow.commit()
         return user, tokens
 
     async def authenticate_mfa_challenge(
@@ -280,6 +281,7 @@ class AuthService:
             ip=client_ip,
             metadata={"email": user.email, "device_name": device_name},
         )
+        await self.uow.commit()
         return user, tokens
 
     async def request_password_reset(
@@ -316,6 +318,7 @@ class AuthService:
             reset_token=raw_token,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
+        await self.uow.commit()
         return raw_token
 
     async def reset_password(
@@ -356,6 +359,7 @@ class AuthService:
         OutboxRepository.add_event(self.session, completed_event, aggregate_type="User")
 
         await self.session.flush()
+        await self.uow.commit()
 
     async def verify_email(
         self,
@@ -391,6 +395,7 @@ class AuthService:
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
 
         await self.session.flush()
+        await self.uow.commit()
 
     async def resend_verification_email(
         self,
@@ -421,4 +426,5 @@ class AuthService:
             verify_token=raw_token,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
+        await self.uow.commit()
         return raw_token

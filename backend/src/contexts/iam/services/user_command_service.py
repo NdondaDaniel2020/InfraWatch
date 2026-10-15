@@ -137,6 +137,7 @@ class UserCommandService:
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
         await self.session.flush()
         await self.session.refresh(saved_user)
+        await self.uow.commit()
 
         return saved_user, raw_token
 
@@ -170,6 +171,7 @@ class UserCommandService:
             OutboxRepository.add_event(self.session, event, aggregate_type="User")
             await self.session.flush()
 
+        await self.uow.commit()
         return user
 
     async def update_roles(
@@ -202,6 +204,7 @@ class UserCommandService:
             OutboxRepository.add_event(self.session, event, aggregate_type="User")
             await self.session.flush()
 
+        await self.uow.commit()
         return user
 
     update_user_role = update_roles
@@ -219,6 +222,7 @@ class UserCommandService:
         user.is_active = True
         await self.session.flush()
         await self.session.refresh(user)
+        await self.uow.commit()
         return user
 
     async def deactivate_user(
@@ -246,6 +250,7 @@ class UserCommandService:
         OutboxRepository.add_event(self.session, event, aggregate_type="User")
         await self.session.flush()
         await self.session.refresh(user)
+        await self.uow.commit()
         return user
 
     async def admin_disable_mfa(
@@ -266,6 +271,7 @@ class UserCommandService:
         user.mfa_type = None
         await self.session.flush()
         await self.session.refresh(user)
+        await self.uow.commit()
         return user
 
 
