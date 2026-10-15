@@ -6,14 +6,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
+from src.contexts.telemetry.api.dependencies import HeartbeatServiceDep
 from src.contexts.telemetry.schemas.heartbeat import (
     HeartbeatResponse,
     HeartbeatSignalRequest,
 )
-from src.contexts.telemetry.services.heartbeat_service import (
-    DeviceNotFoundError,
-    HeartbeatServiceDep,
-)
+from src.contexts.telemetry.services.heartbeat_service import DeviceNotFoundError
 
 router = APIRouter(prefix="/api/v1/monitoring", tags=["Monitoring & Telemetry"])
 
