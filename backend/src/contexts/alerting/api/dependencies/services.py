@@ -9,8 +9,7 @@ from fastapi import Depends
 from src.contexts.alerting.services.incident_service import IncidentService
 from src.contexts.alerting.services.zabbix_webhook_service import ZabbixWebhookService
 from src.core.config import get_settings
-from src.core.database.unit_of_work import UnitOfWorkDep
-from src.core.web.dependencies import EventBusDep, RedisDep
+from src.core.web.dependencies import EventBusDep, RedisDep, UnitOfWorkDep
 from src.integrations.glpi.client import GlpiClient
 
 

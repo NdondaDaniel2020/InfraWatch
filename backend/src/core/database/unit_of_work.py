@@ -6,12 +6,11 @@ com commit explícito, rollback automático em exceções e fechamento de sessã
 
 from abc import ABC, abstractmethod
 from types import TracebackType
-from typing import Annotated, Self
+from typing import Self
 
-from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.core.database.session import DbSessionDep, get_session_factory
+from src.core.database.session import get_session_factory
 
 
 class AbstractUnitOfWork(ABC):
@@ -23,31 +22,34 @@ class AbstractUnitOfWork(ABC):
         """Sessão assíncrona gerenciada pelo Unit of Work."""
         raise NotImplementedError
 
+    @abstractmethod
     async def __aenter__(self) -> Self:
-        return self
+        """Inicializa o context manager assíncrono."""
+        raise NotImplementedError
 
+    @abstractmethod
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if exc_type is not None:
-            await self.rollback()
+        """Finaliza o context manager assíncrono."""
+        raise NotImplementedError
 
     @abstractmethod
     async def commit(self) -> None:
-        """Confirma todas as alterações da transação atômica."""
+        """Confirma a transação ativa."""
         raise NotImplementedError
 
     @abstractmethod
     async def rollback(self) -> None:
-        """Reverte todas as alterações não comitadas da transação."""
+        """Reverte a transação ativa."""
         raise NotImplementedError
 
 
 class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
-    """Implementação concreta de Unit of Work utilizando SQLAlchemy 2.0 Async."""
+    """Implementação concreta do Unit of Work baseada em SQLAlchemy 2.0 AsyncSession."""
 
     def __init__(
         self,
@@ -60,10 +62,10 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
 
     @property
     def session(self) -> AsyncSession:
-        """Retorna a sessão assíncrona ativa dentro do contexto."""
+        """Retorna a sessão assíncrona gerenciada, levantando erro se não iniciada."""
         if self._session is None:
             raise RuntimeError(
-                "Sessão não inicializada. O UnitOfWork deve ser utilizado dentro de um bloco 'async with uow:'."
+                "Sessão não inicializada. Utilize o UnitOfWork dentro de um bloco 'async with'."
             )
         return self._session
 
@@ -98,9 +100,7 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
         await self.session.rollback()
 
 
-def get_unit_of_work(session: DbSessionDep) -> SqlAlchemyUnitOfWork:
-    """Dependência FastAPI para injetar o Unit of Work associado à sessão da requisição."""
-    return SqlAlchemyUnitOfWork(session=session)
-
-
-UnitOfWorkDep = Annotated[SqlAlchemyUnitOfWork, Depends(get_unit_of_work)]
+__all__ = [
+    "AbstractUnitOfWork",
+    "SqlAlchemyUnitOfWork",
+]

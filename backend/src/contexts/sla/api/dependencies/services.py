@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.contexts.sla.services.sla_service import SlaService
-from src.core.database.session import DbSessionDep
+from src.core.web.dependencies import DbSessionDep
 
 
 async def get_sla_service(session: DbSessionDep) -> SlaService:

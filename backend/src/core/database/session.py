@@ -6,9 +6,8 @@ e sessionmaker assíncrono com expire_on_commit=False.
 
 from collections.abc import AsyncGenerator
 from functools import lru_cache
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import Depends
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -73,7 +72,7 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependência FastAPI para injeção de sessão assíncrona por requisição."""
+    """Gerador assíncrono para obtenção e encerramento de sessão."""
     session_factory = get_session_factory()
     async with session_factory() as session:
         try:
@@ -82,4 +81,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+__all__ = [
+    "build_async_database_url",
+    "get_db_session",
+    "get_engine",
+    "get_session_factory",
+]
