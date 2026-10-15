@@ -5,16 +5,14 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.inventory.repositories.device_repository import DeviceRepository
 from src.contexts.inventory.services.device_command_service import DeviceCommandService
 from src.contexts.inventory.services.device_query_service import DeviceQueryService
-from src.core.database.session import get_db_session
-from src.core.database.unit_of_work import UnitOfWorkDep
+from src.core.web.dependencies import DbSessionDep, UnitOfWorkDep
 
 
-def get_device_repository(session: AsyncSession = Depends(get_db_session)) -> DeviceRepository:
+def get_device_repository(session: DbSessionDep) -> DeviceRepository:
     """Provedor de dependência para repositório de dispositivos."""
     return DeviceRepository(session)
 
@@ -27,7 +25,7 @@ def get_device_command_service(
     return DeviceCommandService(uow, repository)
 
 
-def get_device_query_service(session: AsyncSession = Depends(get_db_session)) -> DeviceQueryService:
+def get_device_query_service(session: DbSessionDep) -> DeviceQueryService:
     """Provedor de dependência para serviço de consultas de dispositivos."""
     return DeviceQueryService(session)
 

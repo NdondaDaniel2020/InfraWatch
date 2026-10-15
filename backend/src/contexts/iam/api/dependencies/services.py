@@ -20,8 +20,7 @@ from src.contexts.iam.services.token_service import TokenService
 from src.contexts.iam.services.user_command_service import UserCommandService
 from src.contexts.iam.services.user_query_service import UserQueryService
 from src.contexts.iam.services.user_service import UserService
-from src.core.database.session import DbSessionDep
-from src.core.database.unit_of_work import UnitOfWorkDep
+from src.core.web.dependencies import DbSessionDep, UnitOfWorkDep
 
 
 def get_user_service(uow: UnitOfWorkDep) -> UserService:
