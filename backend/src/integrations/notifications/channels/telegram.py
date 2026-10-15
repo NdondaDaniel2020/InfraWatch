@@ -90,7 +90,9 @@ class TelegramChannel:
                     response = await client.post(url, json=payload)
 
             if response.is_success:
-                logger.info("Alerta '%s' enviado com sucesso via Telegram para %s", alert.title, chat_id)
+                logger.info(
+                    "Alerta '%s' enviado com sucesso via Telegram para %s", alert.title, chat_id
+                )
                 return True
 
             logger.error(

@@ -20,7 +20,7 @@ class ProbeExecutor:
     def __init__(self, max_concurrent: int = 250):
         # Semáforo global assíncrono (evita "Too many open files" e esgotamento do loop)
         self.semaphore = asyncio.Semaphore(max_concurrent)
-        
+
         # Instancia os probers (eles são thread-safe / coroutine-safe por natureza)
         self.probers: dict[str, BaseProber] = {
             "icmp": IcmpProber(),
@@ -34,7 +34,7 @@ class ProbeExecutor:
         """Executa a sonda apropriada respeitando o semáforo de concorrência."""
         protocol = target.protocol.lower()
         prober = self.probers.get(protocol)
-        
+
         # Fallback para ping (ICMP) se o protocolo não for específico (ou tcp genérico)
         if not prober:
             if target.port > 0:

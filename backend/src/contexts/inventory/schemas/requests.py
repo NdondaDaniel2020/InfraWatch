@@ -16,6 +16,7 @@ class CreateDeviceRequest(BaseModel):
     thresholds: dict[str, Any] = Field(default_factory=dict)
     organization_id: UUID | None = None
 
+
 class UpdateDeviceRequest(BaseModel):
     name: str | None = Field(None, max_length=255)
     hostname: str | None = Field(None, max_length=255)
@@ -28,6 +29,7 @@ class UpdateDeviceRequest(BaseModel):
     device_id: UUID | None = None
     organization_id: UUID | None = None
 
+
 class SetMaintenanceRequest(BaseModel):
     until: datetime = Field(..., description="Data/hora de fim da manutenção")
     title: str = Field("Manutenção API", description="Título descritivo da janela de manutenção")
@@ -35,10 +37,12 @@ class SetMaintenanceRequest(BaseModel):
     device_id: UUID | None = None
     organization_id: UUID | None = None
 
+
 class PauseDeviceRequest(BaseModel):
     reason: str = Field("Pausado via API", description="Motivo da pausa do monitoramento")
     device_id: UUID | None = None
     organization_id: UUID | None = None
+
 
 class ResumeDeviceRequest(BaseModel):
     reason: str | None = Field(None, description="Motivo da retomada do monitoramento")

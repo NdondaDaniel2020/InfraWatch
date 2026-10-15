@@ -148,7 +148,7 @@ class UserCommandService:
         full_name: str | None = None,
     ) -> UserModel:
         """Atualiza dados cadastrais do perfil e notifica o usuário via evento."""
-        target_name = (cmd.full_name if cmd and cmd.full_name is not None else full_name)
+        target_name = cmd.full_name if cmd and cmd.full_name is not None else full_name
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise NotFoundError("Usuário não encontrado.")
@@ -230,9 +230,8 @@ class UserCommandService:
     ) -> UserModel:
         """Suspende a conta do usuário, revoga sessões e notifica por e-mail."""
         effective_reason = (
-            (cmd.reason if cmd and cmd.reason else reason)
-            or "Suspensão administrativa por conformidade de segurança"
-        )
+            cmd.reason if cmd and cmd.reason else reason
+        ) or "Suspensão administrativa por conformidade de segurança"
         user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise NotFoundError("Usuário não encontrado.")

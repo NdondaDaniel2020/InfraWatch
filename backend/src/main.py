@@ -57,7 +57,7 @@ def create_app() -> FastAPI:
 
     # Inclusão do roteador principal do Bounded Context IAM
     app.include_router(iam_router)
-    
+
     # Inclusão do roteador do Bounded Context Inventory
     app.include_router(inventory_router)
 

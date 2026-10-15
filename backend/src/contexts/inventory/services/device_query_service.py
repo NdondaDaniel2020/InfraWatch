@@ -68,12 +68,12 @@ class DeviceQueryService:
             dialect_name = self.session.bind.dialect.name if self.session.bind else ""
             if dialect_name == "sqlite":
                 stmt = stmt.where(
-                    (DeviceModel.name.ilike(f"%{query}%")) |
-                    (DeviceModel.ip_address.ilike(f"%{query}%")) |
-                    (DeviceModel.hostname.ilike(f"%{query}%"))
+                    (DeviceModel.name.ilike(f"%{query}%"))
+                    | (DeviceModel.ip_address.ilike(f"%{query}%"))
+                    | (DeviceModel.hostname.ilike(f"%{query}%"))
                 )
             else:
-                ts_query = func.websearch_to_tsquery('portuguese', query)
+                ts_query = func.websearch_to_tsquery("portuguese", query)
                 stmt = stmt.where(DeviceModel.search_vector.op("@@")(ts_query))
                 stmt = stmt.order_by(func.ts_rank_cd(DeviceModel.search_vector, ts_query).desc())
         else:
@@ -102,8 +102,7 @@ class DeviceQueryService:
         self, org_id: UUID, device_id: UUID, is_viewer: bool = False
     ) -> DeviceDetail | None:
         stmt = select(DeviceModel).where(
-            DeviceModel.id == device_id,
-            DeviceModel.organization_id == org_id
+            DeviceModel.id == device_id, DeviceModel.organization_id == org_id
         )
         result = await self.session.execute(stmt)
         device = result.scalar_one_or_none()

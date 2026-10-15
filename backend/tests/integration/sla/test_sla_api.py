@@ -204,7 +204,9 @@ async def test_calculate_sla_with_unplanned_and_exempted_downtime(
             "description": "Manutenção preventiva do gerador elétrico",
             "is_approved": False,
         }
-        res_win = await client.post("/api/v1/maintenance-windows", json=win_payload, headers=headers)
+        res_win = await client.post(
+            "/api/v1/maintenance-windows", json=win_payload, headers=headers
+        )
         assert res_win.status_code == status.HTTP_201_CREATED
         window_id = res_win.json()["id"]
 

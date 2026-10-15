@@ -31,7 +31,7 @@ from src.core.web.pagination import PaginatedResponse, PaginationParamsDep
 
 router = APIRouter(prefix="/api/v1/devices", tags=["Devices"])
 
-# SUPER_ADMIN e NOC_OPERATOR (global ops), ORG_ADMIN (tenant admin) 
+# SUPER_ADMIN e NOC_OPERATOR (global ops), ORG_ADMIN (tenant admin)
 WRITE_ROLES = [UserRole.SUPER_ADMIN, UserRole.NOC_OPERATOR, UserRole.ORG_ADMIN]
 
 
@@ -76,7 +76,7 @@ async def list_devices(
     """Lista dispositivos da organização com filtros e paginação."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
     is_viewer = user.role == UserRole.CLIENT_VIEWER.value
-    
+
     return await query_service.list_devices(
         target_org,
         filters,
@@ -96,7 +96,7 @@ async def search_devices(
     """Busca Full-Text por dispositivos na organização."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
     is_viewer = user.role == UserRole.CLIENT_VIEWER.value
-    
+
     return await query_service.search_devices(
         target_org,
         q,
@@ -115,7 +115,7 @@ async def get_device(
     """Obtém os detalhes de um dispositivo."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
     is_viewer = user.role == UserRole.CLIENT_VIEWER.value
-    
+
     device = await query_service.get_device_detail(target_org, device_id, is_viewer=is_viewer)
     if not device:
         raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
@@ -135,7 +135,7 @@ async def update_device(
 ):
     """Atualiza propriedades de um dispositivo."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
-    
+
     await command_service.update_device(
         cmd=payload,
         actor_user_id=UUID(user.id),
@@ -144,7 +144,7 @@ async def update_device(
         organization_id=target_org,
     )
     await command_service.uow.commit()
-    
+
     return await query_service.get_device_detail(target_org, device_id)
 
 
@@ -161,7 +161,7 @@ async def pause_device(
 ):
     """Pausa o monitoramento de um dispositivo."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
-    
+
     await command_service.pause_device(
         cmd=payload,
         actor_user_id=UUID(user.id),
@@ -170,7 +170,7 @@ async def pause_device(
         organization_id=target_org,
     )
     await command_service.uow.commit()
-    
+
     return await query_service.get_device_detail(target_org, device_id)
 
 
@@ -187,7 +187,7 @@ async def resume_device(
 ):
     """Retoma o monitoramento de um dispositivo pausado."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
-    
+
     await command_service.resume_device(
         cmd=payload,
         actor_user_id=UUID(user.id),
@@ -196,7 +196,7 @@ async def resume_device(
         organization_id=target_org,
     )
     await command_service.uow.commit()
-    
+
     return await query_service.get_device_detail(target_org, device_id)
 
 
@@ -213,7 +213,7 @@ async def set_maintenance(
 ):
     """Agenda janela de manutenção para um dispositivo."""
     target_org = UUID(enforce_tenant_scope(org_id, user))
-    
+
     await command_service.set_maintenance(
         cmd=payload,
         actor_user_id=UUID(user.id),
@@ -222,5 +222,5 @@ async def set_maintenance(
         organization_id=target_org,
     )
     await command_service.uow.commit()
-    
+
     return await query_service.get_device_detail(target_org, device_id)

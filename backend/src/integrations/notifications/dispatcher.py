@@ -161,12 +161,12 @@ class NotificationDispatcher:
                 )
 
         if not active_tasks:
-            logger.info("Nenhum canal ativo ou registrado para despacho do alerta '%s'", alert.title)
+            logger.info(
+                "Nenhum canal ativo ou registrado para despacho do alerta '%s'", alert.title
+            )
             return {}
 
-        results: Sequence[Any] = await asyncio.gather(
-            *active_tasks, return_exceptions=True
-        )
+        results: Sequence[Any] = await asyncio.gather(*active_tasks, return_exceptions=True)
 
         dispatch_status: dict[str, bool] = {}
         for idx, result in enumerate(results):

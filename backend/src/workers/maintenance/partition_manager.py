@@ -146,7 +146,8 @@ class PartitionManager:
                 stats = await self.run_maintenance()
                 logger.info(
                     "Manutenção de partições: %d criadas, %d expurgadas",
-                    stats["created"], stats["dropped"],
+                    stats["created"],
+                    stats["dropped"],
                 )
 
                 try:

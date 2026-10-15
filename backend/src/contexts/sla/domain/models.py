@@ -29,7 +29,9 @@ class DowntimePeriod:
         start_utc = _ensure_utc(self.start_time)
         end_utc = _ensure_utc(self.end_time)
         if start_utc and end_utc and end_utc < start_utc:
-            raise ValueError("O horário final do downtime não pode ser anterior ao horário inicial.")
+            raise ValueError(
+                "O horário final do downtime não pode ser anterior ao horário inicial."
+            )
         object.__setattr__(self, "start_time", start_utc)
         object.__setattr__(self, "end_time", end_utc)
 

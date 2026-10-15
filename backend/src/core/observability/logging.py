@@ -66,10 +66,14 @@ class JSONFormatter(logging.Formatter):
         }
 
         # Extração inteligente de campos de requisição HTTP emitidos pelo uvicorn.access
-        if record.name == "uvicorn.access" and record.args and isinstance(record.args, tuple):
-            if len(record.args) >= 3:
-                payload.setdefault("client_host", record.args[0])
-                payload.setdefault("status_code", record.args[-1])
+        if (
+            record.name == "uvicorn.access"
+            and record.args
+            and isinstance(record.args, tuple)
+            and len(record.args) >= 3
+        ):
+            payload.setdefault("client_host", record.args[0])
+            payload.setdefault("status_code", record.args[-1])
 
         # Injeta correlation ID do contexto assíncrono se presente
         request_id = get_request_id()
@@ -89,9 +93,7 @@ class JSONFormatter(logging.Formatter):
         extra_fields = {
             k: v
             for k, v in record.__dict__.items()
-            if k not in _STANDARD_LOG_RECORD_ATTRS
-            and not k.startswith("_")
-            and not callable(v)
+            if k not in _STANDARD_LOG_RECORD_ATTRS and not k.startswith("_") and not callable(v)
         }
         if extra_fields:
             payload.update(extra_fields)
@@ -215,4 +217,3 @@ def setup_logging(service_name: str = "infrawatch-api") -> None:
 def get_logger(name: str = "infrawatch") -> logging.Logger:
     """Retorna logger configurado para a aplicação."""
     return logging.getLogger(name)
-

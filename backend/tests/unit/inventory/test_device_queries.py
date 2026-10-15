@@ -8,9 +8,11 @@ from src.core.web.pagination import PaginationParams
 
 def test_mask_ip_address():
     from src.contexts.inventory.schemas.device_schemas import mask_ip_address
+
     assert mask_ip_address("192.168.1.10") == "***.***.1.10"
     assert mask_ip_address("10.0.0.1") == "***.***.0.1"
     assert mask_ip_address("invalid") == "***"
+
 
 def test_sanitize_list_item():
     item = DeviceListItem(
@@ -63,11 +65,13 @@ def test_sanitize_detail():
     assert legacy_sanitized.ip_address == "***.***.10.254"
     assert legacy_sanitized.port == 0
 
+
 def test_device_filters_creation():
     f = DeviceFilters(status="UP", category="ROUTER", protocol="snmp", is_paused=False)
     assert f.status == "UP"
     assert f.category == "ROUTER"
-    
+
+
 def test_pagination_params():
     p = PaginationParams(page=2, page_size=10)
     assert p.limit == 10

@@ -114,6 +114,7 @@ def test_json_formatter_with_exception():
         raise ValueError("Erro de teste para logging")
     except ValueError:
         import sys
+
         exc_info = sys.exc_info()
 
     record = logging.LogRecord(

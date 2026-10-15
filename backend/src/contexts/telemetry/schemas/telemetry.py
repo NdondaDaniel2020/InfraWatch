@@ -13,7 +13,9 @@ class TelemetryMetricPoint(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    metric_type: str = Field(..., description="Tipo da métrica (ex: latency_ms, packet_loss, jitter_ms)")
+    metric_type: str = Field(
+        ..., description="Tipo da métrica (ex: latency_ms, packet_loss, jitter_ms)"
+    )
     value: float = Field(..., description="Valor numérico coletado")
     packet_loss: float = Field(default=0.0, description="Percentual de perda de pacotes")
     status: str = Field(..., description="Status de saúde da medição (UP, DEGRADED, DOWN, TIMEOUT)")
@@ -29,21 +31,35 @@ class MonitoredDeviceItem(BaseModel):
     organization_id: UUID = Field(..., description="Identificador da organização proprietária")
     name: str = Field(..., description="Nome amigável do dispositivo")
     ip_address: str = Field(..., description="Endereço IP do alvo")
-    protocol: str = Field(..., description="Protocolo principal de sondagem (ICMP, TCP, HTTP, etc.)")
-    category: str = Field(..., description="Categoria do equipamento (ROUTER, SWITCH, SERVER, etc.)")
-    status: str = Field(..., description="Status operacional consolidado (UP, DEGRADED, DOWN, PAUSED, MAINTENANCE)")
+    protocol: str = Field(
+        ..., description="Protocolo principal de sondagem (ICMP, TCP, HTTP, etc.)"
+    )
+    category: str = Field(
+        ..., description="Categoria do equipamento (ROUTER, SWITCH, SERVER, etc.)"
+    )
+    status: str = Field(
+        ..., description="Status operacional consolidado (UP, DEGRADED, DOWN, PAUSED, MAINTENANCE)"
+    )
     is_paused: bool = Field(default=False, description="Indica se a sondagem está pausada")
     interval_seconds: int = Field(default=60, description="Intervalo entre coletas em segundos")
-    last_latency_ms: float | None = Field(default=None, description="Última latência registrada em milissegundos")
-    last_packet_loss: float | None = Field(default=None, description="Último percentual de perda de pacotes")
-    last_monitored_at: datetime | None = Field(default=None, description="Timestamp da última telemetria registrada")
+    last_latency_ms: float | None = Field(
+        default=None, description="Última latência registrada em milissegundos"
+    )
+    last_packet_loss: float | None = Field(
+        default=None, description="Último percentual de perda de pacotes"
+    )
+    last_monitored_at: datetime | None = Field(
+        default=None, description="Timestamp da última telemetria registrada"
+    )
 
 
 class MonitoredDevicesResponse(BaseModel):
     """Resposta consolidada da listagem de dispositivos monitorados."""
 
     total: int = Field(..., description="Total de dispositivos monitorados retornados")
-    items: list[MonitoredDeviceItem] = Field(..., description="Lista de dispositivos com telemetria recente")
+    items: list[MonitoredDeviceItem] = Field(
+        ..., description="Lista de dispositivos com telemetria recente"
+    )
 
 
 class MonitoredDeviceDetail(BaseModel):
@@ -63,8 +79,12 @@ class MonitoredDeviceDetail(BaseModel):
     is_paused: bool = Field(default=False, description="Indica se a sondagem está pausada")
     interval_seconds: int = Field(default=60, description="Intervalo entre coletas em segundos")
     last_latency_ms: float | None = Field(default=None, description="Última latência registrada")
-    last_packet_loss: float | None = Field(default=None, description="Último percentual de perda de pacotes")
-    last_monitored_at: datetime | None = Field(default=None, description="Timestamp da última coleta")
+    last_packet_loss: float | None = Field(
+        default=None, description="Último percentual de perda de pacotes"
+    )
+    last_monitored_at: datetime | None = Field(
+        default=None, description="Timestamp da última coleta"
+    )
     recent_metrics: list[TelemetryMetricPoint] = Field(
         default_factory=list,
         description="Série temporal recente de pontos de métricas coletados",

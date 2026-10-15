@@ -79,10 +79,12 @@ class IncidentRepository:
             select(IncidentModel)
             .where(
                 IncidentModel.device_id == device_id,
-                IncidentModel.status.in_([
-                    IncidentStatus.TRIGGERED.value,
-                    IncidentStatus.ACKNOWLEDGED.value,
-                ]),
+                IncidentModel.status.in_(
+                    [
+                        IncidentStatus.TRIGGERED.value,
+                        IncidentStatus.ACKNOWLEDGED.value,
+                    ]
+                ),
             )
             .order_by(IncidentModel.started_at.desc())
             .limit(1)

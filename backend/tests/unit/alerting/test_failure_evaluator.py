@@ -127,7 +127,10 @@ class TestFailureEvaluatorAcceptanceCriteria:
         event = result.events[0]
         assert isinstance(event, (IncidentTriggeredEvent, DeviceDegradedEvent))
         assert event.device_id == dev_id
-        assert "180.0ms" in getattr(event, "reason", "") or "latência" in getattr(event, "reason", "").lower()
+        assert (
+            "180.0ms" in getattr(event, "reason", "")
+            or "latência" in getattr(event, "reason", "").lower()
+        )
         if isinstance(event, IncidentTriggeredEvent):
             assert event.severity in {"WARNING", "DEGRADED"}
             assert event.new_status == "DEGRADED"
@@ -215,7 +218,9 @@ class TestDownStateTransition:
         dev_id = uuid4()
 
         # Primeiro entra em DEGRADED por latência
-        evaluator.evaluate(latency_ms=150.0, packet_loss_pct=0.0, baseline_latency_ms=20.0, device_id=dev_id)
+        evaluator.evaluate(
+            latency_ms=150.0, packet_loss_pct=0.0, baseline_latency_ms=20.0, device_id=dev_id
+        )
         assert evaluator.current_status == DeviceHealthStatus.DEGRADED
 
         # Agora sofre 3 falhas consecutivas de 100% de perda
@@ -271,16 +276,22 @@ class TestRecoveryToUp:
         dev_id = uuid4()
 
         # Entra em DEGRADED
-        evaluator.evaluate(latency_ms=100.0, packet_loss_pct=20.0, baseline_latency_ms=10.0, device_id=dev_id)
+        evaluator.evaluate(
+            latency_ms=100.0, packet_loss_pct=20.0, baseline_latency_ms=10.0, device_id=dev_id
+        )
         assert evaluator.current_status == DeviceHealthStatus.DEGRADED
 
         # Probe 1 saudável
-        res1 = evaluator.evaluate(latency_ms=10.0, packet_loss_pct=0.0, baseline_latency_ms=10.0, device_id=dev_id)
+        res1 = evaluator.evaluate(
+            latency_ms=10.0, packet_loss_pct=0.0, baseline_latency_ms=10.0, device_id=dev_id
+        )
         assert res1.status == DeviceHealthStatus.DEGRADED
         assert not res1.status_changed
 
         # Probe 2 saudável -> Recuperado
-        res2 = evaluator.evaluate(latency_ms=10.0, packet_loss_pct=0.0, baseline_latency_ms=10.0, device_id=dev_id)
+        res2 = evaluator.evaluate(
+            latency_ms=10.0, packet_loss_pct=0.0, baseline_latency_ms=10.0, device_id=dev_id
+        )
         assert res2.status == DeviceHealthStatus.UP
         assert res2.status_changed
         assert len(res2.events) == 1

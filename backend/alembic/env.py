@@ -34,7 +34,7 @@ target_metadata = Base.metadata
 
 def get_url() -> str:
     """Obtém a URL do banco de dados.
-    
+
     Prioridade:
     1. sqlalchemy.url do alembic.ini (configurado via testes)
     2. DATABASE_URL das settings da aplicação
@@ -43,7 +43,7 @@ def get_url() -> str:
     alembic_url = config.get_main_option("sqlalchemy.url")
     if alembic_url and alembic_url != "driver://user:pass@localhost/dbname":
         return alembic_url
-    
+
     settings = get_settings()
     return build_async_database_url(settings.DATABASE_URL)
 

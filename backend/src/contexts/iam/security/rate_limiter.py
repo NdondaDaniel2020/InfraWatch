@@ -173,9 +173,7 @@ class DualKeyRateLimiter:
         now = time.monotonic()
         return self._fallback.check_ip(ip, self.ip_max_requests, self.ip_window_seconds, now)
 
-    async def check_account_lockout(
-        self, email: str, client_ip: str | None = None
-    ) -> int | None:
+    async def check_account_lockout(self, email: str, client_ip: str | None = None) -> int | None:
         """Verifica se o par conta/IP está temporariamente bloqueado por Account Lockout.
 
         Retorna o tempo restante de bloqueio (em segundos) se bloqueada, ou None se liberada.
@@ -240,9 +238,7 @@ class DualKeyRateLimiter:
             now,
         )
 
-    async def reset_account_attempts(
-        self, email: str, client_ip: str | None = None
-    ) -> None:
+    async def reset_account_attempts(self, email: str, client_ip: str | None = None) -> None:
         """Limpa o contador de falhas e qualquer lockout ativo após autenticação com sucesso."""
         key = self._account_key(email, client_ip)
         redis_client = get_redis_client()
@@ -266,8 +262,8 @@ class DualKeyRateLimiter:
             try:
                 ip_key = f"{IP_RATE_LIMIT_PREFIX}{ip}"
                 await redis_client.delete(ip_key)
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Falha ao resetar tentativas de IP no Redis: %s", exc)
 
         self._fallback.reset_ip(ip)
 

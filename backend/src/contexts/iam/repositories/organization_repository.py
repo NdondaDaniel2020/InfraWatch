@@ -57,7 +57,6 @@ class OrganizationRepository:
         )
         return await self.save(org)
 
-
     async def list_all(self, *, offset: int = 0, limit: int = 50) -> list[OrganizationModel]:
         """Lista organizações ativas ou inativas com paginação."""
         query = (

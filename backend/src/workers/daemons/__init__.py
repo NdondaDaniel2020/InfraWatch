@@ -50,6 +50,7 @@ def get_outbox_relay_worker(
                     await sse_broadcaster.broadcast_to_user(str(target_user), event_type, payload)
                 except Exception:
                     import logging
+
                     logging.getLogger("infrawatch.lifespan").warning(
                         "Falha ao encaminhar evento do Outbox para SSE", exc_info=True
                     )
@@ -105,21 +106,27 @@ async def close_workers() -> None:
 def __getattr__(name: str) -> Any:
     if name in {"EventPublisher", "OutboxRelayWorker", "PublishCallback"}:
         from src.workers.daemons import outbox_relay_worker
+
         return getattr(outbox_relay_worker, name)
     if name == "run_outbox_standalone":
         from src.workers.daemons.outbox_relay_worker import run_standalone
+
         return run_standalone
     if name == "TokenCleanupWorker":
         from src.workers.daemons.token_cleanup_worker import TokenCleanupWorker
+
         return TokenCleanupWorker
     if name == "run_cleanup_standalone":
         from src.workers.daemons.token_cleanup_worker import run_standalone
+
         return run_standalone
     if name == "ZabbixSyncWorker":
         from src.workers.daemons.zabbix_sync_worker import ZabbixSyncWorker
+
         return ZabbixSyncWorker
     if name == "IntegrationWorker":
         from src.workers.daemons.integration_worker import IntegrationWorker
+
         return IntegrationWorker
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

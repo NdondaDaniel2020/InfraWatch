@@ -32,7 +32,8 @@ async def metrics_session_factory() -> AsyncGenerator[async_sessionmaker[AsyncSe
     # Cria tabela simplificada — SQLite não suporta PARTITION BY RANGE
     # nem BIGSERIAL em PK composta. Usamos INTEGER PRIMARY KEY AUTOINCREMENT simples.
     async with engine.begin() as conn:
-        await conn.execute(text("""
+        await conn.execute(
+            text("""
             CREATE TABLE metrics (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 device_id   TEXT            NOT NULL,
@@ -43,8 +44,11 @@ async def metrics_session_factory() -> AsyncGenerator[async_sessionmaker[AsyncSe
                 status      VARCHAR(20)     NOT NULL DEFAULT 'UP',
                 timestamp   DATETIME        NOT NULL DEFAULT (datetime('now'))
             );
-        """))
-        await conn.execute(text("CREATE INDEX ix_metrics_device_ts ON metrics (device_id, timestamp);"))
+        """)
+        )
+        await conn.execute(
+            text("CREATE INDEX ix_metrics_device_ts ON metrics (device_id, timestamp);")
+        )
 
     factory = async_sessionmaker(
         bind=engine,
@@ -155,7 +159,11 @@ async def test_batch_writer_extra_data_generates_additional_metrics(
 
     # Verifica tipos de métrica no banco
     async with metrics_session_factory() as session:
-        rows = (await session.execute(text("SELECT DISTINCT metric_type FROM metrics"))).scalars().all()
+        rows = (
+            (await session.execute(text("SELECT DISTINCT metric_type FROM metrics")))
+            .scalars()
+            .all()
+        )
         assert set(rows) == {"latency_ms", "packet_loss", "status_code", "tls_days_left"}
 
 
@@ -176,14 +184,26 @@ async def test_metric_query_by_device_and_timerange(
     # Device A: 10 medições
     for _ in range(10):
         writer.enqueue(
-            ProbeResult(device_id=device_a, target_name="A", status="UP", latency_ms=5.0, packet_loss_pct=0.0),
+            ProbeResult(
+                device_id=device_a,
+                target_name="A",
+                status="UP",
+                latency_ms=5.0,
+                packet_loss_pct=0.0,
+            ),
             organization_id=org_id,
         )
 
     # Device B: 5 medições
     for _ in range(5):
         writer.enqueue(
-            ProbeResult(device_id=device_b, target_name="B", status="DOWN", latency_ms=0.0, packet_loss_pct=100.0),
+            ProbeResult(
+                device_id=device_b,
+                target_name="B",
+                status="DOWN",
+                latency_ms=0.0,
+                packet_loss_pct=100.0,
+            ),
             organization_id=org_id,
         )
 
@@ -191,13 +211,17 @@ async def test_metric_query_by_device_and_timerange(
 
     # Consulta apenas device A
     async with metrics_session_factory() as session:
-        count_a = (await session.execute(
-            text("SELECT COUNT(*) FROM metrics WHERE device_id = :did"),
-            {"did": str(device_a)},
-        )).scalar()
-        count_b = (await session.execute(
-            text("SELECT COUNT(*) FROM metrics WHERE device_id = :did"),
-            {"did": str(device_b)},
-        )).scalar()
+        count_a = (
+            await session.execute(
+                text("SELECT COUNT(*) FROM metrics WHERE device_id = :did"),
+                {"did": str(device_a)},
+            )
+        ).scalar()
+        count_b = (
+            await session.execute(
+                text("SELECT COUNT(*) FROM metrics WHERE device_id = :did"),
+                {"did": str(device_b)},
+            )
+        ).scalar()
         assert count_a == 20  # 10 * 2 (latency + loss)
         assert count_b == 10  # 5 * 2

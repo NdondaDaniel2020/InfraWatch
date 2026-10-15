@@ -50,7 +50,10 @@ async def test_seed_all_creates_and_is_idempotent() -> None:
             assert admin_user.is_active is True
             assert admin_user.is_verified is True
             # Valida hash Argon2
-            assert password_hasher.verify(admin_user.hashed_password or "", "Ndonda#2026!Admin") is True
+            assert (
+                password_hasher.verify(admin_user.hashed_password or "", "Ndonda#2026!Admin")
+                is True
+            )
 
             # Dispositivos
             devices = (await session.execute(select(DeviceModel))).scalars().all()
@@ -93,7 +96,9 @@ async def test_seed_all_creates_and_is_idempotent() -> None:
             assert len(windows_after) == 2
 
             # As métricas sintéticas não devem duplicar
-            metrics_count_after = (await session.execute(select(func.count(MetricModel.id)))).scalar_one()
+            metrics_count_after = (
+                await session.execute(select(func.count(MetricModel.id)))
+            ).scalar_one()
             assert metrics_count_after == metrics_count
 
     await engine.dispose()

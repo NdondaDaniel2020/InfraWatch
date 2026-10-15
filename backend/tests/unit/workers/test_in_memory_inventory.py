@@ -28,6 +28,7 @@ def target_factory():
             status=status,
             is_paused=is_paused,
         )
+
     return _make
 
 
@@ -35,7 +36,7 @@ def target_factory():
 async def test_add_and_get(schedule: InMemorySchedule, target_factory):
     target = target_factory()
     await schedule.add_or_update(target)
-    
+
     retrieved = await schedule.get(target.device_id)
     assert retrieved is not None
     assert retrieved.name == target.name
@@ -46,11 +47,11 @@ async def test_add_and_get(schedule: InMemorySchedule, target_factory):
 async def test_remove(schedule: InMemorySchedule, target_factory):
     target = target_factory()
     await schedule.add_or_update(target)
-    
+
     removed = await schedule.remove(target.device_id)
     assert removed is True
     assert schedule.count == 0
-    
+
     removed_again = await schedule.remove(target.device_id)
     assert removed_again is False
 
@@ -59,12 +60,12 @@ async def test_remove(schedule: InMemorySchedule, target_factory):
 async def test_pause_and_resume(schedule: InMemorySchedule, target_factory):
     target = target_factory()
     await schedule.add_or_update(target)
-    
+
     await schedule.pause(target.device_id)
     retrieved = await schedule.get(target.device_id)
     assert retrieved.is_paused is True
     assert retrieved.status == "PAUSED"
-    
+
     await schedule.resume(target.device_id)
     retrieved = await schedule.get(target.device_id)
     assert retrieved.is_paused is False
@@ -77,9 +78,9 @@ async def test_get_active_targets(schedule: InMemorySchedule, target_factory):
     t2 = target_factory(status="PAUSED", is_paused=True)
     t3 = target_factory(status="MAINTENANCE")
     t4 = target_factory(status="DEGRADED")
-    
+
     await schedule.bulk_load([t1, t2, t3, t4])
-    
+
     active = await schedule.get_active_targets()
     assert len(active) == 2
     active_ids = {t.device_id for t in active}
@@ -91,7 +92,7 @@ async def test_get_active_targets(schedule: InMemorySchedule, target_factory):
 async def test_reconcile_adds_missing(schedule: InMemorySchedule, target_factory):
     t1 = target_factory(name="In DB")
     db_targets = [t1]
-    
+
     stats = await schedule.reconcile(db_targets)
     assert stats["added"] == 1
     assert stats["updated"] == 0
@@ -103,9 +104,9 @@ async def test_reconcile_adds_missing(schedule: InMemorySchedule, target_factory
 async def test_reconcile_removes_stale(schedule: InMemorySchedule, target_factory):
     t1 = target_factory(name="In Mem")
     await schedule.add_or_update(t1)
-    
+
     db_targets = []
-    
+
     stats = await schedule.reconcile(db_targets)
     assert stats["added"] == 0
     assert stats["updated"] == 0
@@ -118,20 +119,20 @@ async def test_reconcile_updates_outdated(schedule: InMemorySchedule, target_fac
     dev_id = uuid4()
     old_time = datetime.now(UTC) - timedelta(minutes=10)
     new_time = datetime.now(UTC)
-    
+
     # Target in memory is older
     t_mem = target_factory(id_override=dev_id, name="Old Name")
     t_mem.updated_at = old_time
     await schedule.add_or_update(t_mem)
-    
+
     # Target in DB is newer
     t_db = target_factory(id_override=dev_id, name="New Name")
     t_db.updated_at = new_time
-    
+
     stats = await schedule.reconcile([t_db])
     assert stats["added"] == 0
     assert stats["updated"] == 1
     assert stats["removed"] == 0
-    
+
     retrieved = await schedule.get(dev_id)
     assert retrieved.name == "New Name"

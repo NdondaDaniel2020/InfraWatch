@@ -185,8 +185,10 @@ async def test_retry_on_timeout_succeeds_eventually() -> None:
 
     timeout_exc = httpx.TimeoutException("Connection timed out")
 
-    with patch("httpx.AsyncClient.request", new_callable=AsyncMock) as mock_req, \
-         patch("asyncio.sleep", new_callable=AsyncMock):
+    with (
+        patch("httpx.AsyncClient.request", new_callable=AsyncMock) as mock_req,
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
         mock_req.side_effect = [init_res, timeout_exc, ticket_res, kill_res]
 
         async with GlpiClient("http://glpi", "APP_TOK", "USR_TOK") as client:
@@ -201,8 +203,10 @@ async def test_raises_after_max_retries_exhausted() -> None:
     init_res = make_response(200, {"session_token": "tok-1"})
     timeout_exc = httpx.TimeoutException("Connection timed out")
 
-    with patch("httpx.AsyncClient.request", new_callable=AsyncMock) as mock_req, \
-         patch("asyncio.sleep", new_callable=AsyncMock):
+    with (
+        patch("httpx.AsyncClient.request", new_callable=AsyncMock) as mock_req,
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
         # init + 3 timeouts (max_retries) + kill
         mock_req.side_effect = [init_res, timeout_exc, timeout_exc, timeout_exc]
 

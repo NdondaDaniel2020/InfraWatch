@@ -17,4 +17,3 @@ def compile_create_column_sqlite(element, compiler, **kw):
 def compile_tsvector_sqlite(type_, compiler, **kw):
     # O SQLite não possui TSVECTOR. Durante os testes, o TSVECTOR virará TEXT.
     return "TEXT"
-

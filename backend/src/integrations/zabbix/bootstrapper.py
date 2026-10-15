@@ -171,7 +171,9 @@ class ZabbixWebhookBootstrapper:
         """Ponto de entrada assíncrono para execução em background durante o lifespan."""
         settings = get_settings()
         if not getattr(settings, "ZABBIX_ENABLED", False):
-            logger.debug("Integração Zabbix desabilitada (ZABBIX_ENABLED=False). Bootstrapper no-op.")
+            logger.debug(
+                "Integração Zabbix desabilitada (ZABBIX_ENABLED=False). Bootstrapper no-op."
+            )
             return False
 
         if not getattr(settings, "ZABBIX_AUTOCONFIGURE_WEBHOOK", True):

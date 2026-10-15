@@ -46,6 +46,7 @@ class DeviceMaintenanceStarted(DomainEvent):
 @dataclass(frozen=True)
 class DeviceStatusChanged(DomainEvent):
     """Evento emitido quando o status de um dispositivo muda via métricas dos probes."""
+
     organization_id: UUID | None = None
     previous_status: str = ""
     new_status: str = ""
@@ -56,6 +57,7 @@ class DeviceStatusChanged(DomainEvent):
 @dataclass(frozen=True)
 class DeviceMaintenanceToggled(DomainEvent):
     """Evento emitido quando a manutenção é ativada ou desativada."""
+
     organization_id: UUID | None = None
     is_maintenance: bool = False
     maintenance_until: datetime | None = None

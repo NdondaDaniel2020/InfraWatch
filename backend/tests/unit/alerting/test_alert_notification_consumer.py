@@ -153,7 +153,9 @@ async def test_consume_loop_processes_batch_and_acks(
     stop_event = asyncio.Event()
 
     # Retorna um lote com 2 mensagens e depois aciona o stop_event
-    async def fake_consume_batch(*args: object, **kwargs: object) -> list[tuple[str, dict[str, object]]]:
+    async def fake_consume_batch(
+        *args: object, **kwargs: object
+    ) -> list[tuple[str, dict[str, object]]]:
         stop_event.set()
         return [
             (

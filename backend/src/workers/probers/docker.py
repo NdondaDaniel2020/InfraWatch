@@ -65,7 +65,9 @@ class DockerProber(BaseProber):
             precpu_usage = precpu_stats.get("cpu_usage", {})
 
             cpu_delta = cpu_usage.get("total_usage", 0) - precpu_usage.get("total_usage", 0)
-            system_delta = cpu_stats.get("system_cpu_usage", 0) - precpu_stats.get("system_cpu_usage", 0)
+            system_delta = cpu_stats.get("system_cpu_usage", 0) - precpu_stats.get(
+                "system_cpu_usage", 0
+            )
 
             if system_delta > 0 and cpu_delta > 0:
                 online_cpus = cpu_stats.get("online_cpus")
@@ -158,10 +160,14 @@ class DockerProber(BaseProber):
                 rx_d = int(data.get("rx_dropped", 0))
                 tx_d = int(data.get("tx_dropped", 0))
                 interfaces[iface] = {
-                    "rx_bytes": rx_b, "tx_bytes": tx_b,
-                    "rx_packets": rx_p, "tx_packets": tx_p,
-                    "rx_errors": rx_e, "tx_errors": tx_e,
-                    "rx_dropped": rx_d, "tx_dropped": tx_d,
+                    "rx_bytes": rx_b,
+                    "tx_bytes": tx_b,
+                    "rx_packets": rx_p,
+                    "tx_packets": tx_p,
+                    "rx_errors": rx_e,
+                    "tx_errors": tx_e,
+                    "rx_dropped": rx_d,
+                    "tx_dropped": tx_d,
                 }
                 total_rx_bytes += rx_b
                 total_tx_bytes += tx_b
@@ -260,18 +266,22 @@ class DockerProber(BaseProber):
             mounts = inspect_data.get("Mounts", [])
 
             labels = config.get("Labels", {}) or {}
-            compose_labels = {k: v for k, v in labels.items() if k.startswith("com.docker.compose.")}
+            compose_labels = {
+                k: v for k, v in labels.items() if k.startswith("com.docker.compose.")
+            }
 
             mount_list = []
             for m in mounts:
-                mount_list.append({
-                    "type": m.get("Type"),
-                    "source": m.get("Source"),
-                    "destination": m.get("Destination"),
-                    "mode": m.get("Mode"),
-                    "driver": m.get("Driver"),
-                    "rw": m.get("RW", False),
-                })
+                mount_list.append(
+                    {
+                        "type": m.get("Type"),
+                        "source": m.get("Source"),
+                        "destination": m.get("Destination"),
+                        "mode": m.get("Mode"),
+                        "driver": m.get("Driver"),
+                        "rw": m.get("RW", False),
+                    }
+                )
 
             return {
                 "image": config.get("Image"),
@@ -361,13 +371,19 @@ class DockerProber(BaseProber):
                 # 2. Se estiver executando e saudável, coleta métricas em tempo real
                 if is_running and not is_restarting:
                     try:
-                        stats_resp = await client.get(f"/containers/{container_id}/stats?stream=false")
+                        stats_resp = await client.get(
+                            f"/containers/{container_id}/stats?stream=false"
+                        )
                         if stats_resp.status_code == 200:
                             stats_data = stats_resp.json()
                             cpu_pct = self._calculate_cpu_percent(stats_data)
                             mem_pct, mem_mb = self._calculate_memory_stats(stats_data)
                     except Exception as stats_exc:  # noqa: BLE001
-                        logger.debug("Falha secundária ao coletar stats do contêiner %s: %s", container_id, stats_exc)
+                        logger.debug(
+                            "Falha secundária ao coletar stats do contêiner %s: %s",
+                            container_id,
+                            stats_exc,
+                        )
 
                 # 2. Se estiver executando e saudável, coleta métricas em tempo real
                 cpu_throttled_periods = 0
@@ -379,18 +395,26 @@ class DockerProber(BaseProber):
 
                 if is_running and not is_restarting:
                     try:
-                        stats_resp = await client.get(f"/containers/{container_id}/stats?stream=false")
+                        stats_resp = await client.get(
+                            f"/containers/{container_id}/stats?stream=false"
+                        )
                         if stats_resp.status_code == 200:
                             stats_data = stats_resp.json()
                             cpu_pct = self._calculate_cpu_percent(stats_data)
                             mem_pct, mem_mb = self._calculate_memory_stats(stats_data)
-                            cpu_throttled_periods, cpu_throttled_time_ns = self._calculate_cpu_throttling(stats_data)
+                            cpu_throttled_periods, cpu_throttled_time_ns = (
+                                self._calculate_cpu_throttling(stats_data)
+                            )
                             memory_detailed = self._calculate_memory_detailed(stats_data)
                             network_stats = self._extract_network_stats(stats_data)
                             blkio_stats = self._extract_blkio_stats(stats_data)
                             pids_stats = self._extract_pids_stats(stats_data)
                     except Exception as stats_exc:  # noqa: BLE001
-                        logger.debug("Falha secundária ao coletar stats do contêiner %s: %s", container_id, stats_exc)
+                        logger.debug(
+                            "Falha secundária ao coletar stats do contêiner %s: %s",
+                            container_id,
+                            stats_exc,
+                        )
 
                 health_info = self._extract_health_info(inspect_data)
                 config_metadata = self._extract_config_metadata(inspect_data)
@@ -413,11 +437,17 @@ class DockerProber(BaseProber):
                     "memory_major_faults": memory_detailed.get("major_faults", 0),
                     "memory_shmem_bytes": memory_detailed.get("shmem_bytes", 0),
                     "memory_slab_bytes": memory_detailed.get("slab_bytes", 0),
-                    "memory_slab_reclaimable_bytes": memory_detailed.get("slab_reclaimable_bytes", 0),
-                    "memory_slab_unreclaimable_bytes": memory_detailed.get("slab_unreclaimable_bytes", 0),
+                    "memory_slab_reclaimable_bytes": memory_detailed.get(
+                        "slab_reclaimable_bytes", 0
+                    ),
+                    "memory_slab_unreclaimable_bytes": memory_detailed.get(
+                        "slab_unreclaimable_bytes", 0
+                    ),
                     "memory_workingset_refault": memory_detailed.get("workingset_refault", 0),
                     "memory_workingset_activate": memory_detailed.get("workingset_activate", 0),
-                    "memory_workingset_nodereclaim": memory_detailed.get("workingset_nodereclaim", 0),
+                    "memory_workingset_nodereclaim": memory_detailed.get(
+                        "workingset_nodereclaim", 0
+                    ),
                     # Rede
                     "network_interfaces": network_stats.get("interfaces", {}),
                     "network_rx_bytes": network_stats.get("rx_bytes", 0),

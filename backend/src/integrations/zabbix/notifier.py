@@ -14,7 +14,9 @@ class ZabbixNotifier:
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.enabled = getattr(settings, "ZABBIX_ENABLED", False) and getattr(settings, "ZABBIX_NOTIFY_STARTUP", False)
+        self.enabled = getattr(settings, "ZABBIX_ENABLED", False) and getattr(
+            settings, "ZABBIX_NOTIFY_STARTUP", False
+        )
         self.api_url = getattr(settings, "ZABBIX_API_URL", "")
         self.api_token = getattr(settings, "ZABBIX_API_TOKEN", "")
         self.username = getattr(settings, "ZABBIX_USER", "")
@@ -52,7 +54,9 @@ class ZabbixNotifier:
 
         acquired = await self._acquire_startup_lock()
         if not acquired:
-            logger.debug("Heartbeat de inicialização Zabbix já emitido nas últimas 24h (Redis debounce).")
+            logger.debug(
+                "Heartbeat de inicialização Zabbix já emitido nas últimas 24h (Redis debounce)."
+            )
             return
 
         try:
@@ -64,7 +68,9 @@ class ZabbixNotifier:
                 timeout=self.timeout,
             ) as zabbix:
                 settings = get_settings()
-                app_name = getattr(settings, "PROJECT_NAME", getattr(settings, "APP_NAME", "InfraWatch"))
+                app_name = getattr(
+                    settings, "PROJECT_NAME", getattr(settings, "APP_NAME", "InfraWatch")
+                )
                 app_version = getattr(settings, "APP_VERSION", "0.1.0")
                 result = await zabbix.send_startup_heartbeat(
                     app_name=app_name,

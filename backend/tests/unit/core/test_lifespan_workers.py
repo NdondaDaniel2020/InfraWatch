@@ -392,18 +392,22 @@ async def test_notify_zabbix_startup_success():
     mock_redis.set = AsyncMock(return_value=True)
 
     mock_client = AsyncMock()
-    mock_client.send_startup_heartbeat = AsyncMock(return_value={
-        "status": "ok",
-        "api_version": "7.0.0",
-        "hosts_count": 2,
-        "heartbeat_pushed": True,
-    })
+    mock_client.send_startup_heartbeat = AsyncMock(
+        return_value={
+            "status": "ok",
+            "api_version": "7.0.0",
+            "hosts_count": 2,
+            "heartbeat_pushed": True,
+        }
+    )
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=None)
 
     with (
         patch("src.integrations.zabbix.notifier.get_redis_client", return_value=mock_redis),
-        patch("src.integrations.zabbix.notifier.ZabbixClient", return_value=mock_client) as mock_client_cls,
+        patch(
+            "src.integrations.zabbix.notifier.ZabbixClient", return_value=mock_client
+        ) as mock_client_cls,
         patch("src.integrations.zabbix.notifier.get_settings", return_value=settings),
     ):
         await _notify_zabbix_startup(settings)
@@ -463,7 +467,9 @@ async def test_notify_zabbix_startup_catches_exceptions_gracefully():
     mock_redis.set = AsyncMock(return_value=True)
 
     mock_client = AsyncMock()
-    mock_client.send_startup_heartbeat = AsyncMock(side_effect=RuntimeError("Falha de conexão com o Zabbix"))
+    mock_client.send_startup_heartbeat = AsyncMock(
+        side_effect=RuntimeError("Falha de conexão com o Zabbix")
+    )
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=None)
 
@@ -545,7 +551,9 @@ async def test_lifespan_handles_worker_startup_exception_gracefully():
     )
     mock_engine = AsyncMock()
     failing_outbox_worker = MagicMock()
-    failing_outbox_worker.start = AsyncMock(side_effect=RuntimeError("Falha de conexão com PostgreSQL LISTEN"))
+    failing_outbox_worker.start = AsyncMock(
+        side_effect=RuntimeError("Falha de conexão com PostgreSQL LISTEN")
+    )
     failing_outbox_worker.stop = AsyncMock()
 
     with (
@@ -593,7 +601,11 @@ async def test_lifespan_cleans_up_database_when_redis_fails_during_startup():
     with (
         patch("src.core.web.lifespan.get_settings", return_value=settings),
         patch("src.core.web.lifespan.init_db", new_callable=AsyncMock, return_value=mock_engine),
-        patch("src.core.web.lifespan.init_redis", new_callable=AsyncMock, side_effect=ConnectionError("Redis down")),
+        patch(
+            "src.core.web.lifespan.init_redis",
+            new_callable=AsyncMock,
+            side_effect=ConnectionError("Redis down"),
+        ),
         patch("src.core.web.lifespan.close_db", mock_close_db),
         patch("src.core.web.lifespan.close_redis", mock_close_redis),
     ):

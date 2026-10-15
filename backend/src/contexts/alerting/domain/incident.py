@@ -81,12 +81,8 @@ class Incident(AggregateRoot):
         self.device_id = device_id
         self.organization_id = organization_id
         self.title = title
-        self.severity = (
-            severity.value if isinstance(severity, IncidentSeverity) else str(severity)
-        )
-        self.status = (
-            status if isinstance(status, IncidentStatus) else IncidentStatus(str(status))
-        )
+        self.severity = severity.value if isinstance(severity, IncidentSeverity) else str(severity)
+        self.status = status if isinstance(status, IncidentStatus) else IncidentStatus(str(status))
         self.glpi_ticket_id = glpi_ticket_id
         self.operator_id = operator_id
         self.root_cause = root_cause
@@ -134,9 +130,7 @@ class Incident(AggregateRoot):
             raise ValueError("A causa raiz é obrigatória para a resolução do incidente.")
 
         if self.status == IncidentStatus.RESOLVED:
-            raise IncidentAlreadyResolvedError(
-                "O incidente já se encontra resolvido."
-            )
+            raise IncidentAlreadyResolvedError("O incidente já se encontra resolvido.")
 
         res_time = _ensure_utc(resolved_at) or datetime.now(UTC)
         self.resolved_at = res_time

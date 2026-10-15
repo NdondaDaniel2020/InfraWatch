@@ -13,16 +13,17 @@ from src.core.database.unit_of_work import UnitOfWorkDep
 def get_device_repository(session: AsyncSession = Depends(get_db_session)) -> DeviceRepository:
     return DeviceRepository(session)
 
+
 def get_device_command_service(
     uow: UnitOfWorkDep,
     repository: DeviceRepository = Depends(get_device_repository),
 ) -> DeviceCommandService:
     return DeviceCommandService(uow, repository)
 
-def get_device_query_service(
-    session: AsyncSession = Depends(get_db_session)
-) -> DeviceQueryService:
+
+def get_device_query_service(session: AsyncSession = Depends(get_db_session)) -> DeviceQueryService:
     return DeviceQueryService(session)
+
 
 DeviceCommandServiceDep = Annotated[DeviceCommandService, Depends(get_device_command_service)]
 DeviceQueryServiceDep = Annotated[DeviceQueryService, Depends(get_device_query_service)]

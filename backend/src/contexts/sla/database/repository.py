@@ -62,7 +62,9 @@ class MaintenanceWindowRepository:
 
         if organization_id is not None:
             query = query.where(MaintenanceWindowModel.organization_id == organization_id)
-            count_query = count_query.where(MaintenanceWindowModel.organization_id == organization_id)
+            count_query = count_query.where(
+                MaintenanceWindowModel.organization_id == organization_id
+            )
 
         if device_id is not None:
             query = query.where(MaintenanceWindowModel.device_id == device_id)
@@ -75,11 +77,7 @@ class MaintenanceWindowRepository:
         total_res = await self._session.execute(count_query)
         total = total_res.scalar_one()
 
-        query = (
-            query.order_by(MaintenanceWindowModel.start_time.desc())
-            .limit(limit)
-            .offset(offset)
-        )
+        query = query.order_by(MaintenanceWindowModel.start_time.desc()).limit(limit).offset(offset)
         items_res = await self._session.execute(query)
         models = items_res.scalars().all()
 

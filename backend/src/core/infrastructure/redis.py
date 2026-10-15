@@ -76,7 +76,7 @@ async def ensure_redis() -> Redis | None:
 
     Use this in services that may run before lifespan (workers, CLI, tests).
     """
-    global _redis_client, _redis_init_task
+    global _redis_init_task
     if _redis_client is not None:
         return _redis_client
 
@@ -169,9 +169,7 @@ async def cache_delete_pattern(pattern: str) -> int:
 # --- Rate limiter helper (Redis-backed, atomic) ---
 
 
-async def rate_limit_check(
-    key: str, limit: int, window_seconds: int
-) -> int | None:
+async def rate_limit_check(key: str, limit: int, window_seconds: int) -> int | None:
     """Check and consume a rate limit slot using atomic Redis operations.
 
     Returns retry_after seconds if limit exceeded, else None.
@@ -212,9 +210,7 @@ SESSION_PREFIX = "session:"
 SESSION_TTL = 86400 * 30  # 30 days
 
 
-async def session_store(
-    session_id: str, data: dict[str, Any], ttl: int = SESSION_TTL
-) -> bool:
+async def session_store(session_id: str, data: dict[str, Any], ttl: int = SESSION_TTL) -> bool:
     """Store session data."""
     return await cache_set(f"{SESSION_PREFIX}{session_id}", data, ttl)
 

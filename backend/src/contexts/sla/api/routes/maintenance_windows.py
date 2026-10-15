@@ -30,7 +30,9 @@ READ_ROLES = [
 ]
 
 
-@router.get("", response_model=MaintenanceWindowListResponse, summary="Listar janelas de manutenção")
+@router.get(
+    "", response_model=MaintenanceWindowListResponse, summary="Listar janelas de manutenção"
+)
 async def list_maintenance_windows(
     user: CurrentUserDep,
     service: SlaServiceDep,
@@ -149,7 +151,9 @@ async def update_maintenance_window(
     try:
         updated = await service.update_maintenance_window(window_id, payload)
         if updated is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Janela não encontrada.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Janela não encontrada."
+            )
         return MaintenanceWindowResponse.from_domain(updated)
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err

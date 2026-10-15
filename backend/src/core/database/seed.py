@@ -649,7 +649,9 @@ async def seed_metrics(
         )
         count = recent_check.scalar_one_or_none() or 0
         if count > 0:
-            logger.info("Métricas recentes já presentes para %s. Pulando injeção sintética.", dev_name)
+            logger.info(
+                "Métricas recentes já presentes para %s. Pulando injeção sintética.", dev_name
+            )
             continue
 
         # Injeta 24 pontos históricos (1 por hora)
@@ -673,7 +675,9 @@ async def seed_metrics(
             inserted_count += 1
 
     if inserted_count > 0:
-        logger.info("Série temporal de métricas inserida: %d pontos históricos gerados.", inserted_count)
+        logger.info(
+            "Série temporal de métricas inserida: %d pontos históricos gerados.", inserted_count
+        )
     await session.flush()
 
 

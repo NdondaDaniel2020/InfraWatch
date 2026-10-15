@@ -216,9 +216,7 @@ async def test_incident_full_lifecycle(
         events = (
             (
                 await session.execute(
-                    select(OutboxEventModel).filter(
-                        OutboxEventModel.aggregate_type == "Incident"
-                    )
+                    select(OutboxEventModel).filter(OutboxEventModel.aggregate_type == "Incident")
                 )
             )
             .scalars()

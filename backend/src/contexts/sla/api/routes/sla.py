@@ -38,7 +38,9 @@ async def get_device_sla(
     session: DbSessionDep,
     start_period: Annotated[datetime | None, Query(description="Início do período (UTC)")] = None,
     end_period: Annotated[datetime | None, Query(description="Fim do período (UTC)")] = None,
-    target: Annotated[float, Query(ge=0.0, le=100.0, description="Meta contratual de SLA (%)")] = 99.50,
+    target: Annotated[
+        float, Query(ge=0.0, le=100.0, description="Meta contratual de SLA (%)")
+    ] = 99.50,
     _: object = Depends(require_roles(*READ_ROLES)),
 ) -> SlaReportResponse:
     """Calcula disponibilidade, MTTR e MTBF do ativo considerando isenção de janelas aprovadas."""

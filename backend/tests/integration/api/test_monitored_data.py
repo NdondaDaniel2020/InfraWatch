@@ -42,7 +42,9 @@ async def test_session_factory() -> AsyncGenerator[async_sessionmaker[AsyncSessi
 
     @event.listens_for(engine.sync_engine, "connect")
     def receive_connect(dbapi_connection, connection_record):
-        dbapi_connection.create_function("to_tsvector", 2, lambda lang, text: text, deterministic=True)
+        dbapi_connection.create_function(
+            "to_tsvector", 2, lambda lang, text: text, deterministic=True
+        )
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -84,7 +86,9 @@ def generate_token(role: str, org_id: str | None = None) -> str:
 @pytest.mark.asyncio
 async def test_monitored_routes_unauthorized_without_token() -> None:
     """Garante que as rotas REST de telemetria exigem autenticação válida."""
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         resp_list = await client.get("/api/v1/events/telemetry")
         assert resp_list.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -155,7 +159,9 @@ async def test_list_monitored_telemetry_with_metrics(
     token = generate_token("NOC_OPERATOR", str(org_id))
     headers = {"Authorization": f"Bearer {token}"}
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         # 1. Rota principal
         resp = await client.get("/api/v1/events/telemetry", headers=headers)
         assert resp.status_code == status.HTTP_200_OK
@@ -230,7 +236,9 @@ async def test_get_device_telemetry_detail_and_metrics_series(
     token = generate_token("NOC_OPERATOR", str(org_id))
     headers = {"Authorization": f"Bearer {token}"}
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         # Rota principal
         resp = await client.get(f"/api/v1/events/telemetry/{dev_id}", headers=headers)
         assert resp.status_code == status.HTTP_200_OK
@@ -280,7 +288,9 @@ async def test_telemetry_multitenancy_isolation(
     token_b = generate_token("CLIENT_VIEWER", str(org_b))
     headers_b = {"Authorization": f"Bearer {token_b}"}
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         # Usuário da org_b não enxerga dispositivo da org_a na listagem
         resp_list = await client.get("/api/v1/events/telemetry", headers=headers_b)
         assert resp_list.status_code == status.HTTP_200_OK

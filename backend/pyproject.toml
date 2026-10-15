@@ -64,6 +64,15 @@ packages = ["src"]
 target-version = "py312"
 line-length = 100
 
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.params.Depends",
+    "fastapi.Query",
+    "fastapi.params.Query",
+    "src.contexts.iam.api.dependencies.require_roles",
+]
+
 [tool.pytest.ini_options]
 pythonpath = "."
 asyncio_mode = "auto"

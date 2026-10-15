@@ -22,7 +22,7 @@ class DeviceListItem(BaseModel):
     is_paused: bool
     ip_address: str
     protocol: str
-    
+
     @classmethod
     def for_viewer(cls, device: "DeviceListItem") -> Self:
         """Factory que instancia um novo DeviceListItem com dados sensíveis mascarados para viewers."""

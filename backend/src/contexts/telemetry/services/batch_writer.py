@@ -64,20 +64,24 @@ class MetricsBatchWriter:
         }
 
         # Métrica principal: latência
-        self._buffer.append({
-            **base,
-            "metric_type": "latency_ms",
-            "value": result.latency_ms,
-            "packet_loss": result.packet_loss_pct,
-        })
+        self._buffer.append(
+            {
+                **base,
+                "metric_type": "latency_ms",
+                "value": result.latency_ms,
+                "packet_loss": result.packet_loss_pct,
+            }
+        )
 
         # Métrica de perda de pacotes
-        self._buffer.append({
-            **base,
-            "metric_type": "packet_loss",
-            "value": result.packet_loss_pct,
-            "packet_loss": result.packet_loss_pct,
-        })
+        self._buffer.append(
+            {
+                **base,
+                "metric_type": "packet_loss",
+                "value": result.packet_loss_pct,
+                "packet_loss": result.packet_loss_pct,
+            }
+        )
 
         # Métricas extras (TLS, status_code, CPU, memória, etc.)
         if result.extra_data:
@@ -87,12 +91,14 @@ class MetricsBatchWriter:
                         numeric_val = float(val)
                     except (ValueError, TypeError):
                         continue
-                    self._buffer.append({
-                        **base,
-                        "metric_type": key,
-                        "value": numeric_val,
-                        "packet_loss": 0.0,
-                    })
+                    self._buffer.append(
+                        {
+                            **base,
+                            "metric_type": key,
+                            "value": numeric_val,
+                            "packet_loss": 0.0,
+                        }
+                    )
 
         # Dispara flush se atingiu o tamanho do lote
         if len(self._buffer) >= self._batch_size:
@@ -127,12 +133,15 @@ class MetricsBatchWriter:
             elapsed_ms = (time.perf_counter() - start) * 1000
             logger.info(
                 "Flush concluído: %d métricas inseridas em %.1fms",
-                len(batch), elapsed_ms,
+                len(batch),
+                elapsed_ms,
             )
             return len(batch)
 
         except Exception:
-            logger.exception("Erro ao descarregar lote de %d métricas. Re-enfileirando.", len(batch))
+            logger.exception(
+                "Erro ao descarregar lote de %d métricas. Re-enfileirando.", len(batch)
+            )
             # Re-enfileira para não perder dados
             async with self._lock:
                 self._buffer.extendleft(reversed(batch))
@@ -142,7 +151,8 @@ class MetricsBatchWriter:
         """Loop contínuo que descarrega o buffer por tempo ou volume."""
         logger.info(
             "Iniciando flush loop (batch_size=%d, interval=%.1fs)",
-            self._batch_size, self._flush_interval,
+            self._batch_size,
+            self._flush_interval,
         )
 
         while stop_event is None or not stop_event.is_set():

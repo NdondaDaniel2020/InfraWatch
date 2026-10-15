@@ -81,7 +81,6 @@ class UserRepository:
         )
         return await self.save(user)
 
-
     async def list_by_organization(
         self,
         organization_id: UUID | None = None,

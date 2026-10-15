@@ -28,4 +28,3 @@ __all__ = [
     "register_exception_handlers",
     "setup_middlewares",
 ]
-

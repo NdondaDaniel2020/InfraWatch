@@ -138,6 +138,8 @@ class ZabbixHostMetrics(BaseModel):
                 self.disk_utilization_pct,
             )
         )
+
+
 __all__ = [
     "JsonRpcError",
     "JsonRpcRequest",
@@ -146,5 +148,3 @@ __all__ = [
     "ZabbixHostMetrics",
     "ZabbixItem",
 ]
-
-

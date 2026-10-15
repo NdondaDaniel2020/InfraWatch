@@ -136,14 +136,10 @@ class FailureEvaluator:
             else self.current_status
         )
         c_failures = (
-            self.consecutive_failures
-            if consecutive_failures is None
-            else consecutive_failures
+            self.consecutive_failures if consecutive_failures is None else consecutive_failures
         )
         c_successes = (
-            self.consecutive_successes
-            if consecutive_successes is None
-            else consecutive_successes
+            self.consecutive_successes if consecutive_successes is None else consecutive_successes
         )
 
         if active_status == DeviceHealthStatus.MAINTENANCE:
@@ -233,10 +229,7 @@ class FailureEvaluator:
         if packet_loss_pct >= 100.0:
             return False
         is_loss_degraded = self.degraded_packet_loss_min <= packet_loss_pct < 100.0
-        is_latency_degraded = (
-            baseline > 0
-            and latency_ms > (baseline * self.latency_spike_factor)
-        )
+        is_latency_degraded = baseline > 0 and latency_ms > (baseline * self.latency_spike_factor)
         return is_loss_degraded or is_latency_degraded
 
     def _handle_total_failure(
@@ -266,9 +259,7 @@ class FailureEvaluator:
             )
 
         if new_failures >= self.retry_threshold:
-            target_status = self._state_machine.transition(
-                active_status, DeviceHealthStatus.DOWN
-            )
+            target_status = self._state_machine.transition(active_status, DeviceHealthStatus.DOWN)
             reason = (
                 f"Ativo indisponível: {new_failures} falhas consecutivas com "
                 f"{packet_loss_pct:.1f}% de perda"
@@ -419,9 +410,7 @@ class FailureEvaluator:
             )
 
         if new_successes >= self.recovery_threshold:
-            target_status = self._state_machine.transition(
-                active_status, DeviceHealthStatus.UP
-            )
+            target_status = self._state_machine.transition(active_status, DeviceHealthStatus.UP)
             reason = f"Ativo recuperado para UP após {new_successes} probes saudáveis consecutivos"
             event = IncidentResolvedEvent(
                 device_id=device_id or generate_uuid7(),

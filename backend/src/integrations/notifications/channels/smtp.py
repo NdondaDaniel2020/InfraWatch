@@ -60,9 +60,7 @@ class SmtpNotificationChannel:
         self.smtp_host = smtp_host if smtp_host is not None else settings.SMTP_HOST
         self.smtp_port = smtp_port if smtp_port is not None else settings.SMTP_PORT
         self.smtp_user = smtp_user if smtp_user is not None else settings.SMTP_USER
-        self.smtp_password = (
-            smtp_password if smtp_password is not None else settings.SMTP_PASSWORD
-        )
+        self.smtp_password = smtp_password if smtp_password is not None else settings.SMTP_PASSWORD
         self.smtp_from = smtp_from if smtp_from is not None else settings.SMTP_FROM
         self.smtp_tls = smtp_tls if smtp_tls is not None else settings.SMTP_TLS
         self.default_recipient = (
