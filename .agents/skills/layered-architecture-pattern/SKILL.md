@@ -287,9 +287,30 @@ def create_app() -> FastAPI:
     app.include_router(telemetry_router)
 ```
 
-### 3. Dependências Centrais da Camada Web (`src/core/web/dependencies.py`)
-- Tipos de injeção transversais do FastAPI (`DbSessionDep`, `UnitOfWorkDep`, `PaginationParamsDep`) pertencem formalmente à camada web (`src/core/web/dependencies.py` e reexportados em `src/core/web/__init__.py`).
-- Camadas puras de banco (`core/database/`) não devem se acoplar diretamente a frameworks web HTTP.
+### 3. Pacote Modular de Dependências Centrais da Camada Web (`src/core/web/dependencies/`)
+As dependências transversais de framework FastAPI devem residir exclusivamente dentro do subpacote `src/core/web/dependencies/`:
+
+```text
+src/core/web/dependencies/
+├── database.py         # DbSessionDep, UnitOfWorkDep (sessão e transações ACID)
+├── infrastructure.py   # RedisDep, EventBusDep (cache, idempotência e mensageria)
+├── pagination.py       # PaginationParamsDep (page, page_size)
+└── __init__.py         # Re-export público e limpo de todas as dependências transversais
+```
+
+- **Isolamento de persistência:** As camadas de banco (`core/database/session.py`, `unit_of_work.py`) não conhecem FastAPI nem `Depends`. Elas são infraestrutura pura de SQLAlchemy.
+- **Injeção de infraestrutura:** Endpoints ou fábricas de serviços que precisem de Redis ou EventBus consomem `RedisDep` e `EventBusDep` de `src.core.web.dependencies`.
+
+---
+
+### 4. Padrão Fast-Path Ingestion Service (Webhooks e Ingestão Reativa)
+Mesmo em endpoints de altíssimo throughput que não realizam queries SQL (ex: webhooks externos do Zabbix, GLPI ou PagerDuty):
+
+* ❌ **VETADO (Smart Controller com regras e Redis inline):**
+  Nunca colocar verificação de idempotência no Redis, tradução de severidades e publicação no barramento dentro da função da rota.
+* ✅ **CORRETO (Thin Controller + Fast-Path Service):**
+  1. Criar um Application Service dedicado no contexto (ex: `ZabbixWebhookService` em `services/zabbix_webhook_service.py`) recebendo `Redis` e `ResilientEventBus` via injeção no construtor.
+  2. A rota HTTP atua como **Thin Controller de 3 a 5 linhas**, recebendo apenas o payload validado, a autenticação e o `ZabbixWebhookServiceDep`, delegando a execução para `await service.process_webhook(payload)`.
 
 ---
 
@@ -301,10 +322,12 @@ Antes de finalizar qualquer tarefa ou abrir Pull Request no InfraWatch, execute 
    - O contexto segue a estrutura canônica: `api/dependencies/{services.py, auth.py, __init__.py}` e `api/router.py`.
    - O `src/main.py` importa apenas o roteador agregado (`src.contexts.<context>.api.router`).
    - Não existem arquivos soltos `dependencies.py` ou nomes redundantes `dependencies/dependencies.py`.
-2. [ ] **Routers/Controllers:**
+2. [ ] **Dependências Centrais da Camada Web:**
+   - Dependências transversais do FastAPI (`DbSessionDep`, `UnitOfWorkDep`, `RedisDep`, `EventBusDep`, `PaginationParamsDep`) residem em `src/core/web/dependencies/`.
+3. [ ] **Routers/Controllers:**
    - Nenhum router importa `select`, `insert`, `update` ou `delete`.
    - Nenhum router recebe `DbSessionDep` ou `AsyncSession` diretamente.
-   - Nenhum router executa `session.commit()` ou lógica de banco.
+   - Nenhum router executa `session.commit()`, lógica de idempotência em Redis ou publicação em barramento diretamente.
    - Todas as regras de negócio foram delegadas para um `*Service`.
 3. [ ] **Application Services:**
    - Nenhum service importa `HTTPException`, `Request`, `Response`, `Depends` ou `Annotated[..., Depends]`.
