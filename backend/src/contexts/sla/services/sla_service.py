@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import csv
-import io
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -193,76 +191,35 @@ class SlaService:
             offset=offset,
         )
 
-    async def export_device_sla_csv(
+    async def get_device_with_sla(
         self,
         device_id: UUID,
-        device_name: str,
-        device_category: str,
-        ip_address: str,
         start_period: datetime | None = None,
         end_period: datetime | None = None,
         sla_target: float = 99.50,
-    ) -> str:
-        """Gera conteúdo CSV formatado do relatório analítico de SLA de um dispositivo."""
+    ) -> tuple[DeviceModel, SlaReportResponse]:
+        """Recupera o dispositivo e calcula seu relatório analítico de SLA."""
+        res = await self._session.execute(select(DeviceModel).where(DeviceModel.id == device_id))
+        device = res.scalar_one_or_none()
+        if device is None:
+            raise ValueError(f"Dispositivo com id '{device_id}' não encontrado.")
+
         report = await self.calculate_device_sla(
             device_id=device_id,
             start_period=start_period,
             end_period=end_period,
             sla_target=sla_target,
         )
+        return device, report
 
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(
-            [
-                "Device ID",
-                "Device Name",
-                "Category",
-                "IP Address",
-                "Start Period (UTC)",
-                "End Period (UTC)",
-                "Total Period (Hours)",
-                "Unplanned Downtime (Minutes)",
-                "Exempted Downtime (Minutes)",
-                "Uptime (%)",
-                "SLA Target (%)",
-                "SLA Met",
-                "MTTR (Minutes)",
-                "MTBF (Hours)",
-                "Total Incidents",
-                "Exempted Incidents",
-            ]
-        )
-        writer.writerow(
-            [
-                str(device_id),
-                device_name,
-                device_category,
-                ip_address,
-                report.start_period.isoformat(),
-                report.end_period.isoformat(),
-                f"{report.total_period_hours:.2f}",
-                f"{report.unplanned_downtime_minutes:.2f}",
-                f"{report.exempted_downtime_minutes:.2f}",
-                f"{report.uptime_percentage:.2f}",
-                f"{report.sla_target:.2f}",
-                "SIM" if report.sla_met else "NAO",
-                f"{report.mttr_minutes:.2f}",
-                f"{report.mtbf_hours:.2f}",
-                report.incidents_count,
-                report.exempted_incidents_count,
-            ]
-        )
-        return output.getvalue()
-
-    async def export_organization_sla_csv(
+    async def get_organization_sla_reports(
         self,
         organization_id: UUID,
         start_period: datetime | None = None,
         end_period: datetime | None = None,
         default_target: float = 99.50,
-    ) -> str:
-        """Gera conteúdo CSV consolidado com os relatórios de SLA de todos os ativos da organização."""
+    ) -> list[tuple[DeviceModel, SlaReportResponse]]:
+        """Calcula o relatório analítico de SLA para todos os dispositivos de uma organização."""
         stmt = (
             select(DeviceModel)
             .where(DeviceModel.organization_id == organization_id)
@@ -271,29 +228,7 @@ class SlaService:
         res = await self._session.execute(stmt)
         devices = res.scalars().all()
 
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(
-            [
-                "Device ID",
-                "Device Name",
-                "Category",
-                "IP Address",
-                "Start Period (UTC)",
-                "End Period (UTC)",
-                "Total Period (Hours)",
-                "Unplanned Downtime (Minutes)",
-                "Exempted Downtime (Minutes)",
-                "Uptime (%)",
-                "SLA Target (%)",
-                "SLA Met",
-                "MTTR (Minutes)",
-                "MTBF (Hours)",
-                "Total Incidents",
-                "Exempted Incidents",
-            ]
-        )
-
+        results: list[tuple[DeviceModel, SlaReportResponse]] = []
         for dev in devices:
             target = getattr(dev, "sla_target", None) or default_target
             report = await self.calculate_device_sla(
@@ -302,25 +237,6 @@ class SlaService:
                 end_period=end_period,
                 sla_target=float(target),
             )
-            writer.writerow(
-                [
-                    str(dev.id),
-                    dev.name,
-                    dev.category,
-                    dev.ip_address,
-                    report.start_period.isoformat(),
-                    report.end_period.isoformat(),
-                    f"{report.total_period_hours:.2f}",
-                    f"{report.unplanned_downtime_minutes:.2f}",
-                    f"{report.exempted_downtime_minutes:.2f}",
-                    f"{report.uptime_percentage:.2f}",
-                    f"{report.sla_target:.2f}",
-                    "SIM" if report.sla_met else "NAO",
-                    f"{report.mttr_minutes:.2f}",
-                    f"{report.mtbf_hours:.2f}",
-                    report.incidents_count,
-                    report.exempted_incidents_count,
-                ]
-            )
+            results.append((dev, report))
 
-        return output.getvalue()
+        return results
