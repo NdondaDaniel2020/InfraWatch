@@ -16,7 +16,7 @@ from src.contexts.inventory.database.models import DeviceModel
 from src.contexts.sla.database.models import MaintenanceWindowModel
 from src.contexts.telemetry.database.models import MetricModel
 from src.core.database.base_model import Base
-from src.core.database.seed import seed_all
+from src.core.database.seed import DEMO_DEVICES, seed_all
 
 
 @pytest.mark.asyncio
@@ -54,7 +54,7 @@ async def test_seed_all_creates_and_is_idempotent() -> None:
 
             # Dispositivos
             devices = (await session.execute(select(DeviceModel))).scalars().all()
-            assert len(devices) == 13
+            assert len(devices) == len(DEMO_DEVICES)
 
             # Incidentes
             incidents = (await session.execute(select(IncidentModel))).scalars().all()
@@ -84,7 +84,7 @@ async def test_seed_all_creates_and_is_idempotent() -> None:
             assert len(users_after) == 3
 
             devices_after = (await session.execute(select(DeviceModel))).scalars().all()
-            assert len(devices_after) == 13
+            assert len(devices_after) == len(DEMO_DEVICES)
 
             incidents_after = (await session.execute(select(IncidentModel))).scalars().all()
             assert len(incidents_after) == 4

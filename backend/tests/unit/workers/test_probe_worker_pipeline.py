@@ -225,6 +225,14 @@ class TestProbeWorkerPipeline:
         assert target.status == "UP"
 
     @pytest.mark.asyncio
+    async def test_get_evaluator_initializes_with_target_status(
+        self, worker: ProbeWorkerDaemon, sample_target: ProbeTarget
+    ) -> None:
+        """get_evaluator inicializa com status operacional herdado do target."""
+        evaluator = worker.get_evaluator(sample_target.device_id, initial_status="DOWN")
+        assert evaluator.current_status.value == "DOWN"
+
+    @pytest.mark.asyncio
     async def test_stop_signals_graceful_shutdown(
         self, worker: ProbeWorkerDaemon, mock_batch_writer: MagicMock
     ) -> None:
