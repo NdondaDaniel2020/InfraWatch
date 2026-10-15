@@ -163,4 +163,10 @@ class Incident(AggregateRoot):
 
     def set_glpi_ticket_id(self, ticket_id: int) -> None:
         """Vincula o ticket criado no GLPI ao incidente."""
+        if self.glpi_ticket_id is not None:
+            raise ValueError(
+                f"Incidente {self.id} já possui chamado GLPI associado: #{self.glpi_ticket_id}."
+            )
         self.glpi_ticket_id = ticket_id
+
+    associate_glpi_ticket = set_glpi_ticket_id
