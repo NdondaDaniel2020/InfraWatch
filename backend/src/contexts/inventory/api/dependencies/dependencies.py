@@ -1,29 +1,22 @@
-from typing import Annotated
+"""Fachada retrocompatível de dependências do inventário.
 
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+DEPRECATED: Prefira importar diretamente de `src.contexts.inventory.api.dependencies`.
+"""
 
-from src.contexts.inventory.repositories.device_repository import DeviceRepository
-from src.contexts.inventory.services.device_command_service import DeviceCommandService
-from src.contexts.inventory.services.device_query_service import DeviceQueryService
-from src.core.database.session import get_db_session
-from src.core.database.unit_of_work import UnitOfWorkDep
+from __future__ import annotations
 
+from src.contexts.inventory.api.dependencies.services import (
+    DeviceCommandServiceDep,
+    DeviceQueryServiceDep,
+    get_device_command_service,
+    get_device_query_service,
+    get_device_repository,
+)
 
-def get_device_repository(session: AsyncSession = Depends(get_db_session)) -> DeviceRepository:
-    return DeviceRepository(session)
-
-
-def get_device_command_service(
-    uow: UnitOfWorkDep,
-    repository: DeviceRepository = Depends(get_device_repository),
-) -> DeviceCommandService:
-    return DeviceCommandService(uow, repository)
-
-
-def get_device_query_service(session: AsyncSession = Depends(get_db_session)) -> DeviceQueryService:
-    return DeviceQueryService(session)
-
-
-DeviceCommandServiceDep = Annotated[DeviceCommandService, Depends(get_device_command_service)]
-DeviceQueryServiceDep = Annotated[DeviceQueryService, Depends(get_device_query_service)]
+__all__ = [
+    "DeviceCommandServiceDep",
+    "DeviceQueryServiceDep",
+    "get_device_command_service",
+    "get_device_query_service",
+    "get_device_repository",
+]
