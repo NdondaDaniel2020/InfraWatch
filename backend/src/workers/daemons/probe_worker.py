@@ -74,10 +74,13 @@ class ProbeWorkerDaemon:
 
         self._stop_event = asyncio.Event()
 
-    def get_evaluator(self, device_id: UUID) -> FailureEvaluator:
+    def get_evaluator(self, device_id: UUID, initial_status: str | None = None) -> FailureEvaluator:
         """Recupera ou instancia um FailureEvaluator dedicado ao dispositivo."""
         if device_id not in self._evaluators:
-            self._evaluators[device_id] = FailureEvaluator()
+            evaluator = FailureEvaluator()
+            if initial_status:
+                evaluator.current_status = evaluator._state_machine._coerce_status(initial_status)
+            self._evaluators[device_id] = evaluator
         return self._evaluators[device_id]
 
     def stop(self) -> None:
@@ -156,7 +159,7 @@ class ProbeWorkerDaemon:
             self.batch_writer.enqueue(result, organization_id=target.organization_id)
 
             # 3. Avalia o resultado na máquina de estados / motor analítico
-            evaluator = self.get_evaluator(target.device_id)
+            evaluator = self.get_evaluator(target.device_id, initial_status=target.status)
             eval_result = evaluator.evaluate(
                 latency_ms=result.latency_ms,
                 packet_loss_pct=result.packet_loss_pct,
@@ -169,12 +172,18 @@ class ProbeWorkerDaemon:
             )
 
             # 4. Atualiza o status em RAM e no PostgreSQL se houver transição
-            if eval_result.status_changed:
+            # ou se o status em memória/banco estiver divergente do status avaliado
+            if eval_result.status_changed or target.status != eval_result.status.value:
+                prev_status_str = (
+                    eval_result.previous_status.value
+                    if eval_result.status_changed
+                    else target.status
+                )
                 logger.info(
                     "Transição de saúde no ativo '%s' (%s): %s -> %s (Motivo: %s)",
                     target.name,
                     target.device_id,
-                    eval_result.previous_status.value,
+                    prev_status_str,
                     eval_result.status.value,
                     eval_result.reason,
                 )

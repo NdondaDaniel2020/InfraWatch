@@ -12,6 +12,7 @@ Executa carga idempotente para inicialização de desenvolvimento, testes e NOC:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -167,6 +168,87 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "port": 0,
         "protocol": "docker",
         "category": "CONTAINER",
+        "interval_seconds": 10,
+        "thresholds": {"max_latency_ms": 100.0, "max_loss_percent": 0.0},
+    },
+    # === Dispositivos Físicos da Rede Local (Teste ICMP) ===
+    {
+        "name": "spot",
+        "hostname": "spot",
+        "ip_address": "192.168.8.48",
+        "port": 0,
+        "protocol": "icmp",
+        "category": "SERVER",
+        "interval_seconds": 10,
+        "thresholds": {"max_latency_ms": 20.0, "max_loss_percent": 0.0},
+    },
+    {
+        "name": "Play 5",
+        "hostname": "play-5",
+        "ip_address": "192.168.8.14",
+        "port": 0,
+        "protocol": "icmp",
+        "category": "SERVER",
+        "interval_seconds": 10,
+        "thresholds": {"max_latency_ms": 30.0, "max_loss_percent": 0.0},
+    },
+    {
+        "name": "vivo-Y55A",
+        "hostname": "vivo-y55a",
+        "ip_address": "192.168.8.18",
+        "port": 0,
+        "protocol": "icmp",
+        "category": "SERVER",
+        "interval_seconds": 10,
+        "thresholds": {"max_latency_ms": 50.0, "max_loss_percent": 0.0},
+    },
+    {
+        "name": "Abraao-Matondo",
+        "hostname": "abraao-matondo",
+        "ip_address": "192.168.8.252",
+        "port": 0,
+        "protocol": "icmp",
+        "category": "SERVER",
+        "interval_seconds": 10,
+        "thresholds": {"max_latency_ms": 50.0, "max_loss_percent": 0.0},
+    },
+    {
+        "name": "iPhone",
+        "hostname": "iphone",
+        "ip_address": "192.168.8.94",
+        "port": 0,
+        "protocol": "icmp",
+        "category": "SERVER",
+        "interval_seconds": 10,
+        "thresholds": {"max_latency_ms": 50.0, "max_loss_percent": 0.0},
+    },
+    {
+        "name": "DESKTOP-SNUOOM3",
+        "hostname": "desktop-snuoom3",
+        "ip_address": "192.168.8.75",
+        "port": 0,
+        "protocol": "icmp",
+        "category": "SERVER",
+        "interval_seconds": 10,
+        "thresholds": {"max_latency_ms": 50.0, "max_loss_percent": 0.0},
+    },
+    {
+        "name": "Casa-estrela",
+        "hostname": "casa-estrela",
+        "ip_address": "192.168.8.211",
+        "port": 0,
+        "protocol": "icmp",
+        "category": "SERVER",
+        "interval_seconds": 10,
+        "thresholds": {"max_latency_ms": 50.0, "max_loss_percent": 0.0},
+    },
+    {
+        "name": "NdDaniel",
+        "hostname": "nddaniel",
+        "ip_address": "192.168.8.147",
+        "port": 0,
+        "protocol": "icmp",
+        "category": "SERVER",
         "interval_seconds": 10,
         "thresholds": {"max_latency_ms": 100.0, "max_loss_percent": 0.0},
     },
@@ -625,3 +707,7 @@ async def seed_all() -> None:
 
         await session.commit()
         logger.info("Seed completo finalizado com sucesso e idempotência garantida!")
+
+
+if __name__ == "__main__":
+    asyncio.run(seed_all())
