@@ -104,6 +104,7 @@ class TokenCleanupWorker:
                 return None
 
             logger.info("Lock distribuído adquirido. Iniciando expurgo de tokens obsoletos...")
+            deleted = 0
             async with self.session_factory() as session, session.begin():
                 deleted = await self.cleanup_expired_tokens(session)
 

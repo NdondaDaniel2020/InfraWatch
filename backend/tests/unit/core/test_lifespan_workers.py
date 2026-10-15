@@ -109,7 +109,7 @@ async def test_outbox_dispatcher_relays_to_sse_when_target_user_present():
 
     fake_broadcaster = AsyncMock()
     mock_cleanup_worker = AsyncMock()
-    mock_cleanup_worker.start = AsyncMock()
+    mock_cleanup_worker.start = MagicMock()
     mock_cleanup_worker.stop = AsyncMock()
 
     with (

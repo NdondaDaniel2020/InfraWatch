@@ -1,6 +1,6 @@
 """Testes unitários dos executores assíncronos de rede (Probers)."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import httpx
@@ -132,6 +132,7 @@ async def test_tcp_prober_success(dummy_target):
 
     mock_reader = AsyncMock()
     mock_writer = AsyncMock()
+    mock_writer.close = MagicMock()
 
     with patch("asyncio.open_connection", return_value=(mock_reader, mock_writer)):
         result = await prober.probe(dummy_target)
@@ -155,6 +156,11 @@ async def test_tcp_prober_refused(dummy_target):
 async def test_tcp_prober_timeout(dummy_target):
     prober = TcpProber()
 
-    with patch("asyncio.wait_for", side_effect=TimeoutError()):
+    async def _mock_wait_for(coro, timeout=None):
+        if hasattr(coro, "close"):
+            coro.close()
+        raise TimeoutError()
+
+    with patch("asyncio.wait_for", side_effect=_mock_wait_for):
         result = await prober.probe(dummy_target)
         assert result.status == "TIMEOUT"
