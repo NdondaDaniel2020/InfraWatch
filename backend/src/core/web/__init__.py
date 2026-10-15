@@ -1,6 +1,10 @@
 """Módulo Web transversal (Middlewares, Error Handlers, Device, Lifespan e Paginação)."""
 
 from src.core.web.client_info import extract_client_ip, parse_user_agent
+from src.core.web.dependencies import (
+    DbSessionDep,
+    UnitOfWorkDep,
+)
 from src.core.web.error_handlers import register_exception_handlers
 from src.core.web.lifespan import lifespan
 from src.core.web.middleware import setup_middlewares
@@ -18,9 +22,11 @@ __all__ = [
     "PAGE_DEFAULT",
     "PAGE_SIZE_DEFAULT",
     "PAGE_SIZE_MAX",
+    "DbSessionDep",
     "PaginatedResponse",
     "PaginationParams",
     "PaginationParamsDep",
+    "UnitOfWorkDep",
     "extract_client_ip",
     "get_pagination_params",
     "lifespan",
