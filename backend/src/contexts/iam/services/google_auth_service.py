@@ -15,8 +15,8 @@ import httpx
 import jwt as pyjwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.iam.domain.enums import AuditAction, UserRole
 from src.contexts.iam.database.models import UserModel
+from src.contexts.iam.domain.enums import AuditAction, UserRole
 from src.contexts.iam.repositories.user_repository import UserRepository
 from src.contexts.iam.schemas.google import GoogleLoginRequest
 from src.contexts.iam.services.audit_service import AuditService

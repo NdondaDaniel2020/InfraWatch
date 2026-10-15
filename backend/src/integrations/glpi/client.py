@@ -13,7 +13,7 @@ Resiliência embutida:
 
 import asyncio
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -74,7 +74,7 @@ class GlpiClient:
         await self._init_session()
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         try:
             await self._kill_session()
         finally:

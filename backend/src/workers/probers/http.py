@@ -74,7 +74,7 @@ class HttpProber(BaseProber):
                 status="DOWN",
                 latency_ms=0.0,
                 packet_loss_pct=100.0,
-                error_message=f"Falha de conexão: {str(e)}"
+                error_message=f"Falha de conexão: {e!s}"
             )
 
     async def _get_cert_validity_days(self, host: str, port: int, timeout: float) -> int | None:

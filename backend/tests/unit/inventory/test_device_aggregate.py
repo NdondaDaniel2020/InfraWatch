@@ -4,19 +4,18 @@ Valida rejeição de IPs inválidos, portas fora de intervalo,
 transições de estado controladas e disparo de eventos.
 """
 
-import pytest
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
+
+import pytest
 
 from src.contexts.inventory.domain.aggregate import Device
 from src.contexts.inventory.domain.value_objects import (
     DeviceCategory,
-    DeviceStatus,
     IPAddress,
     NetworkPort,
     ThresholdConfig,
 )
-
 
 # ──────────────────── Value Object: IPAddress ────────────────────
 

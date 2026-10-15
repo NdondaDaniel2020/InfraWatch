@@ -22,8 +22,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import StaticPool
 
 from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
-from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.database.models import NotificationModel, UserModel
+from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.repositories.notification_repository import NotificationRepository
 from src.contexts.iam.security.tokens import create_access_token
 from src.contexts.iam.services.notification_service import NotificationService

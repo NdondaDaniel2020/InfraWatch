@@ -7,7 +7,6 @@ ou privilégios root.
 
 import asyncio
 import re
-from typing import Optional
 
 from src.workers.probers.base import BaseProber, ProbeResult
 from src.workers.scheduler.in_memory_inventory import ProbeTarget
@@ -58,10 +57,10 @@ class IcmpProber(BaseProber):
                 status="ERROR",
                 latency_ms=0.0,
                 packet_loss_pct=100.0,
-                error_message=f"Falha ao executar ping: {str(e)}",
+                error_message=f"Falha ao executar ping: {e!s}",
             )
 
-    def _parse_ping_output(self, target: ProbeTarget, output: str, returncode: Optional[int]) -> ProbeResult:
+    def _parse_ping_output(self, target: ProbeTarget, output: str, returncode: int | None) -> ProbeResult:
         """Analisa a saída padrão do comando ping."""
         # Se 100% loss ou erro
         if returncode != 0 and "100% packet loss" in output or "100.0% packet loss" in output:

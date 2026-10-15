@@ -7,11 +7,9 @@ Create Date: 2026-10-03 14:00:00.000000
 Cria a tabela pai ``metrics`` com PARTITION BY RANGE (timestamp)
 e as partições iniciais para os meses correntes e seguinte.
 """
-import calendar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from alembic import op
-
 
 # revision identifiers, used by Alembic.
 revision = '009_create_partitioned_metrics'
@@ -70,7 +68,7 @@ def upgrade() -> None:
 
     if not is_sqlite:
         # 3. Criar partições para o mês corrente e o próximo
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         year, month = now.year, now.month
         for _ in range(2):
             name = _partition_name(year, month)

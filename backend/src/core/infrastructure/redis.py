@@ -11,7 +11,7 @@ import json
 import logging
 import re
 from contextlib import asynccontextmanager
-from typing import Any, Optional
+from typing import Any
 
 import redis.asyncio as redis
 from redis.asyncio import Redis
@@ -29,17 +29,17 @@ def _sanitize_redis_url(url: str) -> str:
     return _REDIS_URL_PASSWORD_PATTERN.sub(":***@", url)
 
 
-_redis_client: Optional[Redis] = None
+_redis_client: Redis | None = None
 _redis_init_lock = asyncio.Lock()
-_redis_init_task: Optional[asyncio.Task] = None
+_redis_init_task: asyncio.Task | None = None
 
 
-def get_redis_client() -> Optional[Redis]:
+def get_redis_client() -> Redis | None:
     """Return the global Redis client, or None if not initialized."""
     return _redis_client
 
 
-async def init_redis() -> Optional[Redis]:
+async def init_redis() -> Redis | None:
     """Initialize Redis connection from settings.
 
     Called at startup (lifespan) for fail-fast behavior.
@@ -71,7 +71,7 @@ async def init_redis() -> Optional[Redis]:
         return None
 
 
-async def ensure_redis() -> Optional[Redis]:
+async def ensure_redis() -> Redis | None:
     """Lazily initialize Redis on first use (thread-safe).
 
     Use this in services that may run before lifespan (workers, CLI, tests).
@@ -171,7 +171,7 @@ async def cache_delete_pattern(pattern: str) -> int:
 
 async def rate_limit_check(
     key: str, limit: int, window_seconds: int
-) -> Optional[int]:
+) -> int | None:
     """Check and consume a rate limit slot using atomic Redis operations.
 
     Returns retry_after seconds if limit exceeded, else None.
@@ -219,7 +219,7 @@ async def session_store(
     return await cache_set(f"{SESSION_PREFIX}{session_id}", data, ttl)
 
 
-async def session_get(session_id: str) -> Optional[dict[str, Any]]:
+async def session_get(session_id: str) -> dict[str, Any] | None:
     """Retrieve session data."""
     return await cache_get(f"{SESSION_PREFIX}{session_id}")
 

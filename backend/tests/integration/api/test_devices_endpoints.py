@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from uuid import uuid4
+
 import httpx
 import pytest
 from fastapi import status
@@ -10,11 +11,11 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from src.main import app
+from src.contexts.iam.security.tokens import create_access_token
 from src.core.database.base_model import Base
 from src.core.database.session import get_db_session
-from src.contexts.inventory.database.models import DeviceModel
-from src.contexts.iam.security.tokens import create_access_token
+from src.main import app
+
 
 @pytest.fixture
 async def test_session_factory() -> AsyncGenerator[async_sessionmaker[AsyncSession], None]:

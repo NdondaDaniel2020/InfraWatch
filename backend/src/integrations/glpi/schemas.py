@@ -7,12 +7,9 @@ Define os modelos de entrada e saída para os endpoints utilizados:
 - PUT /Ticket/{id} (encerramento)
 """
 
-from datetime import datetime
 from enum import IntEnum
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
 # Enums GLPI

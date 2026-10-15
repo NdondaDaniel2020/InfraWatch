@@ -1,6 +1,5 @@
 """Testes unitários do cronograma em memória (InMemorySchedule)."""
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 

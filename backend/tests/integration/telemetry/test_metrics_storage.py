@@ -5,11 +5,10 @@ usando SQLite in-memory (sem particionamento — feature exclusiva PostgreSQL).
 """
 
 from collections.abc import AsyncGenerator
-from datetime import datetime, UTC
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select, func, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,

@@ -1,4 +1,6 @@
 from collections.abc import AsyncGenerator
+from uuid import uuid4
+
 import pytest
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -6,11 +8,11 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.pool import StaticPool
-from uuid import uuid4
 
-from src.core.database.base_model import Base
 from src.contexts.inventory.database.models import DeviceModel
 from src.contexts.inventory.repositories.device_repository import DeviceRepository
+from src.core.database.base_model import Base
+
 
 @pytest.fixture
 async def test_session_factory() -> AsyncGenerator[async_sessionmaker[AsyncSession], None]:

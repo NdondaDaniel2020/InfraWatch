@@ -64,5 +64,5 @@ class TcpProber(BaseProber):
                 status="ERROR",
                 latency_ms=0.0,
                 packet_loss_pct=100.0,
-                error_message=f"Falha ao estabelecer socket: {str(e)}"
+                error_message=f"Falha ao estabelecer socket: {e!s}"
             )

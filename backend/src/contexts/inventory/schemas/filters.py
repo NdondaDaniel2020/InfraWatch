@@ -1,9 +1,9 @@
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class DeviceFilters(BaseModel):
-    status: Optional[str] = Field(None, description="Filtrar por status atual (UP, DEGRADED, DOWN, MAINTENANCE, PAUSED)")
-    category: Optional[str] = Field(None, description="Filtrar por categoria do equipamento")
-    protocol: Optional[str] = Field(None, description="Filtrar por protocolo de monitoramento")
-    is_paused: Optional[bool] = Field(None, description="Filtrar dispositivos pausados")
+    status: str | None = Field(None, description="Filtrar por status atual (UP, DEGRADED, DOWN, MAINTENANCE, PAUSED)")
+    category: str | None = Field(None, description="Filtrar por categoria do equipamento")
+    protocol: str | None = Field(None, description="Filtrar por protocolo de monitoramento")
+    is_paused: bool | None = Field(None, description="Filtrar dispositivos pausados")

@@ -7,7 +7,6 @@ Create Date: 2026-10-03 00:00:00.000000
 """
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision = '007_add_outbox_notify_trigger'
 down_revision = '006_create_mfa_and_token_tables'

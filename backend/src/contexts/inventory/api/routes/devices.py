@@ -14,6 +14,12 @@ from src.contexts.inventory.api.dependencies.dependencies import (
     DeviceCommandServiceDep,
     DeviceQueryServiceDep,
 )
+from src.contexts.inventory.schemas.device_schemas import (
+    DeviceDetail,
+    DeviceListItem,
+    DeviceSearchResult,
+)
+from src.contexts.inventory.schemas.filters import DeviceFilters
 from src.contexts.inventory.schemas.requests import (
     CreateDeviceRequest,
     PauseDeviceRequest,
@@ -21,12 +27,6 @@ from src.contexts.inventory.schemas.requests import (
     SetMaintenanceRequest,
     UpdateDeviceRequest,
 )
-from src.contexts.inventory.schemas.device_schemas import (
-    DeviceDetail,
-    DeviceListItem,
-    DeviceSearchResult,
-)
-from src.contexts.inventory.schemas.filters import DeviceFilters
 from src.core.web.pagination import PaginatedResponse, PaginationParamsDep
 
 router = APIRouter(prefix="/api/v1/devices", tags=["Devices"])

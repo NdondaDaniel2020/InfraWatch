@@ -5,8 +5,6 @@ import logging
 import logging.config
 import uuid
 
-import pytest
-
 from src.core.observability.context import (
     request_id_ctx,
     set_request_id,

@@ -1,16 +1,15 @@
 """Testes unitários dos executores assíncronos de rede (Probers)."""
 
-import asyncio
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-import pytest
 import httpx
+import pytest
 
-from src.workers.scheduler.in_memory_inventory import ProbeTarget
-from src.workers.probers.icmp import IcmpProber
 from src.workers.probers.http import HttpProber
+from src.workers.probers.icmp import IcmpProber
 from src.workers.probers.tcp import TcpProber
+from src.workers.scheduler.in_memory_inventory import ProbeTarget
 
 
 @pytest.fixture
@@ -72,7 +71,7 @@ async def test_icmp_prober_timeout(dummy_target):
     prober = IcmpProber(packets=1)
     
     mock_proc = AsyncMock()
-    mock_proc.communicate.side_effect = asyncio.TimeoutError()
+    mock_proc.communicate.side_effect = TimeoutError()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await prober.probe(dummy_target)
@@ -153,6 +152,6 @@ async def test_tcp_prober_refused(dummy_target):
 async def test_tcp_prober_timeout(dummy_target):
     prober = TcpProber()
     
-    with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
+    with patch("asyncio.wait_for", side_effect=TimeoutError()):
         result = await prober.probe(dummy_target)
         assert result.status == "TIMEOUT"

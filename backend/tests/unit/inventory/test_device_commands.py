@@ -1,6 +1,7 @@
-import pytest
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
+
+import pytest
 
 from src.contexts.inventory.domain.aggregate import Device
 from src.contexts.inventory.schemas.requests import (
@@ -8,9 +9,9 @@ from src.contexts.inventory.schemas.requests import (
     PauseDeviceRequest,
     ResumeDeviceRequest,
     SetMaintenanceRequest,
-    UpdateDeviceRequest,
 )
 from src.contexts.inventory.services.device_command_service import DeviceCommandService
+
 
 class MockRepository:
     def __init__(self):
@@ -48,6 +49,7 @@ class MockSession:
 
 
 from unittest.mock import patch
+
 
 def mock_add_event(session, event, aggregate_type=""):
     session.add({"event": event, "type": aggregate_type})

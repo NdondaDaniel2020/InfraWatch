@@ -8,8 +8,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.database.models import UserModel
+from src.contexts.iam.domain.enums import UserRole
 
 
 class UserRepository:

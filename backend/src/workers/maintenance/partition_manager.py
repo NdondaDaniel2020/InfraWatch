@@ -7,7 +7,7 @@ Executa como rotina periódica (worker) ou sob demanda.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -81,7 +81,7 @@ class PartitionManager:
 
     async def ensure_upcoming_partitions(self, months_ahead: int = 2) -> int:
         """Cria partições para os próximos ``months_ahead`` meses."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         year, month = now.year, now.month
         created = 0
 
@@ -101,7 +101,7 @@ class PartitionManager:
         Returns:
             Número de partições removidas.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         old_months = _prev_months(now.year, now.month, count=12)
         dropped = 0
 

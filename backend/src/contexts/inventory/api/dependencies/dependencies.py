@@ -7,8 +7,8 @@ from src.contexts.inventory.repositories.device_repository import DeviceReposito
 from src.contexts.inventory.services.device_command_service import DeviceCommandService
 from src.contexts.inventory.services.device_query_service import DeviceQueryService
 from src.core.database.session import get_db_session
-
 from src.core.database.unit_of_work import UnitOfWorkDep
+
 
 def get_device_repository(session: AsyncSession = Depends(get_db_session)) -> DeviceRepository:
     return DeviceRepository(session)

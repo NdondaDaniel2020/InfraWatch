@@ -8,8 +8,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.iam.domain.enums import AuditResult
 from src.contexts.iam.database.models import AuditLogModel
+from src.contexts.iam.domain.enums import AuditResult
 from src.contexts.iam.repositories.audit_repository import AuditRepository
 from src.core.security.audit import GENESIS_HASH, compute_audit_hash
 

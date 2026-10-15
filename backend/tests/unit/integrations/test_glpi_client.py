@@ -11,18 +11,16 @@ Valida:
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 import httpx
 import pytest
 
-from src.integrations.glpi.client import GlpiClient, GlpiAuthError
+from src.integrations.glpi.client import GlpiClient
 from src.integrations.glpi.schemas import (
     GlpiImpact,
     GlpiTicketCreate,
     GlpiUrgency,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures e helpers

@@ -5,7 +5,6 @@ Define os tipos de resultados devolvidos pelos motores de monitoramento.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 from uuid import UUID
 
 from src.workers.scheduler.in_memory_inventory import ProbeTarget
@@ -20,8 +19,8 @@ class ProbeResult:
     status: str  # "UP", "DEGRADED", "DOWN", "TIMEOUT", "ERROR"
     latency_ms: float
     packet_loss_pct: float
-    error_message: Optional[str] = None
-    extra_data: Optional[dict] = None
+    error_message: str | None = None
+    extra_data: dict | None = None
 
 
 class BaseProber(ABC):

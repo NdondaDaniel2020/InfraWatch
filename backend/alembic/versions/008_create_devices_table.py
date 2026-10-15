@@ -5,10 +5,10 @@ Revises: 007_add_outbox_notify_trigger
 Create Date: 2026-10-03 02:56:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '008_create_devices'
