@@ -212,15 +212,15 @@ class IncidentService:
             )
 
         from src.integrations.glpi.schemas import (
+            GlpiImpact,
             GlpiTicketCreate,
-            GlpiTicketImpact,
-            GlpiTicketUrgency,
+            GlpiUrgency,
         )
 
         urgency = (
-            GlpiTicketUrgency.VERY_HIGH
+            GlpiUrgency.VERY_HIGH
             if incident.severity == IncidentSeverity.CRITICAL.value
-            else GlpiTicketUrgency.HIGH
+            else GlpiUrgency.HIGH
         )
         ticket_payload = GlpiTicketCreate(
             name=f"[InfraWatch] Incidente: {incident.title}",
@@ -230,7 +230,7 @@ class IncidentService:
                 f"Abertura manual solicitada pelo operador: {operator_id}."
             ),
             urgency=urgency,
-            impact=GlpiTicketImpact.HIGH,
+            impact=GlpiImpact.HIGH,
         )
 
         async with client as glpi:
