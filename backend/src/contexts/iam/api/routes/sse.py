@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, status
@@ -184,11 +185,31 @@ async def list_monitored_telemetry(
         (MetricModel.device_id == latest_subq.c.device_id) & (MetricModel.timestamp == latest_subq.c.max_ts),
     )
     metrics_result = (await session.execute(metrics_stmt)).scalars().all()
-    latest_by_dev: dict[UUID, MetricModel] = {m.device_id: m for m in metrics_result}
+    latencies_by_dev: dict[UUID, float] = {}
+    losses_by_dev: dict[UUID, float] = {}
+    timestamps_by_dev: dict[UUID, datetime] = {}
+    fallback_metric_by_dev: dict[UUID, MetricModel] = {}
+
+    for m in metrics_result:
+        timestamps_by_dev[m.device_id] = m.timestamp
+        fallback_metric_by_dev[m.device_id] = m
+        if m.packet_loss is not None:
+            losses_by_dev[m.device_id] = m.packet_loss
+        if m.metric_type == "latency_ms":
+            latencies_by_dev[m.device_id] = m.value
+        elif m.metric_type == "packet_loss":
+            losses_by_dev[m.device_id] = m.value
 
     items: list[MonitoredDeviceItem] = []
     for dev in devices:
-        metric = latest_by_dev.get(dev.id)
+        ts = timestamps_by_dev.get(dev.id)
+        loss = losses_by_dev.get(dev.id)
+        lat = latencies_by_dev.get(dev.id)
+        if lat is None and dev.id in fallback_metric_by_dev:
+            m = fallback_metric_by_dev[dev.id]
+            if m.metric_type not in ("packet_loss", "cpu_quota", "cpu_period", "cpu_shares"):
+                lat = m.value
+
         items.append(
             MonitoredDeviceItem(
                 device_id=dev.id,
@@ -200,9 +221,9 @@ async def list_monitored_telemetry(
                 status=dev.status,
                 is_paused=dev.is_paused,
                 interval_seconds=dev.interval_seconds,
-                last_latency_ms=metric.value if metric else None,
-                last_packet_loss=metric.packet_loss if metric else None,
-                last_monitored_at=metric.timestamp if metric else None,
+                last_latency_ms=lat,
+                last_packet_loss=loss if loss is not None else (0.0 if ts else None),
+                last_monitored_at=ts,
             )
         )
 
@@ -263,7 +284,25 @@ async def get_device_telemetry(
         for m in metric_rows
     ]
 
-    last_metric = metric_rows[0] if metric_rows else None
+    last_latency = None
+    last_packet_loss = None
+    last_timestamp = None
+
+    if metric_rows:
+        last_timestamp = metric_rows[0].timestamp
+        for m in metric_rows:
+            if m.packet_loss is not None and last_packet_loss is None:
+                last_packet_loss = m.packet_loss
+            if m.metric_type == "latency_ms" and last_latency is None:
+                last_latency = m.value
+            elif m.metric_type == "packet_loss" and last_packet_loss is None:
+                last_packet_loss = m.value
+
+        if last_latency is None:
+            for m in metric_rows:
+                if m.metric_type not in ("packet_loss", "cpu_quota", "cpu_period", "cpu_shares"):
+                    last_latency = m.value
+                    break
 
     return MonitoredDeviceDetail(
         device_id=device.id,
@@ -277,8 +316,8 @@ async def get_device_telemetry(
         status=device.status,
         is_paused=device.is_paused,
         interval_seconds=device.interval_seconds,
-        last_latency_ms=last_metric.value if last_metric else None,
-        last_packet_loss=last_metric.packet_loss if last_metric else None,
-        last_monitored_at=last_metric.timestamp if last_metric else None,
+        last_latency_ms=last_latency,
+        last_packet_loss=last_packet_loss if last_packet_loss is not None else (0.0 if last_timestamp else None),
+        last_monitored_at=last_timestamp,
         recent_metrics=recent_metrics,
     )
