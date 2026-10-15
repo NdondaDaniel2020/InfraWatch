@@ -1,12 +1,13 @@
-"""Serviço de aplicação para ingestão e processamento de Heartbeat Passivo (RF-MON-01)."""
+"""Serviço de aplicação para ingestão e processamento de Heartbeat Passivo (RF-MON-01).
+
+Camada de Aplicação: agnóstica de frameworks de transporte (HTTP/FastAPI).
+"""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.inventory.repositories.device_repository import DeviceRepository
@@ -15,7 +16,6 @@ from src.contexts.telemetry.schemas.heartbeat import (
     HeartbeatResponse,
     HeartbeatSignalRequest,
 )
-from src.core.database.session import DbSessionDep
 
 
 class DeviceNotFoundError(Exception):
@@ -81,11 +81,3 @@ class HeartbeatService:
             received_at=now,
             message=message,
         )
-
-
-async def get_heartbeat_service(session: DbSessionDep) -> HeartbeatService:
-    """Fábrica de injeção de dependência FastAPI para o HeartbeatService."""
-    return HeartbeatService(session=session)
-
-
-HeartbeatServiceDep = Annotated[HeartbeatService, Depends(get_heartbeat_service)]

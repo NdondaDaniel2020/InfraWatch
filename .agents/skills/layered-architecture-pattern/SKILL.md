@@ -215,23 +215,106 @@ def get_incident_service(
 
 ---
 
+## 🏛️ O Padrão Canônico de Bounded Context (Padrão IAM)
+
+Todo Bounded Context no **InfraWatch** deve seguir rigidamente a estrutura modular estabelecida pelo contexto de referência `src/contexts/iam/`:
+
+```text
+src/contexts/<context>/
+├── api/
+│   ├── dependencies/        # Injeção de dependências modular e especializada
+│   │   ├── auth.py          # Autenticação de tokens, webhooks e RBAC específicos do contexto
+│   │   ├── services.py      # Fábricas e tipos anotados de injeção (*ServiceDep, *RepoDep)
+│   │   └── __init__.py      # Re-export limpo e unificado de todas as dependências públicas
+│   ├── presenters/          # Formatadores de apresentação (CSV, relatórios, streaming)
+│   │   └── ...
+│   ├── routes/              # Endpoints HTTP limpos, agrupados por recurso REST
+│   │   ├── <resource_a>.py
+│   │   ├── <resource_b>.py
+│   │   └── __init__.py
+│   └── router.py            # ROTEADOR AGREGADOR ÚNICO do Bounded Context
+├── consumers/               # Event Consumers de background (RabbitMQ, Redis Stream, Outbox)
+├── database/                # Modelos ORM SQLAlchemy 2.0 e Repositórios
+├── domain/                  # Entidades puras, Agregados, Enums, Value Objects e Eventos
+├── schemas/                 # DTOs Pydantic v2 (requests.py e responses.py)
+└── services/                # Casos de uso e orquestração de aplicação (Zero dependências web)
+```
+
+### 1. Diretrizes de Injeção de Dependências (`api/dependencies/`)
+- **Proibido arquivo solto:** Nunca criar `api/dependencies.py` nem `api/dependencies/dependencies.py`. As dependências devem ficar dentro do pacote `api/dependencies/`.
+- **Separação por arquivo de domínio:**
+  - `services.py`: Para dependências que fornecem `*ServiceDep` e repositórios.
+  - `auth.py`: Para dependências de autenticação, validação de tokens, webhooks ou chaves secretas.
+- **Exportação pública em `__init__.py`:** O `api/dependencies/__init__.py` deve reexportar tudo com `__all__`, permitindo importações enxutas:
+  ```python
+  from src.contexts.<context>.api.dependencies import MinhaServiceDep
+  ```
+- **Zero FastAPI em `services/`:** A camada `services/` é código de aplicação puro. Ela NUNCA importa `fastapi.Depends`, `Annotated[..., Depends]`, `Request` ou `HTTPException`. Toda dependência de framework reside exclusivamente dentro de `api/dependencies/` ou `core/web/dependencies.py`.
+
+### 2. O Roteador Agregador (`api/router.py`)
+Todo Bounded Context DEVE expor um arquivo `api/router.py` que agrega todos os sub-roteadores do contexto:
+```python
+"""Roteador principal agregador do contexto <Context>."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from src.contexts.<context>.api.routes.resource_a import router as resource_a_router
+from src.contexts.<context>.api.routes.resource_b import router as resource_b_router
+
+router = APIRouter()
+router.include_router(resource_a_router)
+router.include_router(resource_b_router)
+
+__all__ = ["router"]
+```
+*Vantagem arquitetural:* O arquivo `src/main.py` torna-se limpo, declarativo e totalmente desacoplado da estrutura interna de rotas de cada contexto:
+```python
+# src/main.py
+from src.contexts.alerting.api.router import router as alerting_router
+from src.contexts.iam.api.router import router as iam_router
+from src.contexts.inventory.api.router import router as inventory_router
+from src.contexts.sla.api.router import router as sla_router
+from src.contexts.telemetry.api.router import router as telemetry_router
+
+def create_app() -> FastAPI:
+    ...
+    app.include_router(iam_router)
+    app.include_router(inventory_router)
+    app.include_router(alerting_router)
+    app.include_router(sla_router)
+    app.include_router(telemetry_router)
+```
+
+### 3. Dependências Centrais da Camada Web (`src/core/web/dependencies.py`)
+- Tipos de injeção transversais do FastAPI (`DbSessionDep`, `UnitOfWorkDep`, `PaginationParamsDep`) pertencem formalmente à camada web (`src/core/web/dependencies.py` e reexportados em `src/core/web/__init__.py`).
+- Camadas puras de banco (`core/database/`) não devem se acoplar diretamente a frameworks web HTTP.
+
+---
+
 ## 📋 Checklist de Auditoria e Code Review
 
 Antes de finalizar qualquer tarefa ou abrir Pull Request no InfraWatch, execute a seguinte verificação:
 
-1. [ ] **Routers/Controllers:**
+1. [ ] **Estrutura de Bounded Context (Padrão IAM):**
+   - O contexto segue a estrutura canônica: `api/dependencies/{services.py, auth.py, __init__.py}` e `api/router.py`.
+   - O `src/main.py` importa apenas o roteador agregado (`src.contexts.<context>.api.router`).
+   - Não existem arquivos soltos `dependencies.py` ou nomes redundantes `dependencies/dependencies.py`.
+2. [ ] **Routers/Controllers:**
    - Nenhum router importa `select`, `insert`, `update` ou `delete`.
    - Nenhum router recebe `DbSessionDep` ou `AsyncSession` diretamente.
    - Nenhum router executa `session.commit()` ou lógica de banco.
    - Todas as regras de negócio foram delegadas para um `*Service`.
-2. [ ] **Application Services:**
-   - Nenhum service importa `HTTPException`, `Request` ou `Response`.
+3. [ ] **Application Services:**
+   - Nenhum service importa `HTTPException`, `Request`, `Response`, `Depends` ou `Annotated[..., Depends]`.
    - Nenhum service gera arquivos ou strings de apresentação direta (`csv.writer`, `StringIO`).
    - Clientes externos (GLPI, Zabbix) são injetados no construtor via DI.
-3. [ ] **Domain:**
+4. [ ] **Domain:**
    - O domínio não importa bibliotecas externas ou frameworks.
    - Toda validação de estado ou invariante reside nos métodos do agregado.
-4. [ ] **Qualidade:**
+5. [ ] **Qualidade:**
    - Executar `make lint` (Ruff sem warnings).
    - Executar `mypy src` (0 erros de tipagem estrita).
    - Executar `make test` (100% dos testes passando).
+

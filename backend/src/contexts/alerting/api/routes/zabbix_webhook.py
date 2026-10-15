@@ -9,11 +9,10 @@ Streams (stream:incidents) sem chamadas bloqueantes de I/O externo.
 
 from __future__ import annotations
 
-import hmac
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from redis.asyncio import Redis
 
 from src.contexts.alerting.consumers.alert_notification_consumer import STREAM_TOPIC
@@ -31,37 +30,7 @@ logger = logging.getLogger("infrawatch.alerting.zabbix.webhook")
 router = APIRouter(prefix="/api/v1/integrations/zabbix", tags=["Alerting - Zabbix Ingestion"])
 
 
-def verify_zabbix_webhook_token(
-    x_zabbix_webhook_token: Annotated[
-        str | None,
-        Header(
-            alias="X-Zabbix-Webhook-Token",
-            description="Token secreto de autenticação do Webhook configurado no Zabbix",
-        ),
-    ] = None,
-) -> str:
-    """Valida o token do webhook em tempo constante para mitigar timing attacks."""
-    settings = get_settings()
-    expected_secret = settings.ZABBIX_WEBHOOK_SECRET
-
-    if not expected_secret:
-        logger.error("ZABBIX_WEBHOOK_SECRET não está configurado na aplicação.")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Autenticação de webhook do Zabbix não configurada no servidor.",
-        )
-
-    if not x_zabbix_webhook_token or not hmac.compare_digest(
-        x_zabbix_webhook_token.strip(), expected_secret.strip()
-    ):
-        logger.warning("Tentativa de acesso com token de webhook do Zabbix inválido.")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token de webhook do Zabbix inválido ou ausente.",
-        )
-
-    return x_zabbix_webhook_token
-
+from src.contexts.alerting.api.dependencies import verify_zabbix_webhook_token
 
 AuthTokenDep = Annotated[str, Depends(verify_zabbix_webhook_token)]
 RedisDep = Annotated[Redis, Depends(get_redis_client)]
@@ -163,4 +132,10 @@ async def handle_zabbix_webhook(
     )
 
 
-__all__ = ["AuthTokenDep", "handle_zabbix_webhook", "router", "verify_zabbix_webhook_token"]
+__all__ = [
+    "AuthTokenDep",
+    "get_settings",
+    "handle_zabbix_webhook",
+    "router",
+    "verify_zabbix_webhook_token",
+]

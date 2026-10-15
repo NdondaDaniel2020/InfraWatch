@@ -17,13 +17,11 @@ warnings.filterwarnings(
     category=RuntimeWarning,
 )
 
-from src.contexts.alerting.api.routes.incidents import router as alerting_router
-from src.contexts.alerting.api.routes.zabbix_webhook import router as zabbix_webhook_router
+from src.contexts.alerting.api.router import router as alerting_router
 from src.contexts.iam.api.router import router as iam_router
-from src.contexts.inventory.api.routes.devices import router as inventory_router
-from src.contexts.sla.api.routes.maintenance_windows import router as maintenance_windows_router
-from src.contexts.sla.api.routes.sla import router as sla_router
-from src.contexts.telemetry.api.routes.monitoring import router as monitoring_router
+from src.contexts.inventory.api.router import router as inventory_router
+from src.contexts.sla.api.router import router as sla_router
+from src.contexts.telemetry.api.router import router as telemetry_router
 from src.core.config import get_settings
 from src.core.observability.metrics_auth import verify_metrics_auth
 from src.core.observability.observability import (
@@ -56,22 +54,12 @@ def create_app() -> FastAPI:
     setup_middlewares(app)
     register_exception_handlers(app)
 
-    # Inclusão do roteador principal do Bounded Context IAM
+    # Inclusão dos roteadores principais agregados de cada Bounded Context
     app.include_router(iam_router)
-
-    # Inclusão do roteador do Bounded Context Inventory
     app.include_router(inventory_router)
-
-    # Inclusão dos roteadores do Bounded Context Alerting (Incidentes e Webhook Zabbix)
     app.include_router(alerting_router)
-    app.include_router(zabbix_webhook_router)
-
-    # Inclusão dos roteadores do Bounded Context SLA & Manutenção
     app.include_router(sla_router)
-    app.include_router(maintenance_windows_router)
-
-    # Inclusão do roteador de Telemetria e Monitoramento Passivo (RF-MON-01)
-    app.include_router(monitoring_router)
+    app.include_router(telemetry_router)
 
     @app.get(
         "/metrics",
