@@ -82,6 +82,12 @@
   - **Controle de Concorrência com Semáforos (`asyncio.Semaphore`):** Limita o número de conexões e sockets simultâneos, evitando o erro de SO `Too many open files` (FD exhaustion).
   - **Parada Graciosa Determinística (Graceful Shutdown):** Intervalos de sono utilizam `asyncio.wait_for(stop_event.wait(), timeout=...)` em vez de `sleep()`, permitindo encerramento instantâneo no `SIGTERM` sem esperar o ciclo expirar.
   - **Ciclo Defensivo (`try...finally`):** Teardown isolado para cada recurso (Redis, DB engine, workers) garantindo que uma falha de descarte não impeça os demais.
+- **Trade-off Consciente de Recursos de Hardware (Footprint Base ~1.1 GB):**
+  - **Contexto & Justificativa:** A concepção inicial previa um monólito unificado consumindo ~350 MB de memória RAM em repouso. Ao desacoplar fisicamente em processos e contêineres especializados com seus próprios interpretadores Python e daemons assíncronos, o footprint base total da stack em repouso passou para ~1.1 GB.
+  - **Avaliação de Trade-off (Custo vs. Benefício):** Esse acréscimo de memória foi formalmente validado e aceito como um investimento arquitetural indispensável. Ele viabiliza:
+    1. **Escalabilidade Horizontal Independente:** Cada worker (como o `probe-worker`) pode ser escalado em N instâncias ou orquestrado em nós distintos conforme o volume de ativos cresce, sem duplicar a API Web.
+    2. **Isolamento de Falhas (Blast Radius Zero):** Falhas, vazamentos de sockets ou picos de CPU durante sondagens de rede afetam unicamente o worker responsável, mantendo a API REST, a emissão de alertas SSE e a autenticação 100% responsivas.
+    3. **Preparação para Microsserviços:** O desacoplamento atual serve como base para uma transição suave e gradual para microsserviços distribuídos no futuro caso a escala corporativa exija.
 - **Benefício:** Isolamento absoluto de falhas (*blast radius* zero entre API e workers), ausência de contenção de CPU e escalabilidade horizontal independente.
 
 ---
@@ -182,10 +188,15 @@
 - **Status:** Aprovado e Otimizado
 - **Origem:** Requisito RF05 em `subject/InfraWatch.md` e seleção de canais no `/grill-me`.
 - **Decisão:** Suporte nativo e desacoplado através do `AlertNotificationConsumer`:
-  1. **WhatsApp via Evolution API v2.3.7:** Executado em microserviço/container dedicado (`infrawatch-whatsapp-gateway`) sob profile opcional do Compose, com persistência isolada em Postgres/Redis e secrets nativos. Permite alertas instantâneos em grupos técnicos do NOC e plantonistas.
+  1. **WhatsApp via Evolution API v2.3.7 (Profile Opcional):** Executado em microserviço/container isolado (`infrawatch-whatsapp-gateway`) sob profile opcional do Compose (`--profile whatsapp`), com persistência isolada em Postgres/Redis e secrets nativos. Permite alertas instantâneos em grupos técnicos do NOC e plantonistas.
   2. **Telegram Bot:** Mensagens markdown com formatação visual de severidade (🔴 CRITICAL, 🟡 WARNING, 🟢 RESOLVED).
   3. **Webhooks:** Payloads padronizados para Slack, Discord e Microsoft Teams.
   4. **E-mail (SMTP):** Alertas com layout responsivo HTML desacoplado em template dedicado (`alert_email.html`).
+- **Evolução da Decisão sobre WhatsApp Gateway (Emulação Web vs. Meta Cloud API Oficial):**
+  - O container `infrawatch-whatsapp-gateway` foi desacoplado sob profile opcional e **desativado por padrão** na execução da stack:
+    1. **Prevenção de Banimento de Conta:** Gateways de terceiros baseados em engenharia reversa do WhatsApp Web (Baileys/Puppeteer) violam as políticas de uso da Meta e impõem alto risco de banimento irreversível dos números corporativos utilizados pelo NOC.
+    2. **Sobrecarga de Hardware e Memória:** A execução contínua de instâncias de headless browser no container adicionava alto overhead de memória (~250-400 MB) sem garantias de disponibilidade em ambientes de missão crítica.
+    3. **Direcionamento Estratégico:** Para ambientes corporativos de produção, o canal WhatsApp deve conectar-se prioritariamente à **Meta WhatsApp Business Cloud API (API oficial)**, ou priorizar canais de mensageria mais estáveis e imunes a bloqueios arbitrários (Telegram e Webhooks para Slack/Discord).
 - **Remoção Expressa do Canal SMS:**
   - O canal SMS foi **descartado** devido a tarifas abusivas por disparo, baixa taxa de entrega comprovada em operadoras locais de Angola, impossibilidade de formatação rica e total redundância com o WhatsApp.
 - **Filtros e Supressão:** Supressão automática durante janelas de manutenção aprovadas e filtro de *Anti-Flapping*.
