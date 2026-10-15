@@ -82,8 +82,12 @@ logs/
 *.log
 log.txt
 subjects
+subject/
 subject
 .agents
+!.agents/
+!.agents/skills/
+!.agents/skills/**
 */pla*
 whatsapp_qr_code.png
 
