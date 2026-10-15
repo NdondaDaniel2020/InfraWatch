@@ -23,6 +23,7 @@ from src.contexts.iam.api.router import router as iam_router
 from src.contexts.inventory.api.routes.devices import router as inventory_router
 from src.contexts.sla.api.routes.maintenance_windows import router as maintenance_windows_router
 from src.contexts.sla.api.routes.sla import router as sla_router
+from src.contexts.telemetry.api.routes.monitoring import router as monitoring_router
 from src.core.config import get_settings
 from src.core.observability.metrics_auth import verify_metrics_auth
 from src.core.observability.observability import (
@@ -68,6 +69,9 @@ def create_app() -> FastAPI:
     # Inclusão dos roteadores do Bounded Context SLA & Manutenção
     app.include_router(sla_router)
     app.include_router(maintenance_windows_router)
+
+    # Inclusão do roteador de Telemetria e Monitoramento Passivo (RF-MON-01)
+    app.include_router(monitoring_router)
 
     @app.get(
         "/metrics",

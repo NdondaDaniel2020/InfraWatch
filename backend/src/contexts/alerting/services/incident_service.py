@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -177,3 +178,84 @@ class IncidentService:
             limit=limit,
             offset=offset,
         )
+
+    async def create_glpi_ticket(
+        self,
+        incident_id: UUID,
+        operator_id: UUID,
+        glpi_client: Any = None,
+    ) -> Incident:
+        """Abre manualmente um chamado no GLPI para o incidente e vincula o ticket_id."""
+        incident = await self.get_incident(incident_id)
+
+        if incident.glpi_ticket_id is not None:
+            raise ValueError(
+                f"Incidente {incident_id} já possui chamado GLPI associado: #{incident.glpi_ticket_id}."
+            )
+
+        if glpi_client is not None:
+            client = glpi_client
+        else:
+            from src.core.config import get_settings
+            from src.integrations.glpi.client import GlpiClient
+
+            settings = get_settings()
+            if not settings.GLPI_ENABLED or not settings.GLPI_BASE_URL:
+                raise RuntimeError(
+                    "Integração com GLPI não está habilitada ou configurada no ambiente."
+                )
+            client = GlpiClient(
+                base_url=settings.GLPI_BASE_URL,
+                app_token=settings.GLPI_APP_TOKEN,
+                user_token=settings.GLPI_USER_TOKEN,
+                timeout=settings.GLPI_TIMEOUT_SECONDS,
+            )
+
+        from src.integrations.glpi.schemas import (
+            GlpiImpact,
+            GlpiTicketCreate,
+            GlpiUrgency,
+        )
+
+        urgency = (
+            GlpiUrgency.VERY_HIGH
+            if incident.severity == IncidentSeverity.CRITICAL.value
+            else GlpiUrgency.HIGH
+        )
+        ticket_payload = GlpiTicketCreate(
+            name=f"[InfraWatch] Incidente: {incident.title}",
+            content=(
+                f"Incidente #{incident.id} registrado para o dispositivo {incident.device_id}.<br>"
+                f"Severidade: {incident.severity}.<br>"
+                f"Abertura manual solicitada pelo operador: {operator_id}."
+            ),
+            urgency=urgency,
+            impact=GlpiImpact.HIGH,
+        )
+
+        async with client as glpi:
+            ticket_id = await glpi.open_ticket(ticket_payload)
+
+        incident.set_glpi_ticket_id(ticket_id)
+        saved = await self._repo.save(incident)
+
+        await self._commit()
+
+        try:
+            target_org = str(incident.organization_id) if incident.organization_id else None
+            await self._broadcaster.broadcast(
+                {
+                    "event_type": "IncidentGlpiTicketCreated",
+                    "incident_id": str(incident.id),
+                    "glpi_ticket_id": ticket_id,
+                    "operator_id": str(operator_id),
+                },
+                organization_id=target_org,
+            )
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "Falha ao emitir SSE para criação manual de ticket GLPI no incidente %s",
+                incident_id,
+            )
+
+        return saved

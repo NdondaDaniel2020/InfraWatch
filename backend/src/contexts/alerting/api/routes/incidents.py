@@ -191,3 +191,39 @@ async def resolve_incident(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(err),
         ) from err
+
+
+@router.post(
+    "/{incident_id}/glpi-ticket",
+    response_model=IncidentResponse,
+    summary="Abrir chamado manual no GLPI",
+)
+async def create_glpi_ticket_for_incident(
+    incident_id: UUID,
+    user: CurrentUserDep,
+    service: IncidentServiceDep,
+    _: object = Depends(require_roles(*OPERATOR_ROLES)),
+) -> IncidentResponse:
+    """Abre manualmente um chamado no GLPI em 1 clique para o incidente e vincula o ticket_id."""
+    try:
+        operator_id = UUID(user.id)
+        incident = await service.create_glpi_ticket(
+            incident_id=incident_id,
+            operator_id=operator_id,
+        )
+        return IncidentResponse.from_domain(incident)
+    except IncidentNotFoundError as err:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(err),
+        ) from err
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(err),
+        ) from err
+    except RuntimeError as err:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(err),
+        ) from err
