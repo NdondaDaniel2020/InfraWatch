@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine
     container_name: infrawatch-postgres
     restart: always
+    env_file:
+      - ./backend/.env.production
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
-      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     ports:
       - "5432:5432"
@@ -51,18 +51,8 @@ services:
     restart: always
     ports:
       - "8000:8000"
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
-      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      ENABLE_BACKGROUND_WORKERS: "false"
-      ZABBIX_ENABLED: "true"
-      ZABBIX_AUTOCONFIGURE_WEBHOOK: "true"
-      ZABBIX_INTERNAL_WEBHOOK_URL: "http://infrawatch-api:8000/api/v1/integrations/zabbix/webhook"
+    env_file:
+      - ./backend/.env.production
     secrets:
       - postgres_password
       - redis_password
@@ -136,15 +126,8 @@ services:
     container_name: infrawatch-probe-worker
     restart: always
     command: [ "python", "-m", "src.workers.daemons.probe_worker" ]
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
-      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      DOCKER_HOST: ${DOCKER_HOST:-http://infrawatch-docker-proxy:2375}
+    env_file:
+      - ./backend/.env.production
     secrets:
       - postgres_password
       - redis_password
@@ -186,14 +169,8 @@ services:
     container_name: infrawatch-integration-worker
     restart: always
     command: [ "python", "-m", "src.workers.daemons.integration_worker" ]
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
-      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      ENVIRONMENT: ${ENVIRONMENT:-development}
+    env_file:
+      - ./backend/.env.production
     secrets:
       - postgres_password
       - redis_password
@@ -233,14 +210,8 @@ services:
     container_name: infrawatch-outbox-worker
     restart: always
     command: [ "python", "-m", "src.workers.daemons.outbox_relay_worker" ]
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
-      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      ENVIRONMENT: ${ENVIRONMENT:-development}
+    env_file:
+      - ./backend/.env.production
     secrets:
       - postgres_password
       - redis_password
@@ -280,14 +251,8 @@ services:
     container_name: infrawatch-cleanup-worker
     restart: always
     command: [ "python", "-m", "src.workers.daemons.token_cleanup_worker" ]
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
-      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      ENVIRONMENT: ${ENVIRONMENT:-development}
+    env_file:
+      - ./backend/.env.production
     secrets:
       - postgres_password
       - redis_password
@@ -327,15 +292,8 @@ services:
     container_name: infrawatch-zabbix-sync-worker
     restart: always
     command: [ "python", "-m", "src.workers.daemons.zabbix_sync_worker" ]
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-infrawatch_db}
-      POSTGRES_USER: ${POSTGRES_USER:-infrawatch_user}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      ZABBIX_ENABLED: "true"
+    env_file:
+      - ./backend/.env.production
     secrets:
       - postgres_password
       - redis_password
