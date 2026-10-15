@@ -6,7 +6,7 @@ import hmac
 import logging
 from typing import Annotated
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 
 from src.core.config import get_settings
 
@@ -49,3 +49,13 @@ def verify_zabbix_webhook_token(
         )
 
     return x_zabbix_webhook_token
+
+
+ZabbixWebhookAuthDep = Annotated[str, Depends(verify_zabbix_webhook_token)]
+AuthTokenDep = ZabbixWebhookAuthDep
+
+__all__ = [
+    "AuthTokenDep",
+    "ZabbixWebhookAuthDep",
+    "verify_zabbix_webhook_token",
+]

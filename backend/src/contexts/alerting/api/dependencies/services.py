@@ -7,8 +7,10 @@ from typing import Annotated
 from fastapi import Depends
 
 from src.contexts.alerting.services.incident_service import IncidentService
+from src.contexts.alerting.services.zabbix_webhook_service import ZabbixWebhookService
 from src.core.config import get_settings
 from src.core.database.unit_of_work import UnitOfWorkDep
+from src.core.web.dependencies import EventBusDep, RedisDep
 from src.integrations.glpi.client import GlpiClient
 
 
@@ -33,4 +35,21 @@ def get_incident_service(
     return IncidentService(uow_or_session=uow, glpi_client=glpi_client)
 
 
+def get_zabbix_webhook_service(
+    redis: RedisDep,
+    event_bus: EventBusDep,
+) -> ZabbixWebhookService:
+    """Instancia o ZabbixWebhookService injetando Redis e barramento de eventos."""
+    return ZabbixWebhookService(redis=redis, event_bus=event_bus)
+
+
 IncidentServiceDep = Annotated[IncidentService, Depends(get_incident_service)]
+ZabbixWebhookServiceDep = Annotated[ZabbixWebhookService, Depends(get_zabbix_webhook_service)]
+
+__all__ = [
+    "IncidentServiceDep",
+    "ZabbixWebhookServiceDep",
+    "get_glpi_client",
+    "get_incident_service",
+    "get_zabbix_webhook_service",
+]
