@@ -18,6 +18,7 @@ from src.contexts.sla.schemas.responses import (
     MaintenanceWindowListResponse,
     MaintenanceWindowResponse,
 )
+from src.core.web.dependencies import PaginationParamsDep
 
 router = APIRouter(prefix="/api/v1/maintenance-windows", tags=["Maintenance Windows"])
 
@@ -36,31 +37,29 @@ READ_ROLES = [
 async def list_maintenance_windows(
     user: CurrentUserDep,
     service: SlaServiceDep,
+    pagination: PaginationParamsDep,
     device_id: Annotated[UUID | None, Query(description="Filtrar por dispositivo")] = None,
     is_approved: Annotated[bool | None, Query(description="Filtrar por aprovação")] = None,
     organization_id: Annotated[UUID | None, Query(description="Filtrar por organização")] = None,
-    page: Annotated[int, Query(ge=1, description="Número da página")] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100, description="Itens por página")] = 50,
     _: object = Depends(require_roles(*READ_ROLES)),
 ) -> MaintenanceWindowListResponse:
     """Lista janelas de manutenção programada registradas na plataforma."""
     if user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN} and user.organization_id:
         organization_id = UUID(user.organization_id)
 
-    offset = (page - 1) * page_size
     items, total = await service.list_maintenance_windows(
         organization_id=organization_id,
         device_id=device_id,
         is_approved=is_approved,
-        limit=page_size,
-        offset=offset,
+        limit=pagination.limit,
+        offset=pagination.offset,
     )
 
     return MaintenanceWindowListResponse(
         items=[MaintenanceWindowResponse.from_domain(item) for item in items],
         total=total,
-        page=page,
-        page_size=page_size,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 

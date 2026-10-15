@@ -26,6 +26,7 @@ from src.contexts.iam.api.dependencies import (
     require_roles,
 )
 from src.contexts.iam.domain.enums import UserRole
+from src.core.web.dependencies import PaginationParamsDep
 
 router = APIRouter(prefix="/api/v1/incidents", tags=["Incidents & SLA"])
 
@@ -43,13 +44,12 @@ READ_ROLES = [
 async def list_incidents(
     user: CurrentUserDep,
     service: IncidentServiceDep,
+    pagination: PaginationParamsDep,
     organization_id: Annotated[UUID | None, Query(description="Filtrar por organização")] = None,
     status_filter: Annotated[
         str | None, Query(alias="status", description="Filtrar por status")
     ] = None,
     device_id: Annotated[UUID | None, Query(description="Filtrar por dispositivo")] = None,
-    page: Annotated[int, Query(ge=1, description="Número da página")] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100, description="Itens por página")] = 50,
     _: object = Depends(require_roles(*READ_ROLES)),
 ) -> IncidentListResponse:
     """Lista incidentes registrados com suporte a filtros e isolamento de tenant."""
@@ -57,20 +57,19 @@ async def list_incidents(
     if user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN} and user.organization_id:
         organization_id = UUID(user.organization_id)
 
-    offset = (page - 1) * page_size
     items, total = await service.list_incidents(
         organization_id=organization_id,
         status=status_filter,
         device_id=device_id,
-        limit=page_size,
-        offset=offset,
+        limit=pagination.limit,
+        offset=pagination.offset,
     )
 
     return IncidentListResponse(
         items=[IncidentResponse.from_domain(item) for item in items],
         total=total,
-        page=page,
-        page_size=page_size,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 
