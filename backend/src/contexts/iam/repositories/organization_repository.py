@@ -8,8 +8,8 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.iam.domain.enums import OrgTier
 from src.contexts.iam.database.models import OrganizationModel
+from src.contexts.iam.domain.enums import OrgTier
 
 
 class OrganizationRepository:
@@ -56,7 +56,6 @@ class OrganizationRepository:
             is_active=is_active,
         )
         return await self.save(org)
-
 
     async def list_all(self, *, offset: int = 0, limit: int = 50) -> list[OrganizationModel]:
         """Lista organizações ativas ou inativas com paginação."""

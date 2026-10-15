@@ -24,15 +24,15 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
+from src.contexts.iam.database.models import (
+    AuditLogModel,
+    RefreshTokenModel,
+)
 from src.contexts.iam.domain.enums import (
     AuditAction,
     AuditResult,
     OrgTier,
     UserRole,
-)
-from src.contexts.iam.database.models import (
-    AuditLogModel,
-    RefreshTokenModel,
 )
 from src.contexts.iam.repositories.organization_repository import OrganizationRepository
 from src.contexts.iam.repositories.user_repository import UserRepository

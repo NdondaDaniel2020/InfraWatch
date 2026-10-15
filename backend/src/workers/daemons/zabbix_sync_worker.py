@@ -186,9 +186,7 @@ class ZabbixSyncWorker:
         """Carrega ativos com zabbix_host_id para o catálogo em memória RAM."""
         try:
             async with self._session_factory() as session:
-                query = select(DeviceModel).where(
-                    DeviceModel.is_paused.is_(False)
-                )
+                query = select(DeviceModel).where(DeviceModel.is_paused.is_(False))
                 result = await session.execute(query)
                 devices = result.scalars().all()
 
@@ -303,7 +301,9 @@ class ZabbixSyncWorker:
             except asyncio.CancelledError:
                 break
             except Exception:  # noqa: BLE001
-                logger.debug("Falha transitória no consumer de inventário do Zabbix (retentando em 3s)")
+                logger.debug(
+                    "Falha transitória no consumer de inventário do Zabbix (retentando em 3s)"
+                )
                 await asyncio.sleep(3.0)
 
     async def _reconciliation_loop(self, stop_event: asyncio.Event) -> None:
@@ -321,7 +321,9 @@ class ZabbixSyncWorker:
                 except TimeoutError:
                     pass
 
-                logger.debug("Executando reconciliação periódica de ativos Zabbix com o PostgreSQL...")
+                logger.debug(
+                    "Executando reconciliação periódica de ativos Zabbix com o PostgreSQL..."
+                )
                 await self.load_initial_hosts_from_db()
             except asyncio.CancelledError:
                 break
@@ -439,7 +441,12 @@ class ZabbixSyncWorker:
                             ],
                         },
                     )
-                    if result and isinstance(result, dict) and "hostids" in result and result["hostids"]:
+                    if (
+                        result
+                        and isinstance(result, dict)
+                        and "hostids" in result
+                        and result["hostids"]
+                    ):
                         new_hostid = str(result["hostids"][0])
                         logger.info("Host Zabbix criado: %s (hostid=%s)", name, new_hostid)
                         return new_hostid
@@ -481,7 +488,9 @@ class ZabbixSyncWorker:
                 try:
                     count = await self.sync_once()
                     if count > 0:
-                        logger.info("Ciclo Zabbix finalizado: %d dispositivos sincronizados.", count)
+                        logger.info(
+                            "Ciclo Zabbix finalizado: %d dispositivos sincronizados.", count
+                        )
                 except Exception:
                     logger.exception("Erro no ciclo de sincronização Zabbix")
 
@@ -500,6 +509,7 @@ class ZabbixSyncWorker:
 async def main() -> None:
     """Ponto de entrada para execução direta do daemon."""
     from src.core.observability.logging import setup_logging
+
     setup_logging()
 
     worker = ZabbixSyncWorker()
@@ -513,6 +523,7 @@ async def main() -> None:
     for sig in ("SIGINT", "SIGTERM"):
         try:
             import signal
+
             loop.add_signal_handler(getattr(signal, sig), handle_exit)
         except NotImplementedError:
             pass

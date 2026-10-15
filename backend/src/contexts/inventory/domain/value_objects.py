@@ -47,9 +47,7 @@ class IPAddress:
         try:
             parsed = _ipaddress.ip_address(self.value)
         except ValueError as err:
-            raise ValueError(
-                f"Endereço IP inválido: '{self.value}'"
-            ) from err
+            raise ValueError(f"Endereço IP inválido: '{self.value}'") from err
         # Normaliza a representação (ex: '::1' -> '::1', '192.168.001.1' -> '192.168.1.1')
         object.__setattr__(self, "value", str(parsed))
 
@@ -73,9 +71,7 @@ class NetworkPort:
 
     def __post_init__(self) -> None:
         if not isinstance(self.value, int) or not (1 <= self.value <= 65535):
-            raise ValueError(
-                f"Porta de rede inválida: {self.value}. Deve estar entre 1 e 65535"
-            )
+            raise ValueError(f"Porta de rede inválida: {self.value}. Deve estar entre 1 e 65535")
 
     def __int__(self) -> int:
         return self.value
@@ -101,13 +97,9 @@ class ThresholdConfig:
 
     def __post_init__(self) -> None:
         if self.max_latency_ms < 0:
-            raise ValueError(
-                f"max_latency_ms deve ser >= 0, recebido: {self.max_latency_ms}"
-            )
+            raise ValueError(f"max_latency_ms deve ser >= 0, recebido: {self.max_latency_ms}")
         if self.max_jitter_ms < 0:
-            raise ValueError(
-                f"max_jitter_ms deve ser >= 0, recebido: {self.max_jitter_ms}"
-            )
+            raise ValueError(f"max_jitter_ms deve ser >= 0, recebido: {self.max_jitter_ms}")
         if not (0.0 <= self.max_loss_percent <= 100.0):
             raise ValueError(
                 f"max_loss_percent deve estar entre 0 e 100, recebido: {self.max_loss_percent}"
@@ -133,4 +125,3 @@ class ThresholdConfig:
             max_loss_percent=data.get("max_loss_percent", 5.0),
             zabbix_host_id=data.get("zabbix_host_id"),
         )
-

@@ -18,9 +18,7 @@ class EmailVerificationRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def save(
-        self, record: EmailVerificationTokenModel
-    ) -> EmailVerificationTokenModel:
+    async def save(self, record: EmailVerificationTokenModel) -> EmailVerificationTokenModel:
         """Persiste ou atualiza um token de verificação na sessão ativa."""
         self.session.add(record)
         await self.session.flush()
@@ -39,7 +37,6 @@ class EmailVerificationRepository:
             expires_at=expires_at,
         )
         return await self.save(record)
-
 
     async def get_by_token(self, token: str) -> EmailVerificationTokenModel | None:
         result = await self.session.execute(

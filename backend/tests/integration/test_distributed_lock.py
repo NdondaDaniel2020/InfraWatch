@@ -20,12 +20,12 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from src.contexts.iam.domain.enums import OrgTier, UserRole
 from src.contexts.iam.database.models import (
     OrganizationModel,
     RefreshTokenModel,
     UserModel,
 )
+from src.contexts.iam.domain.enums import OrgTier, UserRole
 from src.core.database.base_model import Base
 from src.core.redis.distributed_lock import (
     DistributedLock,

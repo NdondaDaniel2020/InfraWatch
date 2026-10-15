@@ -6,6 +6,7 @@ restantes de validade são calculados.
 """
 
 import asyncio
+import logging
 import socket
 import ssl
 import time
@@ -15,6 +16,8 @@ import httpx
 
 from src.workers.probers.base import BaseProber, ProbeResult
 from src.workers.scheduler.in_memory_inventory import ProbeTarget
+
+logger = logging.getLogger("infrawatch.workers.probers.http")
 
 
 class HttpProber(BaseProber):
@@ -29,23 +32,25 @@ class HttpProber(BaseProber):
         timeout_s = timeout_ms / 1000.0
 
         start_time = time.perf_counter()
-        
+
         try:
             async with httpx.AsyncClient(verify=False, timeout=timeout_s) as client:
                 response = await client.get(url, headers={"User-Agent": "InfraWatch-Probe/1.0"})
-                
+
             latency_ms = (time.perf_counter() - start_time) * 1000
-            
+
             # Se for HTTPS, extrai a validade do TLS se possível, independente do httpx
             tls_days_left = None
             if target.protocol.lower() == "https":
                 try:
-                    tls_days_left = await self._get_cert_validity_days(target.ip_address, target.port, timeout_s)
-                except Exception:
-                    pass  # Falha silenciosa em caso de erro na coleta do cert (foco do prober é Uptime)
+                    tls_days_left = await self._get_cert_validity_days(
+                        target.ip_address, target.port, timeout_s
+                    )
+                except (TimeoutError, ssl.SSLError, OSError) as err:
+                    logger.debug("Falha na coleta de certificado TLS para %s: %s", target.name, err)
 
             status = "UP" if response.status_code < 400 else "DEGRADED"
-            
+
             return ProbeResult(
                 device_id=target.device_id,
                 target_name=target.name,
@@ -55,7 +60,7 @@ class HttpProber(BaseProber):
                 extra_data={
                     "status_code": response.status_code,
                     "tls_days_left": tls_days_left,
-                }
+                },
             )
 
         except httpx.TimeoutException:
@@ -65,39 +70,43 @@ class HttpProber(BaseProber):
                 status="TIMEOUT",
                 latency_ms=0.0,
                 packet_loss_pct=100.0,
-                error_message="Tempo limite da requisição HTTP excedido"
+                error_message="Tempo limite da requisição HTTP excedido",
             )
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             return ProbeResult(
                 device_id=target.device_id,
                 target_name=target.name,
                 status="DOWN",
                 latency_ms=0.0,
                 packet_loss_pct=100.0,
-                error_message=f"Falha de conexão: {str(e)}"
+                error_message=f"Falha de conexão: {e!s}",
             )
 
     async def _get_cert_validity_days(self, host: str, port: int, timeout: float) -> int | None:
         """Coleta assíncrona da data de expiração do certificado TLS."""
-        
         loop = asyncio.get_running_loop()
-        
+
         def _get_cert() -> dict | None:
             context = ssl.create_default_context()
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
-            
-            with socket.create_connection((host, port), timeout=timeout) as sock:
-                with context.wrap_socket(sock, server_hostname=host) as ssock:
-                    return ssock.getpeercert(binary_form=False)
-                    
+
+            with (
+                socket.create_connection((host, port), timeout=timeout) as sock,
+                context.wrap_socket(sock, server_hostname=host) as ssock,
+            ):
+                return ssock.getpeercert(binary_form=False)
+
         try:
             cert = await asyncio.wait_for(loop.run_in_executor(None, _get_cert), timeout=timeout)
             if cert and "notAfter" in cert:
                 # "notAfter": "Oct 11 08:34:00 2026 GMT"
-                not_after = datetime.strptime(cert["notAfter"], "%b %d %H:%M:%S %Y %Z").replace(tzinfo=UTC)
+                not_after = datetime.strptime(cert["notAfter"], "%b %d %H:%M:%S %Y %Z").replace(
+                    tzinfo=UTC
+                )
                 days_left = (not_after - datetime.now(UTC)).days
                 return max(0, days_left)
-        except Exception:
+        except (TimeoutError, ssl.SSLError, OSError, ValueError) as err:
+            logger.debug("Erro ao inspecionar validade do certificado TLS para %s: %s", host, err)
             return None
         return None

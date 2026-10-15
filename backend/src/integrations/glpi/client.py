@@ -13,8 +13,8 @@ Resiliência embutida:
 
 import asyncio
 import logging
-from datetime import datetime, UTC
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Self
 
 import httpx
 
@@ -66,7 +66,7 @@ class GlpiClient:
     # Context Manager
     # ------------------------------------------------------------------
 
-    async def __aenter__(self) -> "GlpiClient":
+    async def __aenter__(self) -> Self:
         self._http = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=self._timeout,
@@ -74,7 +74,7 @@ class GlpiClient:
         await self._init_session()
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         try:
             await self._kill_session()
         finally:
@@ -107,8 +107,8 @@ class GlpiClient:
         try:
             await self._request_raw(method="GET", path="/killSession")
             logger.info("Sessão GLPI encerrada")
-        except Exception:
-            logger.warning("Falha ao encerrar sessão GLPI (ignorado)")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Falha ao encerrar sessão GLPI (ignorado): %s", exc)
         finally:
             self._session_token = None
 
@@ -152,10 +152,17 @@ class GlpiClient:
                 return response.json()
 
             except httpx.HTTPStatusError as exc:
-                logger.warning("GLPI HTTP erro %d (tentativa %d/%d)", exc.response.status_code, attempt, _MAX_RETRIES)
+                logger.warning(
+                    "GLPI HTTP erro %d (tentativa %d/%d)",
+                    exc.response.status_code,
+                    attempt,
+                    _MAX_RETRIES,
+                )
                 last_exc = exc
             except (httpx.TimeoutException, httpx.ConnectError) as exc:
-                logger.warning("GLPI conexão/timeout (tentativa %d/%d): %s", attempt, _MAX_RETRIES, exc)
+                logger.warning(
+                    "GLPI conexão/timeout (tentativa %d/%d): %s", attempt, _MAX_RETRIES, exc
+                )
                 last_exc = exc
 
             if attempt < _MAX_RETRIES:

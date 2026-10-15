@@ -40,8 +40,11 @@ async def test_metrics_with_invalid_credentials_returns_401(app):
 async def test_metrics_with_valid_basic_auth_returns_200(app):
     """Garante que credenciais válidas acessam com sucesso as métricas em /metrics e /api/v1/monitoring/metrics."""
     from src.core.config import get_settings
+
     settings = get_settings()
-    user_pass = f"{settings.PROMETHEUS_METRICS_USER}:{settings.PROMETHEUS_METRICS_PASSWORD}".encode("utf-8")
+    user_pass = (
+        f"{settings.PROMETHEUS_METRICS_USER}:{settings.PROMETHEUS_METRICS_PASSWORD}".encode()
+    )
     valid_creds = base64.b64encode(user_pass).decode("ascii")
     headers = {"Authorization": f"Basic {valid_creds}"}
 
@@ -60,6 +63,7 @@ async def test_metrics_with_valid_basic_auth_returns_200(app):
 async def test_metrics_with_bearer_token_returns_200(app):
     """Garante que Bearer Token de serviço também é aceito para scrapers modernos."""
     from src.core.config import get_settings
+
     settings = get_settings()
     headers = {"Authorization": f"Bearer {settings.PROMETHEUS_METRICS_PASSWORD}"}
 

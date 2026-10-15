@@ -1,16 +1,15 @@
 """Testes unitários dos executores assíncronos de rede (Probers)."""
 
-import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-import pytest
 import httpx
+import pytest
 
-from src.workers.scheduler.in_memory_inventory import ProbeTarget
-from src.workers.probers.icmp import IcmpProber
 from src.workers.probers.http import HttpProber
+from src.workers.probers.icmp import IcmpProber
 from src.workers.probers.tcp import TcpProber
+from src.workers.scheduler.in_memory_inventory import ProbeTarget
 
 
 @pytest.fixture
@@ -29,21 +28,22 @@ def dummy_target():
 
 # ---------------- ICMP PROBER TESTS ----------------
 
+
 @pytest.mark.asyncio
 async def test_icmp_prober_success(dummy_target):
     prober = IcmpProber(packets=1)
-    
+
     mock_proc = AsyncMock()
     # Mock para saída saudável
     mock_proc.communicate.return_value = (
         b"3 packets transmitted, 3 received, 0% packet loss, time 2002ms\nrtt min/avg/max/mdev = 1.0/1.5/2.0/0.5 ms\n",
-        b""
+        b"",
     )
     mock_proc.returncode = 0
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
         result = await prober.probe(dummy_target)
-        
+
         mock_exec.assert_called_once()
         assert result.status == "UP"
         assert result.latency_ms == 1.5
@@ -53,11 +53,11 @@ async def test_icmp_prober_success(dummy_target):
 @pytest.mark.asyncio
 async def test_icmp_prober_down(dummy_target):
     prober = IcmpProber(packets=1)
-    
+
     mock_proc = AsyncMock()
     mock_proc.communicate.return_value = (
         b"3 packets transmitted, 0 received, 100% packet loss, time 2002ms\n",
-        b""
+        b"",
     )
     mock_proc.returncode = 1
 
@@ -70,9 +70,9 @@ async def test_icmp_prober_down(dummy_target):
 @pytest.mark.asyncio
 async def test_icmp_prober_timeout(dummy_target):
     prober = IcmpProber(packets=1)
-    
+
     mock_proc = AsyncMock()
-    mock_proc.communicate.side_effect = asyncio.TimeoutError()
+    mock_proc.communicate.side_effect = TimeoutError()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await prober.probe(dummy_target)
@@ -82,17 +82,18 @@ async def test_icmp_prober_timeout(dummy_target):
 
 # ---------------- HTTP PROBER TESTS ----------------
 
+
 @pytest.mark.asyncio
 async def test_http_prober_success(dummy_target):
     prober = HttpProber()
     dummy_target.protocol = "http"
-    
+
     mock_response = AsyncMock()
     mock_response.status_code = 200
-    
+
     with patch("httpx.AsyncClient.get", return_value=mock_response):
         result = await prober.probe(dummy_target)
-        
+
         assert result.status == "UP"
         assert result.extra_data["status_code"] == 200
         assert result.packet_loss_pct == 0.0
@@ -102,13 +103,13 @@ async def test_http_prober_success(dummy_target):
 @pytest.mark.asyncio
 async def test_http_prober_degraded_on_error_code(dummy_target):
     prober = HttpProber()
-    
+
     mock_response = AsyncMock()
     mock_response.status_code = 500
-    
+
     with patch("httpx.AsyncClient.get", return_value=mock_response):
         result = await prober.probe(dummy_target)
-        
+
         assert result.status == "DEGRADED"
         assert result.extra_data["status_code"] == 500
 
@@ -116,7 +117,7 @@ async def test_http_prober_degraded_on_error_code(dummy_target):
 @pytest.mark.asyncio
 async def test_http_prober_timeout(dummy_target):
     prober = HttpProber()
-    
+
     with patch("httpx.AsyncClient.get", side_effect=httpx.TimeoutException("timeout")):
         result = await prober.probe(dummy_target)
         assert result.status == "TIMEOUT"
@@ -124,13 +125,15 @@ async def test_http_prober_timeout(dummy_target):
 
 # ---------------- TCP PROBER TESTS ----------------
 
+
 @pytest.mark.asyncio
 async def test_tcp_prober_success(dummy_target):
     prober = TcpProber()
-    
+
     mock_reader = AsyncMock()
     mock_writer = AsyncMock()
-    
+    mock_writer.close = MagicMock()
+
     with patch("asyncio.open_connection", return_value=(mock_reader, mock_writer)):
         result = await prober.probe(dummy_target)
         assert result.status == "UP"
@@ -142,7 +145,7 @@ async def test_tcp_prober_success(dummy_target):
 @pytest.mark.asyncio
 async def test_tcp_prober_refused(dummy_target):
     prober = TcpProber()
-    
+
     with patch("asyncio.open_connection", side_effect=ConnectionRefusedError()):
         result = await prober.probe(dummy_target)
         assert result.status == "DOWN"
@@ -152,7 +155,12 @@ async def test_tcp_prober_refused(dummy_target):
 @pytest.mark.asyncio
 async def test_tcp_prober_timeout(dummy_target):
     prober = TcpProber()
-    
-    with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
+
+    async def _mock_wait_for(coro, timeout=None):
+        if hasattr(coro, "close"):
+            coro.close()
+        raise TimeoutError()
+
+    with patch("asyncio.wait_for", side_effect=_mock_wait_for):
         result = await prober.probe(dummy_target)
         assert result.status == "TIMEOUT"

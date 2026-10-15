@@ -141,7 +141,9 @@ async def stream_events(
 async def list_monitored_telemetry(
     current_user: CurrentUserDep,
     session: DbSessionDep,
-    status_filter: str | None = Query(None, alias="status", description="Filtrar por status operacional"),
+    status_filter: str | None = Query(
+        None, alias="status", description="Filtrar por status operacional"
+    ),
     limit: int = Query(50, ge=1, le=200, description="Quantidade máxima de dispositivos"),
     offset: int = Query(0, ge=0, description="Offset de paginação"),
 ) -> MonitoredDevicesResponse:
@@ -182,7 +184,8 @@ async def list_monitored_telemetry(
 
     metrics_stmt = select(MetricModel).join(
         latest_subq,
-        (MetricModel.device_id == latest_subq.c.device_id) & (MetricModel.timestamp == latest_subq.c.max_ts),
+        (MetricModel.device_id == latest_subq.c.device_id)
+        & (MetricModel.timestamp == latest_subq.c.max_ts),
     )
     metrics_result = (await session.execute(metrics_stmt)).scalars().all()
     latencies_by_dev: dict[UUID, float] = {}
@@ -245,7 +248,9 @@ async def get_device_telemetry(
     device_id: UUID,
     current_user: CurrentUserDep,
     session: DbSessionDep,
-    metric_limit: int = Query(50, ge=1, le=200, description="Quantidade de pontos históricos a retornar"),
+    metric_limit: int = Query(
+        50, ge=1, le=200, description="Quantidade de pontos históricos a retornar"
+    ),
 ) -> MonitoredDeviceDetail:
     """Consulta REST detalhada de telemetria por ativo."""
     stmt = select(DeviceModel).where(DeviceModel.id == device_id)
@@ -317,7 +322,9 @@ async def get_device_telemetry(
         is_paused=device.is_paused,
         interval_seconds=device.interval_seconds,
         last_latency_ms=last_latency,
-        last_packet_loss=last_packet_loss if last_packet_loss is not None else (0.0 if last_timestamp else None),
+        last_packet_loss=last_packet_loss
+        if last_packet_loss is not None
+        else (0.0 if last_timestamp else None),
         last_monitored_at=last_timestamp,
         recent_metrics=recent_metrics,
     )

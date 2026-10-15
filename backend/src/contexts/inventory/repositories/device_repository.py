@@ -51,7 +51,7 @@ class DeviceRepository:
                 organization_id=device.organization_id,
             )
             self.session.add(model)
-        
+
         model.name = device.name
         model.hostname = getattr(device, "hostname", None)
         model.ip_address = device.ip_address
@@ -74,25 +74,21 @@ class DeviceRepository:
         offset: int = 0,
     ) -> Sequence[DeviceModel]:
         """Realiza busca full-text usando o índice GIN no PostgreSQL."""
-        stmt = select(DeviceModel).where(
-            DeviceModel.organization_id == organization_id
-        )
+        stmt = select(DeviceModel).where(DeviceModel.organization_id == organization_id)
 
         if query:
             dialect_name = self.session.bind.dialect.name if self.session.bind else ""
             if dialect_name == "sqlite":
                 # Fallback for sqlite tests
                 stmt = stmt.where(
-                    (DeviceModel.name.ilike(f"%{query}%")) |
-                    (DeviceModel.ip_address.ilike(f"%{query}%")) |
-                    (DeviceModel.hostname.ilike(f"%{query}%"))
+                    (DeviceModel.name.ilike(f"%{query}%"))
+                    | (DeviceModel.ip_address.ilike(f"%{query}%"))
+                    | (DeviceModel.hostname.ilike(f"%{query}%"))
                 )
             else:
                 # websearch_to_tsquery allows operators like "term1 -term2"
-                ts_query = func.websearch_to_tsquery('portuguese', query)
-                stmt = stmt.where(
-                    DeviceModel.search_vector.op("@@")(ts_query)
-                ).order_by(
+                ts_query = func.websearch_to_tsquery("portuguese", query)
+                stmt = stmt.where(DeviceModel.search_vector.op("@@")(ts_query)).order_by(
                     func.ts_rank_cd(DeviceModel.search_vector, ts_query).desc()
                 )
         else:

@@ -101,14 +101,20 @@ def sample_target():
 class TestProbeWorkerPipeline:
     @pytest.mark.asyncio
     async def test_schedule_tick_dispatches_due_target(
-        self, worker: ProbeWorkerDaemon, sample_target: ProbeTarget, mock_executor: MagicMock, mock_batch_writer: MagicMock
+        self,
+        worker: ProbeWorkerDaemon,
+        sample_target: ProbeTarget,
+        mock_executor: MagicMock,
+        mock_batch_writer: MagicMock,
     ) -> None:
         """Sonda é executada e telemetria é bufferizada para alvo apto."""
         await worker.schedule.add_or_update(sample_target)
 
         await worker._schedule_tick()
 
-        mock_executor.execute.assert_called_once_with(sample_target, timeout_ms=worker.probe_timeout_ms)
+        mock_executor.execute.assert_called_once_with(
+            sample_target, timeout_ms=worker.probe_timeout_ms
+        )
         mock_batch_writer.enqueue.assert_called_once()
         assert sample_target.device_id in worker._last_probed
 
@@ -142,7 +148,11 @@ class TestProbeWorkerPipeline:
 
     @pytest.mark.asyncio
     async def test_three_consecutive_failures_transitions_to_down_and_emits_event(
-        self, worker: ProbeWorkerDaemon, sample_target: ProbeTarget, mock_executor: MagicMock, dummy_session_factory: MagicMock
+        self,
+        worker: ProbeWorkerDaemon,
+        sample_target: ProbeTarget,
+        mock_executor: MagicMock,
+        dummy_session_factory: MagicMock,
     ) -> None:
         """3 falhas consecutivas colocam ativo em DOWN, gravam no Outbox e no Redis Stream."""
         mock_executor.execute = AsyncMock(

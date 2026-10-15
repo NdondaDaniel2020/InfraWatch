@@ -5,8 +5,6 @@ import logging
 import logging.config
 import uuid
 
-import pytest
-
 from src.core.observability.context import (
     request_id_ctx,
     set_request_id,
@@ -116,6 +114,7 @@ def test_json_formatter_with_exception():
         raise ValueError("Erro de teste para logging")
     except ValueError:
         import sys
+
         exc_info = sys.exc_info()
 
     record = logging.LogRecord(

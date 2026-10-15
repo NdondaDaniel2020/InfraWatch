@@ -22,7 +22,9 @@ class GlpiNotifier:
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.enabled = getattr(settings, "GLPI_ENABLED", False) and getattr(settings, "GLPI_NOTIFY_STARTUP", False)
+        self.enabled = getattr(settings, "GLPI_ENABLED", False) and getattr(
+            settings, "GLPI_NOTIFY_STARTUP", False
+        )
         self.app_token = getattr(settings, "GLPI_APP_TOKEN", "")
         self.user_token = getattr(settings, "GLPI_USER_TOKEN", "")
         self.base_url = getattr(settings, "GLPI_BASE_URL", "")

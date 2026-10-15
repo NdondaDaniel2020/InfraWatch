@@ -31,6 +31,7 @@ async def test_iam_email_consumer_consume_loop_processes_and_acks() -> None:
     stop_event = asyncio.Event()
 
     with patch.object(consumer, "handle", new_callable=AsyncMock) as mock_handle:
+
         async def run_and_stop():
             await asyncio.sleep(0.05)
             stop_event.set()
@@ -63,6 +64,7 @@ async def test_iam_email_consumer_consume_loop_skips_ack_on_failure() -> None:
     stop_event = asyncio.Event()
 
     with patch.object(consumer, "handle", side_effect=RuntimeError("SMTP down")):
+
         async def run_and_stop():
             await asyncio.sleep(0.05)
             stop_event.set()

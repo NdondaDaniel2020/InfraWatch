@@ -14,14 +14,14 @@ from src.workers.scheduler.in_memory_inventory import ProbeTarget
 def _make_async_client_mock(inspect_resp: httpx.Response, stats_resp: httpx.Response) -> AsyncMock:
     """Cria mock de AsyncClient que suporta async with e side_effect por URL."""
     mock_client = AsyncMock(spec=httpx.AsyncClient)
-    
+
     async def mock_get(url: str, *args, **kwargs) -> httpx.Response:
         if "json" in url:
             return inspect_resp
         elif "stats" in url:
             return stats_resp
         return httpx.Response(404)
-    
+
     mock_client.get.side_effect = mock_get
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -60,7 +60,12 @@ def healthy_inspect_payload() -> dict:
                 "Status": "healthy",
                 "FailingStreak": 0,
                 "Log": [
-                    {"Start": "2026-10-13T12:00:00Z", "End": "2026-10-13T12:00:01Z", "ExitCode": 0, "Output": "OK: accepting connections"}
+                    {
+                        "Start": "2026-10-13T12:00:00Z",
+                        "End": "2026-10-13T12:00:01Z",
+                        "ExitCode": 0,
+                        "Output": "OK: accepting connections",
+                    }
                 ],
             },
         },
@@ -84,8 +89,22 @@ def healthy_inspect_payload() -> dict:
             "OomKillDisable": False,
         },
         "Mounts": [
-            {"Type": "bind", "Source": "/host/path", "Destination": "/container/path", "Mode": "rw", "RW": True, "Driver": "local"},
-            {"Type": "volume", "Source": "/var/lib/docker/volumes/data/_data", "Destination": "/data", "Mode": "rw", "RW": True, "Driver": "local"},
+            {
+                "Type": "bind",
+                "Source": "/host/path",
+                "Destination": "/container/path",
+                "Mode": "rw",
+                "RW": True,
+                "Driver": "local",
+            },
+            {
+                "Type": "volume",
+                "Source": "/var/lib/docker/volumes/data/_data",
+                "Destination": "/data",
+                "Mode": "rw",
+                "RW": True,
+                "Driver": "local",
+            },
         ],
         "NetworkSettings": {
             "Networks": {
@@ -105,13 +124,25 @@ def healthy_inspect_payload() -> dict:
 def healthy_stats_payload() -> dict:
     return {
         "cpu_stats": {
-            "cpu_usage": {"total_usage": 200000000, "usage_in_kernelmode": 50000000, "usage_in_usermode": 150000000},
+            "cpu_usage": {
+                "total_usage": 200000000,
+                "usage_in_kernelmode": 50000000,
+                "usage_in_usermode": 150000000,
+            },
             "system_cpu_usage": 1000000000,
             "online_cpus": 2,
-            "throttling_data": {"periods": 100, "throttled_periods": 5, "throttled_time": 1000000000},
+            "throttling_data": {
+                "periods": 100,
+                "throttled_periods": 5,
+                "throttled_time": 1000000000,
+            },
         },
         "precpu_stats": {
-            "cpu_usage": {"total_usage": 100000000, "usage_in_kernelmode": 25000000, "usage_in_usermode": 75000000},
+            "cpu_usage": {
+                "total_usage": 100000000,
+                "usage_in_kernelmode": 25000000,
+                "usage_in_usermode": 75000000,
+            },
             "system_cpu_usage": 500000000,
         },
         "memory_stats": {
@@ -251,7 +282,10 @@ async def test_docker_prober_healthy_container(
     assert result.extra_data["cpu_quota"] == 50000
     assert result.extra_data["pids_limit_config"] == 100
     assert result.extra_data["container_network"]["ip_address"] == "172.22.0.2"
-    assert result.extra_data["container_network"]["dns_names"] == ["postgres", "infrawatch-postgres"]
+    assert result.extra_data["container_network"]["dns_names"] == [
+        "postgres",
+        "infrawatch-postgres",
+    ]
 
 
 @pytest.mark.asyncio
@@ -519,7 +553,9 @@ def test_docker_prober_normalizes_tcp_docker_host(docker_target: ProbeTarget) ->
     assert client.timeout.read == 3.0
 
 
-def test_docker_prober_reads_env_docker_host(monkeypatch: pytest.MonkeyPatch, docker_target: ProbeTarget) -> None:
+def test_docker_prober_reads_env_docker_host(
+    monkeypatch: pytest.MonkeyPatch, docker_target: ProbeTarget
+) -> None:
     """Valida leitura automática de DOCKER_HOST a partir do ambiente."""
     monkeypatch.setenv("DOCKER_HOST", "http://10.0.0.10:2375")
     prober = DockerProber()
@@ -528,7 +564,9 @@ def test_docker_prober_reads_env_docker_host(monkeypatch: pytest.MonkeyPatch, do
     assert str(client.base_url) == "http://10.0.0.10:2375"
 
 
-def test_docker_prober_fallback_to_unix_socket(monkeypatch: pytest.MonkeyPatch, docker_target: ProbeTarget) -> None:
+def test_docker_prober_fallback_to_unix_socket(
+    monkeypatch: pytest.MonkeyPatch, docker_target: ProbeTarget
+) -> None:
     """Valida fallback para socket UDS quando DOCKER_HOST não estiver presente."""
     monkeypatch.delenv("DOCKER_HOST", raising=False)
     prober = DockerProber(socket_path="/var/run/custom-docker.sock")

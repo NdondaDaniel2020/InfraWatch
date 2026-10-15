@@ -147,11 +147,12 @@ class TestInMemoryEventBus:
             await asyncio.sleep(0.1)
 
         assert len(received_calls) == 1
-        assert received_calls[0] == (topic, {"recipient": "admin@infrawatch.io", "subject": "Alerta"})
+        assert received_calls[0] == (
+            topic,
+            {"recipient": "admin@infrawatch.io", "subject": "Alerta"},
+        )
 
-    async def test_subscribe_invokes_event_handler_protocol(
-        self, bus: InMemoryEventBus
-    ) -> None:
+    async def test_subscribe_invokes_event_handler_protocol(self, bus: InMemoryEventBus) -> None:
         topic = "audit.events"
         group = "audit-workers"
         consumer = "audit-worker-1"

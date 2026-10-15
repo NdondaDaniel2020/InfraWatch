@@ -62,10 +62,12 @@ async def test_device_creation_generates_outbox_event(
     async with test_session_factory() as session:
         repo = DummyDeviceRepository(session)
         service = DeviceCommandService(session, repo)
-        
+
         # Ignora auditoria (mock)
         class MockAudit:
-            async def record_action(self, **kwargs): pass
+            async def record_action(self, **kwargs):
+                pass
+
         service.audit_service = MockAudit()
 
         cmd = CreateDeviceRequest(
@@ -76,7 +78,7 @@ async def test_device_creation_generates_outbox_event(
             protocol="ssh",
             category="ROUTER",
             interval_seconds=60,
-            thresholds={}
+            thresholds={},
         )
 
         device = await service.create_device(cmd, actor_user_id=uuid4(), actor_ip="127.0.0.1")
@@ -88,7 +90,7 @@ async def test_device_creation_generates_outbox_event(
             select(OutboxEventModel).where(OutboxEventModel.aggregate_id == device.id)
         )
         outbox_entries = result.scalars().all()
-        
+
         assert len(outbox_entries) == 1
         entry = outbox_entries[0]
         assert entry.event_type == "DeviceCreated"

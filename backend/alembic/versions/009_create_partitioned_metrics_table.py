@@ -7,15 +7,14 @@ Create Date: 2026-10-03 14:00:00.000000
 Cria a tabela pai ``metrics`` com PARTITION BY RANGE (timestamp)
 e as partições iniciais para os meses correntes e seguinte.
 """
-import calendar
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
-revision = '009_create_partitioned_metrics'
-down_revision = '008_create_devices'
+revision = "009_create_partitioned_metrics"
+down_revision = "008_create_devices"
 branch_labels = None
 depends_on = None
 
@@ -64,13 +63,19 @@ def upgrade() -> None:
         """)
 
     # 2. Índices na tabela pai (propagam para partições filhas automaticamente)
-    op.execute("CREATE INDEX IF NOT EXISTS ix_metrics_device_timestamp ON metrics (device_id, timestamp);")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_metrics_org_timestamp ON metrics (organization_id, timestamp);")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_metrics_metric_type ON metrics (metric_type, timestamp);")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_metrics_device_timestamp ON metrics (device_id, timestamp);"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_metrics_org_timestamp ON metrics (organization_id, timestamp);"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_metrics_metric_type ON metrics (metric_type, timestamp);"
+    )
 
     if not is_sqlite:
         # 3. Criar partições para o mês corrente e o próximo
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         year, month = now.year, now.month
         for _ in range(2):
             name = _partition_name(year, month)
@@ -85,7 +90,9 @@ def upgrade() -> None:
 
     # 4. Comentário na tabela
     if not is_sqlite:
-        op.execute("COMMENT ON TABLE metrics IS 'Séries temporais de telemetria particionadas por mês';")
+        op.execute(
+            "COMMENT ON TABLE metrics IS 'Séries temporais de telemetria particionadas por mês';"
+        )
 
 
 def downgrade() -> None:

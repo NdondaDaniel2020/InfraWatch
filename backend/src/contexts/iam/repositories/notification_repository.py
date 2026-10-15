@@ -53,7 +53,6 @@ class NotificationRepository:
         )
         return await self.save(notification)
 
-
     async def get_by_id(
         self,
         notification_id: int,

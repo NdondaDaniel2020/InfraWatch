@@ -18,9 +18,7 @@ class PasswordResetRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def save(
-        self, record: PasswordResetTokenModel
-    ) -> PasswordResetTokenModel:
+    async def save(self, record: PasswordResetTokenModel) -> PasswordResetTokenModel:
         """Persiste ou atualiza um token de recuperação de senha na sessão ativa."""
         self.session.add(record)
         await self.session.flush()
@@ -39,7 +37,6 @@ class PasswordResetRepository:
             expires_at=expires_at,
         )
         return await self.save(record)
-
 
     async def get_by_token(self, token: str) -> PasswordResetTokenModel | None:
         result = await self.session.execute(

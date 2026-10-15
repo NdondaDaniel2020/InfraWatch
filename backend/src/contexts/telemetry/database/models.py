@@ -29,12 +29,17 @@ class MetricModel(Base):
     device_id: Mapped[UUID] = mapped_column(Uuid, nullable=False, index=True)
     organization_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
     metric_type: Mapped[str] = mapped_column(
-        String(50), nullable=False, comment="Tipo: latency_ms, packet_loss, jitter_ms, status_code, tls_days"
+        String(50),
+        nullable=False,
+        comment="Tipo: latency_ms, packet_loss, jitter_ms, status_code, tls_days",
     )
     value: Mapped[float] = mapped_column(Float, nullable=False)
     packet_loss: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0.0"))
     status: Mapped[str] = mapped_column(
-        String(20), nullable=False, server_default=text("'UP'"), comment="UP, DEGRADED, DOWN, TIMEOUT"
+        String(20),
+        nullable=False,
+        server_default=text("'UP'"),
+        comment="UP, DEGRADED, DOWN, TIMEOUT",
     )
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()"), primary_key=True

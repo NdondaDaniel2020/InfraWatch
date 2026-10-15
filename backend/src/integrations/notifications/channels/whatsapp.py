@@ -36,9 +36,7 @@ class WhatsAppChannel:
     ) -> None:
         settings = get_settings()
         self.enabled = enabled if enabled is not None else settings.WHATSAPP_ENABLED
-        self.gateway_url = (
-            gateway_url if gateway_url is not None else settings.WHATSAPP_GATEWAY_URL
-        )
+        self.gateway_url = gateway_url if gateway_url is not None else settings.WHATSAPP_GATEWAY_URL
         self.api_token = api_token if api_token is not None else settings.WHATSAPP_API_TOKEN
         self.default_recipient = (
             default_recipient
@@ -50,7 +48,9 @@ class WhatsAppChannel:
 
     async def is_available(self) -> bool:
         """Verifica se o canal WhatsApp está habilitado e devidamente configurado."""
-        return bool(self.enabled and self.gateway_url and (self.api_token or self.default_recipient))
+        return bool(
+            self.enabled and self.gateway_url and (self.api_token or self.default_recipient)
+        )
 
     def _format_message(self, alert: AlertMessage) -> str:
         """Formata a mensagem em texto plano com sintaxe Markdown do WhatsApp."""

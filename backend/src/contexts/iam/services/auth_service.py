@@ -183,7 +183,11 @@ class AuthService:
                 ip=client_ip,
                 metadata={"email": user.email},
             )
-            logger.info("Desafio de MFA exigido para usuário: %s", user.email, extra={"user_id": str(user.id)})
+            logger.info(
+                "Desafio de MFA exigido para usuário: %s",
+                user.email,
+                extra={"user_id": str(user.id)},
+            )
             return user, pending_token
 
         # 7. Emissão final de tokens

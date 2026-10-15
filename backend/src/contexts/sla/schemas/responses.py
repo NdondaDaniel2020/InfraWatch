@@ -55,7 +55,9 @@ class SlaReportResponse(BaseModel):
     end_period: datetime
     total_period_hours: float = Field(..., description="Duração total observada em horas")
     unplanned_downtime_minutes: float = Field(..., description="Downtime penalizado em minutos")
-    exempted_downtime_minutes: float = Field(..., description="Downtime isento em janelas aprovadas")
+    exempted_downtime_minutes: float = Field(
+        ..., description="Downtime isento em janelas aprovadas"
+    )
     uptime_percentage: float = Field(..., description="Índice de disponibilidade alcançado (%)")
     sla_target: float = Field(..., description="Meta contratual de SLA (%)")
     sla_met: bool = Field(..., description="Indica se a meta contratual foi atendida")
@@ -65,7 +67,9 @@ class SlaReportResponse(BaseModel):
     exempted_incidents_count: int = Field(..., description="Ocorrências 100% isentas")
 
     @classmethod
-    def from_calculation(cls, result: SlaCalculationResult, sla_target: float = 99.50) -> SlaReportResponse:
+    def from_calculation(
+        cls, result: SlaCalculationResult, sla_target: float = 99.50
+    ) -> SlaReportResponse:
         return cls(
             device_id=result.device_id,
             start_period=result.start_period,

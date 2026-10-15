@@ -105,7 +105,7 @@ class OutboxRelayWorker:
             dialect = raw_dsn.split(":", 1)[0] if raw_dsn else "unknown"
             self._log.info(
                 "Dialeto não-PostgreSQL detectado (%s). LISTEN desativado, operando exclusivamente via Polling.",
-                raw_dsn.split(":", 1)[0] if raw_dsn else "None",
+                dialect,
             )
             return
 

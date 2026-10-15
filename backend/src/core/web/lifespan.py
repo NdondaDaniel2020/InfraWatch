@@ -26,6 +26,7 @@ logger = __import__("logging").getLogger("infrawatch.lifespan")
 
 # --- Compatibilidade retroativa para testes existentes ---
 
+
 async def _notify_glpi_startup(settings: Any) -> None:
     """Wrapper de compatibilidade para _notify_glpi_startup."""
     notifier = get_glpi_notifier()

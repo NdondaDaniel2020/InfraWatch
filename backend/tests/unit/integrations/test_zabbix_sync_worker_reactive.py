@@ -330,6 +330,7 @@ async def test_push_host_to_zabbix_handles_error():
     mock_client.__aenter__.return_value = mock_client
     mock_client.__aexit__.return_value = None
     from src.integrations.zabbix.client import ZabbixError
+
     mock_client.call.side_effect = ZabbixError("Connection refused")
 
     worker._get_zabbix_client = MagicMock(return_value=mock_client)

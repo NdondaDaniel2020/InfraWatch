@@ -1,9 +1,7 @@
-import pytest
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.schema import CreateColumn
-from sqlalchemy.sql.elements import TextClause
 
-from sqlalchemy.dialects.postgresql import TSVECTOR
 
 @compiles(CreateColumn, "sqlite")
 def compile_create_column_sqlite(element, compiler, **kw):
@@ -19,4 +17,3 @@ def compile_create_column_sqlite(element, compiler, **kw):
 def compile_tsvector_sqlite(type_, compiler, **kw):
     # O SQLite não possui TSVECTOR. Durante os testes, o TSVECTOR virará TEXT.
     return "TEXT"
-

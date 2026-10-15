@@ -24,12 +24,12 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from src.contexts.iam.domain.enums import OrgTier, UserRole
 from src.contexts.iam.database.models import (
     OrganizationModel,
     RefreshTokenModel,
     UserModel,
 )
+from src.contexts.iam.domain.enums import OrgTier, UserRole
 from src.contexts.iam.security.password import password_hasher
 from src.contexts.iam.security.tokens import create_access_token
 from src.core.database.base_model import Base

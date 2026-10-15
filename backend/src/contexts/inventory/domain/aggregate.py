@@ -52,7 +52,9 @@ class Device(Entity):
         self._ip_address = IPAddress(ip_address)
         self._port = NetworkPort(port)
         self._category = DeviceCategory(category)
-        self._thresholds = ThresholdConfig.from_dict(thresholds) if thresholds else ThresholdConfig()
+        self._thresholds = (
+            ThresholdConfig.from_dict(thresholds) if thresholds else ThresholdConfig()
+        )
 
         self.protocol = protocol
         self.interval_seconds = interval_seconds

@@ -16,7 +16,7 @@ _DISCORD_COLORS: dict[AlertSeverity, int] = {
     AlertSeverity.CRITICAL: 0xDC2626,  # Vermelho
     AlertSeverity.DEGRADED: 0xF59E0B,  # Âmbar
     AlertSeverity.RESOLVED: 0x10B981,  # Verde
-    AlertSeverity.INFO: 0x3B82F6,      # Azul
+    AlertSeverity.INFO: 0x3B82F6,  # Azul
 }
 
 
@@ -32,9 +32,7 @@ class WebhookChannel:
         client: httpx.AsyncClient | None = None,
     ) -> None:
         settings = get_settings()
-        self.webhook_url = (
-            webhook_url if webhook_url is not None else settings.DEFAULT_WEBHOOK_URL
-        )
+        self.webhook_url = webhook_url if webhook_url is not None else settings.DEFAULT_WEBHOOK_URL
         self.timeout = timeout_seconds
         self._custom_client = client
 
@@ -51,7 +49,9 @@ class WebhookChannel:
 
         if alert.device_name:
             ip_str = f" ({alert.device_ip})" if alert.device_ip else ""
-            fields.append({"name": "Ativo", "value": f"{alert.device_name}{ip_str}", "inline": True})
+            fields.append(
+                {"name": "Ativo", "value": f"{alert.device_name}{ip_str}", "inline": True}
+            )
 
         if alert.downtime_minutes is not None and alert.downtime_minutes > 0:
             fields.append(
@@ -101,9 +101,16 @@ class WebhookChannel:
             fields.append({"type": "mrkdwn", "text": f"*Ativo:*\n{alert.device_name}{ip_str}"})
 
         if alert.downtime_minutes is not None and alert.downtime_minutes > 0:
-            fields.append({"type": "mrkdwn", "text": f"*Downtime:*\n{alert.downtime_minutes:.1f} min"})
+            fields.append(
+                {"type": "mrkdwn", "text": f"*Downtime:*\n{alert.downtime_minutes:.1f} min"}
+            )
 
-        fields.append({"type": "mrkdwn", "text": f"*Horário:*\n{alert.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}"})
+        fields.append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Horário:*\n{alert.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            }
+        )
 
         blocks.append({"type": "section", "fields": fields})
 

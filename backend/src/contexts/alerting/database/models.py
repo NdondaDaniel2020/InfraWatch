@@ -90,6 +90,7 @@ class IncidentModel(Base):
 
     def to_domain(self) -> Incident:
         """Converte o modelo ORM para a entidade de domínio Incident."""
+
         def _ensure_utc(dt: datetime | None) -> datetime | None:
             if dt is None:
                 return None

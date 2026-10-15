@@ -35,9 +35,11 @@ class OrganizationCreatedEvent(DomainEvent):
     slug: str = ""
     tier: str = ""
 
+
 @dataclass(frozen=True)
 class PasswordResetRequestedEvent(DomainEvent):
     """Evento emitido quando um pedido de redefinição de senha é criado."""
+
     email: str = ""
     reset_token: str = ""
 
@@ -45,18 +47,21 @@ class PasswordResetRequestedEvent(DomainEvent):
 @dataclass(frozen=True)
 class PasswordChangedEvent(DomainEvent):
     """Evento emitido quando a senha de um usuário é alterada com sucesso."""
+
     email: str = ""
 
 
 @dataclass(frozen=True)
 class PasswordResetCompletedEvent(DomainEvent):
     """Evento emitido quando a redefinição de senha é concluída."""
+
     email: str = ""
 
 
 @dataclass(frozen=True)
 class EmailVerificationRequestedEvent(DomainEvent):
     """Evento emitido quando um token de verificação de e-mail é gerado."""
+
     email: str = ""
     verify_token: str = ""
 
@@ -64,6 +69,7 @@ class EmailVerificationRequestedEvent(DomainEvent):
 @dataclass(frozen=True)
 class EmailVerifiedEvent(DomainEvent):
     """Evento emitido quando o e-mail de um usuário é verificado com sucesso."""
+
     email: str = ""
     full_name: str = ""
 
@@ -71,6 +77,7 @@ class EmailVerifiedEvent(DomainEvent):
 @dataclass(frozen=True)
 class AccountLockedEvent(DomainEvent):
     """Evento emitido quando uma conta é bloqueada temporariamente por tentativas excessivas."""
+
     email: str = ""
     block_minutes: int = 15
 
@@ -78,6 +85,7 @@ class AccountLockedEvent(DomainEvent):
 @dataclass(frozen=True)
 class BackupCodeUsedEvent(DomainEvent):
     """Evento emitido quando um código de recuperação MFA é utilizado."""
+
     email: str = ""
     remaining_count: int = 0
 
@@ -85,6 +93,7 @@ class BackupCodeUsedEvent(DomainEvent):
 @dataclass(frozen=True)
 class ProfileUpdatedEvent(DomainEvent):
     """Evento emitido quando o perfil de um usuário é atualizado."""
+
     email: str = ""
     changed_fields: str = ""
 
@@ -92,6 +101,7 @@ class ProfileUpdatedEvent(DomainEvent):
 @dataclass(frozen=True)
 class RolesChangedEvent(DomainEvent):
     """Evento emitido quando o papel/role de um usuário é alterado."""
+
     email: str = ""
     new_roles: str = ""
 
@@ -99,5 +109,6 @@ class RolesChangedEvent(DomainEvent):
 @dataclass(frozen=True)
 class AccountDeactivatedEvent(DomainEvent):
     """Evento emitido quando a conta de um usuário é desativada por um administrador."""
+
     email: str = ""
     reason: str = "Suspensão administrativa por conformidade de segurança"

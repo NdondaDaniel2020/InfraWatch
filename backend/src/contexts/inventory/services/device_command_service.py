@@ -113,7 +113,7 @@ class DeviceCommandService:
         device = await self.repository.find_by_id(target_device_id)
         if not device:
             raise ValueError("Device not found")
-            
+
         if cmd.interval_seconds is not None and cmd.interval_seconds < 5:
             raise ValueError("Interval must be at least 5 seconds")
 

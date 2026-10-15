@@ -8,7 +8,6 @@ Cria a tabela de janelas de manutenção programada (maintenance_windows)
 com chaves estrangeiras para devices e organizations, e índices por período.
 """
 
-
 import sqlalchemy as sa
 
 from alembic import op

@@ -7,12 +7,9 @@ Define os modelos de entrada e saída para os endpoints utilizados:
 - PUT /Ticket/{id} (encerramento)
 """
 
-from datetime import datetime
 from enum import IntEnum
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
 # Enums GLPI
@@ -21,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class GlpiTicketStatus(IntEnum):
     """Status do chamado no GLPI (campo status)."""
+
     NEW = 1
     PROCESSING_ASSIGNED = 2
     PROCESSING_PLANNED = 3
@@ -31,6 +29,7 @@ class GlpiTicketStatus(IntEnum):
 
 class GlpiUrgency(IntEnum):
     """Urgência do chamado (1=Muito Baixa … 5=Muito Alta)."""
+
     VERY_LOW = 1
     LOW = 2
     MEDIUM = 3
@@ -40,6 +39,7 @@ class GlpiUrgency(IntEnum):
 
 class GlpiImpact(IntEnum):
     """Impacto do chamado (1=Muito Baixo … 5=Muito Alto)."""
+
     VERY_LOW = 1
     LOW = 2
     MEDIUM = 3
@@ -49,6 +49,7 @@ class GlpiImpact(IntEnum):
 
 class GlpiPriority(IntEnum):
     """Prioridade calculada pelo GLPI."""
+
     VERY_LOW = 1
     LOW = 2
     MEDIUM = 3
@@ -64,6 +65,7 @@ class GlpiPriority(IntEnum):
 
 class GlpiSessionResponse(BaseModel):
     """Resposta de GET /initSession."""
+
     session_token: str
 
 
@@ -74,12 +76,15 @@ class GlpiSessionResponse(BaseModel):
 
 class GlpiTicketCreate(BaseModel):
     """Payload de criação de chamado (POST /Ticket)."""
+
     name: str = Field(..., description="Título do chamado")
     content: str = Field(..., description="Descrição detalhada do incidente")
     urgency: GlpiUrgency = GlpiUrgency.VERY_HIGH
     impact: GlpiImpact = GlpiImpact.HIGH
     priority: GlpiPriority = GlpiPriority.VERY_HIGH
-    itilcategories_id: int = Field(default=0, description="ID da categoria ITSM (0 = sem categoria)")
+    itilcategories_id: int = Field(
+        default=0, description="ID da categoria ITSM (0 = sem categoria)"
+    )
     entities_id: int = Field(default=0, description="ID da entidade / organização no GLPI")
 
     model_config = ConfigDict(use_enum_values=True)
@@ -87,11 +92,13 @@ class GlpiTicketCreate(BaseModel):
 
 class GlpiTicketCreateResponse(BaseModel):
     """Resposta de POST /Ticket."""
+
     id: int
 
 
 class GlpiTicketUpdate(BaseModel):
     """Payload para encerramento / atualização de chamado (PUT /Ticket/{id})."""
+
     status: GlpiTicketStatus = GlpiTicketStatus.SOLVED
     solvedate: str | None = Field(None, description="Data/hora de resolução (Y-m-d H:M:S)")
 
@@ -105,6 +112,7 @@ class GlpiTicketUpdate(BaseModel):
 
 class GlpiFollowupCreate(BaseModel):
     """Payload de criação de acompanhamento técnico (POST /Ticket/{id}/ITILFollowup)."""
+
     items_id: int = Field(..., description="ID do chamado ao qual pertence")
     itemtype: str = Field(default="Ticket")
     content: str = Field(..., description="Texto do acompanhamento técnico")
@@ -114,4 +122,5 @@ class GlpiFollowupCreate(BaseModel):
 
 class GlpiFollowupResponse(BaseModel):
     """Resposta de POST /Ticket/{id}/ITILFollowup."""
+
     id: int

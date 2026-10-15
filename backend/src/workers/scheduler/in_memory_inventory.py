@@ -129,7 +129,8 @@ class InMemorySchedule:
         """Retorna todos os dispositivos ativos (não pausados e não em manutenção)."""
         async with self._lock:
             return [
-                t for t in self._devices.values()
+                t
+                for t in self._devices.values()
                 if not t.is_paused and t.status not in ("PAUSED", "MAINTENANCE")
             ]
 
@@ -179,7 +180,9 @@ class InMemorySchedule:
         if any(stats.values()):
             logger.info(
                 "Reconciliação concluída: +%d adicionados, ~%d atualizados, -%d removidos",
-                stats["added"], stats["updated"], stats["removed"],
+                stats["added"],
+                stats["updated"],
+                stats["removed"],
             )
 
         return stats

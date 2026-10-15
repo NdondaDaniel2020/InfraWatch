@@ -35,7 +35,11 @@ def test_mfa_pending_token_uses_dedicated_secret():
 
     # Token assinado com SECRET_KEY genérica deve ser rejeitado por decode_mfa_pending_token
     forged_token = jwt.encode(
-        {"sub": str(user_id), "type": "mfa_pending", "exp": int(datetime.now(UTC).timestamp()) + 300},
+        {
+            "sub": str(user_id),
+            "type": "mfa_pending",
+            "exp": int(datetime.now(UTC).timestamp()) + 300,
+        },
         "different_secret_key_12345678901234567890",
         algorithm=settings.ALGORITHM,
     )

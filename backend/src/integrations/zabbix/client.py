@@ -171,7 +171,9 @@ class ZabbixClient:
 
         for attempt in range(1, _MAX_RETRIES + 1):
             try:
-                response = await self._client.post(self._api_url, json=payload, headers=request_headers)
+                response = await self._client.post(
+                    self._api_url, json=payload, headers=request_headers
+                )
 
                 if response.status_code == 401 or response.status_code == 403:
                     raise ZabbixAuthError(
@@ -193,7 +195,9 @@ class ZabbixClient:
                         or "Not authorized" in err_data_str
                         or (err.code == -32602 and "login" in method)
                     ):
-                        raise ZabbixAuthError(f"Erro de autenticação Zabbix: {err.message} ({err.data})")
+                        raise ZabbixAuthError(
+                            f"Erro de autenticação Zabbix: {err.message} ({err.data})"
+                        )
 
                     raise ZabbixApiError(code=err.code, message=err.message, data=err.data)
 
@@ -303,11 +307,15 @@ class ZabbixClient:
                 continue
 
             # CPU Utilization (%)
-            if ("system.cpu.util" in key or "system.cpu.load" in key) and metrics.cpu_utilization_pct is None:
+            if (
+                "system.cpu.util" in key or "system.cpu.load" in key
+            ) and metrics.cpu_utilization_pct is None:
                 metrics.cpu_utilization_pct = round(val, 2)
 
             # Memory Utilization (%)
-            elif ("vm.memory.util" in key or "vm.memory.size[pused]" in key) and metrics.memory_utilization_pct is None:
+            elif (
+                "vm.memory.util" in key or "vm.memory.size[pused]" in key
+            ) and metrics.memory_utilization_pct is None:
                 metrics.memory_utilization_pct = round(val, 2)
 
             # Memory Used Bytes
@@ -323,7 +331,12 @@ class ZabbixClient:
                 metrics.disk_utilization_pct = round(val, 2)
 
             # Disk Used Bytes
-            elif "vfs.fs.size[" in key and "used]" in key and "pused]" not in key and metrics.disk_used_bytes is None:
+            elif (
+                "vfs.fs.size[" in key
+                and "used]" in key
+                and "pused]" not in key
+                and metrics.disk_used_bytes is None
+            ):
                 metrics.disk_used_bytes = val
 
             # Disk Total Bytes
@@ -379,14 +392,21 @@ class ZabbixClient:
                     "value_type": 4,  # Text
                 },
             )
-            if created and isinstance(created, dict) and "itemids" in created and created["itemids"]:
+            if (
+                created
+                and isinstance(created, dict)
+                and "itemids" in created
+                and created["itemids"]
+            ):
                 logger.info(
                     "Item trapper infrawatch.status provisionado com sucesso no Zabbix (itemid: %s)",
                     created["itemids"][0],
                 )
                 return str(created["itemids"][0])
         except Exception as exc:  # noqa: BLE001
-            logger.debug("Não foi possível obter ou provisionar item infrawatch.status no Zabbix: %s", exc)
+            logger.debug(
+                "Não foi possível obter ou provisionar item infrawatch.status no Zabbix: %s", exc
+            )
         return None
 
     async def send_startup_heartbeat(
@@ -483,7 +503,12 @@ class ZabbixClient:
                 "status": 0,  # 0 = enabled
             },
         )
-        if not res or not isinstance(res, dict) or "mediatypeids" not in res or not res["mediatypeids"]:
+        if (
+            not res
+            or not isinstance(res, dict)
+            or "mediatypeids" not in res
+            or not res["mediatypeids"]
+        ):
             raise ZabbixApiError(code=-1, message="Falha ao criar Media Type Webhook no Zabbix")
 
         mediatype_id = str(res["mediatypeids"][0])
@@ -672,4 +697,3 @@ DEFAULT_WEBHOOK_JS_SCRIPT = """try {
     Zabbix.log(3, '[InfraWatch Webhook Error] ' + error);
     throw 'Webhook failed: ' + error;
 }"""
-

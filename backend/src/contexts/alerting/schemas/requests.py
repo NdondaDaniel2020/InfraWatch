@@ -12,9 +12,15 @@ class CreateIncidentRequest(BaseModel):
     """Payload para criação manual ou automatizada de incidente."""
 
     device_id: UUID = Field(..., description="ID do dispositivo relacionado")
-    title: str = Field(..., min_length=3, max_length=255, description="Título descritivo do incidente")
-    severity: str = Field(default="CRITICAL", description="Severidade (CRITICAL, DOWN, WARNING, DEGRADED)")
-    organization_id: UUID | None = Field(default=None, description="ID da organização/tenant proprietária")
+    title: str = Field(
+        ..., min_length=3, max_length=255, description="Título descritivo do incidente"
+    )
+    severity: str = Field(
+        default="CRITICAL", description="Severidade (CRITICAL, DOWN, WARNING, DEGRADED)"
+    )
+    organization_id: UUID | None = Field(
+        default=None, description="ID da organização/tenant proprietária"
+    )
 
 
 class AcknowledgeIncidentRequest(BaseModel):

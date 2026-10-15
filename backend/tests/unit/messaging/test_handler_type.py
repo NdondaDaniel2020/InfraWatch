@@ -42,6 +42,7 @@ def test_event_handler_protocol_conformance():
 
 def test_event_handler_protocol_rejection_when_missing_handle():
     """Valida que uma classe sem handle() não satisfaz o protocolo EventHandler."""
+
     class InvalidHandler:
         pass
 

@@ -23,11 +23,11 @@ async def test_batch_writer_enqueue_handles_non_numeric_extra_data() -> None:
         packet_loss_pct=0.0,
         extra_data={
             "container_id": "abc123def456",  # string não numérica -> ignorada
-            "container_status": "running",    # string não numérica -> ignorada
-            "cpu_usage_pct": 12.5,            # float -> aceito
-            "memory_usage_pct": 45.0,         # float -> aceito
-            "restart_count": 0,               # int -> aceito como float
-            "oom_killed": False,              # bool -> aceito como 0.0
+            "container_status": "running",  # string não numérica -> ignorada
+            "cpu_usage_pct": 12.5,  # float -> aceito
+            "memory_usage_pct": 45.0,  # float -> aceito
+            "restart_count": 0,  # int -> aceito como float
+            "oom_killed": False,  # bool -> aceito como 0.0
         },
     )
 

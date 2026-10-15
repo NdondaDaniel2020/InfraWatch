@@ -30,7 +30,9 @@ from src.integrations.zabbix.schemas import (
 from src.workers.daemons.zabbix_sync_worker import ZabbixSyncWorker
 
 
-def make_jsonrpc_response(result: object = None, error: dict | None = None, status_code: int = 200) -> MagicMock:
+def make_jsonrpc_response(
+    result: object = None, error: dict | None = None, status_code: int = 200
+) -> MagicMock:
     """Helper para mockar respostas HTTP com payload JSON-RPC 2.0."""
     mock = MagicMock(spec=httpx.Response)
     mock.status_code = status_code
@@ -99,7 +101,9 @@ async def test_zabbix_get_api_version():
     )
 
     mock_resp = make_jsonrpc_response(result="7.0.0")
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp) as mock_post:
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp
+    ) as mock_post:
         version = await client.get_api_version()
         assert version == "7.0.0"
         mock_post.assert_called_once()
@@ -261,7 +265,11 @@ async def test_zabbix_retry_on_transient_error():
     success_resp = make_jsonrpc_response(result="7.0.0")
 
     with (
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[timeout_exc, success_resp]),
+        patch(
+            "httpx.AsyncClient.post",
+            new_callable=AsyncMock,
+            side_effect=[timeout_exc, success_resp],
+        ),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
         version = await client.get_api_version()
@@ -281,7 +289,6 @@ async def test_zabbix_definitive_connection_failure():
         pytest.raises(ZabbixConnectionError, match="Falha definitiva ao comunicar com Zabbix"),
     ):
         await client.get_api_version()
-
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +426,9 @@ async def test_zabbix_send_startup_heartbeat_without_hosts():
     version_resp = make_jsonrpc_response(result="6.4.0")
     hosts_resp = make_jsonrpc_response(result=[])
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp]):
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[version_resp, hosts_resp]
+    ):
         res = await client.send_startup_heartbeat()
         assert res["status"] == "ok"
         assert res["api_version"] == "6.4.0"
@@ -437,10 +446,14 @@ async def test_get_media_type_by_name():
     """Valida busca de Media Type por nome."""
     client = ZabbixClient(api_url="http://zabbix.test/api_jsonrpc.php", api_token="valid_token")
 
-    found_resp = make_jsonrpc_response(result=[{"mediatypeid": "15", "name": "InfraWatch Webhook", "type": 4}])
+    found_resp = make_jsonrpc_response(
+        result=[{"mediatypeid": "15", "name": "InfraWatch Webhook", "type": 4}]
+    )
     empty_resp = make_jsonrpc_response(result=[])
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[found_resp, empty_resp]):
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[found_resp, empty_resp]
+    ):
         # 1. Encontrado
         mt = await client.get_media_type_by_name("InfraWatch Webhook")
         assert mt is not None
@@ -458,7 +471,9 @@ async def test_create_webhook_media_type():
 
     create_resp = make_jsonrpc_response(result={"mediatypeids": ["25"]})
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_resp) as mock_post:
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_resp
+    ) as mock_post:
         mt_id = await client.create_webhook_media_type(
             name="InfraWatch Webhook",
             webhook_url="http://api:8000/webhook",
@@ -485,7 +500,9 @@ async def test_bind_media_type_to_user():
     user_resp = make_jsonrpc_response(result=[{"userid": "1", "username": "Admin", "medias": []}])
     update_resp = make_jsonrpc_response(result={"userids": ["1"]})
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[user_resp, update_resp]):
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[user_resp, update_resp]
+    ):
         bound = await client.bind_media_type_to_user("Admin", "25")
         assert bound is True
 
@@ -512,7 +529,9 @@ async def test_get_action_by_name_and_create_trigger_action():
     get_none_resp = make_jsonrpc_response(result=[])
     create_resp = make_jsonrpc_response(result={"actionids": ["50"]})
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[get_none_resp, create_resp]) as mock_post:
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[get_none_resp, create_resp]
+    ) as mock_post:
         action = await client.get_action_by_name("InfraWatch - Problem Alerts")
         assert action is None
 
@@ -526,5 +545,3 @@ async def test_get_action_by_name_and_create_trigger_action():
         assert params["eventsource"] == 0
         assert len(params["operations"]) >= 1
         assert len(params["recovery_operations"]) >= 1
-
-

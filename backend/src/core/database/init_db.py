@@ -46,7 +46,9 @@ async def init_db(engine: AsyncEngine | None = None) -> AsyncEngine:
         if settings.ENVIRONMENT in ("development", "test"):
             # Create all tables (idempotent)
             await connection.run_sync(Base.metadata.create_all)
-            logger.info("Database schema validated/created for %s environment", settings.ENVIRONMENT)
+            logger.info(
+                "Database schema validated/created for %s environment", settings.ENVIRONMENT
+            )
         else:
             # Production: just test connectivity
             await connection.execute(text("SELECT 1"))
@@ -59,6 +61,7 @@ async def close_db(engine: AsyncEngine | None = None) -> None:
     """Dispose of the database engine and all pooled connections."""
     if engine is None:
         from src.core.database.session import get_engine
+
         engine = get_engine()
 
     await engine.dispose()

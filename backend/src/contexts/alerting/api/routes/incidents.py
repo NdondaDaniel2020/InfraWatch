@@ -44,7 +44,9 @@ async def list_incidents(
     user: CurrentUserDep,
     service: IncidentServiceDep,
     organization_id: Annotated[UUID | None, Query(description="Filtrar por organização")] = None,
-    status_filter: Annotated[str | None, Query(alias="status", description="Filtrar por status")] = None,
+    status_filter: Annotated[
+        str | None, Query(alias="status", description="Filtrar por status")
+    ] = None,
     device_id: Annotated[UUID | None, Query(description="Filtrar por dispositivo")] = None,
     page: Annotated[int, Query(ge=1, description="Número da página")] = 1,
     page_size: Annotated[int, Query(ge=1, le=100, description="Itens por página")] = 50,
@@ -72,7 +74,12 @@ async def list_incidents(
     )
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=IncidentResponse, summary="Criar incidente")
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=IncidentResponse,
+    summary="Criar incidente",
+)
 async def create_incident(
     payload: CreateIncidentRequest,
     user: CurrentUserDep,
@@ -84,7 +91,9 @@ async def create_incident(
     return IncidentResponse.from_domain(incident)
 
 
-@router.get("/{incident_id}", response_model=IncidentResponse, summary="Obter detalhes de incidente")
+@router.get(
+    "/{incident_id}", response_model=IncidentResponse, summary="Obter detalhes de incidente"
+)
 async def get_incident(
     incident_id: UUID,
     user: CurrentUserDep,
@@ -115,7 +124,9 @@ async def get_incident(
     return IncidentResponse.from_domain(incident)
 
 
-@router.post("/{incident_id}/acknowledge", response_model=IncidentResponse, summary="Reconhecer incidente")
+@router.post(
+    "/{incident_id}/acknowledge", response_model=IncidentResponse, summary="Reconhecer incidente"
+)
 async def acknowledge_incident(
     incident_id: UUID,
     user: CurrentUserDep,
@@ -145,7 +156,9 @@ async def acknowledge_incident(
         ) from err
 
 
-@router.post("/{incident_id}/resolve", response_model=IncidentResponse, summary="Resolver incidente")
+@router.post(
+    "/{incident_id}/resolve", response_model=IncidentResponse, summary="Resolver incidente"
+)
 async def resolve_incident(
     incident_id: UUID,
     payload: ResolveIncidentRequest,

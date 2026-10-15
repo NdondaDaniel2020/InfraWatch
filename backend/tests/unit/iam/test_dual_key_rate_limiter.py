@@ -47,7 +47,9 @@ def mock_redis_client():
 @pytest.fixture
 def limiter_with_mock_redis(mock_redis_client):
     """Rate limiter com mock do Redis global."""
-    with patch("src.contexts.iam.security.rate_limiter.get_redis_client", return_value=mock_redis_client):
+    with patch(
+        "src.contexts.iam.security.rate_limiter.get_redis_client", return_value=mock_redis_client
+    ):
         limiter = DualKeyRateLimiter(
             ip_max_requests=10,
             ip_window_seconds=60,
@@ -181,7 +183,9 @@ async def test_redis_failure_falls_back_to_in_memory_transparently() -> None:
     broken_redis.set = AsyncMock(side_effect=RedisConnError("Redis connection refused"))
     broken_redis.delete = AsyncMock(side_effect=RedisConnError("Redis connection refused"))
 
-    with patch("src.contexts.iam.security.rate_limiter.get_redis_client", return_value=broken_redis):
+    with patch(
+        "src.contexts.iam.security.rate_limiter.get_redis_client", return_value=broken_redis
+    ):
         limiter = DualKeyRateLimiter(
             account_max_failures=3,
             account_lockout_duration_seconds=300,

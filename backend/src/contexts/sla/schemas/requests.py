@@ -13,8 +13,12 @@ class CreateMaintenanceWindowRequest(BaseModel):
 
     start_time: datetime = Field(..., description="Início programado da janela (UTC)")
     end_time: datetime = Field(..., description="Término programado da janela (UTC)")
-    description: str = Field(..., min_length=3, max_length=1000, description="Justificativa técnica")
-    device_id: UUID | None = Field(default=None, description="Dispositivo afetado ou nulo se global")
+    description: str = Field(
+        ..., min_length=3, max_length=1000, description="Justificativa técnica"
+    )
+    device_id: UUID | None = Field(
+        default=None, description="Dispositivo afetado ou nulo se global"
+    )
     organization_id: UUID | None = Field(default=None, description="Organização vinculada")
     is_approved: bool = Field(default=False, description="Status prévio de aprovação")
 
@@ -37,6 +41,10 @@ class UpdateMaintenanceWindowRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_time_range(self) -> UpdateMaintenanceWindowRequest:
-        if self.start_time is not None and self.end_time is not None and self.end_time <= self.start_time:
+        if (
+            self.start_time is not None
+            and self.end_time is not None
+            and self.end_time <= self.start_time
+        ):
             raise ValueError("O horário final da manutenção deve ser posterior ao horário inicial.")
         return self

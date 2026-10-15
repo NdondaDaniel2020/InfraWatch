@@ -120,14 +120,19 @@ class TestIncidentAggregate:
         incident = Incident(device_id=uuid4(), title="Incidente já resolvido")
         incident.resolve(root_cause="Cabo reconectado com sucesso")
 
-        with pytest.raises(IncidentAlreadyResolvedError, match="Não é possível reconhecer um incidente já resolvido"):
+        with pytest.raises(
+            IncidentAlreadyResolvedError,
+            match="Não é possível reconhecer um incidente já resolvido",
+        ):
             incident.acknowledge(operator_id=uuid4())
 
     def test_bloqueio_de_resolucao_dupla(self) -> None:
         incident = Incident(device_id=uuid4(), title="Incidente duplicado")
         incident.resolve(root_cause="Falha elétrica corrigida")
 
-        with pytest.raises(IncidentAlreadyResolvedError, match="O incidente já se encontra resolvido"):
+        with pytest.raises(
+            IncidentAlreadyResolvedError, match="O incidente já se encontra resolvido"
+        ):
             incident.resolve(root_cause="Tentativa de resolver novamente")
 
     def test_resolucao_direta_sem_reconhecimento_previo(self) -> None:
