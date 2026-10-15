@@ -69,6 +69,7 @@ def get_outbox_relay_worker(
 def get_token_cleanup_worker(
     redis_client: Any = None,
     session_factory: Any = None,
+    partition_manager: Any = None,
     interval_seconds: int = 3600,
     lock_timeout: int = 300,
     retention_days: int = 7,
@@ -82,6 +83,7 @@ def get_token_cleanup_worker(
         _token_cleanup_worker = TokenCleanupWorker(
             redis_client=redis_client,
             session_factory=session_factory,
+            partition_manager=partition_manager,
             interval_seconds=interval_seconds,
             lock_timeout=lock_timeout,
             retention_days=retention_days,

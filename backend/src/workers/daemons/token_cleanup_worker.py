@@ -16,26 +16,29 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from src.contexts.iam.database.models import RefreshTokenModel
 from src.core.database.session import get_session_factory
 from src.core.redis.distributed_lock import redis_distributed_lock
+from src.workers.maintenance.partition_manager import PartitionManager
 
 logger = logging.getLogger("infrawatch.workers.token_cleanup")
 
 
 class TokenCleanupWorker:
-    """Worker periódico para limpeza de refresh tokens revogados ou expirados."""
+    """Worker periódico para limpeza de refresh tokens revogados ou expirados e manutenção de partições."""
 
     def __init__(
         self,
         redis_client: aioredis.Redis | None = None,
         session_factory: async_sessionmaker[AsyncSession] | None = None,
+        partition_manager: PartitionManager | None = None,
         interval_seconds: int = 3600,
         lock_timeout: int = 300,
         retention_days: int = 7,
     ) -> None:
-        """Inicializa o worker de limpeza de tokens.
+        """Inicializa o worker de limpeza de tokens e manutenção de partições.
 
         Args:
             redis_client: Cliente Redis para o lock distribuído (opcional; utiliza get_redis_client() se omitido).
             session_factory: Fábrica de sessões do banco de dados SQLAlchemy.
+            partition_manager: Gerenciador de partições mensais (opcional; instanciado se omitido).
             interval_seconds: Intervalo entre execuções sucessivas do worker.
             lock_timeout: Tempo de vida (TTL) do lock distribuído em segundos.
             retention_days: Quantidade de dias para manter tokens revogados para auditoria.
@@ -51,6 +54,9 @@ class TokenCleanupWorker:
             self.redis_client = client
 
         self.session_factory = session_factory or get_session_factory()
+        self.partition_manager = partition_manager or PartitionManager(
+            session_factory=self.session_factory
+        )
         self.interval_seconds = interval_seconds
         self.lock_timeout = lock_timeout
         self.retention_days = retention_days
@@ -79,7 +85,7 @@ class TokenCleanupWorker:
         return deleted_count
 
     async def run_once(self) -> int | None:
-        """Tenta adquirir o lock distribuído e executar um ciclo de limpeza.
+        """Tenta adquirir o lock distribuído e executar um ciclo de limpeza e manutenção.
 
         Retorna:
             int: Quantidade de tokens excluídos se o lock foi adquirido.
@@ -102,6 +108,18 @@ class TokenCleanupWorker:
                 deleted = await self.cleanup_expired_tokens(session)
 
             logger.info("Expurgo de tokens concluído com sucesso: %d registros removidos.", deleted)
+
+            if self.partition_manager is not None:
+                try:
+                    part_stats = await self.partition_manager.run_maintenance()
+                    logger.info(
+                        "Manutenção de partições concluída: %d criadas, %d expurgadas.",
+                        part_stats.get("created", 0),
+                        part_stats.get("dropped", 0),
+                    )
+                except Exception:
+                    logger.exception("Falha na execução de manutenção de partições")
+
             return deleted
 
     async def run_forever(self) -> None:
@@ -151,9 +169,12 @@ async def run_standalone() -> None:
     if not settings.REDIS_URL:
         raise RuntimeError("REDIS_URL não configurado para TokenCleanupWorker")
     redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    session_factory = get_session_factory()
+    partition_manager = PartitionManager(session_factory=session_factory)
     worker = TokenCleanupWorker(
         redis_client=redis_client,
-        session_factory=get_session_factory(),
+        session_factory=session_factory,
+        partition_manager=partition_manager,
         interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
         lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
         retention_days=settings.TOKEN_CLEANUP_RETENTION_DAYS,
