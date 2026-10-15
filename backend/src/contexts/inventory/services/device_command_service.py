@@ -95,6 +95,7 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
+        await self.uow.commit()
         return device
 
     async def update_device(
@@ -148,6 +149,7 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
+        await self.uow.commit()
         return device
 
     async def pause_device(
@@ -195,6 +197,7 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
+        await self.uow.commit()
         return device
 
     async def resume_device(
@@ -234,6 +237,7 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
+        await self.uow.commit()
         return device
 
     async def set_maintenance(
@@ -282,4 +286,5 @@ class DeviceCommandService:
             ip_address=actor_ip,
         )
 
+        await self.uow.commit()
         return device
