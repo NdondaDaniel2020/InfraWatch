@@ -7,14 +7,12 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
 
 from src.contexts.iam.api.dependencies import CurrentUserDep, require_roles
 from src.contexts.iam.domain.enums import UserRole
-from src.contexts.inventory.database.models import DeviceModel
 from src.contexts.sla.api.dependencies import SlaServiceDep
+from src.contexts.sla.api.presenters.csv_presenter import SlaCsvPresenter
 from src.contexts.sla.schemas.responses import SlaReportResponse
-from src.core.database.session import DbSessionDep
 
 router = APIRouter(prefix="/api/v1/sla", tags=["SLA & Contractual Compliance"])
 
@@ -35,7 +33,6 @@ async def get_device_sla(
     device_id: UUID,
     user: CurrentUserDep,
     service: SlaServiceDep,
-    session: DbSessionDep,
     start_period: Annotated[datetime | None, Query(description="Início do período (UTC)")] = None,
     end_period: Annotated[datetime | None, Query(description="Fim do período (UTC)")] = None,
     target: Annotated[
@@ -44,14 +41,24 @@ async def get_device_sla(
     _: object = Depends(require_roles(*READ_ROLES)),
 ) -> SlaReportResponse:
     """Calcula disponibilidade, MTTR e MTBF do ativo considerando isenção de janelas aprovadas."""
-    # Valida existência do dispositivo e isolamento multitenant
-    device_res = await session.execute(select(DeviceModel).where(DeviceModel.id == device_id))
-    device = device_res.scalar_one_or_none()
-    if device is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Dispositivo com id '{device_id}' não encontrado.",
+    try:
+        device, report = await service.get_device_with_sla(
+            device_id=device_id,
+            start_period=start_period,
+            end_period=end_period,
+            sla_target=target,
         )
+    except ValueError as err:
+        error_msg = str(err)
+        if "não encontrado" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg,
+            ) from err
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg,
+        ) from err
 
     if (
         user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN}
@@ -63,18 +70,7 @@ async def get_device_sla(
             detail="Acesso não autorizado aos dados de SLA deste dispositivo.",
         )
 
-    try:
-        return await service.calculate_device_sla(
-            device_id=device_id,
-            start_period=start_period,
-            end_period=end_period,
-            sla_target=target,
-        )
-    except ValueError as err:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(err),
-        ) from err
+    return report
 
 
 @router.get(
@@ -86,7 +82,6 @@ async def export_device_sla(
     device_id: UUID,
     user: CurrentUserDep,
     service: SlaServiceDep,
-    session: DbSessionDep,
     format: Annotated[str, Query(description="Formato de exportação: csv ou json")] = "csv",
     start_period: Annotated[datetime | None, Query(description="Início do período (UTC)")] = None,
     end_period: Annotated[datetime | None, Query(description="Fim do período (UTC)")] = None,
@@ -96,13 +91,24 @@ async def export_device_sla(
     _: object = Depends(require_roles(*READ_ROLES)),
 ) -> Response:
     """Exporta o relatório analítico de SLA em formato CSV para download ou JSON."""
-    device_res = await session.execute(select(DeviceModel).where(DeviceModel.id == device_id))
-    device = device_res.scalar_one_or_none()
-    if device is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Dispositivo com id '{device_id}' não encontrado.",
+    try:
+        device, report = await service.get_device_with_sla(
+            device_id=device_id,
+            start_period=start_period,
+            end_period=end_period,
+            sla_target=target,
         )
+    except ValueError as err:
+        error_msg = str(err)
+        if "não encontrado" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg,
+            ) from err
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg,
+        ) from err
 
     if (
         user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN}
@@ -114,39 +120,19 @@ async def export_device_sla(
             detail="Acesso não autorizado aos dados de SLA deste dispositivo.",
         )
 
-    try:
-        if format.lower() == "json":
-            report = await service.calculate_device_sla(
-                device_id=device_id,
-                start_period=start_period,
-                end_period=end_period,
-                sla_target=target,
-            )
-            return Response(
-                content=report.model_dump_json(),
-                media_type="application/json",
-            )
-
-        csv_data = await service.export_device_sla_csv(
-            device_id=device_id,
-            device_name=device.name,
-            device_category=device.category,
-            ip_address=device.ip_address,
-            start_period=start_period,
-            end_period=end_period,
-            sla_target=target,
-        )
-        filename = f"sla_report_{device_id}.csv"
+    if format.lower() == "json":
         return Response(
-            content=csv_data,
-            media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            content=report.model_dump_json(),
+            media_type="application/json",
         )
-    except ValueError as err:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(err),
-        ) from err
+
+    csv_data = SlaCsvPresenter.format_single_device(device, report)
+    filename = f"sla_report_{device_id}.csv"
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get(
@@ -177,12 +163,13 @@ async def export_organization_sla(
         )
 
     try:
-        csv_data = await service.export_organization_sla_csv(
+        reports = await service.get_organization_sla_reports(
             organization_id=organization_id,
             start_period=start_period,
             end_period=end_period,
             default_target=target,
         )
+        csv_data = SlaCsvPresenter.format_multiple_devices(reports)
         filename = f"sla_organization_{organization_id}.csv"
         return Response(
             content=csv_data,

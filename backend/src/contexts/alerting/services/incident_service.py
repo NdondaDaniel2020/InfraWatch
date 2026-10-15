@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,14 @@ from src.contexts.alerting.schemas.requests import CreateIncidentRequest
 from src.core.database.outbox_repository import OutboxRepository
 from src.core.database.unit_of_work import AbstractUnitOfWork
 from src.core.messaging.sse_broadcaster import SSEBroadcaster, get_sse_broadcaster
+from src.integrations.glpi.schemas import (
+    GlpiImpact,
+    GlpiTicketCreate,
+    GlpiUrgency,
+)
+
+if TYPE_CHECKING:
+    from src.integrations.glpi.client import GlpiClient
 
 logger = logging.getLogger("infrawatch.alerting.incident_service")
 
@@ -32,6 +40,7 @@ class IncidentService:
         self,
         uow_or_session: AbstractUnitOfWork | AsyncSession,
         broadcaster: SSEBroadcaster | None = None,
+        glpi_client: GlpiClient | None = None,
     ) -> None:
         if isinstance(uow_or_session, AbstractUnitOfWork):
             self._uow: AbstractUnitOfWork | None = uow_or_session
@@ -42,6 +51,7 @@ class IncidentService:
 
         self._repo = IncidentRepository(self._session)
         self._broadcaster = broadcaster or get_sse_broadcaster()
+        self._glpi_client = glpi_client
 
     async def _commit(self) -> None:
         """Garante a consolidação ACID da transação corrente."""
@@ -193,29 +203,11 @@ class IncidentService:
                 f"Incidente {incident_id} já possui chamado GLPI associado: #{incident.glpi_ticket_id}."
             )
 
-        if glpi_client is not None:
-            client = glpi_client
-        else:
-            from src.core.config import get_settings
-            from src.integrations.glpi.client import GlpiClient
-
-            settings = get_settings()
-            if not settings.GLPI_ENABLED or not settings.GLPI_BASE_URL:
-                raise RuntimeError(
-                    "Integração com GLPI não está habilitada ou configurada no ambiente."
-                )
-            client = GlpiClient(
-                base_url=settings.GLPI_BASE_URL,
-                app_token=settings.GLPI_APP_TOKEN,
-                user_token=settings.GLPI_USER_TOKEN,
-                timeout=settings.GLPI_TIMEOUT_SECONDS,
+        client = glpi_client or self._glpi_client
+        if client is None:
+            raise RuntimeError(
+                "Integração com GLPI não está habilitada ou configurada no ambiente."
             )
-
-        from src.integrations.glpi.schemas import (
-            GlpiImpact,
-            GlpiTicketCreate,
-            GlpiUrgency,
-        )
 
         urgency = (
             GlpiUrgency.VERY_HIGH

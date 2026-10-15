@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Generator
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
 import httpx
@@ -220,15 +220,10 @@ async def test_create_glpi_ticket_disabled_service_unavailable(
     token = generate_token(user.id, UserRole.NOC_OPERATOR, org.id)
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Força GLPI_ENABLED=False nas settings
-    mock_settings = MagicMock()
-    mock_settings.GLPI_ENABLED = False
-    mock_settings.GLPI_BASE_URL = ""
+    from src.contexts.alerting.api.dependencies import get_glpi_client
 
-    with patch(
-        "src.core.config.get_settings",
-        return_value=mock_settings,
-    ):
+    app.dependency_overrides[get_glpi_client] = lambda: None
+    try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -239,3 +234,5 @@ async def test_create_glpi_ticket_disabled_service_unavailable(
 
         assert resp.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "não está habilitada" in resp.json()["detail"]
+    finally:
+        app.dependency_overrides.pop(get_glpi_client, None)
