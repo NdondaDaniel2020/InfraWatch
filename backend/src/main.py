@@ -21,6 +21,7 @@ from src.contexts.alerting.api.router import router as alerting_router
 from src.contexts.iam.api.router import router as iam_router
 from src.contexts.inventory.api.router import router as inventory_router
 from src.contexts.sla.api.router import router as sla_router
+from src.contexts.system.api.router import router as system_router
 from src.contexts.telemetry.api.router import router as telemetry_router
 from src.core.config import get_settings
 from src.core.observability.metrics_auth import verify_metrics_auth
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(alerting_router)
     app.include_router(sla_router)
     app.include_router(telemetry_router)
+    app.include_router(system_router)
 
     @app.get(
         "/metrics",
