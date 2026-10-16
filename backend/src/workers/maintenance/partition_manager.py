@@ -10,6 +10,7 @@ import logging
 from datetime import UTC, datetime
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 logger = logging.getLogger("infrawatch.workers.partition_manager")
@@ -48,12 +49,38 @@ class PartitionManager:
     ) -> None:
         self._session_factory = session_factory
         self._retention_months = retention_months
+        self._is_hypertable: bool | None = None
+
+    async def is_hypertable(self, session: AsyncSession) -> bool:
+        """Verifica se a tabela metrics é gerenciada pelo TimescaleDB.
+
+        No TimescaleDB, a tabela metrics tem relkind = 'r' (tabela regular com chunks)
+        em vez de 'p' (declarative partitioning nativo).
+        """
+        if self._is_hypertable is not None:
+            return self._is_hypertable
+
+        try:
+            check_table = await session.execute(
+                text(
+                    "SELECT relkind FROM pg_class "
+                    "WHERE relname = 'metrics' "
+                    "AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')"
+                )
+            )
+            relkind = check_table.scalar()
+            self._is_hypertable = relkind is not None and relkind != "p"
+        except SQLAlchemyError:
+            self._is_hypertable = False
+
+        return self._is_hypertable
 
     async def ensure_partition(self, year: int, month: int) -> bool:
         """Cria a partição para o mês indicado, se não existir.
 
         Returns:
-            True se a partição foi criada, False se já existia.
+            True se a partição foi criada, False se já existia ou se
+            a tabela for gerenciada pelo TimescaleDB (relkind != 'p').
         """
         name = _partition_name(year, month)
         ny, nm = _next_month(year, month)
@@ -66,7 +93,16 @@ class PartitionManager:
         """)
 
         async with self._session_factory() as session, session.begin():
-            # Verifica se já existe via pg_class
+            # 1. Verifica se a tabela metrics é gerenciada pelo TimescaleDB
+            if await self.is_hypertable(session):
+                logger.info(
+                    "Tabela metrics é gerenciada pelo TimescaleDB; "
+                    "criação de partição declarativa %s ignorada com sucesso.",
+                    name,
+                )
+                return False
+
+            # 2. Verifica se já existe via pg_class
             check = await session.execute(
                 text("SELECT 1 FROM pg_class WHERE relname = :name"),
                 {"name": name},

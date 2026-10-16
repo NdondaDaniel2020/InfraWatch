@@ -53,7 +53,7 @@ class TestDockerComposeConfig(unittest.TestCase):
     def test_postgres_configuration(self):
         """Valida imagem, portas, volume e healthcheck do PostgreSQL."""
         postgres = self.compose_data["services"]["postgres"]
-        self.assertEqual(postgres.get("image"), "postgres:16-alpine")
+        self.assertEqual(postgres.get("image"), "timescale/timescaledb:latest-pg16")
         self.assertIn("5432:5432", postgres.get("ports", []))
 
         volumes = postgres.get("volumes", [])
