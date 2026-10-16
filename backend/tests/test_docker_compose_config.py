@@ -53,7 +53,7 @@ class TestDockerComposeConfig(unittest.TestCase):
     def test_postgres_configuration(self):
         """Valida imagem, portas, volume e healthcheck do PostgreSQL."""
         postgres = self.compose_data["services"]["postgres"]
-        self.assertEqual(postgres.get("image"), "timescale/timescaledb:latest-pg16")
+        self.assertEqual(postgres.get("image"), "timescale/timescaledb:2.16.1-pg16")
         self.assertIn("5432:5432", postgres.get("ports", []))
 
         volumes = postgres.get("volumes", [])
@@ -69,7 +69,7 @@ class TestDockerComposeConfig(unittest.TestCase):
     def test_redis_configuration(self):
         """Valida imagem, portas, volume e healthcheck do Redis."""
         redis = self.compose_data["services"]["redis"]
-        self.assertEqual(redis.get("image"), "redis:7-alpine")
+        self.assertEqual(redis.get("image"), "redis:7.2-alpine")
         self.assertIn("6379:6379", redis.get("ports", []))
 
         volumes = redis.get("volumes", [])
