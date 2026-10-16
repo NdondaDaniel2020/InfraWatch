@@ -10,7 +10,13 @@ def compile_create_column_sqlite(element, compiler, **kw):
     column = element.element
     if column.computed is not None and "to_tsvector" in str(column.computed.sqltext).lower():
         column.computed = None
-    return compiler.visit_create_column(element, **kw)
+    orig_autoincrement = column.autoincrement
+    try:
+        if column.primary_key and len(column.table.primary_key.columns) > 1:
+            column.autoincrement = False
+        return compiler.visit_create_column(element, **kw)
+    finally:
+        column.autoincrement = orig_autoincrement
 
 
 @compiles(TSVECTOR, "sqlite")
