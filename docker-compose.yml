@@ -24,7 +24,7 @@ services:
       - infrawatch-net
 
   redis:
-    image: redis:7.2-alpine
+    image: redis:7.4-alpine
     container_name: infrawatch-redis
     restart: always
     command: [ "/bin/sh", "-c", "redis-server --appendonly yes --requirepass $$(cat /run/secrets/redis_password)" ]
