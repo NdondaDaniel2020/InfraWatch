@@ -23,7 +23,7 @@ import {
   Modal,
   Skeleton,
 } from "./components/ui";
-import { LiveIndicator } from "./components/common/LiveIndicator";
+import { BackupTriggerButton, LiveIndicator } from "./components/common";
 import { TelemetryProvider, useTelemetry } from "./context/TelemetryContext";
 
 const NocCockpitContent: React.FC = () => {
@@ -322,6 +322,7 @@ const NocCockpitContent: React.FC = () => {
             </Button>
             <Button variant="outline">Ver Logs</Button>
             <Button variant="ghost">Exportar</Button>
+            <BackupTriggerButton variant="secondary" />
           </CardContent>
         </Card>
       </div>
