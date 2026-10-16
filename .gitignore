@@ -85,9 +85,7 @@ subjects
 subject/
 subject
 .agents
-!.agents/
-!.agents/skills/
-!.agents/skills/**
+.agents/
 */pla*
 whatsapp_qr_code.png
 
@@ -96,3 +94,9 @@ clab-*/
 .clab/
 bin/
 
+node_modules
+dist
+dist-ssr
+*.local
+coverage
+.vite
