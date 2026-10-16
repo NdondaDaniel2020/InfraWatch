@@ -406,3 +406,25 @@
   - *Particionamento Declarativo Mensal Puro:* Não dispõe de compressão colunar nativa, provocando crescimento linear descontrolado do volume em disco e saturação do cache de páginas do PostgreSQL.
 - **Benefício:** Redução de até 90-95% no consumo de armazenamento de métricas antigas, consultas de séries temporais de alto desempenho e preservação completa da integridade relacional e transacional da aplicação.
 
+---
+
+### ADR-032: Estratégia de Backup Automatizado Multi-Destino Dual-Cloud e Acionamento Desacoplado
+- **Status:** Aprovado e Planejado
+- **Origem:** Issue #220, Fase 6 (Milestone: *Fase 6: Homologação, Carga, Auditoria & Go-Live*).
+- **Problema:** A perda do banco de dados (TimescaleDB) ou do cache persistente (Redis 7.4) representaria um desastre operacional grave, com perda de históricos de SLA e séries temporais de rede. Além disso, os segredos (`secrets/`) contêm chaves de criptografia indispensáveis para a leitura de tokens corporativos. Depender de um único destino de backup (local ou nuvem única) cria um Ponto Único de Falha (SPOF). Por fim, executar tarefas pesadas de dump e upload dentro do ciclo de vida assíncrono da API (`lifespan.py` / `asynccontextmanager`) causaria travamentos no loop de eventos (*event loop lag*), risco de OOM Killer e concorrência descontrolada caso a API seja escalada horizontalmente em múltiplas réplicas.
+- **Decisão:**
+  1. **Contêiner Dedicado de Backup (`infrawatch-backup`):** O pipeline de dump, compactação e upload é 100% isolado em um contêiner leve (base Alpine com `postgresql16-client`, `redis`, `rclone` e `openssl`), eliminando impacto de CPU, memória e I/O na API principal (*Blast Radius* zero).
+  2. **Multi-Destino Dual-Cloud com `rclone`:** O bundle diário (`.tar.gz` com checksum SHA-256) é distribuído simultaneamente para:
+     - *Local:* Host em `/var/backups/infrawatch/` (RTO instantâneo para restauração local).
+     - *Remoto A (Google Drive):* Utilizando a cota gratuita nativa (15 GB) ou expansível para planos corporativos (2 TB+).
+     - *Remoto B (Cloudflare R2):* Utilizando o tier gratuito permanente de 10 GB compatível com a API S3 e sem custos de saída de dados (*Zero Egress Fees*).
+     - *Destino Adicional Preparado (AWS S3):* Script configurado com instrução comentada (`# rclone copy ... aws_s3:...`) pronto para ser ativado com créditos de estudante / AWS Educate.
+  3. **Acionamento Desacoplado pelo Dashboard NOC:** A API FastAPI disponibilizará o endpoint administrativo `POST /api/v1/system/backup` (RBAC `Role.ADMIN`). Em vez de executar o dump, a API apenas emite um sinal assíncrono não bloqueante para acordar o contêiner de backup e retorna imediatamente HTTP 202 (*Accepted*).
+  4. **Criptografia Simétrica dos Segredos:** O diretório de Docker Secrets é compactado e cifrado via OpenSSL AES-256-CBC PBKDF2 com chave mestra (`BACKUP_ENCRYPTION_KEY`).
+  5. **Política de Rotação (Pruning) e Restauração Automatizada:** Limpeza automática de arquivos locais (> 7 dias) e remotos (> 30 dias), acompanhada de script de recuperação em um comando (`scripts/restore.sh` / `make restore`).
+- **Alternativas Descartadas:**
+  - *Execução dentro do `lifespan` do FastAPI:* Descartada devido à concorrência destrutiva entre réplicas da API, inchaço da imagem com binários desnecessários e risco de travar requisições de telemetria em tempo real (SSE).
+  - *Backup em Destino Único:* Descartada por violar as diretrizes de Disaster Recovery e manter vulnerabilidade a bloqueios de conta ou quedas de serviço de um provedor específico.
+- **Benefício:** RPO/RTO minimizados, zero custo adicional de infraestrutura, independência de nuvem (*cloud agnostic*), imunidade a falhas de provedores individuais e preservação da performance e estabilidade da API web.
+
+

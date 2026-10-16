@@ -126,13 +126,52 @@
 
 ---
 
-### Fase 7: Frontend React + Vite (TypeScript)
-- [x] **Tarefa 7.1:** Design tokens operacionais dark mode (`index.css`) com foco em alto contraste e legibilidade.
-- [x] **Tarefa 7.2:** Hook `useSSE` com auto-reconnect e buffer de eventos em tempo real.
-- [ ] **Tarefa 7.3:** Grid Operacional de Cartões com sparklines de latência e histórico diário de 90 dias.
-- [ ] **Tarefa 7.4:** Modo NOC TV Fullscreen para exibição em monitores de parede da central.
-- [ ] **Tarefa 7.5:** Portal do Cliente (`CLIENT_VIEWER`) com visão limpa e dados técnicos sensíveis mascarados.
-- [ ] **Tarefa 7.6:** Painel de Incidentes com link direto para o chamado do GLPI e botão de Acknowledge.
+### Fase 7: Frontend React + Vite + TypeScript (NOC Cockpit & Client Portal)
+- [x] **Tarefa 7.1:** Design tokens operacionais dark mode (`index.css`), componentes base atômicos no padrão shadcn/ui (`Button`, `Card`, `Modal`, `Badge`, `Skeleton`) e utilitário `cn` (`clsx` + `tailwind-merge`).
+- [x] **Tarefa 7.2:** Motor de Tempo Real: Hook `useSSE` com auto-reconnect e buffer de eventos em tempo real.
+- [ ] **Tarefa 7.3:** Shell da Aplicação, Roteamento & RBAC Guards:
+  - Configuração do React Router com layouts protegidos por `<Outlet />`.
+  - Guards de autorização baseados em `UserRole` (`SUPER_ADMIN`, `NOC_OPERATOR`, `ORG_ADMIN`, `CLIENT_VIEWER`).
+  - Header Global com Status Ticker executivo em tempo real, relógio UTC e indicador de streaming ativo (`LiveIndicator`).
+- [ ] **Tarefa 7.4:** Autenticação, MFA & Gestão de Acessos:
+  - Formulário de login com suporte a desafio MFA de duas etapas (código TOTP de 6 dígitos via `/auth/login/mfa-challenge`).
+  - Botão e fluxo de login social Google OAuth2 (`/auth/google/url` e `/auth/google/callback`).
+  - Telas de recuperação de senha (`/auth/password-reset/*`) e confirmação de e-mail (`/auth/verify-email`).
+  - Painel de Segurança do Usuário: ativação de MFA com QR Code (`otpauth://`), cópia de 10 códigos de backup e gestão/revogação de sessões e dispositivos ativos (`/users/me/sessions`).
+- [ ] **Tarefa 7.5:** Cockpit NOC & Grade Operacional de Dispositivos (Estratégia *Hydrate & Stream*):
+  - Hidratação instantânea via TanStack Query em `/api/v1/events/telemetry`.
+  - Atualização contínua de micrográficos (sparklines de latência dos últimos 60 pings e histórico diário de 90 dias) acoplada ao `useSSE`.
+  - Barra de busca global rápida (`Ctrl + K` / `Cmd + K`) consumindo o endpoint Full-Text Search do PostgreSQL (`/api/v1/devices/search`).
+  - Modo NOC TV Fullscreen (`F`) com tipografia ampliada de alto contraste para telões de parede.
+- [ ] **Tarefa 7.6:** Gestão de Inventário & Ações Operacionais:
+  - Modal e formulário de cadastro/edição de ativos com suporte a sondas ICMP, HTTP, TCP, Docker Container (`DockerProber`) e Heartbeat Passivo.
+  - Ações rápidas no card: Pausar monitoramento com justificativa (`/pause`), Retomar (`/resume`) e Manutenção rápida.
+- [ ] **Tarefa 7.7:** Painel de Incidentes & Integração GLPI (ITSM):
+  - Drawer lateral deslizante (slide-over) com linha do tempo de falhas e diagnósticos técnicos.
+  - Ação de Reconhecimento imediato do incidente (`POST /api/v1/incidents/{id}/acknowledge`).
+  - Modal de Resolução de Incidente com campo obrigatório de Causa Raiz técnica (`POST /api/v1/incidents/{id}/resolve`).
+  - Botão de abertura manual de chamado GLPI em 1 clique (`POST /api/v1/incidents/{id}/glpi-ticket`) com badge e link direto para o chamado.
+- [ ] **Tarefa 7.8:** Gestão de Janelas de Manutenção & Motor de SLA:
+  - Painel de agendamento de Janelas de Manutenção Programada (`/api/v1/maintenance-windows`).
+  - Workflow de Aprovação Formal (`POST /maintenance-windows/{id}/approve`) para isenção contratual da janela no cálculo de SLA.
+  - Medidor de SLA acumulado do mês vs. meta contratual (99.5%) com métricas de MTTR e MTBF.
+  - Botões para exportação analítica de relatórios em CSV e JSON (`/api/v1/sla/devices/{id}/export` e `/organizations/{id}/export`).
+- [ ] **Tarefa 7.9:** Portal do Cliente (`CLIENT_VIEWER`):
+  - Visão executiva limpa e sanitizada sem IPs de rede privada (`10.x.x.x`) ou portas de banco confidenciais.
+  - Medidor visual circular de disponibilidade mensal acumulada e cartões amigáveis de serviços corporativos.
+  - Centro de Notificações In-App: Bell icon com badge de não-lidas (`/notifications/unread-count`), popover de alertas recentes e sincronização *Catch-Up* automática pós-reconexão (`/notifications/sync`).
+- [ ] **Tarefa 7.10:** Trilha de Auditoria Forense & Gestão Administrativa:
+  - Listagem paginada de logs de auditoria imutáveis (`/api/v1/audit/logs`) com filtros.
+  - Botão de verificação criptográfica da integridade da cadeia de hashes SHA-256 (`POST /api/v1/audit/verify`).
+  - Painel administrativo para gestão de usuários, papéis RBAC e organizações clientes (`/users` e `/organizations`).
+- [ ] **Tarefa 7.11:** Infraestrutura, Containerização & Automação do Frontend:
+  - Criar `frontend/Dockerfile` com build multi-stage (Node 20 Alpine para compilação Vite + Nginx Alpine para runtime estático de ~25MB).
+  - Criar `nginx/nginx.conf` na raiz como Gateway/Proxy Reverso:
+    - Roteamento SPA com `try_files $uri $uri/ /index.html;` para suportar rotas profundas do React Router.
+    - Proxy transparente de `/api/` para `infrawatch-api:8000` (eliminando problemas de CORS e portas expostas).
+    - Desativação estrita de buffering para SSE (`proxy_buffering off; proxy_cache off; chunked_transfer_encoding off;`).
+  - Adicionar serviços `infrawatch-frontend` e `infrawatch-gateway` (Nginx) no `docker-compose.yml`.
+  - Adicionar regras de frontend no `Makefile` (`make front-dev`, `make front-test`, `make front-build`, `make front-lint`).
 
 ---
 
@@ -141,3 +180,9 @@
 - [x] **Tarefa 8.2:** Teste de consistência do Outbox: confirmação transacional e tolerância a falhas temporárias.
 - [x] **Tarefa 8.3:** Testes unitários e de integração automatizados cobrindo autenticação, inventário, Zabbix bootstrapper e probers.
 - [ ] **Tarefa 8.4:** Bateria de testes de carga simulando 5.000 alvos simultâneos sob alta concorrência.
+- [ ] **Tarefa 8.5:** Pipeline de Backup Automatizado Multi-Destino Dual-Cloud & Disaster Recovery (Issue #220, ADR-032):
+  - Contêiner dedicado `infrawatch-backup` com agendamento Cron diário e isolamento total da API (*Blast Radius* zero).
+  - Dump comprimido do TimescaleDB (`-Fc`), snapshot do Redis e encriptação AES-256 de `secrets/`.
+  - Distribuição multi-destino com `rclone`: Local (`/var/backups`), Google Drive e Cloudflare R2 (com AWS S3 preparado).
+  - Rota administrativa `POST /api/v1/system/backup` (HTTP 202) e botão "Gerar Backup Manual" no Dashboard NOC.
+  - Script de restauração em comando único (`scripts/restore.sh` / `make restore`).

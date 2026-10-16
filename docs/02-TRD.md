@@ -159,3 +159,21 @@ Eliminação completa de `BackgroundTasks` em todas as rotas e serviços da API:
 - **Services com Unit of Work:** Mutações de agregação e persistência atômica na tabela `outbox_events` ocorrem estritamente na camada de serviços através de `UnitOfWork` (`src/core/database/unit_of_work.py`).
 - **Precisão Temporal TIMESTAMPTZ:** Todas as colunas de data/hora no PostgreSQL operam com `TIMESTAMP WITH TIME ZONE` e código backend padronizado com `datetime.now(UTC)`, garantindo conformidade matemática absoluta no cálculo de SLA contratual.
 
+---
+
+## 11. Backup Automatizado Multi-Destino Dual-Cloud & Disaster Recovery (ADR-032)
+- **Isolamento de Processo (Blast Radius Zero):** O pipeline de backup reside em um contêiner dedicado (`infrawatch-backup`), sem executar dumps ou uploads dentro do loop assíncrono da API FastAPI (`lifespan.py`).
+- **Coleta Consistente & Criptografia:**
+  - Extração atômica e compactada do TimescaleDB (`pg_dump -Fc`) e snapshot do Redis (`BGSAVE` / `dump.rdb`).
+  - Criptografia simétrica com OpenSSL AES-256-CBC PBKDF2 do diretório `/run/secrets/`.
+  - Verificação de integridade via checksum SHA-256 de cada bundle gerado.
+- **Distribuição Multi-Destino com `rclone` (Estratégia 3-2-1):**
+  - Cópia primária local (`/var/backups/infrawatch/`) para RTO instantâneo.
+  - Cópia secundária remota no **Google Drive** (15 GB Free / expansível para 2 TB+ corporativo).
+  - Cópia terciária remota no **Cloudflare R2** (10 GB Free Tier S3-compatible, zero egress fees).
+  - Destino quaternário preparado para **AWS S3** (comentado no script para ativação via AWS Educate / plano de estudante).
+- **Acionamento Híbrido (Agendado + Manual):**
+  - Execução automatizada diária via Cron (às 02:00 UTC).
+  - Acionamento manual sob demanda via CLI (`make backup` / `make restore`) ou via Dashboard NOC através da rota administrativa `POST /api/v1/system/backup` (HTTP 202 não bloqueante).
+
+
