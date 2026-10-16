@@ -69,7 +69,7 @@ class TestDockerComposeConfig(unittest.TestCase):
     def test_redis_configuration(self):
         """Valida imagem, portas, volume e healthcheck do Redis."""
         redis = self.compose_data["services"]["redis"]
-        self.assertEqual(redis.get("image"), "redis:7.2-alpine")
+        self.assertEqual(redis.get("image"), "redis:7.4-alpine")
         self.assertIn("6379:6379", redis.get("ports", []))
 
         volumes = redis.get("volumes", [])

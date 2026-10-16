@@ -22,13 +22,14 @@ services:
       retries: 5
 
   glpi-app:
-    image: diouxx/glpi:10.0.16
+    image: diouxx/glpi:latest
     container_name: infrawatch-glpi-app
     restart: always
     ports:
       - "8080:80"
     environment:
       TIMEZONE: Africa/Luanda
+      VERSION_GLPI: "10.0.16"
       MARIADB_HOST: glpi-db
       MARIADB_PORT: 3306
       MARIADB_DATABASE: glpidb

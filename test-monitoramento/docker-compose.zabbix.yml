@@ -20,7 +20,7 @@ services:
       retries: 5
 
   zabbix-server:
-    image: zabbix/zabbix-server-pgsql:alpine-7.0.4
+    image: zabbix/zabbix-server-pgsql:alpine-7.0.31
     container_name: infrawatch-zabbix-server
     restart: always
     ports:
@@ -39,7 +39,7 @@ services:
       - infrawatch-zabbix-net
 
   zabbix-web:
-    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.0.4
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.0.31
     container_name: infrawatch-zabbix-web
     restart: always
     ports:
@@ -62,7 +62,7 @@ services:
       - infrawatch-zabbix-net
 
   zabbix-agent:
-    image: zabbix/zabbix-agent:alpine-7.0-latest
+    image: zabbix/zabbix-agent:alpine-7.0.31
     container_name: infrawatch-zabbix-agent
     restart: always
     ports:
