@@ -283,15 +283,18 @@ Usar `:latest` ou tags flutuantes (ex.: `*-latest`, `latest-*`) em imagens de co
 
 ### 🛡️ Regra Arquitetural
 - **Definir Especificamente a Versão ou Adotar a Penúltima Versão Estável:**
-  - Sempre especificar tags semver imutáveis (ex.: `timescale/timescaledb:2.16.1-pg16`, `redis:7.2-alpine`, `tecnativa/docker-socket-proxy:0.1.1`, `diouxx/glpi:10.0.16`).
+  - Sempre especificar tags semver imutáveis (ex.: `timescale/timescaledb:2.16.1-pg16`, `redis:7.4-alpine`, `zabbix/zabbix-server-pgsql:alpine-7.0.31`, `tecnativa/docker-socket-proxy:0.1.1`).
   - Para ferramentas e bancos de dados corporativos, priorizar a **versão específica testada** ou a **penúltima versão estável/LTS**, garantindo maturidade de patches e ausência de regressões de versões recém-lançadas.
+  - Caso o repositório upstream de uma imagem de terceiro não disponibilize tags semver no registro de contêineres (ex.: `diouxx/glpi`, que mantém apenas a base `latest` e faz download interno de releases), deve-se fixar estritamente a versão da aplicação via variável de ambiente (ex.: `VERSION_GLPI: "10.0.16"`).
   - **Exemplos Canônicos:**
     - ❌ `image: timescale/timescaledb:latest-pg16`
     - ✅ `image: timescale/timescaledb:2.16.1-pg16`
+    - ❌ `image: zabbix/zabbix-server-pgsql:alpine-7.0-latest`
+    - ✅ `image: zabbix/zabbix-server-pgsql:alpine-7.0.31`
+    - ❌ `image: redis:latest`
+    - ✅ `image: redis:7.4-alpine`
     - ❌ `image: tecnativa/docker-socket-proxy:latest`
     - ✅ `image: tecnativa/docker-socket-proxy:0.1.1`
-    - ❌ `image: redis:latest`
-    - ✅ `image: redis:7.2-alpine`
 
 ---
 
