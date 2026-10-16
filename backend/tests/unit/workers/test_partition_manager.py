@@ -57,27 +57,63 @@ def mock_session_factory(mock_db_session):
 async def test_ensure_partition_already_exists(mock_session_factory, mock_db_session):
     pm = PartitionManager(session_factory=mock_session_factory)
 
-    mock_result = MagicMock()
-    mock_result.scalar.return_value = 1
-    mock_db_session.execute.return_value = mock_result
+    mock_relkind = MagicMock()
+    mock_relkind.scalar.return_value = "p"  # Particionamento declarativo
+    mock_exists = MagicMock()
+    mock_exists.scalar.return_value = 1  # Partição já existe
+
+    mock_db_session.execute.side_effect = [mock_relkind, mock_exists]
 
     created = await pm.ensure_partition(2026, 11)
     assert created is False
-    assert mock_db_session.execute.await_count == 1
+    assert mock_db_session.execute.await_count == 2
 
 
 @pytest.mark.asyncio
 async def test_ensure_partition_creates_when_missing(mock_session_factory, mock_db_session):
     pm = PartitionManager(session_factory=mock_session_factory)
 
-    mock_result = MagicMock()
-    mock_result.scalar.return_value = None
-    mock_db_session.execute.return_value = mock_result
+    mock_relkind = MagicMock()
+    mock_relkind.scalar.return_value = "p"  # Particionamento declarativo
+    mock_missing = MagicMock()
+    mock_missing.scalar.return_value = None  # Partição não existe
+    mock_create = MagicMock()
+
+    mock_db_session.execute.side_effect = [mock_relkind, mock_missing, mock_create]
 
     created = await pm.ensure_partition(2026, 11)
     assert created is True
-    # 1 para SELECT pg_class, 1 para CREATE TABLE
-    assert mock_db_session.execute.await_count == 2
+    # 1 para SELECT relkind, 1 para SELECT pg_class, 1 para CREATE TABLE
+    assert mock_db_session.execute.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_ensure_partition_skips_when_timescaledb_hypertable(mock_session_factory, mock_db_session):
+    pm = PartitionManager(session_factory=mock_session_factory)
+
+    mock_relkind = MagicMock()
+    mock_relkind.scalar.return_value = "r"  # Regular table gerenciada pelo TimescaleDB
+    mock_db_session.execute.return_value = mock_relkind
+
+    created = await pm.ensure_partition(2026, 11)
+    assert created is False
+    assert pm._is_hypertable is True
+    # Apenas o check de relkind é executado; DDL de partição é omitido
+    assert mock_db_session.execute.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_is_hypertable_uses_cache(mock_session_factory, mock_db_session):
+    pm = PartitionManager(session_factory=mock_session_factory)
+
+    mock_relkind = MagicMock()
+    mock_relkind.scalar.return_value = "r"
+    mock_db_session.execute.return_value = mock_relkind
+
+    assert await pm.is_hypertable(mock_db_session) is True
+    assert await pm.is_hypertable(mock_db_session) is True
+    # O segundo acesso deve usar o cache sem consultar o banco novamente
+    assert mock_db_session.execute.await_count == 1
 
 
 @pytest.mark.asyncio
