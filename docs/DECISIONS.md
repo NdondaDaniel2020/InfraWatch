@@ -38,6 +38,7 @@
 28. [ADR-028: Ingestão de Alertas Zabbix em Tempo Real (Push Webhook) e Autoconfiguração Idempotente](#adr-028-ingestão-de-alertas-zabbix-em-tempo-real-push-webhook-e-autoconfiguração-idempotente)
 29. [ADR-029: Arquitetura de Thin Controllers, Unit of Work e Coesão Modular](#adr-029-arquitetura-de-thin-controllers-unit-of-work-e-coesão-modular)
 30. [ADR-030: Padronização Temporal com Timezone Estrito (TIMESTAMPTZ)](#adr-030-padronização-temporal-com-timezone-estrito-timestamptz)
+31. [ADR-031: Adoção do TimescaleDB com Hypertables e Compressão Colunar para Séries Temporais](#adr-031-adoção-do-timescaledb-com-hypertables-e-compressão-colunar-para-séries-temporais)
 
 ---
 
@@ -387,4 +388,21 @@
   1. Todas as colunas temporais no PostgreSQL foram convertidas para `TIMESTAMPTZ` (`TIMESTAMP WITH TIME ZONE`).
   2. Toda manipulação de data/hora no backend Python utiliza estritamente `datetime.now(UTC)` consciente de fuso horário.
 - **Benefício:** Consistência matemática absoluta no cálculo de downtime de SLA, expurgo de séries temporais e sincronização de eventos distribuídos.
+
+---
+
+### ADR-031: Adoção do TimescaleDB com Hypertables e Compressão Colunar para Séries Temporais
+- **Status:** Aprovado e Implementado
+- **Origem:** Issue #169, Fase 4 (Milestone: *Fase 4: Integrações Corporativas*).
+- **Problema:** A tabela `metrics` de telemetria recebe centenas de amostras por segundo provenientes de sondas de rede (ICMP, TCP, HTTP), contêineres Docker e agentes corporativos Zabbix. O particionamento declarativo mensal nativo do PostgreSQL exigia manutenção contínua pelo `PartitionManager`, não realizava compressão de dados históricos, gerava overhead de índices B-tree em volumes massivos e demandava elevado espaço em disco para séries temporais contínuas.
+- **Decisão:**
+  1. **Adoção do TimescaleDB sobre PostgreSQL 16:** Atualização da imagem de banco de dados no `docker-compose.yml` para `timescale/timescaledb:latest-pg16`, mantendo total conformidade com o driver assíncrono `asyncpg`, SQLAlchemy 2.0 e o ecossistema de 22 Docker Secrets sem alterar conexões existentes.
+  2. **Conversão da Tabela `metrics` em Hypertable:** Através da migração Alembic `013_enable_timescaledb_hypertable.py`, a tabela `metrics` foi convertida em Hypertable particionada dinamicamente no eixo temporal (`timestamp`), automatizando a gestão de chunks.
+  3. **Compressão Colunar Nativa (Gorilla + Delta-of-Delta):** Configuração de compressão colunar com segmentação por `(device_id, organization_id, metric_type)` e ordenação decrescente por `timestamp`, comprimindo números de ponto flutuante via algoritmo Gorilla e marcas de tempo via Delta-of-Delta.
+  4. **Política Automatizada de Compressão de Chunks (7 dias):** Registro de política nativa via `add_compression_policy('metrics', INTERVAL '7 days')`, compactando dados mais antigos que uma semana em segundo plano sem impactar a ingestão de novas métricas.
+  5. **Resiliência e Zero-Collision no `PartitionManager`:** Atualização do `PartitionManager` para inspecionar `pg_class.relkind` antes de executar comandos DDL declarativos. Ao detectar uma Hypertable (`relkind != 'p'`), o worker delega a gestão de partições ao motor do TimescaleDB, garantindo tolerância a falhas e zero colisões de DDL.
+- **Alternativas Descartadas:**
+  - *InfluxDB / VictoriaMetrics:* Exigiria a implantação de um novo cluster de banco de dados isolado, linguagem de consulta proprietária (Flux/InfluxQL), inviabilização de JOINs ACID com tabelas de domínio (`devices`, `organizations`) e aumento do consumo de recursos operacionais.
+  - *Particionamento Declarativo Mensal Puro:* Não dispõe de compressão colunar nativa, provocando crescimento linear descontrolado do volume em disco e saturação do cache de páginas do PostgreSQL.
+- **Benefício:** Redução de até 90-95% no consumo de armazenamento de métricas antigas, consultas de séries temporais de alto desempenho e preservação completa da integridade relacional e transacional da aplicação.
 
