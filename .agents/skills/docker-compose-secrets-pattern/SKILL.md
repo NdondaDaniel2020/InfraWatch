@@ -272,6 +272,29 @@ down:
 
 ---
 
+## 📌 Fixação Estrita de Versões de Imagens (Proibição Absoluta de `:latest`)
+
+Usar `:latest` ou tags flutuantes (ex.: `*-latest`, `latest-*`) em imagens de containers é uma **má prática crítica** que compromete a reprodutibilidade, estabilidade e segurança do projeto:
+
+### ⚠️ Por que `:latest` é Proibido?
+1. **Quebra Silenciosa de Compatibilidade:** Atualizações automáticas de versão upstream podem introduzir breaking changes em engines de banco de dados (ex.: migração de formato interno de páginas ou extensões no PostgreSQL/TimescaleDB), corrompendo ou invalidando dados persistidos em volumes locais.
+2. **Inconsistência entre Ambientes:** Dois desenvolvedores que rodarem `docker compose pull` em dias diferentes baixarão binários distintos com comportamentos divergentes, tornando bugs intermitentes e difíceis de reproduzir.
+3. **Quebra de Pipelines de CI/CD:** Builds determinísticos tornam-se imprevisíveis caso a tag `latest` passe a apontar para uma nova major/minor com incompatibilidades de dependências ou flags de inicialização.
+
+### 🛡️ Regra Arquitetural
+- **Definir Especificamente a Versão ou Adotar a Penúltima Versão Estável:**
+  - Sempre especificar tags semver imutáveis (ex.: `timescale/timescaledb:2.16.1-pg16`, `redis:7.2-alpine`, `tecnativa/docker-socket-proxy:0.1.1`, `diouxx/glpi:10.0.16`).
+  - Para ferramentas e bancos de dados corporativos, priorizar a **versão específica testada** ou a **penúltima versão estável/LTS**, garantindo maturidade de patches e ausência de regressões de versões recém-lançadas.
+  - **Exemplos Canônicos:**
+    - ❌ `image: timescale/timescaledb:latest-pg16`
+    - ✅ `image: timescale/timescaledb:2.16.1-pg16`
+    - ❌ `image: tecnativa/docker-socket-proxy:latest`
+    - ✅ `image: tecnativa/docker-socket-proxy:0.1.1`
+    - ❌ `image: redis:latest`
+    - ✅ `image: redis:7.2-alpine`
+
+---
+
 ## 📋 Checklist de Auditoria para PRs de Docker Compose
 
 Antes de aprovar ou commitar qualquer alteração em arquivos `docker-compose*.yml`, valide:
@@ -282,3 +305,4 @@ Antes de aprovar ou commitar qualquer alteração em arquivos `docker-compose*.y
 - [ ] **Permissões 600:** Os arquivos em `./secrets/` foram criados com `chmod 600` (somente leitura/escrita pelo proprietário).
 - [ ] **Gitignore Protegido:** O `.gitignore` ignora `secrets/*.txt` para impedir commit acidental no repositório.
 - [ ] **Idempotência no Makefile:** O `make up` chama `secrets-init` automaticamente sem quebrar ambientes de CI ou desenvolvedores recém-chegados.
+- [ ] **Fixação Estrita de Versões (Zero `:latest`):** Nenhuma imagem declarada em `image:` utiliza `:latest`, `*-latest` ou tags dinâmicas não versionadas. Todas as imagens possuem versões específicas ou penúltima versão estável fixadas.
