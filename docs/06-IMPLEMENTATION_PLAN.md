@@ -194,6 +194,6 @@
 - [ ] **Tarefa 8.5:** Pipeline de Backup Automatizado Multi-Destino Dual-Cloud & Disaster Recovery (Issue #220, ADR-032):
   - Contêiner dedicado `infrawatch-backup` com agendamento Cron diário e isolamento total da API (*Blast Radius* zero).
   - Dump comprimido do TimescaleDB (`-Fc`), snapshot do Redis e encriptação AES-256 de `secrets/`.
-  - Distribuição multi-destino com `rclone`: Local (`/var/backups`), Google Drive e Cloudflare R2 (com AWS S3 preparado).
-  - Rota administrativa `POST /api/v1/system/backup` (HTTP 202) e botão "Gerar Backup Manual" no Dashboard NOC.
+  - Distribuição multi-destino com `rclone`: Local (`/var/backups`), Google Drive (reaproveitando credenciais GCP existentes) e Cloudflare R2 (com AWS S3 preparado).
+  - Rota administrativa `POST /api/v1/system/backup` (HTTP 202) e streaming de eventos via SSE (`GET /api/v1/system/backup/events`).
   - Script de restauração em comando único (`scripts/restore.sh` / `make restore`).
