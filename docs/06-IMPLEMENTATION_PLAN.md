@@ -191,7 +191,7 @@
 - [x] **Tarefa 8.2:** Teste de consistência do Outbox: confirmação transacional e tolerância a falhas temporárias.
 - [x] **Tarefa 8.3:** Testes unitários e de integração automatizados cobrindo autenticação, inventário, Zabbix bootstrapper e probers.
 - [ ] **Tarefa 8.4:** Bateria de testes de carga simulando 5.000 alvos simultâneos sob alta concorrência.
-- [ ] **Tarefa 8.5:** Pipeline de Backup Automatizado Multi-Destino Dual-Cloud & Disaster Recovery (Issue #220, ADR-032):
+- [x] **Tarefa 8.5:** Pipeline de Backup Automatizado Multi-Destino Dual-Cloud & Disaster Recovery (Issue #220, ADR-032):
   - Contêiner dedicado `infrawatch-backup` com agendamento Cron diário e isolamento total da API (*Blast Radius* zero).
   - Dump comprimido do TimescaleDB (`-Fc`), snapshot do Redis e encriptação AES-256 de `secrets/`.
   - Distribuição multi-destino com `rclone`: Local (`/var/backups`), Google Drive (reaproveitando credenciais GCP existentes) e Cloudflare R2 (com AWS S3 preparado).
