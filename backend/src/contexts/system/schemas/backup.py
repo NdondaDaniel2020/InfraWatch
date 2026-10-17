@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
@@ -23,7 +23,7 @@ class BackupTriggerResponse(BaseModel):
         default="/api/v1/system/backup/events",
         description="Endpoint para acompanhamento em tempo real via Server-Sent Events",
     )
-    triggered_at: datetime = Field(default_factory=datetime.utcnow)
+    triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class BackupHistoryItem(BaseModel):
