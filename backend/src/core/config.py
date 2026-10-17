@@ -213,6 +213,18 @@ class Settings(BaseSettings):
     WHATSAPP_DEFAULT_RECIPIENT: str = Field(default="", alias="WHATSAPP_DEFAULT_RECIPIENT")
     DEFAULT_WEBHOOK_URL: str = Field(default="", alias="DEFAULT_WEBHOOK_URL")
 
+    # Backup Automatizado & Disaster Recovery (ADR-032 / Issue #220)
+    BACKUP_ENABLED: bool = Field(default=True, alias="BACKUP_ENABLED")
+    BACKUP_CRON_SCHEDULE: str = Field(default="0 2 * * *", alias="BACKUP_CRON_SCHEDULE")
+    BACKUP_LOCAL_PATH: str = Field(default="/var/backups/infrawatch", alias="BACKUP_LOCAL_PATH")
+    BACKUP_RETENTION_LOCAL_DAYS: int = Field(default=7, alias="BACKUP_RETENTION_LOCAL_DAYS")
+    BACKUP_RETENTION_REMOTE_DAYS: int = Field(default=30, alias="BACKUP_RETENTION_REMOTE_DAYS")
+    BACKUP_GDRIVE_REMOTE_NAME: str = Field(default="gdrive", alias="BACKUP_GDRIVE_REMOTE_NAME")
+    BACKUP_GDRIVE_FOLDER: str = Field(default="infrawatch-backups", alias="BACKUP_GDRIVE_FOLDER")
+    BACKUP_R2_REMOTE_NAME: str = Field(default="r2", alias="BACKUP_R2_REMOTE_NAME")
+    BACKUP_R2_BUCKET: str = Field(default="infrawatch-backups", alias="BACKUP_R2_BUCKET")
+    BACKUP_NOTIFICATIONS_ENABLED: bool = Field(default=True, alias="BACKUP_NOTIFICATIONS_ENABLED")
+
     @model_validator(mode="after")
     def _assemble_connection_urls(self) -> Self:
         """Monta dinamicamente DATABASE_URL e REDIS_URL a partir das credenciais se não fornecidas."""

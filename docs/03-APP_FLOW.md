@@ -126,3 +126,17 @@ sequenceDiagram
 2. **Auto-Provisionamento:** Verifica e provisiona idempotentemente o MediaType de Webhook, a User Media e a Action de envio de alertas apontando para `/api/v1/integrations/zabbix/webhook`.
 3. **Disparo do Alarme no Zabbix:** Quando um trigger do Zabbix identifica uma anomalia em hardware (ex: CPU > 95%), o Zabbix emite imediatamente um POST HTTP para o endpoint da API com payload estruturado e token secreto.
 4. **Ingestão com Latência Zero:** A API autentica a requisição, processa o alarme, correlaciona com o `zabbix_host_id` do dispositivo e publica o evento no barramento Redis Streams para notificação imediata do NOC via SSE.
+
+### 3.5 Fluxo Operacional de Backup Manual e Feedback em Tempo Real (SSE)
+1. **Acionamento pelo Operador:** O usuário administrador clica em `[ Gerar Backup Manual ]` no painel de configurações.
+2. **Disparo Não-Bloqueante:** O frontend despacha `POST /api/v1/system/backup`. A API valida permissões RBAC, publica o comando assíncrono no Redis e retorna `202 Accepted` em <10ms.
+3. **Execução Isolada no Worker (`infrawatch-backup`):** O contêiner de backup inicia o pipeline sem sobrecarregar a API Web e emite eventos de telemetria a cada marco completado.
+4. **Streaming Visual de Progresso:** O canal SSE transmite as etapas em tempo real para o modal do frontend:
+   - *Iniciando rotina*
+   - *Exportando TimescaleDB e Hypertables*
+   - *Snapshot do Redis*
+   - *Criptografando credenciais*
+   - *Enviando para o Google Drive*
+   - *Enviando para o Cloudflare R2*
+   - *Concluído com Sucesso*
+5. **Persistência e Histórico:** O modal é concluído com sucesso e o novo registro é inserido na tabela de histórico com data, tamanho, hash SHA-256 e status de cada destino.

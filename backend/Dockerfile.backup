@@ -1,0 +1,40 @@
+# =============================================================================
+# InfraWatch - Contêiner Dedicado de Backup & Disaster Recovery (ADR-032)
+# =============================================================================
+FROM alpine:3.20
+
+LABEL maintainer="InfraWatch NOC Team <noc-team@rcsangola.co.ao>"
+LABEL description="Dedicated lightweight backup daemon with PostgreSQL 16 client, Redis CLI, OpenSSL and Rclone."
+
+# Instalar utilitários essenciais e clientes de banco
+RUN apk add --no-cache \
+    bash \
+    curl \
+    jq \
+    openssl \
+    tar \
+    gzip \
+    coreutils \
+    postgresql16-client \
+    redis \
+    rclone \
+    ca-certificates \
+    tzdata
+
+WORKDIR /app
+
+# Criar estrutura de diretórios para backups locais e temporários
+RUN mkdir -p /var/backups/infrawatch /tmp/backup /app/scripts
+
+# Copiar scripts operacionais de backup
+COPY scripts/backup.sh /app/scripts/backup.sh
+COPY scripts/restore.sh /app/scripts/restore.sh
+COPY scripts/backup_entrypoint.sh /app/scripts/backup_entrypoint.sh
+
+RUN chmod +x /app/scripts/*.sh
+
+ENV BACKUP_LOCAL_PATH=/var/backups/infrawatch \
+    TZ=UTC
+
+ENTRYPOINT ["/app/scripts/backup_entrypoint.sh"]
+CMD ["daemon"]

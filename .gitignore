@@ -68,6 +68,10 @@ coverage.xml
 /data/
 /timescaledb_data/
 /redis_data/
+/var/backups/
+backups/
+*.dump
+*.tar.gz.enc
 .mypy_cache
 # IDE & OS
 .vscode/

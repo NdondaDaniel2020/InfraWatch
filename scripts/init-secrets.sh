@@ -96,4 +96,43 @@ create_secret_if_missing "glpi_db_password.txt"      "${GLPI_MYSQL_PASSWORD:-glp
 # -----------------------------------------------------------------------------
 create_secret_if_missing "zabbix_db_password.txt"   "${ZABBIX_DB_PASSWORD:-zabbix_secure_password_2026}"
 
+# -----------------------------------------------------------------------------
+# 12. Backup & Disaster Recovery (ADR-032 / Issue #220)
+# -----------------------------------------------------------------------------
+create_secret_if_missing "backup_encryption_key.txt" "${BACKUP_ENCRYPTION_KEY:-infrawatch_dev_backup_aes256_encryption_key_change_in_prod}"
+
+if [[ ! -f "${SECRETS_DIR}/rclone_config.txt" ]]; then
+    G_CLIENT_ID=$(cat "${SECRETS_DIR}/google_client_id.txt" 2>/dev/null || echo "dev_google_client_id")
+    G_CLIENT_SECRET=$(cat "${SECRETS_DIR}/google_client_secret.txt" 2>/dev/null || echo "dev_google_client_secret")
+
+    cat <<EOF > "${SECRETS_DIR}/rclone_config.txt"
+[gdrive]
+type = drive
+client_id = ${G_CLIENT_ID}
+client_secret = ${G_CLIENT_SECRET}
+scope = drive
+token = {"access_token":"","token_type":"Bearer","refresh_token":"","expiry":""}
+
+[r2]
+type = s3
+provider = Cloudflare
+access_key_id = dev_r2_access_key
+secret_access_key = dev_r2_secret_key
+endpoint = https://change_me.r2.cloudflarestorage.com
+acl = private
+
+# [aws_s3]
+# type = s3
+# provider = AWS
+# env_auth = false
+# access_key_id = dev_aws_access_key
+# secret_access_key = dev_aws_secret_key
+# region = us-east-1
+EOF
+    chmod 600 "${SECRETS_DIR}/rclone_config.txt"
+    echo "[+] Segredo criado: secrets/rclone_config.txt"
+else
+    echo "[.] Segredo já existente: secrets/rclone_config.txt"
+fi
+
 echo "=== Todos os segredos foram inicializados com permissões restritas (600) ==="

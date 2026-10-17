@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -19,6 +19,8 @@ help:
 	@echo "  make api            - Inicia a aplicação backend (alias para app)"
 	@echo "  make migrate        - Executa migrações pendentes do Alembic (upgrade head)"
 	@echo "  make seed           - Executa carga de dados base idempotente (roda migrate previamente)"
+	@echo "  make backup         - Executa rotina de backup multi-destino (local, Google Drive, R2)"
+	@echo "  make restore        - Restaura banco e segredos (FILE=<nome> FROM=local|gdrive|r2)"
 	@echo "  make workers        - Inicia os daemons de workers em segundo plano"
 	@echo "  make worker-probe   - Inicia o Daemon de Sondas (Probe Worker) para pings e checagens"
 	@echo "  make worker-outbox  - Inicia o worker de Outbox Relay independente"
@@ -238,3 +240,21 @@ monitoring-test-up: clab-deploy integration-up up
 
 monitoring-test-down: clab-destroy integration-down down
 
+# -----------------------------------------------------------------------------
+# Backup & Disaster Recovery (ADR-032 / Issue #220)
+# -----------------------------------------------------------------------------
+backup:
+	@echo "Executando rotina de backup do InfraWatch..."
+	@if docker compose ps -q infrawatch-backup 2>/dev/null | grep -q .; then \
+		docker compose exec infrawatch-backup /app/scripts/backup.sh manual; \
+	else \
+		bash scripts/backup.sh manual; \
+	fi
+
+restore:
+	@echo "Executando rotina de restauração do InfraWatch (FILE=$(FILE), FROM=$(FROM))..."
+	@if docker compose ps -q infrawatch-backup 2>/dev/null | grep -q .; then \
+		docker compose exec infrawatch-backup /app/scripts/restore.sh "$(FILE)" "$(FROM)"; \
+	else \
+		bash scripts/restore.sh "$(FILE)" "$(FROM)"; \
+	fi

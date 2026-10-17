@@ -172,6 +172,17 @@
     - Desativação estrita de buffering para SSE (`proxy_buffering off; proxy_cache off; chunked_transfer_encoding off;`).
   - Adicionar serviços `infrawatch-frontend` e `infrawatch-gateway` (Nginx) no `docker-compose.yml`.
   - Adicionar regras de frontend no `Makefile` (`make front-dev`, `make front-test`, `make front-build`, `make front-lint`).
+- [ ] **Tarefa 7.12:** Seção de Backup & Recuperação de Desastres no Painel de Configurações:
+  - Botão de ação com feedback de loading: "Gerar Backup Manual" (`POST /api/v1/system/backup`).
+  - Componente modal/card com barra de progresso em tempo real alimentada via canal SSE (`stream:system:backup`), refletindo as etapas:
+    1. *Iniciando rotina*
+    2. *Exportando TimescaleDB e Hypertables*
+    3. *Snapshot do Redis*
+    4. *Criptografando credenciais*
+    5. *Enviando para o Google Drive*
+    6. *Enviando para o Cloudflare R2*
+    7. *Concluído com Sucesso*
+  - Tabela de histórico de backups com data/hora, tamanho, hash criptográfico SHA-256 e status individual de cada destino de armazenamento.
 
 ---
 
@@ -180,9 +191,9 @@
 - [x] **Tarefa 8.2:** Teste de consistência do Outbox: confirmação transacional e tolerância a falhas temporárias.
 - [x] **Tarefa 8.3:** Testes unitários e de integração automatizados cobrindo autenticação, inventário, Zabbix bootstrapper e probers.
 - [ ] **Tarefa 8.4:** Bateria de testes de carga simulando 5.000 alvos simultâneos sob alta concorrência.
-- [ ] **Tarefa 8.5:** Pipeline de Backup Automatizado Multi-Destino Dual-Cloud & Disaster Recovery (Issue #220, ADR-032):
+- [x] **Tarefa 8.5:** Pipeline de Backup Automatizado Multi-Destino Dual-Cloud & Disaster Recovery (Issue #220, ADR-032):
   - Contêiner dedicado `infrawatch-backup` com agendamento Cron diário e isolamento total da API (*Blast Radius* zero).
   - Dump comprimido do TimescaleDB (`-Fc`), snapshot do Redis e encriptação AES-256 de `secrets/`.
-  - Distribuição multi-destino com `rclone`: Local (`/var/backups`), Google Drive e Cloudflare R2 (com AWS S3 preparado).
-  - Rota administrativa `POST /api/v1/system/backup` (HTTP 202) e botão "Gerar Backup Manual" no Dashboard NOC.
+  - Distribuição multi-destino com `rclone`: Local (`/var/backups`), Google Drive (reaproveitando credenciais GCP existentes) e Cloudflare R2 (com AWS S3 preparado).
+  - Rota administrativa `POST /api/v1/system/backup` (HTTP 202) e streaming de eventos via SSE (`GET /api/v1/system/backup/events`).
   - Script de restauração em comando único (`scripts/restore.sh` / `make restore`).

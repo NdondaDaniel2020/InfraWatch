@@ -131,6 +131,23 @@ Cada dispositivo é exibido em um cartão inteligente com:
 - Campos: Ativo, Data/Hora de Início, Data/Hora de Término, Motivo da Parada (*"Atualização de kernel do SO"*).
 - Badge informativo: *"Esta parada será isenta do cálculo de SLA contratual e os alertas serão suspensos durante a janela."*
 
+### 4.6 Seção de Backup & Recuperação de Desastres (Painel de Configurações)
+- **Localização:** Aba de Governança / Configurações do Sistema no Dashboard do NOC.
+- **Botão de Disparo Manual:**
+  - Botão com estado visual de loading e feedback instantâneo: `[ Gerar Backup Manual ]`.
+  - Desativa-se automaticamente durante a execução para prevenir múltiplos disparos concorrentes.
+- **Modal / Card de Progresso em Tempo Real (SSE):**
+  - Barra de progresso contínua com checklist dinâmico em tempo real alimentado via SSE (`backup_progress`):
+    - [x] *Iniciando rotina*
+    - [x] *Exportando TimescaleDB e Hypertables*
+    - [x] *Snapshot do Redis*
+    - [x] *Criptografando credenciais*
+    - [x] *Enviando para o Google Drive*
+    - [x] *Enviando para o Cloudflare R2*
+    - [x] *Concluído com Sucesso*
+- **Tabela de Histórico de Backups:**
+  - Colunas: Data/Hora (UTC), Tamanho do Pacote (ex: `142.8 MB`), Hash SHA-256 (com botão de cópia de integridade) e Badges de status individual por destino (*Local*, *Google Drive*, *Cloudflare R2*).
+
 ---
 
 ## 5. Micro-Interações e Comportamento Operacional
