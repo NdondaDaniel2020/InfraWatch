@@ -100,10 +100,3 @@ dist-ssr
 *.local
 coverage
 .vite
-
-# Backups locais e credenciais do rclone
-backups/
-rclone.conf
-*.tar.gz
-*.tar.gz.sha256
-

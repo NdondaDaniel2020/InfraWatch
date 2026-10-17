@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -25,8 +25,6 @@ help:
 	@echo "  make worker-cleanup - Inicia o worker de expurgo de tokens independente"
 	@echo "  make worker-zabbix  - Inicia o worker de sincronização de telemetria Zabbix"
 	@echo "  make worker-integration - Inicia o worker de integração (Notificações e GLPI)"
-	@echo "  make backup         - Executa o backup automatizado multi-destino (TimescaleDB, Redis, Segredos)"
-	@echo "  make restore        - Restaura banco, Redis e segredos de um bundle (use ARGS=<arquivo.tar.gz>)"
 	@echo "  make test           - Executa os testes automatizados com uv run pytest ou .venv"
 	@echo "  make lint           - Executa checagem de código com uv run ruff ou .venv"
 	@echo "  make format         - Formata o código com uv run ruff format ou .venv"
@@ -237,12 +235,6 @@ clab-graph:
 
 monitoring-test-up: clab-deploy integration-up up
 
+
 monitoring-test-down: clab-destroy integration-down down
 
-backup:
-	@chmod +x ./scripts/backup.sh
-	@./scripts/backup.sh $(ARGS)
-
-restore:
-	@chmod +x ./scripts/restore.sh
-	@./scripts/restore.sh $(ARGS)
