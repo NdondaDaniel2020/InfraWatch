@@ -363,6 +363,35 @@ services:
     networks:
       - infrawatch-net
 
+  infrawatch-backup:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile.backup
+    container_name: infrawatch-backup
+    restart: always
+    env_file:
+      - ./backend/.env.production
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - backup_data:/var/backups/infrawatch
+    secrets:
+      - postgres_password
+      - redis_password
+      - backup_encryption_key
+      - rclone_config
+      - google_client_id
+      - google_client_secret
+      - telegram_bot_token
+      - telegram_chat_id
+      - default_webhook_url
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - infrawatch-net
+
 secrets:
   postgres_password:
     file: ./secrets/postgres_password.txt
@@ -412,6 +441,10 @@ secrets:
     file: ./secrets/prometheus_metrics_user.txt
   prometheus_metrics_pass:
     file: ./secrets/prometheus_metrics_pass.txt
+  backup_encryption_key:
+    file: ./secrets/backup_encryption_key.txt
+  rclone_config:
+    file: ./secrets/rclone_config.txt
 
 volumes:
   postgres_data:
@@ -420,7 +453,10 @@ volumes:
     driver: local
   evolution_instances:
     driver: local
+  backup_data:
+    driver: local
 
 networks:
   infrawatch-net:
     driver: bridge
+
