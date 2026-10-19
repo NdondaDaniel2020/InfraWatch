@@ -25,9 +25,9 @@ export const Card: React.FC<CardProps> = ({
   };
 
   return (
-    <div style={cardStyle} className={className} {...props}>
+    <article style={cardStyle} className={className} {...props}>
       {children}
-    </div>
+    </article>
   );
 };
 
@@ -46,9 +46,9 @@ export const CardHeader: React.FC<CardHeaderProps> = ({ children, style, classNa
   };
 
   return (
-    <div style={headerStyle} className={className} {...props}>
+    <header style={headerStyle} className={className} {...props}>
       {children}
-    </div>
+    </header>
   );
 };
 
@@ -132,8 +132,8 @@ export const CardFooter: React.FC<CardFooterProps> = ({ children, style, classNa
   };
 
   return (
-    <div style={footerStyle} className={className} {...props}>
+    <footer style={footerStyle} className={className} {...props}>
       {children}
-    </div>
+    </footer>
   );
 };

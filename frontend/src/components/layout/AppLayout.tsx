@@ -34,6 +34,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         width: "100%",
       }}
     >
+      {/* Acessibilidade WCAG: Skip Link para navegação rápida por teclado */}
+      <a href="#main-content" className="skip-link">
+        Pular para o conteúdo principal
+      </a>
+
       {/* Header Global Fixo */}
       <Header onToggleSidebar={toggleMobileSidebar} />
 

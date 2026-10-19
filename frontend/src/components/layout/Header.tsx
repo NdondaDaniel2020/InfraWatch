@@ -197,9 +197,10 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Direita: Relógio UTC, Busca, Live SSE, Modo TV e Perfil */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        {/* Relógio UTC */}
-        <div
+        {/* Relógio UTC Semântico */}
+        <time
           data-testid="utc-clock"
+          dateTime={new Date().toISOString()}
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: "0.75rem",
@@ -212,7 +213,7 @@ export const Header: React.FC<HeaderProps> = ({
           title="Relógio Oficial UTC do Barramento"
         >
           {utcTime || "--:--:-- UTC"}
-        </div>
+        </time>
 
         {/* Botão de Busca Rápida (Ctrl+K) */}
         <button

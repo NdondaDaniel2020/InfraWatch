@@ -26,6 +26,29 @@ body {
   flex-direction: column;
 }
 
+/* WCAG Skip Link para Acessibilidade por Teclado */
+.skip-link {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  background-color: var(--color-healthy);
+  color: var(--color-bg-deep);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  z-index: 10000;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.skip-link:focus-visible {
+  top: 12px;
+  left: 12px;
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
 /* Tipografia de Telemetria */
 .font-mono {
   font-family: var(--font-mono);

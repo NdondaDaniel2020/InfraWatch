@@ -211,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                   color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
                   backgroundColor: isActive ? "var(--color-surface-hover)" : "transparent",
                   borderLeft: isActive ? "3px solid var(--color-healthy)" : "3px solid transparent",
-                  transition: "all var(--transition-fast)",
+                  transition: "background-color var(--transition-fast), color var(--transition-fast), border-left-color var(--transition-fast)",
                 })}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -250,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
         </div>
 
         {/* Rodapé da Sidebar */}
-        <div
+        <footer
           style={{
             padding: "12px 8px 4px 8px",
             borderTop: "var(--border-subtle)",
@@ -264,7 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
         >
           <span>v0.1.0-prod</span>
           <span style={{ color: "var(--color-healthy)" }}>ONLINE</span>
-        </div>
+        </footer>
       </aside>
     </>
   );

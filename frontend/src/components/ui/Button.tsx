@@ -113,7 +113,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       fontFamily: "var(--font-sans)",
       cursor: isDisabled ? "not-allowed" : "pointer",
       opacity: isDisabled ? 0.5 : 1,
-      transition: "all var(--transition-fast)",
+      transition:
+        "background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast)",
       outline: "none",
       userSelect: "none",
       whiteSpace: "nowrap",
