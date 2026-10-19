@@ -98,9 +98,14 @@ clab-*/
 .clab/
 bin/
 
+backups
+backups/*
 node_modules
 dist
 dist-ssr
 *.local
 coverage
 .vite
+
+# Design Mockups & Stitch Assets
+/telas_mockups/
