@@ -107,7 +107,12 @@ O InfraWatch integra-se ao Zabbix de forma bidirecional e híbrida (ADR-004 e AD
 ## 5. Streaming em Tempo Real com SSE (Server-Sent Events)
 
 - **URL:** `GET /api/v1/events/stream`
-- **Headers:** `Content-Type: text/event-stream`, `Cache-Control: no-cache`
+- **Headers de Resposta:** `Content-Type: text/event-stream`, `Cache-Control: no-cache`
+- **Autenticação Segura (ADR-033):**
+  - **Mecanismo de Consumo:** Fetch API com `ReadableStream` (`@microsoft/fetch-event-source` via hook `useSSE`), abandonando o `EventSource` nativo do navegador para viabilizar envio de headers.
+  - **Cabeçalho de Requisição:** `Authorization: Bearer <accessToken>` (Access Token JWT armazenado estritamente em memória volátil).
+  - **Prevenção de Vazamento (CWE-598):** Proibido o tráfego de JWT em query string (`?token=`), impedindo exposição de credenciais nos logs de acesso do Nginx/WAF e no histórico do browser.
+  - **Auto-Recuperação & Silent Refresh:** Interceptação precisa de respostas `401 Unauthorized` no handshake/reconexão com renovação silenciosa via Refresh Token (`POST /api/v1/auth/refresh`) e restabelecimento imediato do stream.
 - **Eventos:**
   - `probe_result`: latência e status momentâneo.
   - `status_change`: alteração entre `UP` e `DOWN`.

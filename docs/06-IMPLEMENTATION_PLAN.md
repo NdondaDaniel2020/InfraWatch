@@ -129,18 +129,20 @@
 ### Fase 7: Frontend React + Vite + TypeScript (NOC Cockpit & Client Portal)
 - [x] **Tarefa 7.1:** Design tokens operacionais dark mode (`index.css`), componentes base atômicos no padrão shadcn/ui (`Button`, `Card`, `Modal`, `Badge`, `Skeleton`) e utilitário `cn` (`clsx` + `tailwind-merge`).
 - [x] **Tarefa 7.2:** Motor de Tempo Real: Hook `useSSE` com auto-reconnect e buffer de eventos em tempo real.
-- [ ] **Tarefa 7.3:** Shell da Aplicação, Roteamento & RBAC Guards:
+- [x] **Tarefa 7.3:** Shell da Aplicação, Roteamento & RBAC Guards:
   - Configuração do React Router com layouts protegidos por `<Outlet />`.
   - Guards de autorização baseados em `UserRole` (`SUPER_ADMIN`, `NOC_OPERATOR`, `ORG_ADMIN`, `CLIENT_VIEWER`).
   - Header Global com Status Ticker executivo em tempo real, relógio UTC e indicador de streaming ativo (`LiveIndicator`).
 - [ ] **Tarefa 7.4:** Autenticação, MFA & Gestão de Acessos:
+  - Gestão Segura de Tokens (ADR-033): Access Token armazenado estritamente em memória volátil (React Context/Zustand) para mitigação contra XSS; Refresh Token rotativo com *Silent Refresh* automático no bootstrap da aplicação (`POST /auth/refresh`).
   - Formulário de login com suporte a desafio MFA de duas etapas (código TOTP de 6 dígitos via `/auth/login/mfa-challenge`).
   - Botão e fluxo de login social Google OAuth2 (`/auth/google/url` e `/auth/google/callback`).
   - Telas de recuperação de senha (`/auth/password-reset/*`) e confirmação de e-mail (`/auth/verify-email`).
   - Painel de Segurança do Usuário: ativação de MFA com QR Code (`otpauth://`), cópia de 10 códigos de backup e gestão/revogação de sessões e dispositivos ativos (`/users/me/sessions`).
 - [ ] **Tarefa 7.5:** Cockpit NOC & Grade Operacional de Dispositivos (Estratégia *Hydrate & Stream*):
   - Hidratação instantânea via TanStack Query em `/api/v1/events/telemetry`.
-  - Atualização contínua de micrográficos (sparklines de latência dos últimos 60 pings e histórico diário de 90 dias) acoplada ao `useSSE`.
+  - Hook reativo `useSSE` baseado em Fetch API com `ReadableStream` (`@microsoft/fetch-event-source` - ADR-033), autenticado via cabeçalho HTTP `Authorization: Bearer <token>` (zero parâmetros em query string, prevenindo CWE-598) e reconexão com renovação silenciosa no 401.
+  - Atualização contínua de micrográficos (sparklines de latência dos últimos 60 pings e histórico diário de 90 dias) acoplada aos eventos do stream SSE.
   - Barra de busca global rápida (`Ctrl + K` / `Cmd + K`) consumindo o endpoint Full-Text Search do PostgreSQL (`/api/v1/devices/search`).
   - Modo NOC TV Fullscreen (`F`) com tipografia ampliada de alto contraste para telões de parede.
 - [ ] **Tarefa 7.6:** Gestão de Inventário & Ações Operacionais:

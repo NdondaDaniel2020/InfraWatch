@@ -39,6 +39,8 @@
 29. [ADR-029: Arquitetura de Thin Controllers, Unit of Work e Coesão Modular](#adr-029-arquitetura-de-thin-controllers-unit-of-work-e-coesão-modular)
 30. [ADR-030: Padronização Temporal com Timezone Estrito (TIMESTAMPTZ)](#adr-030-padronização-temporal-com-timezone-estrito-timestamptz)
 31. [ADR-031: Adoção do TimescaleDB com Hypertables e Compressão Colunar para Séries Temporais](#adr-031-adoção-do-timescaledb-com-hypertables-e-compressão-colunar-para-séries-temporais)
+32. [ADR-032: Estratégia de Backup Automatizado Multi-Destino Dual-Cloud e Acionamento Desacoplado](#adr-032-estratégia-de-backup-automatizado-multi-destino-dual-cloud-e-acionamento-desacoplado)
+33. [ADR-033: Autenticação Segura no SSE via Fetch ReadableStream e Armazenamento em Memória de Tokens JWT](#adr-033-autenticação-segura-no-sse-via-fetch-readablestream-e-armazenamento-em-memória-de-tokens-jwt)
 
 ---
 
@@ -426,5 +428,39 @@
   - *Execução dentro do `lifespan` do FastAPI:* Descartada devido à concorrência destrutiva entre réplicas da API, inchaço da imagem com binários desnecessários e risco de travar requisições de telemetria em tempo real (SSE).
   - *Backup em Destino Único:* Descartada por violar as diretrizes de Disaster Recovery e manter vulnerabilidade a bloqueios de conta ou quedas de serviço de um provedor específico.
 - **Benefício:** RPO/RTO minimizados, zero custo adicional de infraestrutura, independência de nuvem (*cloud agnostic*), imunidade a falhas de provedores individuais e preservação da performance e estabilidade da API web.
+
+---
+
+### ADR-033: Autenticação Segura no SSE via Fetch ReadableStream e Armazenamento em Memória de Tokens JWT
+- **Status:** Aprovado e Padronizado
+- **Origem:** Análise de vulnerabilidade e higiene de segurança no frontend (prevenção contra CWE-598 e exfiltração XSS de tokens).
+- **Problema:**
+  1. **Vazamento de JWT em Query String (CWE-598):** A API nativa do navegador `window.EventSource` (`new EventSource(url)`) foi concebida sem suporte a cabeçalhos HTTP customizados (`Authorization: Bearer <token>`). O contorno histórico comumente utilizado — passar o token na query string (`/api/v1/events/stream?token=<jwt>`) — gera grave vulnerabilidade de segurança: a URL completa contendo a assinatura e claims do JWT é gravada em texto puro nos *access logs* de proxies reversos (Nginx), roteadores, CDNs/WAF (Cloudflare) e sistemas de agregação de logs/SIEM (Datadog, Loki, ELK), além de ficar retida no histórico do navegador e vazar via cabeçalho HTTP `Referer`.
+  2. **Exposição de Tokens em Conexões Persistentes Keep-Alive:** Em conexões contínuas SSE mantidas via `keep-alive`, a cada desconexão e reconexão transitória de rede, novas entradas com o JWT são estampadas nos logs de infraestrutura.
+  3. **Vulnerabilidade a XSS via LocalStorage:** O armazenamento do Access Token em `localStorage` ou `sessionStorage` permite que qualquer script injetado (via bibliotecas terceiras ou falhas de XSS) exfiltre credenciais ativas de forma silenciosa e persistente.
+- **Decisão:**
+  1. **Access Token Estritamente em Memória (React State / In-Memory Store):**
+     - O Access Token JWT (validade de 15 minutos) é armazenado única e exclusivamente na memória volátil da aplicação React (Context ou store Zustand).
+     - **Nunca** é persistido em `localStorage`, `sessionStorage` ou cookies JavaScript manipuláveis via DOM.
+  2. **Refresh Token Rotativo e Silent Refresh no Bootstrap:**
+     - O Refresh Token rotativo (com detecção de reuso e revogação imediata da família de tokens no backend) é mantido em armazenamento protegido e utilizado pelo interceptor da API para renovação automática.
+     - Ao carregar ou atualizar a página (F5), a aplicação executa um *Silent Refresh* (`POST /api/v1/auth/refresh`) antes de montar as rotas protegidas, hidratando o novo Access Token em memória.
+  3. **Abandono do `EventSource` Nativo em Favor da Fetch API com `ReadableStream` (`@microsoft/fetch-event-source`):**
+     - A conexão SSE é consumida via streaming de Fetch API com `response.body.getReader()`, encapsulada na biblioteca auditada `@microsoft/fetch-event-source` ou hook customizado `useSSE`.
+     - O token de autenticação é transmitido de forma 100% segura no cabeçalho HTTP padrão:
+       `Authorization: Bearer <accessToken>`
+     - **Zero parâmetros sensíveis na URL:** A rota chamada é estritamente `/api/v1/events/stream` sem parâmetros de query para autenticação, impedindo qualquer vazamento em logs de proxy (Nginx).
+  4. **Tratamento Reativo de 401 e Re-autenticação Transparente do Stream:**
+     - Enquanto o `EventSource` nativo possui um manipulador `onerror` opaco que oculta o código de status HTTP do handshake, a abordagem com Fetch API captura o status `401 Unauthorized` com precisão.
+     - Ao detectar a expiração do Access Token durante o streaming ou em uma tentativa de reconexão, o hook aciona o fluxo de renovação assíncrona (`refresh`), obtém o novo Access Token em memória e restabelece a conexão SSE com o novo cabeçalho sem que o operador do NOC perca o estado do painel ou sofra desconexão visível.
+- **Alternativas Descartadas:**
+  - *JWT em Query Parameter (`GET /api/v1/events/stream?token=...`):* Rejeitado categoricamente por violar as diretrizes de segurança da OWASP e CWE-598, poluindo logs e expondo credenciais administrativas e de clientes.
+  - *Padrão First-Frame Authentication:* Rejeitado por incompatibilidade arquitetural com a especificação do protocolo SSE. Diferente dos WebSockets (que são bidirecionais/full-duplex), o SSE é estritamente **unidirecional (apenas downlink)**. Após o handshake inicial `GET`, o canal de subida do cliente é finalizado pelo protocolo HTTP, inviabilizando o envio de mensagens de autenticação do cliente para o servidor no mesmo fluxo.
+  - *Padrão Ticket (One-Time Ephemeral Ticket no Redis):* Embora válido para contornar o `EventSource` nativo, exige 2 round-trips para cada conexão (`POST /auth/sse-ticket` + `GET /stream?ticket=...`), gera carga de I/O efêmero no Redis e quebra o algoritmo de retry automático do navegador (que tenta reconectar na mesma URL com o ticket já consumido e toma 401 contínuo).
+- **Benefício:**
+  - Segurança enterprise contra vazamento de credenciais em logs de servidores e mitigação contra roubo de tokens via XSS.
+  - Reconexão transparente e resiliente com suporte a renovação silenciosa de tokens.
+  - Total conformidade com o backend FastAPI existente, cuja dependência `get_current_user` já prioriza nativamente a validação do cabeçalho `Authorization: Bearer`.
+
 
 
