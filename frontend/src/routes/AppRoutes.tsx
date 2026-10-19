@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../components/layout/AppLayout";
 import { GlobalErrorBoundary } from "../components/common/GlobalErrorBoundary";
-import { LoginPage } from "../pages/auth/LoginPage";
+import { LoginPage, LoginTestPage } from "../pages/auth/LoginPage";
 import { AccessDeniedPage } from "../pages/error/AccessDeniedPage";
 import { NotFoundPage } from "../pages/error/NotFoundPage";
 import { NocDashboardPage } from "../pages/noc/NocDashboardPage";
@@ -32,6 +32,8 @@ export const AppRoutes: React.FC = () => {
         {/* 1. ROTAS PÚBLICAS                                                */}
         {/* ================================================================= */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/login-test" element={<LoginTestPage />} />
+        <Route path="/dev/login" element={<LoginTestPage />} />
         <Route
           path="/auth/callback"
           element={
