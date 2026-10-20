@@ -78,7 +78,7 @@ export interface LoginTestPageProps {
 export const LoginTestPage: React.FC<LoginTestPageProps> = ({
   testId = "login-test-page",
 }) => {
-  const { login } = useAuth();
+  const { setSession } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -96,7 +96,7 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
     userEmail: string,
     initials: string
   ) => {
-    login(
+    setSession(
       {
         id: `usr-${role.toLowerCase()}-01`,
         email: userEmail,

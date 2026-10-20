@@ -4,6 +4,11 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../components/layout/AppLayout";
 import { GlobalErrorBoundary } from "../components/common/GlobalErrorBoundary";
 import { LoginPage, LoginTestPage } from "../pages/auth/LoginPage";
+import { MfaChallengePage } from "../pages/auth/MfaChallengePage";
+import { GoogleCallbackPage } from "../pages/auth/GoogleCallbackPage";
+import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
+import { SecuritySettingsPage } from "../pages/settings/SecuritySettingsPage";
 import { AccessDeniedPage } from "../pages/error/AccessDeniedPage";
 import { NotFoundPage } from "../pages/error/NotFoundPage";
 import { NocDashboardPage } from "../pages/noc/NocDashboardPage";
@@ -32,28 +37,14 @@ export const AppRoutes: React.FC = () => {
         {/* 1. ROTAS PÚBLICAS                                                */}
         {/* ================================================================= */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/login/mfa-challenge" element={<MfaChallengePage />} />
         <Route path="/login-test" element={<LoginTestPage />} />
         <Route path="/dev/login" element={<LoginTestPage />} />
-        <Route
-          path="/auth/callback"
-          element={
-            <PlaceholderPage
-              title="Autenticação Social OAuth2"
-              description="Validando handshake seguro e claims do usuário..."
-              testId="auth-callback-page"
-            />
-          }
-        />
-        <Route
-          path="/password-reset"
-          element={
-            <PlaceholderPage
-              title="Redefinição de Senha"
-              description="Fluxo de recuperação com envio de link assinado por e-mail."
-              testId="password-reset-page"
-            />
-          }
-        />
+        <Route path="/auth/callback" element={<GoogleCallbackPage />} />
+        <Route path="/auth/callback/google" element={<GoogleCallbackPage />} />
+        <Route path="/password-reset" element={<ForgotPasswordPage />} />
+        <Route path="/password-reset/confirm" element={<ResetPasswordPage />} />
+        <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 
         {/* ================================================================= */}
         {/* 2. MODO TV WALLBOARD (Protegido, sem Moldura Lateral da Shell)    */}
@@ -177,12 +168,16 @@ export const AppRoutes: React.FC = () => {
             <Route
               path="/security"
               element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
-                  <PlaceholderPage
-                    title="Segurança, Perfis & Gestão RBAC"
-                    description="Controle de usuários, sessões ativas e ativação de MFA TOTP."
-                    testId="security-page"
-                  />
+                <ProtectedRoute>
+                  <SecuritySettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/security"
+              element={
+                <ProtectedRoute>
+                  <SecuritySettingsPage />
                 </ProtectedRoute>
               }
             />

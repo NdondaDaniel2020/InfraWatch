@@ -28,8 +28,13 @@ function createAuthMock(
     accessToken: isAuthenticated ? "mock-jwt-token" : null,
     isAuthenticated,
     isLoading: false,
+    mfaPendingToken: null,
     login: vi.fn(),
+    submitMfaChallenge: vi.fn(),
+    completeGoogleLogin: vi.fn(),
+    setSession: vi.fn(),
     logout: vi.fn(),
+    clearMfaPending: vi.fn(),
     hasRole: (roles: UserRole | UserRole[]) => {
       if (!isAuthenticated) return false;
       const target = Array.isArray(roles) ? roles : [roles];
