@@ -8,6 +8,9 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: ButtonVariant;
   size?: ButtonSize;
   isLoading?: boolean;
+  fullWidth?: boolean;
+  icon?: React.ReactNode;
+  iconPosition?: "left" | "right";
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
 }
@@ -68,6 +71,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       variant = "primary",
       size = "md",
       isLoading = false,
+      fullWidth = false,
+      icon,
+      iconPosition = "left",
       leftIcon,
       rightIcon,
       disabled,
@@ -105,6 +111,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       hoverBg = "var(--color-primary-active)";
     }
 
+    const effectiveLeftIcon = leftIcon || (iconPosition === "left" ? icon : null);
+    const effectiveRightIcon = rightIcon || (iconPosition === "right" ? icon : null);
+
     const baseStyle: React.CSSProperties = {
       display: "inline-flex",
       alignItems: "center",
@@ -118,6 +127,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       outline: "none",
       userSelect: "none",
       whiteSpace: "nowrap",
+      width: fullWidth ? "100%" : "auto",
       ...sizeStyles[size],
       ...variantStyles[variant],
       backgroundColor: hoverBg,
@@ -148,9 +158,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             style={{ animation: "spin 1s linear infinite" }}
           />
         )}
-        {!isLoading && leftIcon}
+        {!isLoading && effectiveLeftIcon}
         <span>{children}</span>
-        {!isLoading && rightIcon}
+        {!isLoading && effectiveRightIcon}
       </button>
     );
   }
