@@ -41,6 +41,10 @@
 31. [ADR-031: Adoção do TimescaleDB com Hypertables e Compressão Colunar para Séries Temporais](#adr-031-adoção-do-timescaledb-com-hypertables-e-compressão-colunar-para-séries-temporais)
 32. [ADR-032: Estratégia de Backup Automatizado Multi-Destino Dual-Cloud e Acionamento Desacoplado](#adr-032-estratégia-de-backup-automatizado-multi-destino-dual-cloud-e-acionamento-desacoplado)
 33. [ADR-033: Autenticação Segura no SSE via Fetch ReadableStream e Armazenamento em Memória de Tokens JWT](#adr-033-autenticação-segura-no-sse-via-fetch-readablestream-e-armazenamento-em-memória-de-tokens-jwt)
+34. [ADR-034: Pooler Central PgBouncer para Escalabilidade Horizontal e Mitigação de Thundering Herd](#adr-034-pooler-central-pgbouncer-para-escalabilidade-horizontal-e-mitigação-de-thundering-herd)
+35. [ADR-035: Idempotência Estrita e Deduplicação Persistente em Integrações Externas](#adr-035-idempotência-estrita-e-deduplicação-persistente-em-integrações-externas)
+36. [ADR-036: Governança do Barramento Redis Streams — Teto de Retentativas, Backoff com Jitter, Poda com MAXLEN e DLQ](#adr-036-governança-do-barramento-redis-streams--teto-de-retentativas-backoff-com-jitter-poda-com-maxlen-e-dlq)
+37. [ADR-037: Telemetria Canônica Prometheus e Health Check Profundo para Mensageria](#adr-037-telemetria-canônica-prometheus-e-health-check-profundo-para-mensageria)
 
 ---
 
@@ -462,5 +466,119 @@
   - Reconexão transparente e resiliente com suporte a renovação silenciosa de tokens.
   - Total conformidade com o backend FastAPI existente, cuja dependência `get_current_user` já prioriza nativamente a validação do cabeçalho `Authorization: Bearer`.
 
+---
 
+### ADR-034: Pooler Central PgBouncer para Escalabilidade Horizontal e Mitigação de Thundering Herd
+- **Status:** Aprovado e Planejado
+- **Origem:** Issue #232, Requisito Não-Funcional RNF04 (`docs/INFRAWATCH.md`), Fase 6 (Milestone: *Fase 6: Homologação, Carga, Auditoria & Go-Live*).
+- **Problema:**
+  1. **RNF04 e Multiplicidade de Daemons Independentes:** O sistema opera com 6 daemons desacoplados no `docker-compose.yml` (`infrawatch-api`, `infrawatch-probe-worker`, `infrawatch-integration-worker`, `infrawatch-outbox-worker`, `infrawatch-cleanup-worker`, `infrawatch-zabbix-sync-worker`). Cada processo aloca por padrão um pool de conexões do SQLAlchemy (`DB_POOL_SIZE=20` + `DB_MAX_OVERFLOW=10`), consumindo até 180 conexões concorrentes já na topologia base. Ao escalar horizontalmente em múltiplas réplicas (conforme exigido pelo RNF04), o limite padrão de conexões do PostgreSQL/TimescaleDB (`max_connections=100`) é rapidamente violado, gerando erros fatais de exaustão de conexões (`FATAL: remaining connection slots are reserved for non-replication superuser connections` ou `too many clients already`).
+  2. **Efeito Thundering Herd em Incidentes:** Em incidentes de indisponibilidade de infraestrutura ou enlace de rede corporativo (RCS), ocorre um pico duplo simultâneo: os probes disparam inserções em massa de telemetria de degradação, incidentes e eventos Outbox, enquanto operadores do NOC e clientes no portal disparam consultas de leitura e recarregam dashboards em tempo real, saturando a capacidade de sockets do banco.
+  3. **Preparação para Ambientes Serverless e Contêineres Efêmeros:** Caso componentes ou réplicas da API sejam executados em ambientes com ciclo de vida curto ou serverless, o pooling interno do SQLAlchemy torna-se ineficaz, demandando um intermediário centralizado de conexões estáveis.
+- **Decisão:**
+  1. **Adoção do PgBouncer como Proxy Central de Pool (`infrawatch-pgbouncer`):**
+     - Provisionamento de contêiner dedicado baseado na imagem oficial estável `edoburu/pgbouncer:v1.23.1` na rede isolada `infrawatch-net`, escutando na porta `6432`.
+     - Todos os serviços da aplicação backend (`infrawatch-api` e workers) passam a direcionar suas conexões para o PgBouncer (`POSTGRES_HOST=pgbouncer`, `POSTGRES_PORT=6432`).
+  2. **Modo de Multiplexação em Transação (`pool_mode = transaction`):**
+     - O PgBouncer opera no modo transacional: a conexão física com o PostgreSQL só é alugada durante o ciclo de vida do bloco transacional ativo (`async with session.begin():`), sendo imediatamente devolvida ao pool ao término do `COMMIT` ou `ROLLBACK`.
+     - Isso permite que centenas de clientes/threads concorrentes compartilhem um pool fixo de 20 a 30 conexões físicas reais no TimescaleDB, otimizando o consumo de RAM e CPU do banco.
+  3. **Compatibilidade com Asyncpg e Desativação de Prepared Statements:**
+     - No modo `transaction`, transações subsequentes do mesmo cliente podem ser atendidas por conexões físicas diferentes no PostgreSQL. O driver `asyncpg` faz cache de prepared statements por padrão, o que causaria colisões fatais (`DuplicatePreparedStatementError` ou `InvalidSQLStatementNameError`).
+     - Configuração obrigatória no `create_async_engine` em `backend/src/core/database/session.py`:
+       `connect_args={"statement_cache_size": 0, "prepared_statement_cache_size": 0}`.
+  4. **Isolamento de Migrações DDL do Alembic (Porta Nativa 5432):**
+     - Operações DDL estruturais (`alembic upgrade head`), criação de hypertables do TimescaleDB e locks consultivos exigem sessão dedicada persistente e não devem trafegar pelo pool de transações.
+     - O Alembic (`env.py` e `Makefile`) é mantido conectando diretamente à porta nativa `5432` do contêiner `postgres`.
+  5. **Integração de Segredos e Healthcheck Seguro:**
+     - O PgBouncer consome credenciais a partir dos segredos montados (`/run/secrets/postgres_password`), em conformidade com o padrão `docker-compose-secrets-pattern` (ADR-027).
+     - Ordem de inicialização determinística: `pgbouncer` aguarda a saúde do `postgres` (`condition: service_healthy`), e a API e workers aguardam a prontidão do `pgbouncer`.
+- **Alternativas Descartadas:**
+  - *Elevação simples do `max_connections` no PostgreSQL (ex: para 500-1000):* Cada conexão no PostgreSQL aloca entre 5MB e 10MB de RAM dedicada, além de gerar contenção severa de CPU por troca de contexto e locks internos de engine. Isso degradaria a performance geral do TimescaleDB e aumentaria o risco de OOM Killer.
+  - *PgBouncer em modo `session`:* Aloca a conexão física durante todo o ciclo de vida do socket TCP do cliente, anulando o benefício de multiplexação e mantendo o problema de exaustão de conexões com múltiplos workers.
+  - *Connection Pooling unicamente local (SQLAlchemy QueuePool):* Ineficaz para escalabilidade horizontal, pois cada réplica aloca seu próprio pool isolado, multiplicando linearmente as conexões abertas no banco.
+- **Benefício:**
+  - Capacidade de suportar centenas de requisições e réplicas simultâneas com número fixo e previsível de conexões físicas no TimescaleDB (~20 a 25 conexões).
+  - Imunidade a picos de Thundering Herd durante incidentes operacionais de rede.
+  - Pleno atendimento ao requisito não-funcional RNF04 de escalabilidade horizontal.
+  - Preparação para ambientes de contêineres dinâmicos e serverless sem saturação do banco de dados.
 
+---
+
+### ADR-035: Idempotência Estrita e Deduplicação Persistente em Integrações Externas
+- **Status:** Aprovado e Planejado
+- **Origem:** Issue #233, Seção 1 de `falhas_encontra_das.md`, Milestone: *Fase 4: Integrações Corporativas (GLPI, Webhooks & Outbox)*.
+- **Problema:**
+  1. **Semântica At-Least-Once e Reentrega no Redis Streams:** Os consumidores de eventos operam sob o modelo de entrega de pelo menos uma vez (*at-least-once delivery*). Caso um consumidor processe com êxito um evento disparando uma chamada externa (ex.: criação de ticket via REST no GLPI ou disparo de mensagem via Evolution API / SMTP) mas sofra um crash (falha de processo, reinicialização de contêiner ou timeout de rede) antes de emitir o comando `XACK`, a mensagem permanece na Pending Entries List (PEL).
+  2. **Efeitos Colaterais Duplos em Terceiros:** Após o timeout de 60 segundos (`min_idle_ms = 60000`), o comando `XAUTOCLAIM` reatribui a mensagem pendente a um consumidor saudável. Embora o modelo de domínio interno do InfraWatch possua transições de estado idempotentes por natureza (ex.: resolver incidente já resolvido é no-op inofensivo), serviços externos de terceiros (GLPI, provedores de email e gateways WhatsApp) não possuem esse conhecimento e criam tickets duplicados ou reenviam notificações aos mesmos destinatários, gerando ruído e descontentamento operacional.
+- **Decisão:**
+  1. **Tabela de Deduplicação Relacional (`processed_events` / `idempotency_keys`):**
+     - Criação da tabela persistente com chave primária composta `(consumer_name, idempotency_key)` e carimbo temporal `processed_at TIMESTAMPTZ`.
+     - Antes de invocar a API de um serviço externo com efeitos colaterais, o consumidor verifica e registra transacionalmente a execução prévia da mensagem (`event_id` ou combinação determinística de evento + ativo + estado).
+  2. **Idempotency Key nos Cabeçalhos / Payloads de Integração:**
+     - Sempre que a API externa suportar chave de idempotência nativa (cabeçalhos HTTP como `Idempotency-Key` ou busca prévia de tickets abertos no GLPI pelo `device_id` e status ativo), o consumidor obrigatoriamente a propaga para delegar a deduplicação na borda remota.
+  3. **Janela de Retenção e Limpeza Automática:**
+     - As chaves de idempotência na tabela de deduplicação possuem TTL de retenção de 7 dias, purgadas periodicamente pelo daemon `infrawatch-cleanup-worker`.
+- **Alternativas Descartadas:**
+  - *Confiar apenas no XACK imediato antes de chamar o serviço externo:* Quebraria a garantia de entrega, pois se o worker falhasse durante a requisição externa, a mensagem seria perdida sem retry.
+  - *Deduplicação puramente em memória no consumidor:* Inútil diante de reinicializações de workers ou múltiplos nós/réplicas consumindo concorrentemente.
+- **Benefício:**
+  - Garantia de que serviços externos recebem exatamente uma ação lógica por evento (*effectively-once processing*).
+  - Prevenção total de duplicação de tickets no GLPI e disparos em massa repetidos no WhatsApp/E-mail.
+
+---
+
+### ADR-036: Governança do Barramento Redis Streams — Teto de Retentativas, Backoff com Jitter, Poda com MAXLEN e DLQ
+- **Status:** Aprovado e Planejado
+- **Origem:** Issues #234, #235, #236 e #237, Seções 2, 3, 4, 5 e 6 de `falhas_encontra_das.md`, Milestone: *Fase 4: Integrações Corporativas (GLPI, Webhooks & Outbox)*.
+- **Problema:**
+  1. **Consumo Ilimitado de Memória RAM (Risco de OOM):** No Redis Streams, mensagens são mantidas exclusivamente em memória RAM. Sem poda automática nas operações de `XADD`, o acúmulo contínuo de eventos leva ao esgotamento de memória (`OOM command not allowed` ou término do processo pelo OOM Killer do Linux).
+  2. **Falta de Teto de Retentativas e Ausência de DLQ Nativo:** Diferente de brokers AMQP, o Redis Streams não possui Dead Letter Exchange automática. Quando um consumidor falha e não emite `XACK`, a mensagem fica presa no PEL e é reprocessada indefinidamente pelo `XAUTOCLAIM`.
+  3. **Thundering Retries por Falta de Backoff Exponencial:** Consumidores reprocessam mensagens a cada 60s em frequência fixa linear, sobrecarregando ainda mais serviços downstream em degradação. No Outbox Relay, mensagens com erro são varridas imediatamente no polling sem retardo progressivo ($2^n$).
+  4. **Head-of-Line Blocking por Poison Messages:** Mensagens sintaticamente inválidas (payload corrompido, `ValueError`, schema inválido, 400 Bad Request) continuam sendo tentadas eternamente, bloqueando vagas no lote de leitura e inundando logs com stack traces repetidos.
+- **Decisão:**
+  1. **Poda Aproximada Obrigatória (`MAXLEN ~ 10000`):**
+     - Todas as chamadas de publicação (`xadd`) no `RedisStreamsEventBus` utilizam obrigatoriamente `maxlen=settings.REDIS_STREAM_MAXLEN` e `approximate=True`. A poda aproximada no Redis opera em $O(1)$ amortizado desalocando macro-blocos da radix tree sem travar a thread de processamento.
+  2. **Teto de Tentativas (`max_retries = 5`) e Desvio para DLQ:**
+     - Consumidores inspecionam o número de entregas (`times_delivered` via `XPENDING`).
+     - Ao atingir 5 tentativas, a mensagem é publicada no stream secundário `{topic}:dlq` enriquecida com metadados diagnósticos (`failed_at`, `error_message`, `delivery_count`, `consumer_group`) e a mensagem original recebe `XACK` imediato no stream principal.
+  3. **Estratégia de Backoff Exponencial com Jitter:**
+     - No Outbox Relay: inclusão da coluna `next_retry_at TIMESTAMPTZ` em `outbox_events` com recuo geométrico ($2^{\text{retry\_count}} \times \text{base\_delay} \pm \text{jitter}$) e consulta filtrada por `next_retry_at <= NOW()`.
+     - Nos Consumidores: adiamento do reprocessamento de mensagens do PEL que ainda não atingiram o tempo de maturação progressiva para o seu respectivo `delivery_count`.
+  4. **Classificação Semântica de Falhas (Poison Messages vs. Falhas Transitórias):**
+     - Falhas irrecuperáveis (`PoisonMessageError`, `ValidationError`, `ValueError`, `KeyError`, HTTP 400/422) não passam por retentativas: são desviadas imediatamente para a DLQ com `XACK` instantâneo no stream principal.
+     - Falhas transitórias (`TransientMessageError`, timeout, HTTP 502/503/429) seguem o fluxo de retentativa com backoff até o teto de 5 tentativas.
+  5. **Centralização Canônica de Tópicos:**
+     - Criação do módulo `backend/src/core/messaging/topics.py` contendo o enum `StreamTopics` e o catálogo `EVENT_STREAM_MAPPING`, eliminando strings literais espalhadas pelo código.
+- **Alternativas Descartadas:**
+  - *Substituição total do Redis Streams por RabbitMQ ou Apache Kafka:* Adicionaria complexidade operacional excessiva, mais contêineres e maior consumo de memória para o porte do projeto. O Redis Streams com governança explícita de `MAXLEN`, `XPENDING` e streams `:dlq` entrega alto desempenho e resiliência satisfatória.
+  - *Poda Exata (`MAXLEN = 10000` sem approximate):* Requer realocação síncrona contínua do log, causando degradação severa de performance por contenção de CPU.
+- **Benefício:**
+  - Eliminação de vazamento de memória e proteção contra OOM no Redis.
+  - Desobstrução definitiva do pipeline de eventos contra poison messages.
+  - Recuperação suave de integrações externas sem tempestades de requisições (*thundering retries*).
+
+---
+
+### ADR-037: Telemetria Canônica Prometheus e Health Check Profundo para Mensageria
+- **Status:** Aprovado e Planejado
+- **Origem:** Issue #238, Seção 7 de `falhas_encontra_das.md`, Milestone: *Fase 4: Integrações Corporativas (GLPI, Webhooks & Outbox)*.
+- **Problema:**
+  1. **Ponto Cego de Observabilidade em Daemons e Consumers:** A camada de mensageria assíncrona operava sem métricas Prometheus de vazão, latência e falhas, impedindo o monitoramento proativo em ferramentas como Prometheus e Grafana.
+  2. **Health Check Desconectado da Realidade do Barramento:** O endpoint `/health` avaliava unicamente o PostgreSQL (`SELECT 1`), reportando falsamente `healthy` mesmo se o Redis estivesse inacessível ou se os consumidores estivessem mortos ou travados.
+- **Decisão:**
+  1. **Métricas Canônicas Padronizadas (`observability.py`):**
+     - `messaging_messages_consumed_total`: contador de eventos processados por stream, grupo e status (`success` vs. `error`).
+     - `messaging_message_processing_duration_seconds`: histograma de duração da execução dos handlers de mensagens.
+     - `messaging_dlq_messages_total`: contador de eventos encaminhados para Dead Letter Queue por motivo.
+     - `messaging_pel_pending_count`: gauge refletindo o volume de pendências no PEL.
+  2. **Instrumentação Nativa nos Consumidores:**
+     - Coleta automática de tempo decorrido e incremento de métricas estruturadas nos loops de consumo de todos os bounded contexts (Alerting, Inventory, IAM).
+  3. **Health Check Profundo Multisserviço:**
+     - Expansão de `get_health_status()` para auditar ativamente a conectividade com o Redis (`client.ping()`) e a saúde dos workers registrados via `XINFO CONSUMERS`.
+- **Alternativas Descartadas:**
+  - *Monitoramento unicamente por logs (Elasticsearch/Loki):* Logs não oferecem alertas ágeis baseados em taxas instantâneas ou derivação de SLIs/SLOs de latência.
+  - *Health checks isolados por processo sem visão consolidada:* Dificultaria a orquestração de contêineres e sondas de liveness no Docker/Kubernetes.
+- **Benefício:**
+  - Visibilidade total em tempo real sobre a saúde, throughput e latência do pipeline assíncrono.
+  - Alertas precisos antes que atrasos em integrações externas saturem o sistema.
+  - Health check enterprise confiável para roteadores de tráfego e orquestradores de contêineres.
