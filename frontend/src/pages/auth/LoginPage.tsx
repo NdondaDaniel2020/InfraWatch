@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "../../context/AuthContext";
 import { authApi } from "../../services/authApi";
 import { Button } from "../../components/ui/Button";
@@ -14,6 +17,18 @@ import {
 } from "lucide-react";
 import { LoginTestPage } from "./LoginTestPage";
 
+const loginSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Por favor, preencha o e-mail e a senha.")
+    .email("Formato de e-mail inválido."),
+  password: z
+    .string()
+    .min(1, "Por favor, preencha o e-mail e a senha."),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -22,25 +37,26 @@ export const LoginPage: React.FC = () => {
   const from =
     (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (data: LoginFormData) => {
     setErrorMessage(null);
-
-    if (!email.trim() || !password) {
-      setErrorMessage("Por favor, preencha o e-mail e a senha.");
-      return;
-    }
-
-    setIsSubmitting(true);
     try {
-      const result = await login({ email: email.trim(), password });
+      const result = await login({ email: data.email.trim(), password: data.password });
 
       if (result.mfaRequired) {
         navigate("/login/mfa-challenge", { state: { from } });
@@ -58,8 +74,6 @@ export const LoginPage: React.FC = () => {
           ? err.message
           : "Falha na autenticação. Verifique suas credenciais.";
       setErrorMessage(msg);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -80,6 +94,8 @@ export const LoginPage: React.FC = () => {
       );
     }
   };
+
+  const displayError = errorMessage || errors.email?.message || errors.password?.message;
 
   return (
     <main
@@ -189,7 +205,7 @@ export const LoginPage: React.FC = () => {
         </CardHeader>
 
         <CardContent style={{ padding: "24px" }}>
-          {errorMessage && (
+          {displayError && (
             <div
               role="alert"
               aria-live="polite"
@@ -208,11 +224,11 @@ export const LoginPage: React.FC = () => {
               }}
             >
               <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
-              <span>{errorMessage}</span>
+              <span>{displayError}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} noValidate>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
             {/* Campo E-mail */}
             <div style={{ marginBottom: "16px" }}>
               <label
@@ -245,18 +261,16 @@ export const LoginPage: React.FC = () => {
                 />
                 <input
                   id="login-email"
-                  name="email"
                   type="email"
                   autoComplete="username"
                   required
                   placeholder="operador@infrawatch.io"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  {...register("email")}
                   style={{
                     width: "100%",
                     padding: "10px 12px 10px 38px",
                     borderRadius: "var(--radius-sm)",
-                    border: "var(--border-subtle)",
+                    border: errors.email ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                     backgroundColor: "var(--color-bg-deep)",
                     color: "var(--color-text-primary)",
                     fontSize: "0.875rem",
@@ -317,18 +331,16 @@ export const LoginPage: React.FC = () => {
                 />
                 <input
                   id="login-password"
-                  name="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
                   placeholder="••••••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  {...register("password")}
                   style={{
                     width: "100%",
                     padding: "10px 38px 10px 38px",
                     borderRadius: "var(--radius-sm)",
-                    border: "var(--border-subtle)",
+                    border: errors.password ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                     backgroundColor: "var(--color-bg-deep)",
                     color: "var(--color-text-primary)",
                     fontSize: "0.875rem",
