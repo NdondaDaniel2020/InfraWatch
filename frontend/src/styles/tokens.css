@@ -4,12 +4,20 @@
    ========================================================================== */
 
 :root {
-  /* Paleta Base - Superfícies Dark Slate Profundo */
-  --color-bg-deep: #090d16;
-  --color-surface-card: #0f172a;
-  --color-surface-elevated: #162036;
-  --color-surface-hover: #1e293b;
-  --color-surface-overlay: rgba(9, 13, 22, 0.85);
+  /* Identidade de Marca Unificada (Brand Accent - Ouro InfraWatch) */
+  --brand-primary: #eab308;
+  --brand-primary-hover: #ca8a04;
+  --brand-primary-rgb: 234, 179, 8;
+  --brand-badge-bg: rgba(234, 179, 8, 0.12);
+  --brand-badge-border: rgba(234, 179, 8, 0.35);
+  --brand-glow: rgba(234, 179, 8, 0.25);
+
+  /* Paleta Base - Superfícies Obsidian Telemetry */
+  --color-bg-deep: #070a12;
+  --color-surface-card: #0d1424;
+  --color-surface-elevated: #131c32;
+  --color-surface-hover: #1a2542;
+  --color-surface-overlay: rgba(7, 10, 18, 0.88);
 
   /* Micro-bordas de 1px por luminância (sem sombras borradas) */
   --color-border-subtle: rgba(255, 255, 255, 0.08);
