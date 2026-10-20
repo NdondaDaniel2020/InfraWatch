@@ -14,6 +14,7 @@ import { NotFoundPage } from "../pages/error/NotFoundPage";
 import { NocDashboardPage } from "../pages/noc/NocDashboardPage";
 import { ClientPortalPage } from "../pages/client/ClientPortalPage";
 import { TvWallboardPage } from "../pages/wallboard/TvWallboardPage";
+import { IncidentManagement } from "../pages/IncidentManagement";
 import { PlaceholderPage } from "../pages/common/PlaceholderPage";
 import { useAuth } from "../context/AuthContext";
 
@@ -91,11 +92,7 @@ export const AppRoutes: React.FC = () => {
               path="/incidents"
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
-                  <PlaceholderPage
-                    title="Central de Incidentes & Alarmes"
-                    description="Fila de incidentes em tempo real e abertura de tickets no GLPI via Outbox."
-                    testId="incidents-page"
-                  />
+                  <IncidentManagement />
                 </ProtectedRoute>
               }
             />
