@@ -87,6 +87,7 @@ export const IncidentManagement: React.FC = () => {
           i.target_device.name.toLowerCase().includes(q) ||
           i.target_device.ip.includes(q) ||
           i.title.toLowerCase().includes(q) ||
+          i.organization_name.toLowerCase().includes(q) ||
           (i.glpi_ticket_id && String(i.glpi_ticket_id).includes(q))
       );
     }
