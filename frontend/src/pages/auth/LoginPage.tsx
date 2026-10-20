@@ -11,7 +11,6 @@ import {
   EyeOff,
   Lock,
   Mail,
-  ShieldCheck,
 } from "lucide-react";
 import { LoginTestPage } from "./LoginTestPage";
 
@@ -110,22 +109,63 @@ export const LoginPage: React.FC = () => {
             borderBottom: "var(--border-subtle)",
           }}
         >
+          {/* Logotipo Oficial 3D com Tag NOC */}
           <div
             style={{
-              display: "inline-flex",
+              display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "48px",
-              height: "48px",
-              borderRadius: "var(--radius-md)",
-              backgroundColor: "rgba(16, 185, 129, 0.1)",
-              border: "1px solid var(--color-border-focus)",
-              color: "var(--color-healthy)",
-              margin: "0 auto 12px auto",
+              gap: "10px",
+              marginBottom: "12px",
             }}
           >
-            <ShieldCheck size={28} />
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "var(--radius-md)",
+                backgroundColor: "rgba(7, 10, 18, 0.8)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "6px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" style={{ width: "100%", height: "100%" }}>
+                <polygon points="12,3 20,7.5 12,12 4,7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.8" strokeLinejoin="round" />
+                <polygon points="4,7.5 12,12 12,21 4,16.5" fill="var(--brand-primary, #eab308)" stroke="#ca8a04" strokeWidth="1.8" strokeLinejoin="round" />
+                <polygon points="12,12 20,7.5 20,16.5 12,21" fill="#111827" stroke="#374151" strokeWidth="1.8" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <span
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "1.25rem",
+                fontWeight: 700,
+                color: "var(--color-text-primary)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              InfraWatch
+            </span>
+            <span
+              style={{
+                padding: "2px 8px",
+                borderRadius: "var(--radius-full)",
+                fontSize: "0.625rem",
+                fontFamily: "var(--font-mono)",
+                fontWeight: 700,
+                backgroundColor: "var(--brand-badge-bg)",
+                color: "var(--brand-primary)",
+                border: "1px solid var(--brand-badge-border)",
+              }}
+            >
+              NOC
+            </span>
           </div>
+
           <h1
             style={{
               fontSize: "1.25rem",
@@ -135,7 +175,7 @@ export const LoginPage: React.FC = () => {
               margin: 0,
             }}
           >
-            InfraWatch NOC Cockpit
+            Aceda à sua conta
           </h1>
           <p
             style={{
@@ -144,7 +184,7 @@ export const LoginPage: React.FC = () => {
               margin: "6px 0 0 0",
             }}
           >
-            Acesso ao sistema de telemetria, incidentes e SLA
+            Cockpit operacional de telemetria e infraestrutura
           </p>
         </CardHeader>
 

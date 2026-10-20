@@ -175,3 +175,22 @@ export async function apiRequest<T>(
 
   return data as T;
 }
+
+export const apiClient = {
+  get: <T>(endpoint: string, options: RequestOptions = {}) =>
+    apiRequest<T>(endpoint, { method: "GET", ...options }),
+  post: <T>(endpoint: string, body?: unknown, options: RequestOptions = {}) =>
+    apiRequest<T>(endpoint, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+      ...options,
+    }),
+  put: <T>(endpoint: string, body?: unknown, options: RequestOptions = {}) =>
+    apiRequest<T>(endpoint, {
+      method: "PUT",
+      body: body ? JSON.stringify(body) : undefined,
+      ...options,
+    }),
+  delete: <T>(endpoint: string, options: RequestOptions = {}) =>
+    apiRequest<T>(endpoint, { method: "DELETE", ...options }),
+};
