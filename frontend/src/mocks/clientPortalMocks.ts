@@ -1,0 +1,188 @@
+export interface ClientSlaSummary {
+  tenantId: string;
+  tenantName: string;
+  uptimeCurrentMonthPct: number;
+  slaTargetPct: number;
+  downtimeBalanceFormatted: string;
+  mttrMinutesAvg: number;
+  nextMaintenanceWindow: string;
+  cycleMonthLabel: string;
+}
+
+export interface ClientServiceItem {
+  id: string;
+  name: string;
+  category: string;
+  status: "UP" | "DEG" | "DOWN";
+  statusLabel: string;
+  responseTimeMs: number;
+  throughputFormatted: string;
+  successRatePct: number;
+  tags: string[];
+  stability30DaysPct: number;
+  advisoryAlert?: string;
+  activeEndpointsCount?: string;
+}
+
+export interface SanitizedEndpoint {
+  id: string;
+  domainName: string;
+  serviceType: string;
+  protocol: string;
+  status: "UP" | "DEG" | "DOWN";
+  sla30dPct: number;
+  latencyAvgMs: number;
+  datacenterRegion: string;
+}
+
+export interface ClientNotification {
+  id: string;
+  title: string;
+  summary: string;
+  timestampWat: string;
+  impactSlaFormatted: string;
+  isRead: boolean;
+  type: "resolved" | "maintenance" | "advisory";
+  severity: "info" | "warning" | "success";
+}
+
+export const MOCK_CLIENT_SLA_SUMMARY: ClientSlaSummary = {
+  tenantId: "bancosol",
+  tenantName: "Banco Sol S.A.",
+  uptimeCurrentMonthPct: 99.92,
+  slaTargetPct: 99.50,
+  downtimeBalanceFormatted: "3h 27m",
+  mttrMinutesAvg: 4.2,
+  nextMaintenanceWindow: "22/10 02:00",
+  cycleMonthLabel: "Outubro 2026",
+};
+
+export const MOCK_CLIENT_SERVICES: ClientServiceItem[] = [
+  {
+    id: "svc-ibanking-web",
+    name: "Internet Banking Web",
+    category: "Canal Digital Core",
+    status: "UP",
+    statusLabel: "100% UP",
+    responseTimeMs: 18,
+    throughputFormatted: "1.850 req/s",
+    successRatePct: 99.99,
+    tags: ["Autenticação MFA", "Transferências", "Token Seguro"],
+    stability30DaysPct: 100.0,
+  },
+  {
+    id: "svc-mobile-api",
+    name: "Mobile Banking API",
+    category: "Gateway Móvel",
+    status: "UP",
+    statusLabel: "100% UP",
+    responseTimeMs: 24,
+    throughputFormatted: "2.410 req/s",
+    successRatePct: 99.98,
+    tags: ["Biometria", "Multicaixa Express", "Transferências"],
+    stability30DaysPct: 99.98,
+  },
+  {
+    id: "svc-agencias-luanda",
+    name: "Rede Agências Luanda",
+    category: "WAN Corporativa",
+    status: "DEG",
+    statusLabel: "Degradação Leve",
+    responseTimeMs: 54,
+    throughputFormatted: "47 / 48 balcões",
+    successRatePct: 98.40,
+    tags: ["SD-WAN", "Enlace Secundário", "Balcão"],
+    stability30DaysPct: 98.40,
+    advisoryAlert: "Equipe NOC atuando na otimização de enlace secundário. Sem impacto crítico no balcão.",
+    activeEndpointsCount: "47/48 balcões",
+  },
+  {
+    id: "svc-atms-quiosques",
+    name: "Quiosques & ATMs",
+    category: "Infraestrutura ATM",
+    status: "UP",
+    statusLabel: "100% UP",
+    responseTimeMs: 12,
+    throughputFormatted: "312 Terminais",
+    successRatePct: 100.0,
+    tags: ["Redundância Ativa", "VPN IPsec AES-256"],
+    stability30DaysPct: 100.0,
+    activeEndpointsCount: "312 Terminais",
+  },
+];
+
+export const MOCK_SANITIZED_ENDPOINTS: SanitizedEndpoint[] = [
+  {
+    id: "ep-api-gw",
+    domainName: "api.bancosol.ao",
+    serviceType: "Gateway Público / BGP",
+    protocol: "HTTPS/443",
+    status: "UP",
+    sla30dPct: 99.99,
+    latencyAvgMs: 18.2,
+    datacenterRegion: "DC Luanda Sul",
+  },
+  {
+    id: "ep-ibanking",
+    domainName: "ibanking.bancosol.ao",
+    serviceType: "Portal Web Seguro",
+    protocol: "HTTPS/443",
+    status: "UP",
+    sla30dPct: 100.0,
+    latencyAvgMs: 22.4,
+    datacenterRegion: "DC Luanda Sul",
+  },
+  {
+    id: "ep-agencias-wan",
+    domainName: "wan-agencias.bancosol.ao",
+    serviceType: "Rede Privada MPLS",
+    protocol: "SD-WAN Encrypted",
+    status: "DEG",
+    sla30dPct: 98.40,
+    latencyAvgMs: 54.1,
+    datacenterRegion: "Hub Catumbela / Luanda",
+  },
+  {
+    id: "ep-emis-atm",
+    domainName: "atm-network.bancosol.ao",
+    serviceType: "Rede Interbancária EMIS",
+    protocol: "IPsec AES-256",
+    status: "UP",
+    sla30dPct: 100.0,
+    latencyAvgMs: 12.0,
+    datacenterRegion: "EMIS Core Hub",
+  },
+];
+
+export const MOCK_CLIENT_NOTIFICATIONS: ClientNotification[] = [
+  {
+    id: "notif-001",
+    title: "Incidente Resolvido: Link Secundário Talatona",
+    summary: "Incidente resolvido no link secundário de Talatona. Redundância absorveu 100% do tráfego.",
+    timestampWat: "14:20 WAT",
+    impactSlaFormatted: "0.00%",
+    isRead: false,
+    type: "resolved",
+    severity: "success",
+  },
+  {
+    id: "notif-002",
+    title: "Manutenção Preventiva: Enlaces Submarinos (WACS)",
+    summary: "Janela técnica programada para otimização de rotas submarinas. Período homologado e isento de SLA conforme ADR-009.",
+    timestampWat: "Hoje 02:00 WAT",
+    impactSlaFormatted: "Isento de SLA",
+    isRead: false,
+    type: "maintenance",
+    severity: "info",
+  },
+  {
+    id: "notif-003",
+    title: "Relatório de SLA de Setembro Disponibilizado",
+    summary: "O relatório consolidado de conformidade técnica do mês anterior já está acessível para download em PDF.",
+    timestampWat: "Ontem 18:30 WAT",
+    impactSlaFormatted: "Meta 99.85%",
+    isRead: true,
+    type: "advisory",
+    severity: "info",
+  },
+];
