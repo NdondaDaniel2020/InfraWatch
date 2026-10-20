@@ -1,8 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  AlertTriangle,
   Building2,
-  CheckCircle2,
   CloudOff,
   Headphones,
   RefreshCw,
