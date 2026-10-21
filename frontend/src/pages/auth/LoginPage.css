@@ -33,7 +33,7 @@
   flex-direction: row;
 }
 
-/* Coluna Esquerda: Formulário de Autenticação */
+/* Coluna Esquerda: Formulário de Autenticação (Login) */
 .login-form-column {
   width: 50%;
   height: 100%;
@@ -44,6 +44,34 @@
   align-items: center;
   flex-shrink: 0;
   z-index: 10;
+}
+
+/* Coluna Direita: Sub-views (Criar Conta & Recuperar Senha) */
+.login-right-column {
+  width: 50%;
+  height: 100%;
+  padding: 32px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+/* Transições dos Painéis de Formulário */
+.form-panel-active {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  transition: opacity 450ms ease 180ms, transform 500ms cubic-bezier(0.16, 1, 0.3, 1) 150ms;
+}
+
+.form-panel-inactive {
+  opacity: 0;
+  transform: scale(0.97);
+  pointer-events: none;
+  transition: opacity 250ms ease, transform 300ms ease;
 }
 
 .login-form-container {
@@ -116,7 +144,22 @@
   margin-bottom: 0;
 }
 
-/* Alerta de Erro Semântico Acessível */
+/* Ícone de Chave Dourado na Recuperação */
+.forgot-key-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background-color: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  margin: 0 auto 10px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #eab308;
+  box-shadow: 0 0 24px -3px rgba(234, 179, 8, 0.25);
+}
+
+/* Alertas Semânticos */
 .login-error-banner {
   display: flex;
   align-items: flex-start;
@@ -129,6 +172,32 @@
   font-size: 13px;
   margin-bottom: 16px;
   line-height: 1.4;
+}
+
+.forgot-success-alert {
+  padding: 12px 14px;
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 14px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.forgot-success-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #34d399;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.forgot-success-desc {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.4;
+  margin: 0;
 }
 
 /* Underline Input Styling (Mockup 01_LoginPage) */
@@ -196,6 +265,40 @@
   color: #ffffff;
 }
 
+/* Barra e Indicador de Força de Senha */
+.password-strength-container {
+  display: flex;
+  gap: 6px;
+  height: 4px;
+  width: 100%;
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
+
+.strength-bar {
+  height: 100%;
+  flex: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: background-color 300ms ease;
+  border-radius: 9999px;
+}
+
+.strength-bar-rose {
+  background-color: #f43f5e;
+}
+
+.strength-bar-amber {
+  background-color: #f59e0b;
+}
+
+.strength-bar-sky {
+  background-color: #38bdf8;
+}
+
+.strength-bar-emerald {
+  background-color: #10b981;
+}
+
 /* Linha de Opções: Lembrar por 30 dias & Esqueceu a Senha */
 .login-options-row {
   display: flex;
@@ -224,8 +327,14 @@
 }
 
 .login-forgot-link {
+  background: none;
+  border: none;
+  padding: 0;
   color: #eab308;
   font-weight: 600;
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
   text-decoration: none;
   transition: opacity 0.15s ease;
 }
@@ -312,11 +421,29 @@
 /* Rodapé de Navegação */
 .login-card-footer {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-size: 12.5px;
+}
+
+.login-inline-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--brand-primary, #eab308);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.login-inline-btn:hover {
+  opacity: 0.85;
 }
 
 .login-dev-link {
@@ -331,16 +458,27 @@
 }
 
 /* ==========================================================================
-   Coluna Direita: Painel de Arte Vetorial & Telemetria Obsidian
+   Painel Deslizante de Arte Vetorial & Telemetria Obsidian (Sliding Art Panel)
    ========================================================================== */
-.login-art-column {
+.sliding-art-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 50%;
-  height: 100%;
   padding: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+  z-index: 20;
+  pointer-events: none;
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.sliding-art-panel.slide-right {
+  transform: translateX(100%);
+}
+
+.sliding-art-panel.slide-left {
+  transform: translateX(0%);
 }
 
 .login-art-inner-card {
@@ -355,6 +493,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto;
 }
 
 /* Halo Dourado de Iluminação Ambiente */
@@ -504,13 +643,18 @@
     flex-direction: column;
   }
 
-  .login-form-column {
+  .login-form-column,
+  .login-right-column {
     width: 100%;
     padding: 36px 28px;
   }
 
-  .login-art-column {
-    display: none;
+  .form-panel-inactive {
+    display: none !important;
+  }
+
+  .sliding-art-panel {
+    display: none !important;
   }
 }
 
@@ -520,7 +664,8 @@
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
   }
 
-  .login-form-column {
+  .login-form-column,
+  .login-right-column {
     padding: 28px 20px;
   }
 
