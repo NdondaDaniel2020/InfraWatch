@@ -1,14 +1,15 @@
 import React from "react";
 import { AlertTriangle, Database, Radio, Network, Server, WifiOff } from "lucide-react";
 import type { MonitoredDevice } from "../../types/telemetry";
+import { getNormalizedStatus, type NormalizedStatus } from "./statusConfig";
+
+export type { NormalizedStatus };
 
 export interface DeviceCardProps {
   device: MonitoredDevice;
   onSelect?: (device: MonitoredDevice) => void;
   onPing?: (device: MonitoredDevice) => void;
 }
-
-export type NormalizedStatus = "DOWN" | "DEG" | "UP";
 
 export interface StatusVisualConfig {
   cardBorder: string;
@@ -115,12 +116,32 @@ export const STATUS_VISUALS: Record<NormalizedStatus, StatusVisualConfig> = {
     getMetric4Value: (device) => device.ports_summary || "18/24 UP",
     renderFooterStatus: (device) => `Uptime: ${device.uptime_duration || "184d 12h"}`,
   },
+  MAINT: {
+    cardBorder: "border border-sky-500/50 hover:border-sky-400",
+    titleColor: "text-white hover:text-sky-400",
+    badge: {
+      label: "MAINT",
+      className: "bg-sky-500/20 text-sky-400 border border-sky-500/30",
+    },
+    metricsGridBg: "bg-obsidian-950 border border-obsidian-800/80",
+    metricsLabelColor: "text-slate-500",
+    latencyColor: "text-sky-400",
+    footerBorder: "border-obsidian-800/60",
+    ipLabel: "IP: ",
+    metric2Label: "RTT: ",
+    getMetric2Value: (device) => `${device.last_latency_ms ? device.last_latency_ms.toFixed(1) : "--"}ms`,
+    metric3Label: "CPU / RAM: ",
+    metric3Color: "text-slate-200",
+    getMetric3Value: (device) => `${device.cpu_usage_pct || 10}% / ${device.ram_usage_pct || 20}%`,
+    metric4Label: "Janela: ",
+    metric4Color: "text-sky-400",
+    getMetric4Value: () => "Programada",
+    renderFooterStatus: () => "Manutenção Ativa",
+  },
 };
 
 export const getStatusKey = (device: MonitoredDevice): NormalizedStatus => {
-  if (device.status === "DOWN" || device.severity === "critical") return "DOWN";
-  if (device.status === "DEG" || device.severity === "degraded") return "DEG";
-  return "UP";
+  return getNormalizedStatus(device.status, device.severity);
 };
 
 const getCategoryIcon = (statusKey: NormalizedStatus, category?: string, name?: string) => {

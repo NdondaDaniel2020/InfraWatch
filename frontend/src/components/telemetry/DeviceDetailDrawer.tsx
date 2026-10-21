@@ -3,6 +3,8 @@ import { RefreshCw, Wrench, X } from "lucide-react";
 import type { MonitoredDevice } from "../../types/telemetry";
 import { Sparkline } from "./Sparkline";
 import { UptimeHistory90d } from "./UptimeHistory90d";
+import { getNormalizedStatus, STATUS_TOKENS } from "./statusConfig";
+import { StatusBadge } from "../common/StatusBadge";
 
 export interface DeviceDetailDrawerProps {
   device: MonitoredDevice | null;
@@ -33,8 +35,9 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
 
   if (!isOpen || !device) return null;
 
-  const isDown = device.status === "DOWN" || device.severity === "critical";
-  const isDegraded = device.status === "DEG" || device.severity === "degraded";
+  const statusKey = getNormalizedStatus(device.status, device.severity);
+  const statusToken = STATUS_TOKENS[statusKey];
+  const isDown = statusKey === "DOWN";
 
   return (
     <div
@@ -59,17 +62,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
                 {device.category || "DISPOSITIVO"}
               </span>
 
-              <span
-                className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                  isDown
-                    ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
-                    : isDegraded
-                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                    : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                }`}
-              >
-                {device.status}
-              </span>
+              <StatusBadge status={device.status} severity={device.severity} />
             </div>
 
             <h2
@@ -100,13 +93,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
             <div className="p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
               <div className="text-[10px] font-mono text-slate-400">LATÊNCIA RTT</div>
               <div
-                className={`text-lg font-mono font-bold mt-1 ${
-                  isDown
-                    ? "text-rose-400"
-                    : isDegraded
-                    ? "text-amber-400"
-                    : "text-emerald-400"
-                }`}
+                className={`text-lg font-mono font-bold mt-1 ${statusToken.textColor}`}
               >
                 {device.last_latency_ms !== null && device.last_latency_ms !== undefined
                   ? `${device.last_latency_ms.toFixed(1)}ms`

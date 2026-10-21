@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CornerDownLeft, Router, Search, X } from "lucide-react";
 import type { MonitoredDevice } from "../../types/telemetry";
+import { getNormalizedStatus, STATUS_TOKENS } from "../telemetry/statusConfig";
 
 export interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -141,8 +142,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           ) : (
             filteredDevices.map((dev, idx) => {
               const isSelected = idx === selectedIndex;
-              const isDown = dev.status === "DOWN" || dev.severity === "critical";
-              const isDegraded = dev.status === "DEG" || dev.severity === "degraded";
+              const statusKey = getNormalizedStatus(dev.status, dev.severity);
+              const statusToken = STATUS_TOKENS[statusKey];
+              const isDown = statusKey === "DOWN";
 
               return (
                 <div
@@ -162,13 +164,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                        isDown
-                          ? "bg-rose-500/15 border border-rose-500/30 text-rose-400"
-                          : isDegraded
-                          ? "bg-amber-500/15 border border-amber-500/30 text-amber-400"
-                          : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-                      }`}
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${statusToken.iconBgClass}`}
                     >
                       <Router size={18} />
                     </div>
@@ -187,13 +183,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         <span className="text-slate-300">{dev.ip_address}</span>
                         <span>•</span>
                         <span
-                          className={`font-semibold ${
-                            isDown
-                              ? "text-rose-400"
-                              : isDegraded
-                              ? "text-amber-400"
-                              : "text-emerald-400"
-                          }`}
+                          className={`font-semibold ${statusToken.textColor}`}
                         >
                           {dev.status} (
                           {dev.last_latency_ms !== null && dev.last_latency_ms !== undefined
