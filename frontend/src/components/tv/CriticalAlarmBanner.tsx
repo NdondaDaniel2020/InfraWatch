@@ -1,16 +1,9 @@
 import React from "react";
 import { AlertTriangle, Volume2, VolumeX, Play, ShieldAlert } from "lucide-react";
 
-export interface CriticalAlarmData {
-  id: string;
-  hostname: string;
-  ip: string;
-  location?: string;
-  downDuration: string;
-  packetLoss: string;
-  glpiTicketId?: string;
-  impactedClients?: string;
-}
+import type { CriticalAlarmData } from "../../types/telemetry";
+
+export type { CriticalAlarmData };
 
 export interface CriticalAlarmBannerProps {
   alarm: CriticalAlarmData | null;
