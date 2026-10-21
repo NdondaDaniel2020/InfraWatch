@@ -1,12 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { QueryClient, QueryClientContext, useQuery } from "@tanstack/react-query";
 import {
+  ArrowRight,
   CheckCircle2,
   CloudOff,
+  HardDrive,
+  Maximize2,
   Network,
   Power,
   RefreshCw,
   Search,
+  Server,
+  Wrench,
 } from "lucide-react";
 
 import { useTelemetry } from "../../context/TelemetryContext";
@@ -159,14 +165,14 @@ export const NocDashboardPage: React.FC = () => {
   return (
     <div
       data-testid="noc-dashboard-page"
-      className="flex flex-col gap-5 w-full max-w-[1600px] mx-auto relative text-slate-100"
+      className="flex flex-col w-full min-h-[calc(100vh-3.5rem)] relative text-slate-100 bg-obsidian-950 pb-16"
     >
       {/* Toast Feedback Notification */}
       {toastMessage && (
         <aside
           data-testid="toast-notification"
           aria-live="polite"
-          className="fixed top-20 right-6 z-[9999] px-4 py-3 rounded-xl bg-[#0d1424]/95 border shadow-2xl text-xs font-mono text-white flex items-center gap-2.5 backdrop-blur-md transition-all"
+          className="fixed top-20 right-6 z-[9999] px-4 py-3 rounded-xl bg-obsidian-900/95 border shadow-2xl text-xs font-mono text-white flex items-center gap-2.5 backdrop-blur-md transition-all"
           style={{
             borderColor:
               toastMessage.type === "warning"
@@ -192,31 +198,32 @@ export const NocDashboardPage: React.FC = () => {
       )}
 
       {/* ===================================================================== */}
-      {/* 1. SUB-HEADER TOOLBAR (Filtros, Tenant, Simulador e Ações)             */}
+      {/* 1. SUB-HEADER TOOLBAR (Filtros, Tenant, Estados & Varredura)           */}
       {/* ===================================================================== */}
       <section
         role="toolbar"
         aria-label="Filtros e Controles de Telemetria"
-        className="w-full p-2.5 sm:px-4 bg-[#0d1424]/75 border border-white/10 rounded-2xl flex items-center justify-between flex-wrap gap-3 backdrop-blur-md"
+        className="w-full px-4 sm:px-6 py-2.5 bg-obsidian-900/60 border-b border-obsidian-800/80 flex flex-wrap items-center justify-between gap-3 sticky top-14 z-30 backdrop-blur-sm"
       >
         {/* Grupo de Filtros por Severidade */}
         <div
           role="group"
           aria-label="Filtrar por estado operacional"
-          className="flex items-center gap-1.5 p-1 bg-[#070a12]/80 rounded-full border border-white/10 flex-wrap"
+          className="flex items-center flex-wrap gap-1.5"
         >
           <button
             type="button"
             data-testid="filter-all-btn"
             onClick={() => setSeverityFilter("all")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
               severityFilter === "all"
-                ? "bg-amber-400 text-slate-950 font-bold"
-                : "text-slate-300 hover:text-white"
+                ? "bg-obsidian-800 text-white border-obsidian-700"
+                : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
             }`}
+            aria-pressed={severityFilter === "all"}
           >
             <span>Todos</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-black/20">
+            <span className="px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 font-mono text-[10px] tabular-nums">
               {stats.total}
             </span>
           </button>
@@ -225,14 +232,15 @@ export const NocDashboardPage: React.FC = () => {
             type="button"
             data-testid="filter-critical-btn"
             onClick={() => setSeverityFilter("critical")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
               severityFilter === "critical"
-                ? "bg-rose-500/25 text-rose-400 font-bold"
-                : "text-slate-300 hover:text-rose-400"
+                ? "bg-rose-500/20 text-rose-400 border-rose-500/40 font-bold"
+                : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
             }`}
+            aria-pressed={severityFilter === "critical"}
           >
             <span>Críticos</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-rose-500/20 text-rose-400">
+            <span className="px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-mono text-[10px] font-bold tabular-nums">
               {stats.down}
             </span>
           </button>
@@ -241,14 +249,15 @@ export const NocDashboardPage: React.FC = () => {
             type="button"
             data-testid="filter-degraded-btn"
             onClick={() => setSeverityFilter("degraded")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
               severityFilter === "degraded"
-                ? "bg-amber-500/25 text-amber-400 font-bold"
-                : "text-slate-300 hover:text-amber-400"
+                ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-bold"
+                : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
             }`}
+            aria-pressed={severityFilter === "degraded"}
           >
             <span>Degradados</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-400">
+            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono text-[10px] font-bold tabular-nums">
               {stats.deg}
             </span>
           </button>
@@ -257,86 +266,83 @@ export const NocDashboardPage: React.FC = () => {
             type="button"
             data-testid="filter-healthy-btn"
             onClick={() => setSeverityFilter("healthy")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
               severityFilter === "healthy"
-                ? "bg-emerald-500/25 text-emerald-400 font-bold"
-                : "text-slate-300 hover:text-emerald-400"
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-bold"
+                : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
             }`}
+            aria-pressed={severityFilter === "healthy"}
           >
             <span>Operacionais</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-400">
+            <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold tabular-nums">
               {stats.up}
             </span>
           </button>
 
-          <span className="w-px h-4 bg-white/10 mx-1" />
+          <span className="h-4 w-px bg-obsidian-800 mx-1 hidden sm:block" />
 
-          {/* Seletor de Tenant */}
-          <select
-            data-testid="tenant-filter-select"
-            value={tenantFilter}
-            onChange={(e) => setTenantFilter(e.target.value)}
-            className="bg-transparent border-none text-slate-300 text-xs font-mono px-2 py-0.5 cursor-pointer outline-none"
-            aria-label="Filtrar por Organização"
-          >
-            <option value="all" className="bg-[#0d1424] text-white">
-              Todas as Organizações ({stats.total} ativos)
-            </option>
-            <option value="unitel" className="bg-[#0d1424] text-white">
-              Unitel Backbone (1 CRIT)
-            </option>
-            <option value="bancosol" className="bg-[#0d1424] text-white">
-              Banco Sol Core (1 DEG)
-            </option>
-            <option value="sonangol" className="bg-[#0d1424] text-white">
-              Sonangol Logistics (100% UP)
-            </option>
-          </select>
+          {/* Seletor de Tenant / Organização */}
+          <div className="relative inline-block text-left">
+            <select
+              data-testid="tenant-filter-select"
+              value={tenantFilter}
+              onChange={(e) => setTenantFilter(e.target.value)}
+              className="bg-obsidian-900 border border-obsidian-800 rounded-md px-2.5 py-1 text-xs font-mono text-slate-200 cursor-pointer focus-visible:ring-1 focus-visible:ring-emerald-500 outline-none"
+              aria-label="Filtrar por Organização"
+            >
+              <option value="all">Todas as Organizações ({stats.total} ativos)</option>
+              <option value="unitel">Unitel Backbone (1 CRIT)</option>
+              <option value="bancosol">Banco Sol Core (1 DEG)</option>
+              <option value="sonangol">Sonangol Logistics (100% UP)</option>
+            </select>
+          </div>
         </div>
 
-        {/* Simulador de Estados + Ações */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Seletor de Estados Alternativos + Ações */}
+        <div className="flex items-center gap-2">
           {/* Busca Global Trigger */}
           <button
             type="button"
             data-testid="global-search-trigger"
             onClick={() => setIsSearchOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#070a12]/80 border border-white/10 text-slate-400 text-xs hover:text-white cursor-pointer"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-obsidian-900 border border-obsidian-800 text-slate-400 text-xs hover:text-white cursor-pointer"
             aria-label="Abrir busca global (Ctrl+K)"
           >
-            <Search size={14} className="text-amber-400" />
+            <Search size={14} className="text-emerald-400" aria-hidden="true" />
             <span>Busca</span>
-            <kbd className="text-[10px] font-mono px-1 py-0.5 rounded bg-white/10">Ctrl K</kbd>
+            <kbd className="text-[10px] font-mono px-1 py-0.5 rounded bg-obsidian-850 border border-obsidian-800">
+              Ctrl K
+            </kbd>
           </button>
 
           {/* Simulador de Estados (ai-mockup-rectifier) */}
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#070a12]/80 rounded-full border border-white/10 text-xs font-mono">
-            <span className="text-slate-400 text-[11px]">Estado:</span>
+          <div className="flex items-center gap-1 bg-obsidian-950 px-2.5 py-1 rounded-lg border border-obsidian-800 text-[10px] font-mono">
+            <span className="text-slate-400 hidden sm:inline">ESTADO:</span>
             <select
               data-testid="state-simulator-select"
               value={viewState}
               onChange={(e) => setViewState(e.target.value as DashboardViewMode)}
-              className="bg-transparent text-amber-400 font-bold border-none outline-none cursor-pointer"
-              aria-label="Simular estados da interface"
+              className="bg-transparent text-emerald-400 font-semibold text-[10px] border-none outline-none cursor-pointer p-0"
+              aria-label="Simular Estado do Dashboard"
             >
-              <option value="nominal" className="bg-[#0d1424] text-white">Nominal</option>
-              <option value="skeleton" className="bg-[#0d1424] text-white">Skeleton Loading</option>
-              <option value="empty" className="bg-[#0d1424] text-white">Empty State</option>
-              <option value="error" className="bg-[#0d1424] text-white">Error Stream</option>
+              <option value="nominal" className="bg-obsidian-900 text-slate-200">Nominal (Ao Vivo)</option>
+              <option value="skeleton" className="bg-obsidian-900 text-slate-200">Carregando (Skeleton)</option>
+              <option value="empty" className="bg-obsidian-900 text-slate-200">Vazio (Sem Alertas)</option>
+              <option value="error" className="bg-obsidian-900 text-slate-200">Erro de Coletor (Boundary)</option>
             </select>
           </div>
 
-          {/* Varredura Manual */}
+          {/* Botão Forçar Varredura */}
           <button
             type="button"
             data-testid="manual-scan-btn"
             onClick={handleForceScan}
             disabled={isFetching}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-200 hover:bg-white/10 cursor-pointer disabled:opacity-50"
-            title="Forçar varredura manual de sondas"
+            className="p-1.5 rounded-lg bg-obsidian-900 border border-obsidian-800 text-slate-400 hover:text-white hover:bg-obsidian-850 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer disabled:opacity-50"
+            title="Forçar Varredura de Sondagem Imediata"
+            aria-label="Forçar varredura agora"
           >
-            <RefreshCw size={13} className={isFetching ? "animate-spin text-amber-400" : "text-amber-400"} />
-            <span>Varredura</span>
+            <RefreshCw size={16} className={isFetching ? "animate-spin text-emerald-400" : ""} />
           </button>
 
           {/* Emergency Drain Trigger */}
@@ -344,33 +350,45 @@ export const NocDashboardPage: React.FC = () => {
             type="button"
             data-testid="emergency-drain-btn"
             onClick={() => setIsDrainModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-mono font-bold hover:bg-rose-500/25 cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-mono font-bold hover:bg-rose-500/20 cursor-pointer transition-colors"
             title="Executar protocolo de isolamento de tráfego"
           >
-            <Power size={13} />
-            <span>Emergency Drain</span>
+            <Power size={13} aria-hidden="true" />
+            <span className="hidden sm:inline">Drain</span>
           </button>
         </div>
       </section>
 
       {/* ===================================================================== */}
-      {/* 2. CONTEÚDO PRINCIPAL COM OVERLAYS DE ESTADO                           */}
+      {/* 2. ÁREA DE CONTEÚDO COM ESTADOS OVERLAY                                */}
       {/* ===================================================================== */}
-      <div className="relative flex flex-col gap-5 min-h-[400px]">
+      <div className="relative flex-1 flex flex-col">
         {/* ESTADO 1: SKELETON LOADING OVERLAY */}
         {viewState === "skeleton" && (
           <div
             data-testid="state-skeleton-overlay"
-            className="absolute inset-0 bg-[#070a12]/95 backdrop-blur-sm z-40 p-6 flex flex-col gap-6 rounded-2xl animate-pulse"
+            className="absolute inset-0 bg-obsidian-950/95 z-40 p-6 flex flex-col gap-6 backdrop-blur-sm pointer-events-auto"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Skeleton KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-28 bg-[#0d1424] rounded-2xl border border-white/10" />
+                <div key={i} className="h-24 bg-obsidian-900 border border-obsidian-800 rounded-xl p-4 animate-pulse space-y-2">
+                  <div className="w-20 h-3 bg-obsidian-850 rounded" />
+                  <div className="w-28 h-6 bg-obsidian-800 rounded" />
+                </div>
               ))}
             </div>
+            {/* Skeleton Grid 8+4 */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-              <div className="lg:col-span-8 bg-[#0d1424] rounded-2xl border border-white/10 h-80" />
-              <div className="lg:col-span-4 bg-[#0d1424] rounded-2xl border border-white/10 h-80" />
+              <div className="lg:col-span-8 bg-obsidian-900 border border-obsidian-800 rounded-xl p-6 animate-pulse space-y-4">
+                <div className="w-48 h-4 bg-obsidian-850 rounded" />
+                <div className="w-full h-48 bg-obsidian-850/60 rounded" />
+              </div>
+              <div className="lg:col-span-4 bg-obsidian-900 border border-obsidian-800 rounded-xl p-6 animate-pulse space-y-4">
+                <div className="w-36 h-4 bg-obsidian-850 rounded" />
+                <div className="w-full h-20 bg-obsidian-850/60 rounded" />
+                <div className="w-full h-20 bg-obsidian-850/60 rounded" />
+              </div>
             </div>
           </div>
         )}
@@ -379,21 +397,21 @@ export const NocDashboardPage: React.FC = () => {
         {viewState === "empty" && (
           <div
             data-testid="state-empty-overlay"
-            className="absolute inset-0 bg-[#070a12]/95 backdrop-blur-sm z-40 p-12 flex flex-col items-center justify-center rounded-2xl"
+            className="absolute inset-0 bg-obsidian-950/95 z-40 p-8 flex flex-col items-center justify-center backdrop-blur-sm pointer-events-auto"
           >
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4 shadow-xl">
               <CheckCircle2 size={32} />
             </div>
-            <h2 className="text-xl font-bold text-white mb-1.5">
+            <h2 className="text-base font-semibold text-white mb-1">
               Todos os Ativos Operacionais
             </h2>
-            <p className="text-sm text-slate-400 text-center max-w-md mb-5">
+            <p className="text-xs text-slate-400 max-w-md text-center mb-5 font-mono tabular-nums">
               Nenhum incidente crítico ou degradação ativa no momento. Uptime de rede em 100%.
             </p>
             <button
               type="button"
               onClick={() => setViewState("nominal")}
-              className="px-5 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs cursor-pointer shadow-md"
+              className="px-3.5 py-2 bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
             >
               Voltar ao Modo Nominal
             </button>
@@ -404,107 +422,194 @@ export const NocDashboardPage: React.FC = () => {
         {viewState === "error" && (
           <div
             data-testid="state-error-overlay"
-            className="absolute inset-0 bg-[#070a12]/95 backdrop-blur-sm z-40 p-12 flex flex-col items-center justify-center rounded-2xl"
+            className="absolute inset-0 bg-obsidian-950/95 z-40 p-8 flex flex-col items-center justify-center backdrop-blur-sm pointer-events-auto"
           >
-            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4 shadow-xl">
               <CloudOff size={32} />
             </div>
-            <h2 className="text-xl font-bold text-rose-400 mb-1.5">
+            <h2 className="text-base font-semibold text-rose-400 mb-1">
               Falha no Streaming de Telemetria (SSE)
             </h2>
-            <p className="text-sm text-slate-400 text-center max-w-md mb-5">
-              Não foi possível sincronizar o canal SSE em tempo real. O barramento de eventos está inacessível.
+            <p className="text-xs text-slate-400 max-w-md text-center mb-2 font-mono tabular-nums">
+              RFC 5424 Code: <span className="text-rose-300 font-bold">ERR_TELEMETRY_INGEST_UNREACHABLE</span>
+            </p>
+            <p className="text-xs text-slate-400 max-w-md text-center mb-5">
+              O fluxo de sondas ICMP/SNMP do agente Luanda-01 excedeu o timeout de heartbeat (15.000ms).
             </p>
             <button
               type="button"
               onClick={() => {
                 setViewState("nominal");
                 sseReconnect();
-                showToast("Canal SSE reconectado com sucesso.", "success");
+                showToast("Conexão SSE de telemetria restabelecida.", "success");
               }}
-              className="px-5 py-2.5 rounded-full bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs cursor-pointer shadow-md"
+              className="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-semibold text-xs rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-rose-400 cursor-pointer"
             >
               Reconectar Ingestão
             </button>
           </div>
         )}
 
-        {/* ===================================================================== */}
-        {/* 3. HERO KPIS SECTION                                                  */}
-        {/* ===================================================================== */}
-        <NocKpiGrid stats={stats} />
+        {/* =================================================================== */}
+        {/* CONTEÚDO PRINCIPAL (NOMINAL OPERATIONAL COCKPIT)                     */}
+        {/* =================================================================== */}
+        <div className="p-4 sm:p-6 space-y-6 flex-1">
+          {/* 1. HERO CARDS: KPIS DE ALTO IMPACTO */}
+          <NocKpiGrid stats={stats} />
 
-        {/* ===================================================================== */}
-        {/* 4. DISPOSITIVOS, GRÁFICO HISTÓRICO & FEED DE INCIDENTES               */}
-        {/* ===================================================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* COLUNA ESQUERDA (8 COLUNAS): Dispositivos e Gráfico 24h */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            {/* Grade de Dispositivos Monitorados */}
-            <section
-              data-testid="devices-grid"
-              aria-label="Dispositivos Monitorados"
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-            >
-              {filteredDevices.map((device) => (
-                <DeviceCard
-                  key={device.device_id}
-                  device={device}
-                  onSelect={handleSelectDevice}
-                  onPing={handlePingDevice}
-                />
-              ))}
-            </section>
+          {/* 2. GRID ASSIMÉTRICO 8 COLS + 4 COLS (Operacional de Missão Crítica) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* =============================================================== */}
+            {/* COLUNA ESQUERDA (8 colunas): Gráfico 24h & Matriz de Dispositivos*/}
+            {/* =============================================================== */}
+            <div className="lg:col-span-8 flex flex-col gap-6">
+              {/* CARD: HISTOGRAMA DE LATÊNCIA E TRÁFEGO 24H (PRIMEIRO NO MOCKUP) */}
+              <NocTrafficChart24h />
 
-            {/* Gráfico de Histograma e Latência 24h */}
-            <NocTrafficChart24h />
-          </div>
-
-          {/* COLUNA DIREITA (4 COLUNAS): Feed de Incidentes, Topologia & Manutenção */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            <NocIncidentsFeed onShowToast={showToast} />
-
-            {/* Card de Topologia Resumida */}
-            <section
-              data-testid="topology-preview-card"
-              className="bg-[#0d1424] border border-white/10 rounded-2xl p-5 flex flex-col gap-3 shadow-sm"
-            >
-              <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <Network size={18} className="text-amber-400" />
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-white m-0">
-                    Topologia do Cluster
+              {/* CARD: MATRIZ DE ATIVOS EM DESTAQUE (SEGUNDO NO MOCKUP) */}
+              <section className="space-y-3" aria-label="Ativos de Infraestrutura">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-slate-300 font-semibold flex items-center gap-2 m-0">
+                    <Server size={18} className="text-sky-400" aria-hidden="true" />
+                    <span>Ativos Monitorados &amp; Sondagem em Tempo Real</span>
                   </h3>
+                  <Link
+                    to="/devices"
+                    className="text-xs font-mono text-emerald-400 hover:underline flex items-center gap-1"
+                  >
+                    <span>Cockpit 360° do Dispositivo</span>
+                    <ArrowRight size={14} aria-hidden="true" />
+                  </Link>
                 </div>
-                <span className="text-[10px] font-mono text-emerald-400 font-semibold">
-                  7 Nós Conectados
-                </span>
-              </div>
 
-              <div className="h-28 bg-[#070a12]/80 rounded-xl border border-white/5 p-2 flex items-center justify-center relative">
-                <svg viewBox="0 0 280 100" className="w-full h-full">
-                  <line x1="140" y1="20" x2="140" y2="50" stroke="#10b981" strokeWidth="2" />
-                  <line x1="140" y1="50" x2="70" y2="80" stroke="#38bdf8" strokeWidth="1.5" />
-                  <line x1="140" y1="50" x2="210" y2="80" stroke="#38bdf8" strokeWidth="1.5" />
-                  <line x1="140" y1="20" x2="240" y2="20" stroke="#f43f5e" strokeWidth="2" strokeDasharray="3 2" />
-
-                  <circle cx="140" cy="20" r="6" fill="#10b981" />
-                  <circle cx="140" cy="50" r="7" fill="#10b981" />
-                  <circle cx="70" cy="80" r="5" fill="#f59e0b" />
-                  <circle cx="210" cy="80" r="5" fill="#10b981" />
-                  <circle cx="240" cy="20" r="6" fill="#f43f5e" />
-                </svg>
-                <div className="absolute bottom-1.5 left-2 text-[9px] font-mono text-slate-500">
-                  LLDP Synced • Luanda Core Ring
+                {/* Grade de Dispositivos Monitorados */}
+                <div
+                  data-testid="devices-grid"
+                  aria-label="Dispositivos Monitorados"
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                >
+                  {filteredDevices.map((device) => (
+                    <DeviceCard
+                      key={device.device_id}
+                      device={device}
+                      onSelect={handleSelectDevice}
+                      onPing={handlePingDevice}
+                    />
+                  ))}
                 </div>
-              </div>
-            </section>
+              </section>
+            </div>
+
+            {/* =============================================================== */}
+            {/* COLUNA DIREITA (4 colunas): Incident Feed, Topologia & SLA       */}
+            {/* =============================================================== */}
+            <div className="lg:col-span-4 flex flex-col gap-6">
+              {/* CARD: INCIDENT FEED EM TEMPO REAL COM SLA COUNTDOWN */}
+              <NocIncidentsFeed onShowToast={showToast} />
+
+              {/* CARD: VISÃO RÁPIDA DA TOPOLOGIA DE REDE */}
+              <section
+                data-testid="topology-preview-card"
+                className="bg-obsidian-900 rounded-xl p-5 border border-obsidian-800 flex flex-col gap-3 shadow-sm"
+              >
+                <div className="flex items-center justify-between border-b border-obsidian-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Network size={18} className="text-emerald-400" aria-hidden="true" />
+                    <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider m-0">
+                      Topologia do Cluster
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                    7 Nós Conectados
+                  </span>
+                </div>
+
+                {/* Mini Esquema de Topologia */}
+                <div className="h-32 bg-obsidian-950 rounded-lg border border-obsidian-800/80 p-2 relative overflow-hidden flex items-center justify-center">
+                  <svg className="w-full h-full" viewBox="0 0 280 100">
+                    <line x1="140" y1="20" x2="140" y2="50" stroke="#10b981" strokeWidth="2" />
+                    <line x1="140" y1="50" x2="70" y2="80" stroke="#38bdf8" strokeWidth="1.5" />
+                    <line x1="140" y1="50" x2="210" y2="80" stroke="#38bdf8" strokeWidth="1.5" />
+                    <line x1="140" y1="20" x2="240" y2="20" stroke="#f43f5e" strokeWidth="2" strokeDasharray="3 2" />
+
+                    <circle cx="140" cy="20" r="6" fill="#10b981" />
+                    <circle cx="140" cy="50" r="7" fill="#10b981" />
+                    <circle cx="70" cy="80" r="5" fill="#f59e0b" />
+                    <circle cx="210" cy="80" r="5" fill="#10b981" />
+                    <circle cx="240" cy="20" r="6" fill="#f43f5e" />
+                  </svg>
+                  <div className="absolute bottom-2 left-2 text-[9px] font-mono text-slate-400">
+                    Grafo em Tempo Real (LLDP Synced)
+                  </div>
+                </div>
+
+                <Link
+                  to="/topology"
+                  className="w-full py-2 bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 hover:text-white rounded-lg text-xs font-mono font-medium border border-obsidian-800 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Maximize2 size={15} aria-hidden="true" />
+                  <span>Abrir Grafo Interativo Completo</span>
+                </Link>
+              </section>
+
+              {/* CARD: MANUTENÇÃO & DR RESUMO */}
+              <section className="bg-obsidian-900 rounded-xl p-4 border border-obsidian-800 flex flex-col gap-2 font-mono text-xs shadow-sm">
+                <div className="flex items-center justify-between text-slate-300 pb-2 border-b border-obsidian-800">
+                  <span className="flex items-center gap-1.5">
+                    <Wrench size={16} className="text-sky-400" aria-hidden="true" />
+                    <span>Janela Técnica:</span>
+                  </span>
+                  <span className="text-sky-400 font-semibold">Hoje 01:00 UTC</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-300 pt-1">
+                  <span className="flex items-center gap-1.5">
+                    <HardDrive size={16} className="text-emerald-400" aria-hidden="true" />
+                    <span>Backup 3-2-1:</span>
+                  </span>
+                  <span className="text-emerald-400 font-semibold">NVMe / R2 OK</span>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       </div>
 
       {/* ===================================================================== */}
-      {/* 5. MODAIS & DRAWERS INTEGRADOS                                        */}
+      {/* 3. FOOTER STATUS BAR (Telemetria Contínua de Ingestão)                */}
+      {/* ===================================================================== */}
+      <footer className="w-full px-6 py-2.5 bg-obsidian-950 border-t border-obsidian-800 flex flex-wrap items-center justify-between text-xs font-mono fixed bottom-0 left-0 lg:left-60 right-0 z-20">
+        <div className="flex items-center gap-6 text-slate-400">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true" />
+            <span>Ingestão: <strong className="text-white tabular-nums">42.1k msgs/s</strong></span>
+          </div>
+          <span className="h-3 w-px bg-obsidian-800 hidden sm:inline" aria-hidden="true" />
+          <div className="hidden sm:block">
+            <span>Latência Ingestão: <strong className="text-emerald-400 font-bold tabular-nums">2.1ms</strong></span>
+          </div>
+          <span className="h-3 w-px bg-obsidian-800 hidden md:inline" aria-hidden="true" />
+          <div className="hidden md:block">
+            <span>Nó Primário: <span className="text-slate-300">noc-luanda-core-gw01</span></span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="text-slate-400 flex items-center gap-1.5">
+            <RefreshCw size={16} className="text-emerald-400 animate-spin" aria-hidden="true" />
+            <span>Próxima varredura: <strong className="text-white font-mono tabular-nums">00:04s</strong></span>
+          </div>
+          <button
+            type="button"
+            onClick={handleForceScan}
+            className="px-2.5 py-1 rounded bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 text-slate-200 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
+          >
+            Recarregar Agora
+          </button>
+        </div>
+      </footer>
+
+      {/* ===================================================================== */}
+      {/* 4. MODAIS & DRAWERS INTEGRADOS                                        */}
       {/* ===================================================================== */}
       <GlobalSearchModal
         isOpen={isSearchOpen}

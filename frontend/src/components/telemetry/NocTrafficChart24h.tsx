@@ -36,12 +36,12 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-obsidian-950/95 border border-white/15 p-2.5 rounded-xl shadow-2xl backdrop-blur-md text-[11px] font-mono space-y-1">
-        <p className="text-slate-400 font-bold border-b border-white/10 pb-1">
+      <div className="bg-obsidian-950/95 border border-obsidian-800 p-2.5 rounded-xl shadow-2xl backdrop-blur-md text-[11px] font-mono space-y-1">
+        <p className="text-slate-400 font-bold border-b border-obsidian-800 pb-1">
           {label} (Horário WAT)
         </p>
-        <p className="text-amber-400 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+        <p className="text-emerald-400 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
           <span>
             Throughput: <strong>{data.throughput} Gbps</strong>
           </span>
@@ -68,52 +68,54 @@ export const NocTrafficChart24h: React.FC = () => {
   return (
     <section
       data-testid="traffic-histogram-card"
-      className="bg-obsidian-900 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-sm"
+      className="bg-obsidian-900 rounded-xl p-5 border border-obsidian-800 flex flex-col gap-4 shadow-sm"
     >
-      <div className="flex justify-between items-center flex-wrap gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xs font-mono uppercase font-bold tracking-wider m-0 flex items-center gap-2 text-white">
-            <Activity size={16} className="text-amber-400" />
-            Throughput de Tráfego Agregado &amp; Latência (24 Horas)
+          <h2 className="text-xs font-mono uppercase tracking-wider text-slate-300 font-semibold flex items-center gap-2 m-0">
+            <Activity size={18} className="text-emerald-400" aria-hidden="true" />
+            <span>Throughput de Tráfego Agregado &amp; Latência (24 Horas)</span>
           </h2>
-          <p className="text-xs text-slate-400 mt-1 mb-0">
+          <p className="text-xs text-slate-400 mt-0.5 mb-0">
             Série temporal agregada via TimescaleDB Hypertable com buckets de 1 minuto
           </p>
         </div>
 
-        <span className="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-400 text-[11px] font-mono font-bold">
-          Banda: 100G LACP
-        </span>
+        <div className="flex items-center gap-1 font-mono text-xs">
+          <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold">
+            Banda: 100G LACP
+          </span>
+        </div>
       </div>
 
       {/* Gráfico Recharts Interativo de Alta Precisão */}
-      <div className="p-4 sm:p-5 bg-obsidian-950/80 rounded-xl border border-white/5">
-        <div className="flex justify-between text-[11px] font-mono text-slate-400 mb-3">
-          <div className="flex gap-4">
-            <span className="text-amber-400 font-semibold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+      <div className="bg-obsidian-950 rounded-xl p-4 border border-obsidian-800/80 flex flex-col">
+        <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-2 flex-wrap gap-2">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <span className="w-3 h-0.5 bg-emerald-400 rounded-full inline-block" />
               Throughput Agregado (Gbps)
             </span>
-            <span className="text-sky-400 flex items-center gap-1.5">
-              <span className="w-2.5 h-0.5 bg-sky-400 inline-block" />
+            <span className="flex items-center gap-1.5 text-sky-400">
+              <span className="w-3 h-0.5 bg-sky-400 rounded-full inline-block" />
               Baseline Nominal
             </span>
           </div>
-          <span>
-            Pico: <strong className="text-amber-400 font-bold">98.2 Gbps</strong> @ 14:15 WAT
+          <span className="text-slate-400 font-mono">
+            Pico: <strong className="text-emerald-400 font-bold">98.2 Gbps</strong> @ 14:15 WAT
           </span>
         </div>
 
-        <div className="w-full h-44">
+        <div className="w-full h-44 select-none">
           <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={160}>
             <AreaChart
               data={TRAFFIC_DATA}
               margin={{ top: 12, right: 12, left: -20, bottom: 0 }}
             >
               <defs>
-                <linearGradient id="amberTraffic" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#eab308" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#eab308" stopOpacity={0.0} />
+                <linearGradient id="emeraldTraffic" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <XAxis
@@ -136,7 +138,7 @@ export const NocTrafficChart24h: React.FC = () => {
                 stroke="#f43f5e"
                 strokeDasharray="4 4"
                 label={{
-                  value: "100G CAPACIDADE MÁXIMA",
+                  value: "100 Gbps CAPACIDADE MÁXIMA",
                   fill: "#f43f5e",
                   fontSize: 9,
                   position: "top",
@@ -147,10 +149,10 @@ export const NocTrafficChart24h: React.FC = () => {
               <Area
                 type="monotone"
                 dataKey="throughput"
-                stroke="#eab308"
+                stroke="#10b981"
                 strokeWidth={2.5}
                 fillOpacity={1}
-                fill="url(#amberTraffic)"
+                fill="url(#emeraldTraffic)"
               />
               <Area
                 type="monotone"
@@ -164,13 +166,13 @@ export const NocTrafficChart24h: React.FC = () => {
           </ResponsiveContainer>
         </div>
 
-        <div className="flex justify-between text-[11px] font-mono text-slate-500 mt-2.5 pt-2 border-t border-white/5">
+        <div className="flex justify-between items-center text-xs font-mono text-slate-500 mt-2 pt-2 border-t border-obsidian-800">
           <span>00:00 WAT</span>
           <span>04:00</span>
           <span>08:00</span>
           <span className="text-amber-400 font-semibold">14:15 (Horário de Pico)</span>
           <span>18:00</span>
-          <span className="text-amber-400 font-semibold">Agora (Ao Vivo)</span>
+          <span className="text-emerald-400 font-semibold">Agora (Ao Vivo)</span>
         </div>
       </div>
     </section>

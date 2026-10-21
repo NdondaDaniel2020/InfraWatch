@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, Menu, Radio, Search, Tv } from "lucide-react";
-import { LiveIndicator } from "../common/LiveIndicator";
+import { LogOut, Menu, Search, Tv } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export interface StatusTickerData {
@@ -47,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const getInitials = (name?: string) => {
-    if (!name) return "IW";
+    if (!name) return "DN";
     const parts = name.trim().split(" ");
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -56,40 +55,18 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       data-testid="app-header"
-      style={{
-        width: "100%",
-        height: "56px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 20px",
-        backgroundColor: "rgba(9, 13, 22, 0.96)",
-        borderBottom: "var(--border-subtle)",
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        backdropFilter: "blur(8px)",
-      }}
+      className="w-full px-4 sm:px-6 h-14 flex items-center justify-between border-b border-obsidian-800/80 sticky top-0 z-50 bg-obsidian-950/95 backdrop-blur-md shrink-0"
     >
-      {/* Esquerda: Identidade e Botão Mobile */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      {/* Esquerda: Marca e Identidade do NOC */}
+      <div className="flex items-center gap-3">
         {onToggleSidebar && (
           <button
             type="button"
-            onClick={onToggleSidebar}
-            aria-label="Alternar menu lateral"
+            id="btn-sidebar-toggle"
             data-testid="toggle-sidebar-button"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-              borderRadius: "var(--radius-sm)",
-              color: "var(--color-text-secondary)",
-              padding: "6px",
-              cursor: "pointer",
-            }}
+            onClick={onToggleSidebar}
+            className="lg:hidden p-1.5 rounded-lg bg-obsidian-900 border border-obsidian-800 text-slate-400 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 cursor-pointer"
+            aria-label="Abrir menu de navegação lateral"
           >
             <Menu size={18} />
           </button>
@@ -97,260 +74,137 @@ export const Header: React.FC<HeaderProps> = ({
 
         <Link
           to="/"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            textDecoration: "none",
-            color: "inherit",
-          }}
+          className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-lg no-underline"
         >
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: "rgba(16, 185, 129, 0.12)",
-              border: "1px solid rgba(16, 185, 129, 0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--color-healthy)",
-            }}
-          >
-            <Radio size={18} className="pulse-indicator" />
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center relative group-hover:border-emerald-500/50 transition-colors">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping absolute opacity-75" />
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontWeight: 700, fontSize: "0.9375rem", letterSpacing: "-0.01em" }}>
+          <div className="flex flex-col text-left">
+            <div className="flex items-center gap-2">
+              <span className="font-display font-bold text-base tracking-tight text-white group-hover:text-emerald-400 transition-colors">
                 InfraWatch
               </span>
-              <span
-                style={{
-                  fontSize: "0.625rem",
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 700,
-                  padding: "1px 5px",
-                  borderRadius: "var(--radius-xs)",
-                  backgroundColor: "rgba(16, 185, 129, 0.15)",
-                  color: "var(--color-healthy)",
-                  border: "1px solid rgba(16, 185, 129, 0.3)",
-                }}
-              >
+              <span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold bg-obsidian-850 text-emerald-400 border border-emerald-500/30">
                 NOC
               </span>
             </div>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                color: "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
-                lineHeight: 1,
-              }}
-            >
-              Telemetria & Observabilidade
+            <span className="text-[11px] font-mono text-slate-400 leading-tight">
+              Telemetria de Redes &amp; Ativos
             </span>
           </div>
         </Link>
       </div>
 
-      {/* Centro: Status Ticker Executivo */}
+      {/* Centro: Status Ticker Global em Tempo Real */}
       <div
         data-testid="status-ticker"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          backgroundColor: "var(--color-surface-card)",
-          border: "var(--border-subtle)",
-          padding: "4px 14px",
-          borderRadius: "var(--radius-full)",
-          fontSize: "0.75rem",
-          fontFamily: "var(--font-mono)",
-          letterSpacing: "0.02em",
-        }}
+        className="hidden xl:flex items-center gap-3 px-3 py-1 bg-obsidian-900 rounded-lg border border-obsidian-800 text-xs font-mono tabular-nums"
       >
-        <span style={{ color: "var(--color-text-secondary)" }}>
-          TOTAL: <strong style={{ color: "var(--color-text-primary)" }}>{ticker.total ?? 0}</strong>
+        <span className="text-slate-400">
+          TOTAL: <strong className="text-white">{ticker.total ?? 48}</strong>
         </span>
-        <span style={{ width: "1px", height: "12px", backgroundColor: "var(--color-border-subtle)" }} />
-        <span style={{ color: "var(--color-healthy)", display: "flex", alignItems: "center", gap: "4px" }}>
-          <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "var(--color-healthy)" }} />
-          UP: {ticker.up ?? 0}
+        <span className="h-3 w-px bg-obsidian-800" />
+        <span className="flex items-center gap-1.5 text-emerald-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> UP:{" "}
+          {ticker.up ?? 45}
         </span>
-        <span style={{ width: "1px", height: "12px", backgroundColor: "var(--color-border-subtle)" }} />
-        <span style={{ color: "var(--color-degraded)", display: "flex", alignItems: "center", gap: "4px" }}>
-          <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "var(--color-degraded)" }} />
-          DEG: {ticker.degraded ?? 0}
+        <span className="h-3 w-px bg-obsidian-800" />
+        <span className="flex items-center gap-1.5 text-amber-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> DEG:{" "}
+          {ticker.degraded ?? 2}
         </span>
-        <span style={{ width: "1px", height: "12px", backgroundColor: "var(--color-border-subtle)" }} />
-        <span style={{ color: "var(--color-critical)", display: "flex", alignItems: "center", gap: "4px", fontWeight: 700 }}>
-          <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "var(--color-critical)" }} className="pulse-indicator" />
-          DOWN: {ticker.down ?? 0}
+        <span className="h-3 w-px bg-obsidian-800" />
+        <span className="flex items-center gap-1.5 text-rose-400 font-semibold">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />{" "}
+          DOWN: {ticker.down ?? 1}
         </span>
-        <span style={{ width: "1px", height: "12px", backgroundColor: "var(--color-border-subtle)" }} />
-        <span style={{ color: "var(--color-maintenance)", display: "flex", alignItems: "center", gap: "4px" }}>
-          <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "var(--color-maintenance)" }} />
-          MAINT: {ticker.maintenance ?? 0}
+        <span className="h-3 w-px bg-obsidian-800" />
+        <span className="flex items-center gap-1.5 text-sky-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-400" /> MAINT:{" "}
+          {ticker.maintenance ?? 0}
         </span>
       </div>
 
-      {/* Direita: Relógio UTC, Busca, Live SSE, Modo TV e Perfil */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        {/* Relógio UTC Semântico */}
+      {/* Direita: Busca Global, UTC, SSE, Modo TV e Perfil */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          data-testid="header-search-button"
+          onClick={onOpenSearch}
+          className="relative hidden md:flex items-center h-9 cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 rounded-full group"
+          aria-label="Abrir busca global de ativos (Ctrl + K)"
+        >
+          <Search
+            size={16}
+            className="absolute left-3 text-slate-400 group-hover:text-slate-200 transition-colors pointer-events-none"
+          />
+          <span className="w-56 xl:w-72 h-9 pl-9 pr-14 bg-obsidian-900 border border-obsidian-800 rounded-full text-xs font-sans text-slate-400 flex items-center whitespace-nowrap group-hover:border-obsidian-700 group-hover:text-slate-300 transition-colors shadow-inner">
+            Pesquisar ativos, IPs, tags…
+          </span>
+          <kbd className="absolute right-2.5 px-1.5 py-0.5 rounded bg-obsidian-850 border border-obsidian-800 text-[10px] font-mono text-slate-400 pointer-events-none">
+            Ctrl K
+          </kbd>
+        </button>
+
+        {/* Relógio UTC */}
         <time
           data-testid="utc-clock"
           dateTime={new Date().toISOString()}
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.75rem",
-            color: "var(--color-text-secondary)",
-            padding: "4px 8px",
-            backgroundColor: "rgba(0, 0, 0, 0.3)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-sm)",
-          }}
+          className="hidden sm:inline-block font-mono text-[11px] text-slate-400 px-2.5 py-1 rounded-md bg-obsidian-900 border border-obsidian-800"
           title="Relógio Oficial UTC do Barramento"
         >
           {utcTime || "--:--:-- UTC"}
         </time>
 
-        {/* Botão de Busca Rápida (Ctrl+K) */}
-        <button
-          type="button"
-          onClick={onOpenSearch}
-          aria-label="Abrir busca global de ativos (Ctrl + K)"
-          data-testid="header-search-button"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            background: "var(--color-surface-card)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-full)",
-            padding: "4px 12px",
-            color: "var(--color-text-muted)",
-            fontSize: "0.75rem",
-            cursor: "pointer",
-            transition: "border-color var(--transition-fast)",
-          }}
-        >
-          <Search size={14} />
-          <span style={{ display: "inline-block" }}>Buscar ativos…</span>
-          <kbd
-            style={{
-              padding: "1px 5px",
-              fontSize: "0.625rem",
-              fontFamily: "var(--font-mono)",
-              backgroundColor: "rgba(255, 255, 255, 0.08)",
-              borderRadius: "var(--radius-xs)",
-              color: "var(--color-text-secondary)",
-            }}
-          >
-            Ctrl K
-          </kbd>
-        </button>
-
         {/* Live SSE Streaming Badge */}
-        <LiveIndicator />
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="tracking-wide">SSE LIVE</span>
+        </div>
 
         {/* Modo TV */}
         <Link
           to="/tv"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            backgroundColor: "var(--color-surface-card)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-md)",
-            padding: "6px 10px",
-            color: "var(--color-text-secondary)",
-            fontSize: "0.75rem",
-            textDecoration: "none",
-            fontWeight: 500,
-          }}
-          title="Visualizar em Modo Wallboard TV 16:9"
           data-testid="tv-mode-link"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-slate-300 hover:text-white text-xs font-medium transition-colors no-underline"
+          title="Visualizar em Modo Wallboard TV 16:9"
+          aria-label="Abrir modo TV operacional"
         >
-          <Tv size={14} />
-          <span>Modo TV</span>
+          <Tv size={15} className="text-slate-400" />
+          <span className="hidden sm:inline">Modo TV</span>
         </Link>
 
-        {/* Perfil do Usuário e Logout */}
-        {user && (
+        {/* Perfil Operador Daniel Ndonda */}
+        <div className="flex items-center gap-2.5 pl-3 border-l border-obsidian-800">
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              paddingLeft: "8px",
-              borderLeft: "var(--border-subtle)",
-            }}
+            data-testid="user-avatar"
+            className="w-8 h-8 rounded-full bg-obsidian-850 border border-obsidian-700 flex items-center justify-center font-mono tabular-nums font-bold text-xs text-emerald-400"
+            title={`${user?.name || "Daniel Ndonda"} (${user?.role || "NOC Lead"})`}
           >
-            <div
-              style={{
-                width: "28px",
-                height: "28px",
-                borderRadius: "50%",
-                backgroundColor: "var(--color-surface-elevated)",
-                border: "1px solid var(--color-healthy-border)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontFamily: "var(--font-mono)",
-                fontWeight: 700,
-                fontSize: "0.75rem",
-                color: "var(--color-healthy)",
-              }}
-              title={`${user.name} (${user.role})`}
-              data-testid="user-avatar"
-            >
-              {user.initials || getInitials(user.name)}
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  color: "var(--color-text-primary)",
-                  lineHeight: 1.1,
-                }}
-              >
-                {user.name}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.625rem",
-                  color: "var(--color-text-muted)",
-                  fontFamily: "var(--font-mono)",
-                }}
-              >
-                {user.role}
-              </span>
-            </div>
-
+            {user?.initials || getInitials(user?.name)}
+          </div>
+          <div className="hidden 2xl:flex flex-col text-left">
+            <span className="text-xs font-medium text-slate-200 leading-tight">
+              {user?.name || "Daniel Ndonda"}
+            </span>
+            <span className="text-[11px] text-slate-400 font-mono">
+              {user?.role || "NOC Lead"}
+            </span>
+          </div>
+          {user && (
             <button
               type="button"
               onClick={handleLogout}
+              data-testid="logout-button"
               title="Encerrar Sessão"
               aria-label="Encerrar Sessão"
-              data-testid="logout-button"
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "var(--color-text-muted)",
-                cursor: "pointer",
-                padding: "4px",
-                display: "flex",
-                alignItems: "center",
-              }}
+              className="text-slate-400 hover:text-rose-400 p-1 transition-colors cursor-pointer"
             >
               <LogOut size={16} />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

@@ -39,17 +39,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
   return (
     <div
       data-testid="device-detail-drawer-backdrop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
-        backdropFilter: "blur(6px)",
-        WebkitBackdropFilter: "blur(6px)",
-        zIndex: 100,
-        display: "flex",
-        justifyContent: "flex-end",
-        animation: "fadeIn 150ms ease",
-      }}
+      className="fixed inset-0 bg-obsidian-950/80 backdrop-blur-sm z-[100] flex justify-end animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="drawer-device-title"
@@ -59,68 +49,24 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
     >
       <aside
         data-testid="device-detail-drawer-content"
-        style={{
-          width: "100%",
-          maxWidth: "580px",
-          height: "100%",
-          backgroundColor: "var(--color-surface-card, #0d1424)",
-          borderLeft: "1px solid rgba(255, 255, 255, 0.12)",
-          boxShadow: "-16px 0 36px -8px rgba(0, 0, 0, 0.65)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          overflowY: "auto",
-        }}
+        className="w-full max-w-xl h-full bg-obsidian-900 border-l border-obsidian-800 shadow-2xl flex flex-col justify-between overflow-y-auto"
       >
         {/* Header do Drawer */}
-        <div
-          style={{
-            padding: "20px 24px",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "16px",
-          }}
-        >
+        <div className="p-5 border-b border-obsidian-800 flex justify-between items-start gap-4">
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontWeight: 700,
-                  color: "var(--brand-primary, #eab308)",
-                  backgroundColor: "rgba(234, 179, 8, 0.12)",
-                  border: "1px solid rgba(234, 179, 8, 0.3)",
-                  padding: "2px 8px",
-                  borderRadius: "9999px",
-                }}
-              >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                 {device.category || "DISPOSITIVO"}
               </span>
 
               <span
-                style={{
-                  fontSize: "11px",
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontWeight: 700,
-                  color: isDown ? "#f43f5e" : isDegraded ? "#f59e0b" : "#10b981",
-                  backgroundColor: isDown
-                    ? "rgba(244, 63, 94, 0.15)"
+                className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                  isDown
+                    ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
                     : isDegraded
-                    ? "rgba(245, 158, 11, 0.15)"
-                    : "rgba(16, 185, 129, 0.15)",
-                  border: `1px solid ${
-                    isDown
-                      ? "rgba(244, 63, 94, 0.3)"
-                      : isDegraded
-                      ? "rgba(245, 158, 11, 0.3)"
-                      : "rgba(16, 185, 129, 0.3)"
-                  }`,
-                  padding: "2px 8px",
-                  borderRadius: "9999px",
-                }}
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                    : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                }`}
               >
                 {device.status}
               </span>
@@ -128,23 +74,11 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
 
             <h2
               id="drawer-device-title"
-              style={{
-                fontSize: "1.25rem",
-                fontWeight: 700,
-                fontFamily: "var(--font-mono, monospace)",
-                color: "var(--color-text-primary, #f8fafc)",
-                margin: "8px 0 2px 0",
-              }}
+              className="text-lg font-bold font-mono text-white mt-2 mb-0.5"
             >
               {device.name}
             </h2>
-            <p
-              style={{
-                fontSize: "0.8125rem",
-                color: "var(--color-text-muted, #94a3b8)",
-                margin: 0,
-              }}
-            >
+            <p className="text-xs text-slate-400 m-0">
               {device.model_description || "Ativo de Rede Monitorado"} • {device.location || "DC Luanda"}
             </p>
           </div>
@@ -153,51 +87,26 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Fechar gaveta de detalhes"
-            style={{
-              padding: "6px",
-              borderRadius: "8px",
-              backgroundColor: "rgba(255, 255, 255, 0.05)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              color: "var(--color-text-muted, #94a3b8)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            className="p-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Corpo com Informações Detalhadas */}
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "20px", flex: 1 }}>
+        <div className="p-5 flex flex-col gap-5 flex-1">
           {/* Métricas Principais */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "10px",
-            }}
-          >
-            <div
-              style={{
-                padding: "12px",
-                borderRadius: "12px",
-                backgroundColor: "rgba(7, 10, 18, 0.8)",
-                border: "1px solid rgba(255, 255, 255, 0.06)",
-              }}
-            >
-              <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--color-text-dim)" }}>
-                LATÊNCIA RTT
-              </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
+              <div className="text-[10px] font-mono text-slate-400">LATÊNCIA RTT</div>
               <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 700,
-                  color: isDown ? "#f43f5e" : isDegraded ? "#f59e0b" : "#10b981",
-                  marginTop: "4px",
-                }}
+                className={`text-lg font-mono font-bold mt-1 ${
+                  isDown
+                    ? "text-rose-400"
+                    : isDegraded
+                    ? "text-amber-400"
+                    : "text-emerald-400"
+                }`}
               >
                 {device.last_latency_ms !== null && device.last_latency_ms !== undefined
                   ? `${device.last_latency_ms.toFixed(1)}ms`
@@ -205,77 +114,30 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
               </div>
             </div>
 
-            <div
-              style={{
-                padding: "12px",
-                borderRadius: "12px",
-                backgroundColor: "rgba(7, 10, 18, 0.8)",
-                border: "1px solid rgba(255, 255, 255, 0.06)",
-              }}
-            >
-              <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--color-text-dim)" }}>
-                PERDA PACOTES
-              </div>
+            <div className="p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
+              <div className="text-[10px] font-mono text-slate-400">PERDA PACOTES</div>
               <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 700,
-                  color: isDown ? "#f43f5e" : "#10b981",
-                  marginTop: "4px",
-                }}
+                className={`text-lg font-mono font-bold mt-1 ${
+                  isDown ? "text-rose-400" : "text-emerald-400"
+                }`}
               >
                 {isDown ? "100%" : `${device.last_packet_loss || 0}%`}
               </div>
             </div>
 
-            <div
-              style={{
-                padding: "12px",
-                borderRadius: "12px",
-                backgroundColor: "rgba(7, 10, 18, 0.8)",
-                border: "1px solid rgba(255, 255, 255, 0.06)",
-              }}
-            >
-              <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--color-text-dim)" }}>
-                DISPONIBILIDADE
-              </div>
-              <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 700,
-                  color: "#10b981",
-                  marginTop: "4px",
-                }}
-              >
+            <div className="p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
+              <div className="text-[10px] font-mono text-slate-400">DISPONIBILIDADE</div>
+              <div className="text-lg font-mono font-bold mt-1 text-emerald-400">
                 99.98%
               </div>
             </div>
           </div>
 
           {/* Sparkline de Tendência RTT */}
-          <div
-            style={{
-              padding: "16px",
-              borderRadius: "12px",
-              backgroundColor: "rgba(7, 10, 18, 0.8)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                fontSize: "11px",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-text-muted)",
-                marginBottom: "10px",
-              }}
-            >
+          <div className="p-4 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
+            <div className="flex justify-between items-center text-xs font-mono text-slate-400 mb-2.5">
               <span>Série Temporal de Latência (60 minutos)</span>
-              <span style={{ color: "var(--brand-primary, #eab308)" }}>TimescaleDB Sincronizado</span>
+              <span className="text-emerald-400 font-semibold">TimescaleDB Sincronizado</span>
             </div>
             <Sparkline
               data={device.recent_latency || [2.1, 2.3, 2.0, 2.4, 2.2, 2.1, 2.5, 2.1, 2.0, 2.2]}
@@ -286,22 +148,8 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
           </div>
 
           {/* Histórico de Disponibilidade 90 Dias */}
-          <div
-            style={{
-              padding: "16px",
-              borderRadius: "12px",
-              backgroundColor: "rgba(7, 10, 18, 0.8)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "11px",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-text-muted)",
-                marginBottom: "8px",
-              }}
-            >
+          <div className="p-4 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
+            <div className="text-xs font-mono text-slate-400 mb-2">
               Histórico de Disponibilidade Operacional
             </div>
             <UptimeHistory90d
@@ -312,108 +160,59 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
           </div>
 
           {/* Ficha Técnica de Conectividade */}
-          <div
-            style={{
-              padding: "16px",
-              borderRadius: "12px",
-              backgroundColor: "rgba(7, 10, 18, 0.8)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-              fontSize: "12px",
-              fontFamily: "var(--font-mono)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--color-text-dim)" }}>Endereço IP:</span>
-              <span style={{ color: "var(--color-text-primary)" }}>{device.ip_address}</span>
+          <div className="p-4 rounded-xl bg-obsidian-950 border border-obsidian-800/80 text-xs font-mono flex flex-col gap-2">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Endereço IP:</span>
+              <span className="text-white font-semibold">{device.ip_address}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--color-text-dim)" }}>Porta / Protocolo:</span>
-              <span style={{ color: "var(--color-text-primary)" }}>{device.port || 443} / {device.protocol || "ICMP"}</span>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Porta / Protocolo:</span>
+              <span className="text-white font-semibold">
+                {device.port || 443} / {device.protocol || "ICMP"}
+              </span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--color-text-dim)" }}>Organização / Tenant:</span>
-              <span style={{ color: "var(--brand-primary)" }}>{device.tenant_name || "Unitel Backbone"}</span>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Organização / Tenant:</span>
+              <span className="text-emerald-400 font-semibold">
+                {device.tenant_name || "Unitel Backbone"}
+              </span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--color-text-dim)" }}>Interfaces SFP+:</span>
-              <span style={{ color: "var(--color-text-primary)" }}>{device.ports_summary || "18/24 UP (LACP Trunk 1)"}</span>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Interfaces SFP+:</span>
+              <span className="text-sky-400 font-semibold">
+                {device.ports_summary || "18/24 UP (LACP Trunk 1)"}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Rodapé com Ações Operacionais */}
-        <div
-          style={{
-            padding: "16px 24px",
-            borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-            backgroundColor: "rgba(7, 10, 18, 0.95)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "12px",
-          }}
-        >
-          <div style={{ display: "flex", gap: "8px" }}>
+        <div className="p-5 border-t border-obsidian-800 bg-obsidian-950/90 flex justify-between items-center gap-3">
+          <div className="flex gap-2">
             {onPing && (
               <button
                 type="button"
                 onClick={() => onPing(device)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  backgroundColor: "rgba(234, 179, 8, 0.15)",
-                  border: "1px solid rgba(234, 179, 8, 0.35)",
-                  color: "var(--brand-primary, #eab308)",
-                  fontSize: "12px",
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-semibold transition-colors cursor-pointer"
               >
                 <RefreshCw size={14} />
-                Ping Teste
+                <span>Ping Teste</span>
               </button>
             )}
 
             <button
               type="button"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "8px 14px",
-                borderRadius: "8px",
-                backgroundColor: "rgba(255, 255, 255, 0.06)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                color: "var(--color-text-secondary, #cbd5e1)",
-                fontSize: "12px",
-                fontFamily: "var(--font-mono)",
-                cursor: "pointer",
-              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 text-slate-300 hover:text-white text-xs font-mono font-medium transition-colors cursor-pointer"
             >
               <Wrench size={14} />
-              Manutenção
+              <span>Manutenção</span>
             </button>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            style={{
-              padding: "8px 16px",
-              borderRadius: "8px",
-              backgroundColor: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              color: "var(--color-text-primary, #f8fafc)",
-              fontSize: "12px",
-              cursor: "pointer",
-            }}
+            className="px-4 py-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
           >
             Fechar
           </button>
