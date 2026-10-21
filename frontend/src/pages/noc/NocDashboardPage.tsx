@@ -203,19 +203,19 @@ export const NocDashboardPage: React.FC = () => {
       <section
         role="toolbar"
         aria-label="Filtros e Controles de Telemetria"
-        className="w-full px-4 sm:px-6 py-2.5 bg-obsidian-900/60 border-b border-obsidian-800/80 flex flex-wrap items-center justify-between gap-3 sticky top-14 z-30 backdrop-blur-sm"
+        className="w-full px-4 sm:px-6 py-1.5 bg-obsidian-900/95 border-b border-obsidian-800/80 flex flex-wrap items-center justify-between gap-2 sticky top-14 z-30 backdrop-blur-md"
       >
         {/* Grupo de Filtros por Severidade */}
         <div
           role="group"
           aria-label="Filtrar por estado operacional"
-          className="flex items-center flex-wrap gap-1.5"
+          className="flex items-center flex-wrap gap-1"
         >
           <button
             type="button"
             data-testid="filter-all-btn"
             onClick={() => setSeverityFilter("all")}
-            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+            className={`filter-btn flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border transition-colors cursor-pointer ${
               severityFilter === "all"
                 ? "bg-obsidian-800 text-white border-obsidian-700"
                 : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
@@ -223,7 +223,7 @@ export const NocDashboardPage: React.FC = () => {
             aria-pressed={severityFilter === "all"}
           >
             <span>Todos</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 font-mono text-[10px] tabular-nums">
+            <span className="px-1.5 py-0.2 rounded-full bg-slate-700 text-slate-300 font-mono text-[10px] tabular-nums">
               {stats.total}
             </span>
           </button>
@@ -232,7 +232,7 @@ export const NocDashboardPage: React.FC = () => {
             type="button"
             data-testid="filter-critical-btn"
             onClick={() => setSeverityFilter("critical")}
-            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+            className={`filter-btn flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border transition-colors cursor-pointer ${
               severityFilter === "critical"
                 ? "bg-rose-500/20 text-rose-400 border-rose-500/40 font-bold"
                 : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
@@ -240,7 +240,7 @@ export const NocDashboardPage: React.FC = () => {
             aria-pressed={severityFilter === "critical"}
           >
             <span>Críticos</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-mono text-[10px] font-bold tabular-nums">
+            <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-400 font-mono text-[10px] font-bold tabular-nums">
               {stats.down}
             </span>
           </button>
@@ -249,7 +249,7 @@ export const NocDashboardPage: React.FC = () => {
             type="button"
             data-testid="filter-degraded-btn"
             onClick={() => setSeverityFilter("degraded")}
-            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+            className={`filter-btn flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border transition-colors cursor-pointer ${
               severityFilter === "degraded"
                 ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-bold"
                 : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
@@ -257,7 +257,7 @@ export const NocDashboardPage: React.FC = () => {
             aria-pressed={severityFilter === "degraded"}
           >
             <span>Degradados</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono text-[10px] font-bold tabular-nums">
+            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-400 font-mono text-[10px] font-bold tabular-nums">
               {stats.deg}
             </span>
           </button>
@@ -266,7 +266,7 @@ export const NocDashboardPage: React.FC = () => {
             type="button"
             data-testid="filter-healthy-btn"
             onClick={() => setSeverityFilter("healthy")}
-            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+            className={`filter-btn flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border transition-colors cursor-pointer ${
               severityFilter === "healthy"
                 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-bold"
                 : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
@@ -274,7 +274,7 @@ export const NocDashboardPage: React.FC = () => {
             aria-pressed={severityFilter === "healthy"}
           >
             <span>Operacionais</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold tabular-nums">
+            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold tabular-nums">
               {stats.up}
             </span>
           </button>
@@ -287,7 +287,7 @@ export const NocDashboardPage: React.FC = () => {
               data-testid="tenant-filter-select"
               value={tenantFilter}
               onChange={(e) => setTenantFilter(e.target.value)}
-              className="bg-obsidian-900 border border-obsidian-800 rounded-md px-2.5 py-1 text-xs font-mono text-slate-200 cursor-pointer focus-visible:ring-1 focus-visible:ring-emerald-500 outline-none"
+              className="bg-obsidian-900 border border-obsidian-800 rounded px-2 py-0.5 text-xs font-mono text-slate-200 cursor-pointer focus-visible:ring-1 focus-visible:ring-emerald-500 outline-none h-7"
               aria-label="Filtrar por Organização"
             >
               <option value="all">Todas as Organizações ({stats.total} ativos)</option>
@@ -299,24 +299,24 @@ export const NocDashboardPage: React.FC = () => {
         </div>
 
         {/* Seletor de Estados Alternativos + Ações */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {/* Busca Global Trigger */}
           <button
             type="button"
             data-testid="global-search-trigger"
             onClick={() => setIsSearchOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-obsidian-900 border border-obsidian-800 text-slate-400 text-xs hover:text-white cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-obsidian-900 border border-obsidian-800 text-slate-400 text-xs hover:text-white cursor-pointer h-7"
             aria-label="Abrir busca global (Ctrl+K)"
           >
-            <Search size={14} className="text-emerald-400" aria-hidden="true" />
+            <Search size={13} className="text-emerald-400" aria-hidden="true" />
             <span>Busca</span>
-            <kbd className="text-[10px] font-mono px-1 py-0.5 rounded bg-obsidian-850 border border-obsidian-800">
+            <kbd className="text-[10px] font-mono px-1 py-0.2 rounded bg-obsidian-850 border border-obsidian-800">
               Ctrl K
             </kbd>
           </button>
 
           {/* Simulador de Estados (ai-mockup-rectifier) */}
-          <div className="flex items-center gap-1 bg-obsidian-950 px-2.5 py-1 rounded-lg border border-obsidian-800 text-[10px] font-mono">
+          <div className="flex items-center gap-1 bg-obsidian-950 px-2 py-0.5 rounded border border-obsidian-800 text-[10px] font-mono h-7">
             <span className="text-slate-400 hidden sm:inline">ESTADO:</span>
             <select
               data-testid="state-simulator-select"
@@ -338,11 +338,11 @@ export const NocDashboardPage: React.FC = () => {
             data-testid="manual-scan-btn"
             onClick={handleForceScan}
             disabled={isFetching}
-            className="p-1.5 rounded-lg bg-obsidian-900 border border-obsidian-800 text-slate-400 hover:text-white hover:bg-obsidian-850 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer disabled:opacity-50"
+            className="h-7 w-7 flex items-center justify-center rounded bg-obsidian-900 border border-obsidian-800 text-slate-400 hover:text-white hover:bg-obsidian-850 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer disabled:opacity-50"
             title="Forçar Varredura de Sondagem Imediata"
             aria-label="Forçar varredura agora"
           >
-            <RefreshCw size={16} className={isFetching ? "animate-spin text-emerald-400" : ""} />
+            <RefreshCw size={13} className={isFetching ? "animate-spin text-emerald-400" : ""} />
           </button>
 
           {/* Emergency Drain Trigger */}
@@ -350,10 +350,10 @@ export const NocDashboardPage: React.FC = () => {
             type="button"
             data-testid="emergency-drain-btn"
             onClick={() => setIsDrainModalOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-mono font-bold hover:bg-rose-500/20 cursor-pointer transition-colors"
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-mono font-bold hover:bg-rose-500/20 cursor-pointer transition-colors h-7"
             title="Executar protocolo de isolamento de tráfego"
           >
-            <Power size={13} aria-hidden="true" />
+            <Power size={12} aria-hidden="true" />
             <span className="hidden sm:inline">Drain</span>
           </button>
         </div>
