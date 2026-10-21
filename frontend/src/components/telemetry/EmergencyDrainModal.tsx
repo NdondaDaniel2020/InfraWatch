@@ -5,12 +5,14 @@ export interface EmergencyDrainModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  clusterName?: string;
 }
 
 export const EmergencyDrainModal: React.FC<EmergencyDrainModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
+  clusterName = "Cluster Luanda-01",
 }) => {
   if (!isOpen) return null;
 
@@ -29,12 +31,12 @@ export const EmergencyDrainModal: React.FC<EmergencyDrainModalProps> = ({
             <h2 id="modal-drain-title" className="text-lg font-bold font-mono text-white m-0">
               Protocolo Emergency Drain
             </h2>
-            <div className="text-xs font-mono text-rose-400 font-semibold">Cluster Drain: Luanda-01</div>
+            <div className="text-xs font-mono text-rose-400 font-semibold">Cluster Drain: {clusterName}</div>
           </div>
         </div>
 
         <p className="text-xs text-slate-300 leading-relaxed font-sans m-0">
-          Esta ação isolará imediatamente todo o tráfego do <strong className="text-white">Cluster Luanda-01</strong>, comutando as sessões BGP de trânsito internacional para o cluster secundário de contingência.
+          Esta ação isolará imediatamente todo o tráfego do <strong className="text-white">{clusterName}</strong>, comutando as sessões BGP de trânsito internacional para o cluster secundário de contingência.
         </p>
 
         <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">

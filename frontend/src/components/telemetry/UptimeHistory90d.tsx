@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { DayAvailability } from "../../types/telemetry";
+import { generateAvailabilityHistory } from "../../mocks/nocMocks";
 
 export interface UptimeHistory90dProps {
   days?: DayAvailability[];
@@ -8,6 +9,12 @@ export interface UptimeHistory90dProps {
   className?: string;
 }
 
+const getBarColor = (uptime: number, hasIncident?: boolean): string => {
+  if (hasIncident || uptime < 95) return "var(--color-critical, #f43f5e)";
+  if (uptime < 99.5) return "var(--color-degraded, #f59e0b)";
+  return "var(--color-healthy, #10b981)";
+};
+
 export const UptimeHistory90d: React.FC<UptimeHistory90dProps> = ({
   days,
   barCount = 30,
@@ -15,31 +22,11 @@ export const UptimeHistory90d: React.FC<UptimeHistory90dProps> = ({
 }) => {
   const [hoveredDay, setHoveredDay] = useState<DayAvailability | null>(null);
 
-  // Gera dados simulados caso não venham do backend (fallback resiliente de 30 a 90 dias)
+  // Fallback resiliente consumindo o gerador canônico de mocks
   const items: DayAvailability[] = React.useMemo(() => {
     if (days && days.length > 0) return days.slice(-barCount);
-
-    const generated: DayAvailability[] = [];
-    const now = new Date();
-    for (let i = barCount - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const isDowntime = i === 12; // 1 dia com incidente
-      const isDegraded = i === 4; // 1 dia degradado
-      generated.push({
-        date: d.toISOString().split("T")[0],
-        uptime_pct: isDowntime ? 92.4 : isDegraded ? 98.7 : 100,
-        has_incident: isDowntime,
-      });
-    }
-    return generated;
+    return generateAvailabilityHistory(barCount);
   }, [days, barCount]);
-
-  const getBarColor = (uptime: number, hasIncident?: boolean): string => {
-    if (hasIncident || uptime < 95) return "#f43f5e"; // rose-500
-    if (uptime < 99.5) return "#f59e0b"; // amber-500
-    return "#10b981"; // emerald-500
-  };
 
   return (
     <div

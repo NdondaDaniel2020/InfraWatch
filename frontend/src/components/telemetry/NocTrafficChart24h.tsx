@@ -10,21 +10,8 @@ import {
   ReferenceLine,
 } from "recharts";
 
-const TRAFFIC_DATA = [
-  { time: "00:00", throughput: 32.4, baseline: 30.0, latency: 12.1 },
-  { time: "02:00", throughput: 28.1, baseline: 29.0, latency: 11.8 },
-  { time: "04:00", throughput: 25.6, baseline: 28.0, latency: 11.5 },
-  { time: "06:00", throughput: 45.2, baseline: 35.0, latency: 13.4 },
-  { time: "08:00", throughput: 68.7, baseline: 55.0, latency: 16.2 },
-  { time: "10:00", throughput: 82.3, baseline: 65.0, latency: 18.0 },
-  { time: "12:00", throughput: 91.5, baseline: 75.0, latency: 21.4 },
-  { time: "14:15", throughput: 98.2, baseline: 80.0, latency: 24.8 },
-  { time: "16:00", throughput: 86.4, baseline: 78.0, latency: 19.5 },
-  { time: "18:00", throughput: 74.2, baseline: 70.0, latency: 17.1 },
-  { time: "20:00", throughput: 61.9, baseline: 58.0, latency: 15.3 },
-  { time: "22:00", throughput: 48.0, baseline: 45.0, latency: 13.9 },
-  { time: "Agora", throughput: 54.3, baseline: 42.0, latency: 14.2 },
-];
+import type { TrafficChartPoint } from "../../types/telemetry";
+import { CANONICAL_TRAFFIC_CHART_24H } from "../../mocks/nocMocks";
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -64,7 +51,13 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
   return null;
 };
 
-export const NocTrafficChart24h: React.FC = () => {
+export interface NocTrafficChart24hProps {
+  data?: TrafficChartPoint[];
+}
+
+export const NocTrafficChart24h: React.FC<NocTrafficChart24hProps> = ({
+  data = CANONICAL_TRAFFIC_CHART_24H,
+}) => {
   return (
     <section
       data-testid="traffic-histogram-card"
@@ -109,7 +102,7 @@ export const NocTrafficChart24h: React.FC = () => {
         <div className="w-full h-44 select-none">
           <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={160}>
             <AreaChart
-              data={TRAFFIC_DATA}
+              data={data}
               margin={{ top: 12, right: 12, left: -20, bottom: 0 }}
             >
               <defs>
