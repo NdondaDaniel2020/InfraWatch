@@ -5,17 +5,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "../../context/AuthContext";
 import { authApi } from "../../services/authApi";
-import { Button } from "../../components/ui/Button";
-import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/Card";
-import {
-  AlertTriangle,
-  ArrowRight,
-  Eye,
-  EyeOff,
-  Lock,
-  Mail,
-} from "lucide-react";
+import { AlertTriangle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { LoginTestPage } from "./LoginTestPage";
+import vectorArt from "../../assets/images/infrawatch_vector_transparent.png";
+import "./LoginPage.css";
 
 const loginSchema = z.object({
   email: z
@@ -40,6 +33,7 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const {
     register,
@@ -98,368 +92,230 @@ export const LoginPage: React.FC = () => {
   const displayError = errorMessage || errors.email?.message || errors.password?.message;
 
   return (
-    <main
-      data-testid="login-page"
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px 16px",
-        backgroundColor: "var(--color-bg-deep)",
-      }}
-    >
-      <Card
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          backgroundColor: "var(--color-surface-card)",
-          border: "var(--border-subtle)",
-          boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
-        }}
-      >
-        <CardHeader
-          style={{
-            textAlign: "center",
-            padding: "28px 24px 16px 24px",
-            borderBottom: "var(--border-subtle)",
-          }}
-        >
-          {/* Logotipo Oficial 3D com Tag NOC */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "10px",
-              marginBottom: "12px",
-            }}
-          >
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "var(--radius-md)",
-                backgroundColor: "rgba(7, 10, 18, 0.8)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "6px",
-                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" style={{ width: "100%", height: "100%" }}>
-                <polygon points="12,3 20,7.5 12,12 4,7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.8" strokeLinejoin="round" />
-                <polygon points="4,7.5 12,12 12,21 4,16.5" fill="var(--brand-primary, #eab308)" stroke="#ca8a04" strokeWidth="1.8" strokeLinejoin="round" />
-                <polygon points="12,12 20,7.5 20,16.5 12,21" fill="#111827" stroke="#374151" strokeWidth="1.8" strokeLinejoin="round" />
-              </svg>
+    <main data-testid="login-page" className="login-page-canvas">
+      {/* Moldura Principal - Card Duplo Obsidian com Glassmorphism (Mockup 01_LoginPage) */}
+      <div id="auth-card" className="login-auth-card">
+        {/* =================================================================== */}
+        {/* COLUNA ESQUERDA: FORMULÁRIO DE LOGIN                                */}
+        {/* =================================================================== */}
+        <section id="left-column-login" className="login-form-column">
+          <div className="login-form-container">
+            {/* 1. Logotipo Oficial InfraWatch 3D */}
+            <header className="login-brand-header">
+              <div className="login-logo-cube-box">
+                <svg viewBox="0 0 24 24" fill="none" style={{ width: "100%", height: "100%" }} aria-hidden="true">
+                  <polygon points="12,3 20,7.5 12,12 4,7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.8" strokeLinejoin="round" />
+                  <polygon points="4,7.5 12,12 12,21 4,16.5" fill="var(--brand-primary, #eab308)" stroke="#ca8a04" strokeWidth="1.8" strokeLinejoin="round" />
+                  <polygon points="12,12 20,7.5 20,16.5 12,21" fill="#111827" stroke="#374151" strokeWidth="1.8" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <span className="login-brand-title">InfraWatch</span>
+              <span className="login-noc-badge">NOC</span>
+            </header>
+
+            {/* 2. Cabeçalho de Boas-vindas */}
+            <div className="login-heading-section">
+              <h1 className="login-heading-title">Aceda à sua conta</h1>
+              <p className="login-heading-subtitle">
+                Cockpit operacional de telemetria e infraestrutura.
+              </p>
             </div>
-            <span
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "1.25rem",
-                fontWeight: 700,
-                color: "var(--color-text-primary)",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              InfraWatch
-            </span>
-            <span
-              style={{
-                padding: "2px 8px",
-                borderRadius: "var(--radius-full)",
-                fontSize: "0.625rem",
-                fontFamily: "var(--font-mono)",
-                fontWeight: 700,
-                backgroundColor: "var(--brand-badge-bg)",
-                color: "var(--brand-primary)",
-                border: "1px solid var(--brand-badge-border)",
-              }}
-            >
-              NOC
-            </span>
-          </div>
 
-          <h1
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: 700,
-              color: "var(--color-text-primary)",
-              letterSpacing: "-0.02em",
-              margin: 0,
-            }}
-          >
-            Aceda à sua conta
-          </h1>
-          <p
-            style={{
-              fontSize: "0.8125rem",
-              color: "var(--color-text-secondary)",
-              margin: "6px 0 0 0",
-            }}
-          >
-            Cockpit operacional de telemetria e infraestrutura
-          </p>
-        </CardHeader>
-
-        <CardContent style={{ padding: "24px" }}>
-          {displayError && (
-            <div
-              role="alert"
-              aria-live="polite"
-              data-testid="login-error-alert"
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "10px",
-                padding: "12px",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--color-critical-bg)",
-                border: "1px solid var(--color-critical-border)",
-                color: "var(--color-critical)",
-                fontSize: "0.8125rem",
-                marginBottom: "16px",
-              }}
-            >
-              <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
-              <span>{displayError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit(onSubmit)} noValidate>
-            {/* Campo E-mail */}
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                htmlFor="login-email"
-                style={{
-                  display: "block",
-                  fontSize: "0.8125rem",
-                  fontWeight: 600,
-                  color: "var(--color-text-primary)",
-                  marginBottom: "6px",
-                }}
-              >
-                Endereço de E-mail
-              </label>
+            {/* Alerta de Erro Semântico Acessível */}
+            {displayError && (
               <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                }}
+                role="alert"
+                aria-live="polite"
+                data-testid="login-error-alert"
+                className="login-error-banner"
               >
-                <Mail
-                  size={16}
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    color: "var(--color-text-muted)",
-                    pointerEvents: "none",
-                  }}
-                />
+                <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
+                <span>{displayError}</span>
+              </div>
+            )}
+
+            {/* 3. Formulário de Autenticação */}
+            <form onSubmit={handleSubmit(onSubmit)} noValidate>
+              {/* Campo E-mail */}
+              <div className={`login-input-underline ${errors.email ? "has-error" : ""}`}>
+                <label htmlFor="login-email" className="login-field-label">
+                  Endereço de E-mail
+                </label>
                 <input
                   id="login-email"
                   type="email"
                   autoComplete="username"
                   required
                   placeholder="operador@infrawatch.io"
+                  className="login-input-raw"
                   {...register("email")}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px 10px 38px",
-                    borderRadius: "var(--radius-sm)",
-                    border: errors.email ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                    backgroundColor: "var(--color-bg-deep)",
-                    color: "var(--color-text-primary)",
-                    fontSize: "0.875rem",
-                    outline: "none",
-                    transition:
-                      "border-color var(--transition-fast), box-shadow var(--transition-fast)",
-                  }}
                 />
               </div>
-            </div>
 
-            {/* Campo Senha */}
-            <div style={{ marginBottom: "20px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "6px",
-                }}
-              >
-                <label
-                  htmlFor="login-password"
-                  style={{
-                    fontSize: "0.8125rem",
-                    fontWeight: 600,
-                    color: "var(--color-text-primary)",
-                  }}
-                >
+              {/* Campo Senha com Toggle */}
+              <div className={`login-input-underline ${errors.password ? "has-error" : ""}`}>
+                <label htmlFor="login-password" className="login-field-label">
                   Senha de Acesso
                 </label>
-                <Link
-                  to="/password-reset"
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "var(--color-healthy)",
-                    textDecoration: "none",
-                  }}
-                >
-                  Esqueci minha senha
+                <div className="login-field-row">
+                  <input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    required
+                    placeholder="••••••••••••"
+                    className="login-input-raw"
+                    {...register("password")}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="login-eye-toggle-btn"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Linha de Opções: Lembrar por 30 dias & Esqueceu a Senha */}
+              <div className="login-options-row">
+                <label className="login-remember-label">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="login-remember-checkbox"
+                  />
+                  <span>Lembrar por 30 dias</span>
+                </label>
+
+                <Link to="/password-reset" className="login-forgot-link">
+                  Esqueceu a senha?
                 </Link>
               </div>
-              <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <Lock
-                  size={16}
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    color: "var(--color-text-muted)",
-                    pointerEvents: "none",
-                  }}
-                />
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  required
-                  placeholder="••••••••••••"
-                  {...register("password")}
-                  style={{
-                    width: "100%",
-                    padding: "10px 38px 10px 38px",
-                    borderRadius: "var(--radius-sm)",
-                    border: errors.password ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                    backgroundColor: "var(--color-bg-deep)",
-                    color: "var(--color-text-primary)",
-                    fontSize: "0.875rem",
-                    outline: "none",
-                    transition:
-                      "border-color var(--transition-fast), box-shadow var(--transition-fast)",
-                  }}
-                />
+
+              {/* Botões de Ação em Pílula */}
+              <div className="login-actions-group">
+                <button
+                  type="submit"
+                  aria-label="Entrar no Cockpit"
+                  disabled={isSubmitting || isGoogleLoading}
+                  className="login-btn-primary-pill"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Autenticando...</span>
+                    </>
+                  ) : (
+                    <span>Iniciar Sessão</span>
+                  )}
+                </button>
+
                 <button
                   type="button"
-                  aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: "absolute",
-                    right: "10px",
-                    background: "none",
-                    border: "none",
-                    color: "var(--color-text-muted)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "4px",
-                  }}
+                  onClick={handleGoogleLogin}
+                  disabled={isSubmitting || isGoogleLoading}
+                  className="login-btn-google-pill"
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {isGoogleLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Conectando Google...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                      <span>Continuar com Google Workspace</span>
+                    </>
+                  )}
                 </button>
               </div>
+
+              {/* Rodapé: Navegação e Atalhos */}
+              <div className="login-card-footer">
+                <div>
+                  <span style={{ color: "#94a3b8" }}>Não tem uma conta? </span>
+                  <Link
+                    to="/dev/login"
+                    style={{
+                      color: "var(--brand-primary, #eab308)",
+                      fontWeight: 600,
+                      textDecoration: "underline",
+                      textUnderlineOffset: "2px",
+                    }}
+                  >
+                    Solicitar acesso
+                  </Link>
+                </div>
+                <div>
+                  <Link to="/login-test" className="login-dev-link">
+                    Seletor Rápido (Dev / Testes)
+                  </Link>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        {/* =================================================================== */}
+        {/* COLUNA DIREITA: PAINEL DE ARTE VETORIAL & TELEMETRIA OBSIDIAN      */}
+        {/* =================================================================== */}
+        <section className="login-art-column" aria-hidden="true">
+          <div className="login-art-inner-card">
+            {/* Halo Dourado de Iluminação Ambiente */}
+            <div className="login-art-ambient-halo" />
+
+            {/* Badges Flutuantes de Telemetria Ativa */}
+            <div className="telemetry-floating-badge badge-top-left">
+              <span className="badge-pulse-dot dot-healthy" />
+              <span className="badge-label">LUANDA-CORE-01</span>
+              <span className="badge-value-healthy">• 1.2ms</span>
             </div>
 
-            {/* Botão de Envio */}
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              fullWidth
-              isLoading={isSubmitting}
-              disabled={isSubmitting || isGoogleLoading}
-              icon={<ArrowRight size={16} />}
-              iconPosition="right"
-            >
-              Entrar no Cockpit
-            </Button>
-          </form>
+            <div className="telemetry-floating-badge badge-top-right">
+              <span className="badge-pulse-dot dot-k8s" />
+              <span className="badge-label">Cluster K8s</span>
+              <span className="badge-value-k8s">• 99.98% SLA</span>
+            </div>
 
-          {/* Divisor */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              margin: "20px 0",
-              color: "var(--color-text-muted)",
-              fontSize: "0.75rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            <div style={{ flex: 1, height: "1px", backgroundColor: "rgba(255, 255, 255, 0.08)" }} />
-            <span style={{ padding: "0 12px" }}>ou continue com</span>
-            <div style={{ flex: 1, height: "1px", backgroundColor: "rgba(255, 255, 255, 0.08)" }} />
+            <div className="telemetry-floating-badge badge-bottom-center">
+              <span className="badge-pulse-dot dot-gold" />
+              <span className="badge-label">Telemetria Ativa</span>
+              <span className="badge-value-gold">• SSE v2</span>
+            </div>
+
+            {/* Ilustração Vetorial Transparente de Redes */}
+            <img
+              src={vectorArt}
+              alt="InfraWatch Network & Infrastructure Monitoring"
+              className="login-art-image"
+              onError={(e) => {
+                // Fallback para caminho estático público caso bundle path varie
+                e.currentTarget.src = "/images/infrawatch_vector_transparent.png";
+              }}
+            />
           </div>
-
-          {/* Botão Google OAuth */}
-          <Button
-            type="button"
-            variant="outline"
-            size="md"
-            fullWidth
-            isLoading={isGoogleLoading}
-            disabled={isSubmitting || isGoogleLoading}
-            onClick={handleGoogleLogin}
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="#EA4335"
-                  d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.9C6.2 7.3 8.9 5 12 5z"
-                />
-                <path
-                  fill="#4285F4"
-                  d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.3 14.7c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.6 7.2C.6 9.2 0 11.5 0 14s.6 4.8 1.6 6.8l3.7-3.1z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.3-6.7-5.3L1.6 16c1.9 3.8 5.8 7 10.4 7z"
-                />
-              </svg>
-            }
-          >
-            Google OAuth2
-          </Button>
-        </CardContent>
-
-        <CardFooter
-          style={{
-            padding: "16px 24px",
-            borderTop: "var(--border-subtle)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontSize: "0.75rem",
-          }}
-        >
-          <span style={{ color: "var(--color-text-muted)" }}>InfraWatch v0.1.0</span>
-          <Link
-            to="/login-test"
-            style={{
-              color: "var(--color-text-secondary)",
-              textDecoration: "underline",
-              transition: "color var(--transition-fast)",
-            }}
-          >
-            Seletor Rápido (Dev / Testes)
-          </Link>
-        </CardFooter>
-      </Card>
+        </section>
+      </div>
     </main>
   );
 };

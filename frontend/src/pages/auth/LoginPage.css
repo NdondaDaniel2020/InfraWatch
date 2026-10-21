@@ -1,0 +1,530 @@
+/* ==========================================================================
+   InfraWatch: Obsidian Telemetry Login Page
+   Fidelidade estrita ao Mockup Canônico (telas_mockups/01_LoginPage/index.html)
+   ========================================================================== */
+
+.login-page-canvas {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background-color: var(--color-bg-deep, #070a12);
+  background-image: radial-gradient(circle at 50% 25%, rgba(234, 179, 8, 0.05) 0%, transparent 65%);
+  user-select: none;
+}
+
+/* Moldura Principal - Card Duplo Obsidian com Glassmorphism */
+.login-auth-card {
+  width: 100%;
+  max-width: 1012px;
+  min-height: 660px;
+  height: 710px;
+  background-color: rgba(13, 20, 36, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 40px;
+  box-shadow: 0 25px 70px -15px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+}
+
+/* Coluna Esquerda: Formulário de Autenticação */
+.login-form-column {
+  width: 50%;
+  height: 100%;
+  padding: 32px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.login-form-container {
+  width: 100%;
+  max-width: 370px;
+  margin: auto;
+}
+
+/* Header do Logotipo 3D Oficial */
+.login-brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.login-logo-cube-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  background-color: rgba(7, 10, 18, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.login-brand-title {
+  font-family: var(--font-sans, "Plus Jakarta Sans", sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.login-noc-badge {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-weight: 700;
+  background-color: rgba(234, 179, 8, 0.12);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+/* Título e Subtítulo */
+.login-heading-section {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.login-heading-title {
+  font-family: var(--font-sans, "Plus Jakarta Sans", sans-serif);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.login-heading-subtitle {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+/* Alerta de Erro Semântico Acessível */
+.login-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background-color: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  font-size: 13px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+/* Underline Input Styling (Mockup 01_LoginPage) */
+.login-input-underline {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding-bottom: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 16px;
+}
+
+.login-input-underline:focus-within {
+  border-color: #eab308;
+  box-shadow: 0 1px 0 0 #eab308;
+}
+
+.login-input-underline.has-error {
+  border-color: #ef4444;
+  box-shadow: 0 1px 0 0 #ef4444;
+}
+
+.login-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-bottom: 2px;
+}
+
+.login-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.login-input-raw {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #ffffff;
+  font-size: 14.5px;
+  font-family: var(--font-sans, "Inter", sans-serif);
+  font-weight: 400;
+  outline: none;
+}
+
+.login-input-raw::placeholder {
+  color: #64748b;
+}
+
+.login-eye-toggle-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.login-eye-toggle-btn:hover {
+  color: #ffffff;
+}
+
+/* Linha de Opções: Lembrar por 30 dias & Esqueceu a Senha */
+.login-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  margin-top: 8px;
+  margin-bottom: 20px;
+}
+
+.login-remember-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #94a3b8;
+  user-select: none;
+}
+
+.login-remember-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  accent-color: #eab308;
+  cursor: pointer;
+}
+
+.login-forgot-link {
+  color: #eab308;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.login-forgot-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  opacity: 0.9;
+}
+
+/* Botões de Ação em Pílula (Rounded Full) */
+.login-actions-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-btn-primary-pill {
+  width: 100%;
+  padding: 12px 18px;
+  background-color: #eab308;
+  color: #070a12;
+  font-family: var(--font-sans, "Plus Jakarta Sans", sans-serif);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 24px -3px rgba(234, 179, 8, 0.35);
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.login-btn-primary-pill:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow: 0 0 28px -1px rgba(234, 179, 8, 0.45);
+}
+
+.login-btn-primary-pill:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.login-btn-primary-pill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-btn-google-pill {
+  width: 100%;
+  padding: 11px 18px;
+  background-color: #131c32;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #e2e8f0;
+  font-family: var(--font-sans, "Plus Jakarta Sans", sans-serif);
+  font-weight: 500;
+  font-size: 13.5px;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.login-btn-google-pill:hover:not(:disabled) {
+  background-color: #1a2542;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.login-btn-google-pill:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.login-btn-google-pill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Rodapé de Navegação */
+.login-card-footer {
+  text-align: center;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.login-dev-link {
+  color: #64748b;
+  font-size: 11.5px;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.login-dev-link:hover {
+  color: #94a3b8;
+}
+
+/* ==========================================================================
+   Coluna Direita: Painel de Arte Vetorial & Telemetria Obsidian
+   ========================================================================== */
+.login-art-column {
+  width: 50%;
+  height: 100%;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.login-art-inner-card {
+  width: 100%;
+  height: 100%;
+  border-radius: 32px;
+  background-color: rgba(7, 10, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Halo Dourado de Iluminação Ambiente */
+.login-art-ambient-halo {
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background-color: rgba(234, 179, 8, 0.10);
+  filter: blur(48px);
+  pointer-events: none;
+}
+
+/* Imagem Vetorial Transparente com Animação Flutuante */
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.008);
+  }
+}
+
+.login-art-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 24px;
+  pointer-events: none;
+  animation: gentleFloat 6s ease-in-out infinite;
+  position: relative;
+  z-index: 10;
+}
+
+/* Floating Telemetry Badges */
+.telemetry-floating-badge {
+  position: absolute;
+  background-color: rgba(13, 20, 36, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+}
+
+.badge-top-left {
+  top: 24px;
+  left: 24px;
+}
+
+.badge-top-right {
+  top: 24px;
+  right: 24px;
+}
+
+.badge-bottom-center {
+  bottom: 24px;
+  border-color: rgba(234, 179, 8, 0.3);
+}
+
+.badge-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.badge-pulse-dot::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  background-color: inherit;
+  opacity: 0.4;
+  animation: pulseBeacon 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseBeacon {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+.dot-healthy {
+  background-color: #10b981;
+}
+
+.dot-k8s {
+  background-color: #38bdf8;
+}
+
+.dot-gold {
+  background-color: #eab308;
+}
+
+.badge-label {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 11px;
+  font-weight: 600;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+.badge-value-healthy {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 11px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.badge-value-k8s {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.badge-value-gold {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 11px;
+  font-weight: 600;
+  color: #facc15;
+}
+
+/* ==========================================================================
+   Responsividade: Telas Móveis e Tablets
+   ========================================================================== */
+@media (max-width: 840px) {
+  .login-auth-card {
+    max-width: 460px;
+    height: auto;
+    min-height: auto;
+    border-radius: 32px;
+    flex-direction: column;
+  }
+
+  .login-form-column {
+    width: 100%;
+    padding: 36px 28px;
+  }
+
+  .login-art-column {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-auth-card {
+    border-radius: 24px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+  }
+
+  .login-form-column {
+    padding: 28px 20px;
+  }
+
+  .login-heading-title {
+    font-size: 23px;
+  }
+}
