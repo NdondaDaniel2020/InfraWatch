@@ -1,9 +1,15 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { authApi } from "../../services/authApi";
-import { Button } from "../../components/ui/Button";
-import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/Card";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
 
 export const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -36,7 +42,9 @@ export const ResetPasswordPage: React.FC = () => {
     }
 
     if (!isLengthValid || !hasLetter || !hasNumber) {
-      setErrorMessage("A senha deve conter no mínimo 8 caracteres, com letras e números.");
+      setErrorMessage(
+        "A senha deve conter no mínimo 8 caracteres, com letras e números."
+      );
       return;
     }
 
@@ -56,313 +64,202 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <main
+    <div
       data-testid="reset-password-page"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-obsidian-950 text-slate-100 select-none relative overflow-hidden"
       style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px 16px",
-        backgroundColor: "var(--color-bg-deep)",
+        backgroundImage:
+          "radial-gradient(circle at 50% 20%, rgba(234, 179, 8, 0.05) 0%, transparent 65%)",
       }}
     >
-      <Card
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          backgroundColor: "var(--color-surface-card)",
-          border: "var(--border-subtle)",
-          boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
-        }}
-      >
-        <CardHeader
-          style={{
-            textAlign: "center",
-            padding: "28px 24px 16px 24px",
-            borderBottom: "var(--border-subtle)",
-          }}
-        >
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "48px",
-              height: "48px",
-              borderRadius: "var(--radius-md)",
-              backgroundColor: "rgba(16, 185, 129, 0.1)",
-              border: "1px solid var(--color-border-focus)",
-              color: "var(--color-healthy)",
-              margin: "0 auto 12px auto",
-            }}
-          >
-            <ShieldCheck size={26} />
+      <main className="w-full max-w-[440px] bg-obsidian-900/95 rounded-[32px] sm:rounded-[36px] shadow-card-glass border border-white/10 p-7 sm:p-9 flex flex-col items-center text-center relative backdrop-blur-xl">
+        {/* 1. Logotipo Oficial */}
+        <header className="flex items-center justify-center gap-2.5 mb-5">
+          <div className="w-8 h-8 rounded-xl bg-obsidian-950/80 border border-white/10 flex items-center justify-center p-1.5 shadow-sm">
+            <svg className="w-full h-full shrink-0" viewBox="0 0 24 24" fill="none">
+              <polygon
+                points="12,3 20,7.5 12,12 4,7.5"
+                fill="#ffffff"
+                stroke="#111827"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+              <polygon
+                points="4,7.5 12,12 12,21 4,16.5"
+                fill="#eab308"
+                stroke="#ca8a04"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+              <polygon
+                points="12,12 20,7.5 20,16.5 12,21"
+                fill="#111827"
+                stroke="#374151"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+            </svg>
           </div>
-          <h1
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: 700,
-              color: "var(--color-text-primary)",
-              letterSpacing: "-0.02em",
-              margin: 0,
-            }}
-          >
-            Criar Nova Senha
-          </h1>
-          <p
-            style={{
-              fontSize: "0.8125rem",
-              color: "var(--color-text-secondary)",
-              margin: "6px 0 0 0",
-            }}
-          >
-            Escolha uma senha forte para proteger sua conta
-          </p>
-        </CardHeader>
+          <span className="font-display font-bold text-[20px] tracking-tight text-white">
+            InfraWatch
+          </span>
+        </header>
 
-        <CardContent style={{ padding: "24px" }}>
-          {isSuccess ? (
-            <div style={{ textAlign: "center", padding: "12px 0" }}>
-              <div
-                style={{
-                  display: "inline-flex",
-                  padding: "12px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(16, 185, 129, 0.1)",
-                  color: "var(--color-healthy)",
-                  marginBottom: "16px",
-                }}
-              >
-                <CheckCircle2 size={36} />
-              </div>
-              <h2
-                style={{
-                  fontSize: "1.125rem",
-                  color: "var(--color-text-primary)",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                }}
-              >
-                Senha Alterada com Sucesso!
-              </h2>
-              <p
-                style={{
-                  fontSize: "0.8125rem",
-                  color: "var(--color-text-secondary)",
-                  marginBottom: "24px",
-                }}
-              >
-                Sua credencial foi atualizada. Você já pode fazer login no Cockpit com a nova senha.
-              </p>
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                onClick={() => navigate("/login")}
-              >
-                Ir para o Login
-              </Button>
+        {/* 2. Ícone & Título */}
+        <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-glow-brand mb-4">
+          <ShieldCheck size={26} />
+        </div>
+
+        <h1 className="text-[22px] sm:text-[24px] font-bold font-display tracking-tight text-white leading-snug">
+          Criar Nova Senha
+        </h1>
+        <p className="text-[12.5px] sm:text-[13px] text-slate-400 font-normal mt-1 mb-6 leading-relaxed max-w-[320px]">
+          Defina uma nova credencial robusta para restabelecer o acesso ao Cockpit NOC
+        </p>
+
+        {isSuccess ? (
+          <div className="w-full text-center py-3">
+            <div className="inline-flex p-3 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-4">
+              <CheckCircle2 size={36} />
             </div>
-          ) : (
-            <>
-              {errorMessage && (
-                <div
-                  role="alert"
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "10px",
-                    padding: "12px",
-                    borderRadius: "var(--radius-sm)",
-                    backgroundColor: "var(--color-critical-bg)",
-                    border: "1px solid var(--color-critical-border)",
-                    color: "var(--color-critical)",
-                    fontSize: "0.8125rem",
-                    marginBottom: "16px",
-                  }}
+            <h2 className="text-[17px] font-bold text-white mb-2">
+              Senha Alterada com Sucesso!
+            </h2>
+            <p className="text-[12.5px] text-slate-400 mb-6 leading-relaxed">
+              Sua credencial foi atualizada. Você já pode fazer login no Cockpit
+              com a nova senha.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="w-full py-3 px-4 bg-amber-400 hover:bg-amber-300 active:scale-[0.99] text-slate-950 font-bold text-[14px] rounded-full shadow-glow-brand transition-all duration-150 cursor-pointer"
+            >
+              Ir para o Login
+            </button>
+          </div>
+        ) : (
+          <>
+            {errorMessage && (
+              <div
+                role="alert"
+                className="w-full flex items-start gap-2.5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[12.5px] mb-5 text-left"
+              >
+                <AlertTriangle size={18} className="shrink-0 mt-0.5 text-rose-400" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} noValidate className="w-full space-y-4">
+              {/* Nova Senha */}
+              <div className="text-left space-y-1.5">
+                <label
+                  htmlFor="reset-new-password"
+                  className="block text-[12px] font-medium text-slate-300"
                 >
-                  <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
-                  <span>{errorMessage}</span>
+                  Nova Senha
+                </label>
+                <div className="relative flex items-center">
+                  <Lock
+                    size={16}
+                    className="absolute left-3.5 text-slate-400 pointer-events-none"
+                  />
+                  <input
+                    id="reset-new-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    required
+                    placeholder="Mínimo 8 caracteres"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-obsidian-950 border border-white/10 rounded-xl pl-10 pr-10 py-2.5 text-[13.5px] text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all duration-150"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 text-slate-400 hover:text-white p-1 transition-colors cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
-              )}
+              </div>
 
-              <form onSubmit={handleSubmit} noValidate>
-                {/* Nova Senha */}
-                <div style={{ marginBottom: "16px" }}>
-                  <label
-                    htmlFor="reset-new-password"
-                    style={{
-                      display: "block",
-                      fontSize: "0.8125rem",
-                      fontWeight: 600,
-                      color: "var(--color-text-primary)",
-                      marginBottom: "6px",
-                    }}
-                  >
-                    Nova Senha
-                  </label>
-                  <div
-                    style={{
-                      position: "relative",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Lock
-                      size={16}
-                      style={{
-                        position: "absolute",
-                        left: "12px",
-                        color: "var(--color-text-muted)",
-                        pointerEvents: "none",
-                      }}
-                    />
-                    <input
-                      id="reset-new-password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="new-password"
-                      required
-                      placeholder="Mínimo 8 caracteres"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px 38px 10px 38px",
-                        borderRadius: "var(--radius-sm)",
-                        border: "var(--border-subtle)",
-                        backgroundColor: "var(--color-bg-deep)",
-                        color: "var(--color-text-primary)",
-                        fontSize: "0.875rem",
-                        outline: "none",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
-                      onClick={() => setShowPassword(!showPassword)}
-                      style={{
-                        position: "absolute",
-                        right: "10px",
-                        background: "none",
-                        border: "none",
-                        color: "var(--color-text-muted)",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "4px",
-                      }}
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Confirmação de Senha */}
-                <div style={{ marginBottom: "20px" }}>
-                  <label
-                    htmlFor="reset-confirm-password"
-                    style={{
-                      display: "block",
-                      fontSize: "0.8125rem",
-                      fontWeight: 600,
-                      color: "var(--color-text-primary)",
-                      marginBottom: "6px",
-                    }}
-                  >
-                    Confirmar Nova Senha
-                  </label>
+              {/* Confirmar Nova Senha */}
+              <div className="text-left space-y-1.5">
+                <label
+                  htmlFor="reset-confirm-password"
+                  className="block text-[12px] font-medium text-slate-300"
+                >
+                  Confirmar Nova Senha
+                </label>
+                <div className="relative flex items-center">
+                  <Lock
+                    size={16}
+                    className="absolute left-3.5 text-slate-400 pointer-events-none"
+                  />
                   <input
                     id="reset-confirm-password"
                     name="confirmPassword"
                     type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
                     required
-                    placeholder="Repita a senha"
+                    placeholder="Repita a nova senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: "var(--radius-sm)",
-                      border: "var(--border-subtle)",
-                      backgroundColor: "var(--color-bg-deep)",
-                      color: "var(--color-text-primary)",
-                      fontSize: "0.875rem",
-                      outline: "none",
-                    }}
+                    className="w-full bg-obsidian-950 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-[13.5px] text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all duration-150"
                   />
                 </div>
+              </div>
 
-                {/* Requisitos de Segurança */}
+              {/* Checklist de Complexidade */}
+              <div className="p-3 bg-obsidian-950/80 border border-white/5 rounded-xl text-left text-[11.5px] font-mono space-y-1">
                 <div
-                  style={{
-                    backgroundColor: "var(--color-bg-deep)",
-                    padding: "12px",
-                    borderRadius: "var(--radius-sm)",
-                    marginBottom: "20px",
-                    fontSize: "0.75rem",
-                    color: "var(--color-text-secondary)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "4px",
-                  }}
+                  className={`flex items-center gap-1.5 ${
+                    isLengthValid ? "text-emerald-400" : "text-slate-500"
+                  }`}
                 >
-                  <span
-                    style={{
-                      color: isLengthValid ? "var(--color-healthy)" : "var(--color-text-muted)",
-                    }}
-                  >
-                    • Pelo menos 8 caracteres
-                  </span>
-                  <span
-                    style={{
-                      color: hasLetter && hasNumber ? "var(--color-healthy)" : "var(--color-text-muted)",
-                    }}
-                  >
-                    • Letras e números combinados
-                  </span>
+                  <span>{isLengthValid ? "✓" : "•"}</span>
+                  <span>Mínimo de 8 caracteres</span>
                 </div>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  isLoading={isSubmitting}
-                  disabled={isSubmitting || !password || !confirmPassword}
+                <div
+                  className={`flex items-center gap-1.5 ${
+                    hasLetter && hasNumber ? "text-emerald-400" : "text-slate-500"
+                  }`}
                 >
-                  Atualizar Senha
-                </Button>
-              </form>
-            </>
-          )}
-        </CardContent>
+                  <span>{hasLetter && hasNumber ? "✓" : "•"}</span>
+                  <span>Combinação de letras e números</span>
+                </div>
+              </div>
 
-        <CardFooter
-          style={{
-            padding: "16px 24px",
-            borderTop: "var(--border-subtle)",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <Link
-            to="/login"
-            style={{
-              color: "var(--color-text-muted)",
-              fontSize: "0.8125rem",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              textDecoration: "none",
-            }}
-          >
-            <ArrowLeft size={14} /> Voltar para o Login
-          </Link>
-        </CardFooter>
-      </Card>
-    </main>
+              <button
+                type="submit"
+                disabled={isSubmitting || !password || !confirmPassword}
+                className="w-full py-3 px-4 bg-amber-400 hover:bg-amber-300 active:scale-[0.99] text-slate-950 font-bold text-[14px] rounded-full shadow-glow-brand transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span>
+                  {isSubmitting ? "Atualizando credencial..." : "Atualizar Senha"}
+                </span>
+              </button>
+
+              <div className="pt-3 border-t border-white/10 flex justify-center">
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <ArrowLeft size={15} />
+                  <span>Voltar para o Login</span>
+                </Link>
+              </div>
+            </form>
+          </>
+        )}
+      </main>
+
+      <footer className="mt-6 flex items-center justify-center gap-2 text-[11.5px] font-mono text-slate-500">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        <span>InfraWatch Identity &amp; Access Management</span>
+      </footer>
+    </div>
   );
 };
