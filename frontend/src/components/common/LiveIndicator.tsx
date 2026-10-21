@@ -18,6 +18,53 @@ export interface LiveIndicatorProps {
   className?: string;
 }
 
+interface LiveStatusVisual {
+  getLabel: (retryCount?: number) => string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  getAriaLabel: (retryCount?: number) => string;
+  renderIcon: () => React.ReactNode;
+}
+
+/**
+ * Mapeamento declarativo dos estados de conexão SSE (State-Driven Component Pattern).
+ */
+const LIVE_STATUS_CONFIGS: Record<SSEConnectionStatus, LiveStatusVisual> = {
+  connected: {
+    getLabel: () => "Ao Vivo",
+    color: "var(--color-healthy)",
+    bgColor: "rgba(16, 185, 129, 0.12)",
+    borderColor: "rgba(16, 185, 129, 0.3)",
+    getAriaLabel: () => "Conexão de telemetria em tempo real ativa",
+    renderIcon: () => <Wifi size={14} className="pulse-indicator" />,
+  },
+  reconnecting: {
+    getLabel: (retryCount = 0) => (retryCount > 0 ? `Reconectando... (#${retryCount})` : "Reconectando..."),
+    color: "var(--color-degraded)",
+    bgColor: "rgba(245, 158, 11, 0.12)",
+    borderColor: "rgba(245, 158, 11, 0.3)",
+    getAriaLabel: (retryCount = 0) => `Conexão instável, tentando reconectar tentativa ${retryCount}`,
+    renderIcon: () => <RefreshCw size={14} className="pulse-indicator" style={{ animation: "spin 2s linear infinite" }} />,
+  },
+  connecting: {
+    getLabel: () => "Conectando...",
+    color: "var(--color-maintenance)",
+    bgColor: "rgba(59, 130, 246, 0.12)",
+    borderColor: "rgba(59, 130, 246, 0.3)",
+    getAriaLabel: () => "Iniciando conexão de telemetria",
+    renderIcon: () => <RefreshCw size={14} style={{ animation: "spin 3s linear infinite" }} />,
+  },
+  disconnected: {
+    getLabel: () => "Desconectado",
+    color: "var(--color-critical)",
+    bgColor: "rgba(239, 68, 68, 0.12)",
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    getAriaLabel: () => "Conexão de telemetria encerrada ou offline",
+    renderIcon: () => <WifiOff size={14} />,
+  },
+};
+
 export const LiveIndicator: React.FC<LiveIndicatorProps> = ({
   status: propStatus,
   retryCount: propRetryCount,
@@ -39,49 +86,7 @@ export const LiveIndicator: React.FC<LiveIndicatorProps> = ({
   const lastHeartbeatAt = propLastHeartbeatAt ?? contextValue?.lastHeartbeatAt ?? null;
   const handleReconnect = propOnReconnect ?? contextValue?.reconnect;
 
-  const getStatusConfig = () => {
-    switch (status) {
-      case "connected":
-        return {
-          label: "Ao Vivo",
-          color: "var(--color-healthy)",
-          bgColor: "rgba(16, 185, 129, 0.12)",
-          borderColor: "rgba(16, 185, 129, 0.3)",
-          icon: <Wifi size={14} className="pulse-indicator" />,
-          ariaLabel: "Conexão de telemetria em tempo real ativa",
-        };
-      case "reconnecting":
-        return {
-          label: retryCount > 0 ? `Reconectando... (#${retryCount})` : "Reconectando...",
-          color: "var(--color-degraded)",
-          bgColor: "rgba(245, 158, 11, 0.12)",
-          borderColor: "rgba(245, 158, 11, 0.3)",
-          icon: <RefreshCw size={14} className="pulse-indicator" style={{ animation: "spin 2s linear infinite" }} />,
-          ariaLabel: `Conexão instável, tentando reconectar tentativa ${retryCount}`,
-        };
-      case "connecting":
-        return {
-          label: "Conectando...",
-          color: "var(--color-maintenance)",
-          bgColor: "rgba(59, 130, 246, 0.12)",
-          borderColor: "rgba(59, 130, 246, 0.3)",
-          icon: <RefreshCw size={14} style={{ animation: "spin 3s linear infinite" }} />,
-          ariaLabel: "Iniciando conexão de telemetria",
-        };
-      case "disconnected":
-      default:
-        return {
-          label: "Desconectado",
-          color: "var(--color-critical)",
-          bgColor: "rgba(239, 68, 68, 0.12)",
-          borderColor: "rgba(239, 68, 68, 0.3)",
-          icon: <WifiOff size={14} />,
-          ariaLabel: "Conexão de telemetria encerrada ou offline",
-        };
-    }
-  };
-
-  const config = getStatusConfig();
+  const config = LIVE_STATUS_CONFIGS[status] || LIVE_STATUS_CONFIGS.disconnected;
 
   const formatHeartbeatTime = (date: Date | null) => {
     if (!date) return "--:--:--";
@@ -96,7 +101,7 @@ export const LiveIndicator: React.FC<LiveIndicatorProps> = ({
     <div
       role="status"
       aria-live="polite"
-      aria-label={config.ariaLabel}
+      aria-label={config.getAriaLabel(retryCount)}
       className={`live-indicator-container ${className}`}
       style={{
         display: "inline-flex",
@@ -127,11 +132,11 @@ export const LiveIndicator: React.FC<LiveIndicatorProps> = ({
           color: config.color,
         }}
       >
-        {config.icon}
+        {config.renderIcon()}
       </div>
 
       {/* Rótulo de Status */}
-      <span style={{ letterSpacing: "0.02em" }}>{config.label}</span>
+      <span style={{ letterSpacing: "0.02em" }}>{config.getLabel(retryCount)}</span>
 
       {/* Timestamp do último heartbeat */}
       {showHeartbeat && lastHeartbeatAt && status === "connected" && (

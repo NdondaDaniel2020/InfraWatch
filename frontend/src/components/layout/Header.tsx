@@ -3,13 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { LogOut, Menu, Search, Tv } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
-export interface StatusTickerData {
-  total?: number;
-  up?: number;
-  degraded?: number;
-  down?: number;
-  maintenance?: number;
-}
+import type { StatusTickerData } from "../../types/telemetry";
+
+export type { StatusTickerData };
 
 export interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -74,25 +70,18 @@ export const Header: React.FC<HeaderProps> = ({
 
         <Link
           to="/"
-          className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-lg no-underline"
+          className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-lg no-underline"
         >
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center relative group-hover:border-emerald-500/50 transition-colors">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping absolute opacity-75" />
+          <div className="w-8 h-8 rounded-xl bg-obsidian-900 border border-obsidian-800 flex items-center justify-center p-1.5 shadow-sm group-hover:border-obsidian-700 transition-colors">
+            <svg className="w-full h-full shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <polygon points="12,3 20,7.5 12,12 4,7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.8" strokeLinejoin="round" />
+              <polygon points="4,7.5 12,12 12,21 4,16.5" fill="var(--brand-primary, #eab308)" stroke="#ca8a04" strokeWidth="1.8" strokeLinejoin="round" />
+              <polygon points="12,12 20,7.5 20,16.5 12,21" fill="#111827" stroke="#374151" strokeWidth="1.8" strokeLinejoin="round" />
+            </svg>
           </div>
-          <div className="flex flex-col text-left">
-            <div className="flex items-center gap-2">
-              <span className="font-display font-bold text-base tracking-tight text-white group-hover:text-emerald-400 transition-colors">
-                InfraWatch
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold bg-obsidian-850 text-emerald-400 border border-emerald-500/30">
-                NOC
-              </span>
-            </div>
-            <span className="text-[11px] font-mono text-slate-400 leading-tight">
-              Telemetria de Redes &amp; Ativos
-            </span>
-          </div>
+          <span className="font-display font-bold text-lg tracking-tight text-white group-hover:text-amber-400 transition-colors">
+            InfraWatch
+          </span>
         </Link>
       </div>
 

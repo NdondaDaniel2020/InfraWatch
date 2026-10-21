@@ -30,6 +30,7 @@ import { NocTrafficChart24h } from "../../components/telemetry/NocTrafficChart24
 import { NocIncidentsFeed } from "../../components/telemetry/NocIncidentsFeed";
 import { EmergencyDrainModal } from "../../components/telemetry/EmergencyDrainModal";
 import { NocStateOverlay } from "../../components/telemetry/NocStateOverlay";
+import { ToastNotification, type ToastMessage } from "../../components/common";
 import { INITIAL_MOCK_DEVICES } from "../../mocks/nocMocks";
 
 // Singleton resiliente para TanStack Query sem context provider
@@ -53,10 +54,10 @@ export const NocDashboardPage: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isDrainModalOpen, setIsDrainModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "warning" | "info" } | null>(null);
+  const [toastMessage, setToastMessage] = useState<ToastMessage | null>(null);
 
   // Exibe toast temporário
-  const showToast = useCallback((text: string, type: "success" | "warning" | "info" = "success") => {
+  const showToast = useCallback((text: string, type: ToastMessage["type"] = "success") => {
     setToastMessage({ text, type });
     setTimeout(() => {
       setToastMessage(null);
@@ -167,34 +168,7 @@ export const NocDashboardPage: React.FC = () => {
       className="flex flex-col w-full min-h-[calc(100vh-3.5rem)] relative text-slate-100 bg-obsidian-950 pb-16"
     >
       {/* Toast Feedback Notification */}
-      {toastMessage && (
-        <aside
-          data-testid="toast-notification"
-          aria-live="polite"
-          className="fixed top-20 right-6 z-[9999] px-4 py-3 rounded-xl bg-obsidian-900/95 border shadow-2xl text-xs font-mono text-white flex items-center gap-2.5 backdrop-blur-md transition-all"
-          style={{
-            borderColor:
-              toastMessage.type === "warning"
-                ? "rgba(245, 158, 11, 0.5)"
-                : toastMessage.type === "info"
-                  ? "rgba(56, 189, 248, 0.5)"
-                  : "rgba(16, 185, 129, 0.5)",
-          }}
-        >
-          <span
-            className="w-2 h-2 rounded-full"
-            style={{
-              backgroundColor:
-                toastMessage.type === "warning"
-                  ? "#f59e0b"
-                  : toastMessage.type === "info"
-                    ? "#38bdf8"
-                    : "#10b981",
-            }}
-          />
-          <span>{toastMessage.text}</span>
-        </aside>
-      )}
+      <ToastNotification message={toastMessage} />
 
       {/* ===================================================================== */}
       {/* 1. SUB-HEADER TOOLBAR (Filtros, Tenant, Estados & Varredura)          */}
@@ -204,75 +178,69 @@ export const NocDashboardPage: React.FC = () => {
         aria-label="Filtros e Controles de Telemetria"
         className="w-full px-4 sm:px-6 py-1.5 sm:py-2 bg-obsidian-900 border-b border-obsidian-800/80 flex flex-wrap items-center justify-between gap-3 relative z-10"
       >
-        {/* Grupo de Filtros por Severidade */}
+        {/* Grupo de Filtros por Severidade (Data-Driven Toolbar) */}
         <div
           role="group"
           aria-label="Filtrar por estado operacional"
           className="flex items-center flex-wrap gap-1.5"
         >
-          <button
-            type="button"
-            data-testid="filter-all-btn"
-            onClick={() => setSeverityFilter("all")}
-            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${severityFilter === "all"
-                ? "bg-obsidian-800 text-white border-obsidian-700"
-                : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
-              }`}
-            aria-pressed={severityFilter === "all"}
-          >
-            <span>Todos</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 font-mono text-[10px] tabular-nums">
-              {stats.total}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="filter-critical-btn"
-            onClick={() => setSeverityFilter("critical")}
-            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${severityFilter === "critical"
-                ? "bg-rose-500/20 text-rose-400 border-rose-500/40 font-bold"
-                : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
-              }`}
-            aria-pressed={severityFilter === "critical"}
-          >
-            <span>Críticos</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-mono text-[10px] font-bold tabular-nums">
-              {stats.down}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="filter-degraded-btn"
-            onClick={() => setSeverityFilter("degraded")}
-            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${severityFilter === "degraded"
-                ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-bold"
-                : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
-              }`}
-            aria-pressed={severityFilter === "degraded"}
-          >
-            <span>Degradados</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono text-[10px] font-bold tabular-nums">
-              {stats.deg}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="filter-healthy-btn"
-            onClick={() => setSeverityFilter("healthy")}
-            className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${severityFilter === "healthy"
-                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-bold"
-                : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
-              }`}
-            aria-pressed={severityFilter === "healthy"}
-          >
-            <span>Operacionais</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold tabular-nums">
-              {stats.up}
-            </span>
-          </button>
+          {[
+            {
+              key: "all" as const,
+              testId: "filter-all-btn",
+              label: "Todos",
+              count: stats.total,
+              activeClass: "bg-obsidian-800 text-white border-obsidian-700",
+              badgeClass: "bg-slate-700 text-slate-300",
+            },
+            {
+              key: "critical" as const,
+              testId: "filter-critical-btn",
+              label: "Críticos",
+              count: stats.down,
+              activeClass: "bg-rose-500/20 text-rose-400 border-rose-500/40 font-bold",
+              badgeClass: "bg-rose-500/20 text-rose-400 font-bold",
+            },
+            {
+              key: "degraded" as const,
+              testId: "filter-degraded-btn",
+              label: "Degradados",
+              count: stats.deg,
+              activeClass: "bg-amber-500/20 text-amber-400 border-amber-500/40 font-bold",
+              badgeClass: "bg-amber-500/20 text-amber-400 font-bold",
+            },
+            {
+              key: "healthy" as const,
+              testId: "filter-healthy-btn",
+              label: "Operacionais",
+              count: stats.up,
+              activeClass: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-bold",
+              badgeClass: "bg-emerald-500/20 text-emerald-400 font-bold",
+            },
+          ].map((opt) => {
+            const isActive = severityFilter === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                data-testid={opt.testId}
+                onClick={() => setSeverityFilter(opt.key)}
+                className={`filter-btn flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+                  isActive
+                    ? opt.activeClass
+                    : "bg-obsidian-900 hover:bg-obsidian-850 text-slate-300 hover:text-white border-obsidian-800"
+                }`}
+                aria-pressed={isActive}
+              >
+                <span>{opt.label}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full font-mono text-[10px] tabular-nums ${opt.badgeClass}`}
+                >
+                  {opt.count}
+                </span>
+              </button>
+            );
+          })}
 
           <span className="h-4 w-px bg-obsidian-800 mx-1 hidden sm:block" />
 
@@ -498,18 +466,6 @@ export const NocDashboardPage: React.FC = () => {
       {/* ===================================================================== */}
       <footer className="w-full px-6 py-2.5 bg-obsidian-950 border-t border-obsidian-800 flex flex-wrap items-center justify-between text-xs font-mono fixed bottom-0 left-0 lg:left-60 right-0 z-20">
         <div className="flex items-center gap-6 text-slate-400">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true" />
-            <span>Ingestão: <strong className="text-white tabular-nums">42.1k msgs/s</strong></span>
-          </div>
-          <span className="h-3 w-px bg-obsidian-800 hidden sm:inline" aria-hidden="true" />
-          <div className="hidden sm:block">
-            <span>Latência Ingestão: <strong className="text-emerald-400 font-bold tabular-nums">2.1ms</strong></span>
-          </div>
-          <span className="h-3 w-px bg-obsidian-800 hidden md:inline" aria-hidden="true" />
-          <div className="hidden md:block">
-            <span>Nó Primário: <span className="text-slate-300">noc-luanda-core-gw01</span></span>
-          </div>
         </div>
 
         <div className="flex items-center gap-4">
