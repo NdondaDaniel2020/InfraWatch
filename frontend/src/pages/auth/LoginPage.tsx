@@ -8,7 +8,6 @@ import { authApi } from "../../services/authApi";
 import { AlertTriangle, ArrowRight, CheckCircle2, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import { LoginTestPage } from "./LoginTestPage";
 import vectorArt from "../../assets/images/infrawatch_vector_transparent.png";
-import "./LoginPage.css";
 
 const loginSchema = z.object({
   email: z
@@ -31,7 +30,7 @@ export const LoginPage: React.FC = () => {
   const from =
     (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
-  // Estado do Modo de Exibição (Login | Cadastro | Recuperação de Senha)
+  // Modo Interativo (login | signup | forgot) sincronizado com o hash da URL
   const [mode, setMode] = useState<AuthMode>(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#signup") return "signup";
@@ -44,24 +43,23 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
 
-  // Estados de Formulário e Erros
+  // Estados de Formulário
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
-  // Estados de Cadastro (Sign Up)
+  // Estados de Cadastro
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupFeedback, setSignupFeedback] = useState<string | null>(null);
 
-  // Estados de Recuperação (Forgot Password)
+  // Estados de Recuperação de Senha
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
-  // Sincronização com o Hash da URL
   useEffect(() => {
     const handleHashChange = () => {
       if (window.location.hash === "#signup") {
@@ -87,7 +85,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  // Formulário Oficial de Login
   const {
     register,
     handleSubmit,
@@ -142,7 +139,7 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  // Avaliador de Força de Senha no Cadastro
+  // Avaliador de Força de Senha
   const getPasswordStrength = (val: string) => {
     let score = 0;
     if (val.length >= 8) score++;
@@ -150,11 +147,11 @@ export const LoginPage: React.FC = () => {
     if (/[0-9]/.test(val)) score++;
     if (/[^A-Za-z0-9]/.test(val)) score++;
 
-    if (val.length === 0) return { score: 0, label: "8+ caracteres", colorClass: "" };
-    if (score <= 1) return { score: 1, label: "Fraca", colorClass: "strength-bar-rose" };
-    if (score === 2) return { score: 2, label: "Média", colorClass: "strength-bar-amber" };
-    if (score === 3) return { score: 3, label: "Forte", colorClass: "strength-bar-sky" };
-    return { score: 4, label: "Excelente", colorClass: "strength-bar-emerald" };
+    if (val.length === 0) return { score: 0, label: "8+ caracteres", color: "bg-white/10", textColor: "text-slate-500" };
+    if (score <= 1) return { score: 1, label: "Fraca", color: "bg-rose-500", textColor: "text-rose-400" };
+    if (score === 2) return { score: 2, label: "Média", color: "bg-amber-500", textColor: "text-amber-400" };
+    if (score === 3) return { score: 3, label: "Forte", color: "bg-sky-500", textColor: "text-sky-400" };
+    return { score: 4, label: "Excelente", color: "bg-emerald-500", textColor: "text-emerald-400" };
   };
 
   const strength = getPasswordStrength(signupPassword);
@@ -165,7 +162,6 @@ export const LoginPage: React.FC = () => {
       setSignupFeedback("Por favor, preencha todos os campos do formulário.");
       return;
     }
-    // Política Corporativa InfraWatch: Cadastro é restrito a convite / aprovação de Admin
     setSignupFeedback(
       "Solicitação de conta enviada ao Administrador do NOC. Em ambiente local de desenvolvimento, utilize o Seletor Rápido de Testes."
     );
@@ -183,8 +179,7 @@ export const LoginPage: React.FC = () => {
     try {
       await authApi.requestPasswordReset(forgotEmail.trim());
       setForgotSuccess(true);
-    } catch (err) {
-      // Mesmo com erro de rede ou usuário não encontrado, exibe feedback seguro
+    } catch {
       setForgotSuccess(true);
     } finally {
       setForgotLoading(false);
@@ -194,35 +189,52 @@ export const LoginPage: React.FC = () => {
   const displayError = errorMessage || errors.email?.message || errors.password?.message;
 
   return (
-    <main data-testid="login-page" className="login-page-canvas">
-      {/* Moldura Principal - Card Duplo Obsidian com Glassmorphism e Painel Deslizante */}
-      <div id="auth-card" className="login-auth-card">
-        {/* =================================================================== */}
-        {/* COLUNA ESQUERDA: FORMULÁRIO DE LOGIN                                */}
-        {/* Ativo quando mode === 'login'; Coberto pelo painel deslizante caso contrário */}
-        {/* =================================================================== */}
+    <main
+      data-testid="login-page"
+      className="min-h-screen w-screen flex items-center justify-center p-3 sm:p-6 md:p-8 select-none bg-obsidian-950 font-sans"
+    >
+      {/* ========================================================================= */}
+      {/* MOLDURA PRINCIPAL (CARD UNIFICADO COM PAINEL DESLIZANTE OBSIDIAN)          */}
+      {/* ========================================================================= */}
+      <div
+        id="auth-card"
+        className="w-full max-w-[440px] sm:max-w-[480px] md:max-w-[1012px] min-h-0 md:min-h-[660px] md:h-[710px] bg-obsidian-900/95 rounded-[28px] sm:rounded-[36px] md:rounded-[40px] shadow-card-glass border border-white/10 overflow-hidden relative flex flex-col md:flex-row backdrop-blur-xl"
+      >
+        {/* ======================================================================= */}
+        {/* COLUNA ESQUERDA: FORMULÁRIO DE LOGIN                                    */}
+        {/* ======================================================================= */}
         <section
           id="left-column-login"
-          className={`login-form-column ${mode === "login" ? "form-panel-active" : "form-panel-inactive"}`}
+          className={`w-full md:w-1/2 h-full px-7 sm:px-11 md:px-14 py-8 sm:py-10 md:py-8 flex flex-col justify-center items-center shrink-0 z-10 transition-all duration-500 ${
+            mode === "login"
+              ? "opacity-100 scale-100 pointer-events-auto"
+              : "opacity-0 scale-95 pointer-events-none max-md:hidden"
+          }`}
         >
-          <div className="login-form-container">
+          <div className="w-full max-w-[370px] mx-auto my-auto">
             {/* 1. Logotipo Oficial InfraWatch 3D */}
-            <header className="login-brand-header">
-              <div className="login-logo-cube-box">
-                <svg viewBox="0 0 24 24" fill="none" style={{ width: "100%", height: "100%" }} aria-hidden="true">
+            <header className="flex items-center justify-center gap-2.5 mb-5">
+              <div className="w-8 h-8 rounded-xl bg-obsidian-950/80 border border-white/10 flex items-center justify-center p-1.5 shadow-sm">
+                <svg className="w-full h-full shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <polygon points="12,3 20,7.5 12,12 4,7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.8" strokeLinejoin="round" />
                   <polygon points="4,7.5 12,12 12,21 4,16.5" fill="var(--brand-primary, #eab308)" stroke="#ca8a04" strokeWidth="1.8" strokeLinejoin="round" />
                   <polygon points="12,12 20,7.5 20,16.5 12,21" fill="#111827" stroke="#374151" strokeWidth="1.8" strokeLinejoin="round" />
                 </svg>
               </div>
-              <span className="login-brand-title">InfraWatch</span>
-              <span className="login-noc-badge">NOC</span>
+              <span className="font-display font-bold text-[20px] tracking-tight text-white">
+                InfraWatch
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                NOC
+              </span>
             </header>
 
             {/* 2. Cabeçalho de Boas-vindas */}
-            <div className="login-heading-section">
-              <h1 className="login-heading-title">Aceda à sua conta</h1>
-              <p className="login-heading-subtitle">
+            <div className="text-center mb-6">
+              <h1 className="text-[25px] sm:text-[27px] font-bold font-display tracking-tight text-white leading-snug">
+                Aceda à sua conta
+              </h1>
+              <p className="text-[13px] text-slate-400 font-normal mt-1">
                 Cockpit operacional de telemetria e infraestrutura.
               </p>
             </div>
@@ -233,93 +245,92 @@ export const LoginPage: React.FC = () => {
                 role="alert"
                 aria-live="polite"
                 data-testid="login-error-alert"
-                className="login-error-banner"
+                className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[13px] mb-4"
               >
-                <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
+                <AlertTriangle size={18} className="shrink-0 mt-0.5" />
                 <span>{displayError}</span>
               </div>
             )}
 
             {/* 3. Formulário de Autenticação */}
-            <form onSubmit={handleSubmit(onSubmit)} noValidate>
-              {/* Campo E-mail */}
-              <div className={`login-input-underline ${errors.email ? "has-error" : ""}`}>
-                <label htmlFor="login-email" className="login-field-label">
+            <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+              {/* Campo: Email */}
+              <div className={`border-b pb-1.5 transition-colors ${errors.email ? "border-rose-500" : "border-white/15 focus-within:border-brand"}`}>
+                <label htmlFor="login-email" className="block text-[12px] font-medium text-slate-400 mb-0.5">
                   Endereço de E-mail
                 </label>
                 <input
-                  id="login-email"
                   type="email"
+                  id="login-email"
                   autoComplete="username"
                   required
                   placeholder="operador@infrawatch.io"
-                  className="login-input-raw"
+                  className="w-full bg-transparent p-0 border-0 text-[14.5px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
                   {...register("email")}
                 />
               </div>
 
-              {/* Campo Senha com Toggle */}
-              <div className={`login-input-underline ${errors.password ? "has-error" : ""}`}>
-                <label htmlFor="login-password" className="login-field-label">
+              {/* Campo: Password com Toggle */}
+              <div className={`border-b pb-1.5 pt-1 transition-colors ${errors.password ? "border-rose-500" : "border-white/15 focus-within:border-brand"}`}>
+                <label htmlFor="login-password" className="block text-[12px] font-medium text-slate-400 mb-0.5">
                   Senha de Acesso
                 </label>
-                <div className="login-field-row">
+                <div className="flex items-center justify-between">
                   <input
-                    id="login-password"
                     type={showPassword ? "text" : "password"}
+                    id="login-password"
                     autoComplete="current-password"
                     required
                     placeholder="••••••••••••"
-                    className="login-input-raw"
+                    className="w-full bg-transparent p-0 border-0 text-[14.5px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
                     {...register("password")}
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
                     onClick={() => setShowPassword(!showPassword)}
-                    className="login-eye-toggle-btn"
+                    className="text-slate-400 hover:text-white transition-colors p-1 shrink-0 cursor-pointer"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
 
-              {/* Linha de Opções: Lembrar por 30 dias & Esqueceu a Senha */}
-              <div className="login-options-row">
-                <label className="login-remember-label">
+              {/* Linha de Opções: Lembrar por 30 dias & Recuperar Senha */}
+              <div className="flex items-center justify-between pt-1 text-[12.5px]">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="login-remember-checkbox"
+                    className="w-4 h-4 rounded-[4px] bg-obsidian-950 border-white/20 text-brand focus:ring-0 focus:ring-offset-0 cursor-pointer accent-amber-500"
                   />
-                  <span>Lembrar por 30 dias</span>
+                  <span className="text-slate-400 font-normal">Lembrar por 30 dias</span>
                 </label>
 
-                {/* Transição Deslizante para Recuperação de Senha */}
                 <button
                   type="button"
                   id="btn-goto-forgot"
                   onClick={() => switchMode("forgot")}
-                  className="login-forgot-link"
+                  className="font-semibold text-brand hover:underline underline-offset-2 transition-colors cursor-pointer"
                 >
                   Esqueceu a senha?
                 </button>
               </div>
 
               {/* Botões de Ação em Pílula */}
-              <div className="login-actions-group">
+              <div className="space-y-2.5 pt-2">
                 <button
                   type="submit"
                   aria-label="Entrar no Cockpit"
                   disabled={isSubmitting || isGoogleLoading}
-                  className="login-btn-primary-pill"
+                  className="w-full py-3 px-4 bg-brand hover:opacity-90 active:scale-[0.99] text-slate-950 font-bold text-[14px] rounded-full shadow-glow-brand transition-all duration-150 flex items-center justify-center cursor-pointer disabled:opacity-60"
                 >
                   {isSubmitting ? (
-                    <>
+                    <span className="flex items-center gap-2">
                       <Loader2 size={16} className="animate-spin" />
-                      <span>Autenticando...</span>
-                    </>
+                      Autenticando...
+                    </span>
                   ) : (
                     <span>Iniciar Sessão</span>
                   )}
@@ -329,32 +340,20 @@ export const LoginPage: React.FC = () => {
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={isSubmitting || isGoogleLoading}
-                  className="login-btn-google-pill"
+                  className="w-full py-2.5 sm:py-3 px-4 bg-obsidian-850 hover:bg-obsidian-800 border border-white/10 active:scale-[0.99] text-slate-200 font-medium text-[13.5px] rounded-full transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-sm disabled:opacity-60"
                 >
                   {isGoogleLoading ? (
-                    <>
+                    <span className="flex items-center gap-2">
                       <Loader2 size={16} className="animate-spin" />
-                      <span>Conectando Google...</span>
-                    </>
+                      Conectando Google...
+                    </span>
                   ) : (
                     <>
-                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                          fill="#4285F4"
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                        />
+                      <svg className="w-[18px] h-[18px] shrink-0" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                       </svg>
                       <span>Continuar com Google Workspace</span>
                     </>
@@ -362,21 +361,21 @@ export const LoginPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Rodapé: Transição para Cadastro e Seletor de Testes */}
-              <div className="login-card-footer">
+              {/* Rodapé: Alternar para Cadastro & Link Dev */}
+              <div className="text-center pt-2.5 space-y-1.5">
                 <div>
-                  <span style={{ color: "#94a3b8" }}>Não tem uma conta? </span>
+                  <span className="text-[12.5px] text-slate-400 font-normal">Não tem uma conta?</span>
                   <button
                     type="button"
                     id="btn-goto-signup"
                     onClick={() => switchMode("signup")}
-                    className="login-inline-btn"
+                    className="text-[12.5px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
                   >
                     Criar conta
                   </button>
                 </div>
                 <div>
-                  <Link to="/login-test" className="login-dev-link">
+                  <Link to="/login-test" className="text-[11.5px] text-slate-500 hover:text-slate-400 underline transition-colors">
                     Seletor Rápido (Dev / Testes)
                   </Link>
                 </div>
@@ -385,52 +384,54 @@ export const LoginPage: React.FC = () => {
           </div>
         </section>
 
-        {/* =================================================================== */}
-        {/* COLUNA DIREITA: FORMULÁRIOS INVERSOS (SIGN UP & FORGOT PASSWORD)    */}
-        {/* Ativo quando mode === 'signup' || mode === 'forgot'                 */}
-        {/* =================================================================== */}
+        {/* ======================================================================= */}
+        {/* COLUNA DIREITA: FORMULÁRIOS INVERSOS (SIGN UP & FORGOT PASSWORD)        */}
+        {/* ======================================================================= */}
         <section
           id="right-column-container"
-          className={`login-right-column ${mode !== "login" ? "form-panel-active" : "form-panel-inactive"}`}
+          className={`w-full md:w-1/2 h-full px-7 sm:px-11 md:px-14 py-8 sm:py-10 md:py-8 flex flex-col justify-center items-center shrink-0 z-10 transition-all duration-500 ${
+            mode !== "login"
+              ? "opacity-100 scale-100 pointer-events-auto"
+              : "opacity-0 scale-95 pointer-events-none max-md:hidden"
+          }`}
         >
-          <div className="login-form-container">
-            {/* ------------------------------------------------------------- */}
-            {/* SUB-VIEW 1: FORMULÁRIO DE CADASTRO / SIGN UP                 */}
-            {/* ------------------------------------------------------------- */}
+          <div className="w-full max-w-[370px] mx-auto my-auto">
+            {/* SUB-VIEW 1: FORMULÁRIO DE CADASTRO / SIGN UP */}
             {mode === "signup" && (
-              <div id="view-signup">
-                {/* 1. Logotipo InfraWatch */}
-                <header className="login-brand-header">
-                  <div className="login-logo-cube-box">
-                    <svg viewBox="0 0 24 24" fill="none" style={{ width: "100%", height: "100%" }} aria-hidden="true">
+              <div id="view-signup" className="w-full">
+                <header className="flex items-center justify-center gap-2.5 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-obsidian-950/80 border border-white/10 flex items-center justify-center p-1.5 shadow-sm">
+                    <svg className="w-full h-full shrink-0" viewBox="0 0 24 24" fill="none">
                       <polygon points="12,3 20,7.5 12,12 4,7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.8" strokeLinejoin="round" />
                       <polygon points="4,7.5 12,12 12,21 4,16.5" fill="var(--brand-primary, #eab308)" stroke="#ca8a04" strokeWidth="1.8" strokeLinejoin="round" />
                       <polygon points="12,12 20,7.5 20,16.5 12,21" fill="#111827" stroke="#374151" strokeWidth="1.8" strokeLinejoin="round" />
                     </svg>
                   </div>
-                  <span className="login-brand-title">InfraWatch</span>
+                  <span className="font-display font-bold text-[20px] tracking-tight text-white">
+                    InfraWatch
+                  </span>
                 </header>
 
-                {/* 2. Cabeçalho Sign Up */}
-                <div className="login-heading-section">
-                  <h1 className="login-heading-title">Criar uma conta</h1>
-                  <p className="login-heading-subtitle">
+                <div className="text-center mb-5">
+                  <h1 className="text-[24px] sm:text-[26px] font-bold font-display tracking-tight text-white leading-snug">
+                    Criar uma conta
+                  </h1>
+                  <p className="text-[12.5px] text-slate-400 font-normal mt-0.5">
                     Inicie a avaliação de 14 dias sem cartão de crédito.
                   </p>
                 </div>
 
                 {signupFeedback && (
-                  <div className="login-error-banner" style={{ color: "#facc15", backgroundColor: "rgba(234, 179, 8, 0.12)", borderColor: "rgba(234, 179, 8, 0.3)" }}>
-                    <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
+                  <div className="p-3 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[12px] leading-relaxed flex items-start gap-2">
+                    <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-400" />
                     <span>{signupFeedback}</span>
                   </div>
                 )}
 
-                {/* 3. Formulário Sign Up */}
-                <form onSubmit={handleSignupSubmit}>
+                <form className="space-y-3" onSubmit={handleSignupSubmit}>
                   {/* Nome Completo */}
-                  <div className="login-input-underline">
-                    <label htmlFor="signup-name" className="login-field-label">
+                  <div className="border-b border-white/15 pb-1 focus-within:border-brand transition-colors">
+                    <label htmlFor="signup-name" className="block text-[11.5px] font-medium text-slate-400 mb-0.5">
                       Nome Completo
                     </label>
                     <input
@@ -440,14 +441,14 @@ export const LoginPage: React.FC = () => {
                       required
                       value={signupName}
                       onChange={(e) => setSignupName(e.target.value)}
-                      className="login-input-raw"
+                      className="w-full bg-transparent p-0 border-0 text-[14px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
                       placeholder="Daniel Ndonda"
                     />
                   </div>
 
                   {/* Email Corporativo */}
-                  <div className="login-input-underline">
-                    <label htmlFor="signup-email" className="login-field-label">
+                  <div className="border-b border-white/15 pb-1 focus-within:border-brand transition-colors">
+                    <label htmlFor="signup-email" className="block text-[11.5px] font-medium text-slate-400 mb-0.5">
                       Email de Trabalho
                     </label>
                     <input
@@ -457,22 +458,22 @@ export const LoginPage: React.FC = () => {
                       required
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
-                      className="login-input-raw"
+                      className="w-full bg-transparent p-0 border-0 text-[14px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
                       placeholder="operator@empresa.ao"
                     />
                   </div>
 
-                  {/* Palavra-passe com Avaliador de Força */}
-                  <div className="login-input-underline">
-                    <div className="login-field-row">
-                      <label htmlFor="signup-password" className="login-field-label">
+                  {/* Password com Avaliador de Força */}
+                  <div className="border-b border-white/15 pb-1 focus-within:border-brand transition-colors">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="signup-password" className="block text-[11.5px] font-medium text-slate-400 mb-0.5">
                         Palavra-passe
                       </label>
-                      <span style={{ fontSize: "10px", color: strength.score > 0 ? undefined : "#94a3b8" }}>
+                      <span className={`text-[10px] font-medium ${strength.textColor}`}>
                         {strength.label}
                       </span>
                     </div>
-                    <div className="login-field-row">
+                    <div className="flex items-center justify-between">
                       <input
                         type={showSignupPassword ? "text" : "password"}
                         id="signup-password"
@@ -480,107 +481,105 @@ export const LoginPage: React.FC = () => {
                         required
                         value={signupPassword}
                         onChange={(e) => setSignupPassword(e.target.value)}
-                        className="login-input-raw"
+                        className="w-full bg-transparent p-0 border-0 text-[14px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
                         placeholder="Mínimo de 8 caracteres"
                       />
                       <button
                         type="button"
                         onClick={() => setShowSignupPassword(!showSignupPassword)}
-                        className="login-eye-toggle-btn"
+                        className="text-slate-400 hover:text-white transition-colors p-1 shrink-0 cursor-pointer"
+                        title="Mostrar/Ocultar Senha"
                         aria-label="Toggle password visibility"
                       >
-                        {showSignupPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {showSignupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
-                    </div>
-
-                    {/* Barra de Força da Senha */}
-                    <div className="password-strength-container">
-                      <div className={`strength-bar ${strength.score >= 1 ? strength.colorClass : ""}`} />
-                      <div className={`strength-bar ${strength.score >= 2 ? strength.colorClass : ""}`} />
-                      <div className={`strength-bar ${strength.score >= 3 ? strength.colorClass : ""}`} />
-                      <div className={`strength-bar ${strength.score >= 4 ? strength.colorClass : ""}`} />
                     </div>
                   </div>
 
-                  {/* Botão de Cadastro */}
-                  <div style={{ marginTop: "16px" }}>
-                    <button type="submit" className="login-btn-primary-pill">
+                  {/* Barra de Força da Senha */}
+                  <div className="flex gap-1.5 h-1 w-full pt-0.5">
+                    <div className={`h-full flex-1 rounded-full transition-colors duration-300 ${strength.score >= 1 ? strength.color : "bg-white/10"}`} />
+                    <div className={`h-full flex-1 rounded-full transition-colors duration-300 ${strength.score >= 2 ? strength.color : "bg-white/10"}`} />
+                    <div className={`h-full flex-1 rounded-full transition-colors duration-300 ${strength.score >= 3 ? strength.color : "bg-white/10"}`} />
+                    <div className={`h-full flex-1 rounded-full transition-colors duration-300 ${strength.score >= 4 ? strength.color : "bg-white/10"}`} />
+                  </div>
+
+                  {/* Botão de Envio */}
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="submit"
+                      className="w-full py-3 px-4 bg-brand hover:opacity-90 active:scale-[0.99] text-slate-950 font-bold text-[13.5px] rounded-full shadow-glow-brand transition-all duration-150 flex items-center justify-center cursor-pointer"
+                    >
                       Começar Teste Grátis
                     </button>
                   </div>
 
                   {/* Voltar ao Login */}
-                  <div className="login-card-footer">
-                    <div>
-                      <span style={{ color: "#94a3b8" }}>Já tem uma conta? </span>
-                      <button
-                        type="button"
-                        id="btn-backto-login"
-                        onClick={() => switchMode("login")}
-                        className="login-inline-btn"
-                      >
-                        Iniciar sessão
-                      </button>
-                    </div>
+                  <div className="text-center pt-2">
+                    <span className="text-[12px] text-slate-400 font-normal">Já tem uma conta?</span>
+                    <button
+                      type="button"
+                      id="btn-backto-login"
+                      onClick={() => switchMode("login")}
+                      className="text-[12px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
+                    >
+                      Iniciar sessão
+                    </button>
                   </div>
                 </form>
               </div>
             )}
 
-            {/* ------------------------------------------------------------- */}
-            {/* SUB-VIEW 2: FORMULÁRIO DE RECUPERAÇÃO / FORGOT PASSWORD      */}
-            {/* ------------------------------------------------------------- */}
+            {/* SUB-VIEW 2: FORMULÁRIO DE RECUPERAÇÃO / FORGOT PASSWORD */}
             {mode === "forgot" && (
-              <div id="view-forgot">
-                {/* 1. Logotipo InfraWatch */}
-                <header className="login-brand-header">
-                  <div className="login-logo-cube-box">
-                    <svg viewBox="0 0 24 24" fill="none" style={{ width: "100%", height: "100%" }} aria-hidden="true">
+              <div id="view-forgot" className="w-full">
+                <header className="flex items-center justify-center gap-2.5 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-obsidian-950/80 border border-white/10 flex items-center justify-center p-1.5 shadow-sm">
+                    <svg className="w-full h-full shrink-0" viewBox="0 0 24 24" fill="none">
                       <polygon points="12,3 20,7.5 12,12 4,7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.8" strokeLinejoin="round" />
                       <polygon points="4,7.5 12,12 12,21 4,16.5" fill="var(--brand-primary, #eab308)" stroke="#ca8a04" strokeWidth="1.8" strokeLinejoin="round" />
                       <polygon points="12,12 20,7.5 20,16.5 12,21" fill="#111827" stroke="#374151" strokeWidth="1.8" strokeLinejoin="round" />
                     </svg>
                   </div>
-                  <span className="login-brand-title">InfraWatch</span>
+                  <span className="font-display font-bold text-[20px] tracking-tight text-white">
+                    InfraWatch
+                  </span>
                 </header>
 
-                {/* 2. Cabeçalho Forgot Password com Ícone de Chave */}
-                <div className="login-heading-section">
-                  <div className="forgot-key-icon-box">
-                    <KeyRound size={22} />
+                <div className="text-center mb-5">
+                  <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/30 mx-auto flex items-center justify-center text-brand mb-2.5 shadow-glow-brand">
+                    <KeyRound size={20} />
                   </div>
-                  <h1 className="login-heading-title" style={{ fontSize: "24px" }}>
+                  <h1 className="text-[23px] sm:text-[25px] font-bold font-display tracking-tight text-white leading-snug">
                     Recuperar palavra-passe
                   </h1>
-                  <p className="login-heading-subtitle">
+                  <p className="text-[12.5px] text-slate-400 font-normal mt-0.5 leading-relaxed max-w-[310px] mx-auto">
                     Introduza o seu email e enviaremos um link de redefinição imediato.
                   </p>
                 </div>
 
-                {/* Alerta de Sucesso após envio */}
                 {forgotSuccess && (
-                  <div id="forgot-success-alert" className="forgot-success-alert">
-                    <div className="forgot-success-title">
+                  <div id="forgot-success-alert" className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-left space-y-0.5 mb-3">
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[12.5px]">
                       <CheckCircle2 size={16} />
                       <span>Link de recuperação enviado!</span>
                     </div>
-                    <p className="forgot-success-desc">
+                    <p className="text-[11.5px] text-slate-300 leading-relaxed">
                       Enviámos as instruções para a sua caixa de correio. Por favor verifique o seu email.
                     </p>
                   </div>
                 )}
 
                 {forgotError && (
-                  <div className="login-error-banner">
+                  <div className="p-3 mb-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[12px] flex items-center gap-2">
                     <AlertTriangle size={16} />
                     <span>{forgotError}</span>
                   </div>
                 )}
 
-                {/* 3. Formulário de Recuperação */}
-                <form id="forgot-form" onSubmit={handleForgotSubmit}>
-                  <div className="login-input-underline">
-                    <label htmlFor="forgot-email" className="login-field-label">
+                <form id="forgot-form" className="space-y-3.5" onSubmit={handleForgotSubmit}>
+                  <div className="border-b border-white/15 pb-1 focus-within:border-brand transition-colors">
+                    <label htmlFor="forgot-email" className="block text-[11.5px] font-medium text-slate-400 mb-0.5">
                       Email de Trabalho
                     </label>
                     <input
@@ -590,23 +589,23 @@ export const LoginPage: React.FC = () => {
                       required
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
-                      className="login-input-raw"
+                      className="w-full bg-transparent p-0 border-0 text-[14px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
                       placeholder="operator@infrawatch.io"
                     />
                   </div>
 
-                  <div style={{ marginTop: "16px" }}>
+                  <div className="space-y-2 pt-1">
                     <button
                       type="submit"
                       id="btn-forgot-submit"
                       disabled={forgotLoading}
-                      className="login-btn-primary-pill"
+                      className="w-full py-3 px-4 bg-brand hover:opacity-90 active:scale-[0.99] text-slate-950 font-bold text-[13.5px] rounded-full shadow-glow-brand transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                     >
                       {forgotLoading ? (
-                        <>
+                        <span className="flex items-center gap-2">
                           <Loader2 size={16} className="animate-spin" />
-                          <span>A enviar instruções...</span>
-                        </>
+                          A enviar instruções...
+                        </span>
                       ) : (
                         <>
                           <span>Enviar Link de Recuperação</span>
@@ -616,24 +615,23 @@ export const LoginPage: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Rodapé: Voltar ao Login ou Ir para Cadastro */}
-                  <div className="login-card-footer" style={{ marginTop: "16px" }}>
+                  <div className="text-center pt-1.5 space-y-1">
                     <div>
-                      <span style={{ color: "#94a3b8" }}>Lembrou-se da senha? </span>
+                      <span className="text-[12px] text-slate-400 font-normal">Lembrou-se da senha?</span>
                       <button
                         type="button"
                         onClick={() => switchMode("login")}
-                        className="login-inline-btn"
+                        className="text-[12px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
                       >
                         Iniciar sessão
                       </button>
                     </div>
                     <div>
-                      <span style={{ color: "#94a3b8" }}>Não tem uma conta? </span>
+                      <span className="text-[12px] text-slate-400 font-normal">Não tem uma conta?</span>
                       <button
                         type="button"
                         onClick={() => switchMode("signup")}
-                        className="login-inline-btn"
+                        className="text-[12px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
                       >
                         Criar conta
                       </button>
@@ -645,45 +643,44 @@ export const LoginPage: React.FC = () => {
           </div>
         </section>
 
-        {/* =================================================================== */}
-        {/* PAINEL DESLIZANTE DE ARTE VETORIAL & TELEMETRIA (SLIDING OVERLAY)   */}
-        {/* Posição Direita em Login (translateX 100%); Esquerda em Signup/Forgot (0%) */}
-        {/* =================================================================== */}
+        {/* ======================================================================= */}
+        {/* PAINEL DESLIZANTE DA IMAGEM VETORIAL (SLIDING OVERLAY EM OBSIDIAN DARK) */}
+        {/* ======================================================================= */}
         <div
           id="sliding-art-panel"
-          className={`sliding-art-panel ${mode === "login" ? "slide-right" : "slide-left"}`}
-          aria-hidden="true"
+          className={`hidden md:flex absolute top-0 bottom-0 left-0 w-1/2 p-3.5 sm:p-5 md:p-6 z-20 pointer-events-none transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+            mode === "login" ? "translate-x-full" : "translate-x-0"
+          }`}
         >
-          <div className="login-art-inner-card">
-            {/* Halo Dourado de Iluminação Ambiente */}
-            <div className="login-art-ambient-halo" />
+          <div className="w-full h-full rounded-[24px] sm:rounded-[28px] md:rounded-[32px] overflow-hidden relative flex items-center justify-center bg-obsidian-950/85 shadow-inner border border-white/10 pointer-events-auto">
+            {/* Halo sutil de iluminação ambiente dourada atrás dos servidores */}
+            <div className="absolute w-56 h-56 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
-            {/* Badges Flutuantes de Telemetria Ativa */}
-            <div className="telemetry-floating-badge badge-top-left">
-              <span className="badge-pulse-dot dot-healthy" />
-              <span className="badge-label">LUANDA-CORE-01</span>
-              <span className="badge-value-healthy">• 1.2ms</span>
+            {/* Badges Flutuantes de Telemetria */}
+            <div className="absolute top-6 left-6 px-3.5 py-1.5 rounded-full bg-obsidian-900/90 border border-white/10 backdrop-blur-md flex items-center gap-2 shadow-lg">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-mono text-[11px] font-semibold text-slate-100">LUANDA-CORE-01</span>
+              <span className="font-mono text-[11px] font-semibold text-emerald-400">• 1.2ms</span>
             </div>
 
-            <div className="telemetry-floating-badge badge-top-right">
-              <span className="badge-pulse-dot dot-k8s" />
-              <span className="badge-label">Cluster K8s</span>
-              <span className="badge-value-k8s">• 99.98% SLA</span>
+            <div className="absolute top-6 right-6 px-3.5 py-1.5 rounded-full bg-obsidian-900/90 border border-white/10 backdrop-blur-md flex items-center gap-2 shadow-lg">
+              <span className="w-2 h-2 rounded-full bg-sky-400" />
+              <span className="font-mono text-[11px] font-semibold text-slate-100">Cluster K8s</span>
+              <span className="font-mono text-[11px] font-semibold text-sky-400">• 99.98% SLA</span>
             </div>
 
-            <div className="telemetry-floating-badge badge-bottom-center">
-              <span className="badge-pulse-dot dot-gold" />
-              <span className="badge-label">Telemetria Ativa</span>
-              <span className="badge-value-gold">• SSE v2</span>
+            <div className="absolute bottom-6 px-4 py-1.5 rounded-full bg-obsidian-900/90 border border-amber-500/30 backdrop-blur-md flex items-center gap-2 shadow-lg">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="font-mono text-[11px] font-semibold text-slate-100">Telemetria Ativa</span>
+              <span className="font-mono text-[11px] font-semibold text-amber-400">• SSE v2</span>
             </div>
 
             {/* Ilustração Vetorial Transparente de Redes */}
             <img
               src={vectorArt}
               alt="InfraWatch Network & Infrastructure Monitoring"
-              className="login-art-image"
+              className="w-full h-full object-contain object-center p-4 sm:p-6 select-none pointer-events-none transition-transform duration-700 hover:scale-[1.02] relative z-10"
               onError={(e) => {
-                // Fallback para caminho estático público caso bundle path varie
                 e.currentTarget.src = "/images/infrawatch_vector_transparent.png";
               }}
             />
