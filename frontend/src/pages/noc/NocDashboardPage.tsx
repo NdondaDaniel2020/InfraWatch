@@ -3,8 +3,6 @@ import { Link } from "react-router-dom";
 import { QueryClient, QueryClientContext, useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
-  CheckCircle2,
-  CloudOff,
   HardDrive,
   Maximize2,
   Network,
@@ -31,6 +29,7 @@ import { NocKpiGrid } from "../../components/telemetry/NocKpiGrid";
 import { NocTrafficChart24h } from "../../components/telemetry/NocTrafficChart24h";
 import { NocIncidentsFeed } from "../../components/telemetry/NocIncidentsFeed";
 import { EmergencyDrainModal } from "../../components/telemetry/EmergencyDrainModal";
+import { NocStateOverlay } from "../../components/telemetry/NocStateOverlay";
 import { INITIAL_MOCK_DEVICES } from "../../mocks/nocMocks";
 
 // Singleton resiliente para TanStack Query sem context provider
@@ -198,7 +197,7 @@ export const NocDashboardPage: React.FC = () => {
       )}
 
       {/* ===================================================================== */}
-      {/* 1. SUB-HEADER TOOLBAR (Filtros, Tenant, Estados & Varredura)           */}
+      {/* 1. SUB-HEADER TOOLBAR (Filtros, Tenant, Estados & Varredura)          */}
       {/* ===================================================================== */}
       <section
         role="toolbar"
@@ -356,98 +355,22 @@ export const NocDashboardPage: React.FC = () => {
       </section>
 
       {/* ===================================================================== */}
-      {/* 2. ÁREA DE CONTEÚDO COM ESTADOS OVERLAY                                */}
+      {/* 2. ÁREA DE CONTEÚDO COM ESTADOS OVERLAY                               */}
       {/* ===================================================================== */}
       <div className="relative flex-1 flex flex-col">
-        {/* ESTADO 1: SKELETON LOADING OVERLAY */}
-        {viewState === "skeleton" && (
-          <div
-            data-testid="state-skeleton-overlay"
-            className="absolute inset-0 bg-obsidian-950/95 z-40 p-6 flex flex-col gap-6 backdrop-blur-sm pointer-events-auto"
-          >
-            {/* Skeleton KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-24 bg-obsidian-900 border border-obsidian-800 rounded-xl p-4 animate-pulse space-y-2">
-                  <div className="w-20 h-3 bg-obsidian-850 rounded" />
-                  <div className="w-28 h-6 bg-obsidian-800 rounded" />
-                </div>
-              ))}
-            </div>
-            {/* Skeleton Grid 8+4 */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-              <div className="lg:col-span-8 bg-obsidian-900 border border-obsidian-800 rounded-xl p-6 animate-pulse space-y-4">
-                <div className="w-48 h-4 bg-obsidian-850 rounded" />
-                <div className="w-full h-48 bg-obsidian-850/60 rounded" />
-              </div>
-              <div className="lg:col-span-4 bg-obsidian-900 border border-obsidian-800 rounded-xl p-6 animate-pulse space-y-4">
-                <div className="w-36 h-4 bg-obsidian-850 rounded" />
-                <div className="w-full h-20 bg-obsidian-850/60 rounded" />
-                <div className="w-full h-20 bg-obsidian-850/60 rounded" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ESTADO 2: EMPTY STATE OVERLAY */}
-        {viewState === "empty" && (
-          <div
-            data-testid="state-empty-overlay"
-            className="absolute inset-0 bg-obsidian-950/95 z-40 p-8 flex flex-col items-center justify-center backdrop-blur-sm pointer-events-auto"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4 shadow-xl">
-              <CheckCircle2 size={32} />
-            </div>
-            <h2 className="text-base font-semibold text-white mb-1">
-              Todos os Ativos Operacionais
-            </h2>
-            <p className="text-xs text-slate-400 max-w-md text-center mb-5 font-mono tabular-nums">
-              Nenhum incidente crítico ou degradação ativa no momento. Uptime de rede em 100%.
-            </p>
-            <button
-              type="button"
-              onClick={() => setViewState("nominal")}
-              className="px-3.5 py-2 bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-            >
-              Voltar ao Modo Nominal
-            </button>
-          </div>
-        )}
-
-        {/* ESTADO 3: ERROR BOUNDARY OVERLAY */}
-        {viewState === "error" && (
-          <div
-            data-testid="state-error-overlay"
-            className="absolute inset-0 bg-obsidian-950/95 z-40 p-8 flex flex-col items-center justify-center backdrop-blur-sm pointer-events-auto"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4 shadow-xl">
-              <CloudOff size={32} />
-            </div>
-            <h2 className="text-base font-semibold text-rose-400 mb-1">
-              Falha no Streaming de Telemetria (SSE)
-            </h2>
-            <p className="text-xs text-slate-400 max-w-md text-center mb-2 font-mono tabular-nums">
-              RFC 5424 Code: <span className="text-rose-300 font-bold">ERR_TELEMETRY_INGEST_UNREACHABLE</span>
-            </p>
-            <p className="text-xs text-slate-400 max-w-md text-center mb-5">
-              O fluxo de sondas ICMP/SNMP do agente Luanda-01 excedeu o timeout de heartbeat (15.000ms).
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setViewState("nominal");
-                sseReconnect();
-                showToast("Conexão SSE de telemetria restabelecida.", "success");
-              }}
-              className="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-semibold text-xs rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-rose-400 cursor-pointer"
-            >
-              Reconectar Ingestão
-            </button>
-          </div>
-        )}
+        {/* ESTADOS ALTERNATIVOS OVERLAY (SKELETON, EMPTY, ERROR) */}
+        <NocStateOverlay
+          viewState={viewState}
+          onResetNominal={() => setViewState("nominal")}
+          onReconnect={() => {
+            setViewState("nominal");
+            sseReconnect();
+            showToast("Conexão SSE de telemetria restabelecida.", "success");
+          }}
+        />
 
         {/* =================================================================== */}
-        {/* CONTEÚDO PRINCIPAL (NOMINAL OPERATIONAL COCKPIT)                     */}
+        {/* CONTEÚDO PRINCIPAL (NOMINAL OPERATIONAL COCKPIT)                    */}
         {/* =================================================================== */}
         <div className="p-4 sm:p-6 space-y-6 flex-1">
           {/* 1. HERO CARDS: KPIS DE ALTO IMPACTO */}
