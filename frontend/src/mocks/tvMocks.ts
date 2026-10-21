@@ -1,44 +1,6 @@
-export interface TvDeviceItem {
-  id: string;
-  hostname: string;
-  category: string;
-  protocol: string;
-  ip: string;
-  status: "UP" | "DOWN" | "DEGRADADO" | "MANUTENÇÃO";
-  rtt: string;
-  rttUnit: string;
-  heroSub: string;
-  metricLabel: string;
-  metricBadge: string;
-  bottomLeft: string;
-  bottomRight: string;
-}
+import type { TvBackboneLink, TvDeviceItem, TvIncidentItem } from "../types/telemetry";
 
-export interface TvIncidentItem {
-  id: string;
-  severity: "CRITICAL" | "HIGH" | "MEDIUM";
-  device: string;
-  ip: string;
-  client: string;
-  title: string;
-  startedAgo: string;
-  slaRemaining: string;
-  glpiTicket: string;
-  assignee: string;
-  status: "INVESTIGANDO" | "EM ATENDIMENTO" | "MITIGANDO";
-}
-
-export interface TvBackboneLink {
-  id: string;
-  name: string;
-  type: string;
-  capacity: string;
-  utilization: string;
-  utilizationPercent: number;
-  rtt: string;
-  packetLoss: string;
-  status: "HEALTHY" | "DEGRADED" | "DOWN";
-}
+export type { TvBackboneLink, TvDeviceItem, TvIncidentItem };
 
 export const TV_DEVICES: TvDeviceItem[] = [
   {
