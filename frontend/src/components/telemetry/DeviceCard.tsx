@@ -1,7 +1,9 @@
 import React from "react";
-import { AlertTriangle, Server, WifiOff } from "lucide-react";
+import { AlertTriangle, Database, Radio, Network, Server, WifiOff } from "lucide-react";
 import type { MonitoredDevice } from "../../types/telemetry";
-import { Sparkline } from "./Sparkline";
+import { getNormalizedStatus, type NormalizedStatus } from "./statusConfig";
+
+export type { NormalizedStatus };
 
 export interface DeviceCardProps {
   device: MonitoredDevice;
@@ -9,320 +11,245 @@ export interface DeviceCardProps {
   onPing?: (device: MonitoredDevice) => void;
 }
 
+export interface StatusVisualConfig {
+  cardBorder: string;
+  titleColor: string;
+  badge: {
+    label: string;
+    className: string;
+  };
+  metricsGridBg: string;
+  metricsLabelColor: string;
+  latencyColor: string;
+  footerBorder: string;
+  ipLabel: string;
+  metric2Label: string;
+  getMetric2Value: (device: MonitoredDevice) => string;
+  metric3Label: string;
+  metric3Color: string;
+  getMetric3Value: (device: MonitoredDevice) => string;
+  metric4Label: string;
+  metric4Color: string;
+  getMetric4Value: (device: MonitoredDevice) => string;
+  renderFooterStatus: (device: MonitoredDevice, onSelect?: (device: MonitoredDevice) => void) => React.ReactNode;
+}
+
+/**
+ * Dicionário declarativo de estilos e apresentação orientada a dados (State-Driven Component Pattern).
+ * O componente de ativo monitorado se repete e define sua paleta, rótulos e métricas
+ * estritamente a partir do estado do dado recebido, eliminando ternários aninhados no JSX.
+ */
+export const STATUS_VISUALS: Record<NormalizedStatus, StatusVisualConfig> = {
+  DOWN: {
+    cardBorder: "border-2 border-rose-500/80 shadow-[0_0_15px_rgba(244,63,94,0.12)]",
+    titleColor: "text-rose-400 hover:underline",
+    badge: {
+      label: "DOWN",
+      className: "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse",
+    },
+    metricsGridBg: "bg-rose-500/10 border border-rose-500/30",
+    metricsLabelColor: "text-slate-400",
+    latencyColor: "text-rose-400",
+    footerBorder: "border-rose-500/30",
+    ipLabel: "WAN IP: ",
+    metric2Label: "Perda: ",
+    getMetric2Value: () => "100% PACOTES",
+    metric3Label: "Causa: ",
+    metric3Color: "text-rose-300 font-bold truncate",
+    getMetric3Value: (device) => device.root_cause || "Fibra Rompida",
+    metric4Label: "Downtime: ",
+    metric4Color: "text-rose-400",
+    getMetric4Value: (device) => device.downtime_duration || "00:14:32",
+    renderFooterStatus: (device, onSelect) => (
+      <button
+        type="button"
+        onClick={() => onSelect?.(device)}
+        className="text-rose-400 font-bold hover:underline cursor-pointer"
+      >
+        {device.ticket_id ? `Ticket #${device.ticket_id} ↗` : "Ticket #8492 ↗"}
+      </button>
+    ),
+  },
+  DEG: {
+    cardBorder: "border-2 border-amber-500/70 shadow-[0_0_15px_rgba(245,158,11,0.1)]",
+    titleColor: "text-amber-400 hover:underline",
+    badge: {
+      label: "DEG",
+      className: "bg-amber-500/20 text-amber-400 border-amber-500/40",
+    },
+    metricsGridBg: "bg-amber-500/10 border border-amber-500/30",
+    metricsLabelColor: "text-slate-400",
+    latencyColor: "text-amber-400",
+    footerBorder: "border-amber-500/30",
+    ipLabel: "Host IP: ",
+    metric2Label: "RTT Spike: ",
+    getMetric2Value: (device) => `${device.last_latency_ms || 142}ms ⚠️`,
+    metric3Label: "CPU / RAM: ",
+    metric3Color: "text-amber-400 font-bold",
+    getMetric3Value: (device) => `${device.cpu_usage_pct || 89}% / ${device.ram_usage_pct || 78}%`,
+    metric4Label: "Pool: ",
+    metric4Color: "text-slate-200",
+    getMetric4Value: () => "4.8k Sockets",
+    renderFooterStatus: () => (
+      <span className="text-amber-400 font-semibold">Alerta de Latência</span>
+    ),
+  },
+  UP: {
+    cardBorder: "border border-obsidian-800 hover:border-emerald-500/70",
+    titleColor: "text-white hover:text-emerald-400",
+    badge: {
+      label: "UP",
+      className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+    },
+    metricsGridBg: "bg-obsidian-950 border border-obsidian-800/80",
+    metricsLabelColor: "text-slate-500",
+    latencyColor: "text-emerald-400",
+    footerBorder: "border-obsidian-800/60",
+    ipLabel: "IP: ",
+    metric2Label: "RTT: ",
+    getMetric2Value: (device) => `${device.last_latency_ms ? device.last_latency_ms.toFixed(1) : "2.1"}ms`,
+    metric3Label: "CPU / RAM: ",
+    metric3Color: "text-slate-200",
+    getMetric3Value: (device) => `${device.cpu_usage_pct || 58}% / ${device.ram_usage_pct || 61}%`,
+    metric4Label: "SFP+: ",
+    metric4Color: "text-sky-400",
+    getMetric4Value: (device) => device.ports_summary || "18/24 UP",
+    renderFooterStatus: (device) => `Uptime: ${device.uptime_duration || "184d 12h"}`,
+  },
+  MAINT: {
+    cardBorder: "border border-sky-500/50 hover:border-sky-400",
+    titleColor: "text-white hover:text-sky-400",
+    badge: {
+      label: "MAINT",
+      className: "bg-sky-500/20 text-sky-400 border border-sky-500/30",
+    },
+    metricsGridBg: "bg-obsidian-950 border border-obsidian-800/80",
+    metricsLabelColor: "text-slate-500",
+    latencyColor: "text-sky-400",
+    footerBorder: "border-obsidian-800/60",
+    ipLabel: "IP: ",
+    metric2Label: "RTT: ",
+    getMetric2Value: (device) => `${device.last_latency_ms ? device.last_latency_ms.toFixed(1) : "--"}ms`,
+    metric3Label: "CPU / RAM: ",
+    metric3Color: "text-slate-200",
+    getMetric3Value: (device) => `${device.cpu_usage_pct || 10}% / ${device.ram_usage_pct || 20}%`,
+    metric4Label: "Janela: ",
+    metric4Color: "text-sky-400",
+    getMetric4Value: () => "Programada",
+    renderFooterStatus: () => "Manutenção Ativa",
+  },
+};
+
+export const getStatusKey = (device: MonitoredDevice): NormalizedStatus => {
+  return getNormalizedStatus(device.status, device.severity);
+};
+
+const getCategoryIcon = (statusKey: NormalizedStatus, category?: string, name?: string) => {
+  if (statusKey === "DOWN") return <WifiOff size={18} className="text-rose-400" aria-hidden="true" />;
+  if (statusKey === "DEG") return <AlertTriangle size={18} className="text-amber-400" aria-hidden="true" />;
+  const cat = (category || "").toUpperCase();
+  const n = (name || "").toUpperCase();
+  if (cat.includes("DATABASE") || n.includes("DB")) {
+    return <Database size={18} className="text-emerald-400" aria-hidden="true" />;
+  }
+  if (cat.includes("ROUTER") || n.includes("RT")) {
+    return <Radio size={18} className="text-emerald-400" aria-hidden="true" />;
+  }
+  if (cat.includes("GATEWAY") || n.includes("GATEWAY")) {
+    return <Server size={18} className="text-emerald-400" aria-hidden="true" />;
+  }
+  return <Network size={18} className="text-emerald-400" aria-hidden="true" />;
+};
+
 export const DeviceCard: React.FC<DeviceCardProps> = ({
   device,
   onSelect,
   onPing,
 }) => {
-  const isDown = device.status === "DOWN" || device.severity === "critical";
-  const isDegraded = device.status === "DEG" || device.severity === "degraded";
-
-  const getStatusBadge = () => {
-    if (isDown) {
-      return (
-        <span
-          style={{
-            padding: "2px 8px",
-            borderRadius: "var(--radius-full, 9999px)",
-            fontSize: "10px",
-            fontFamily: "var(--font-mono, monospace)",
-            fontWeight: 700,
-            backgroundColor: "rgba(244, 63, 94, 0.2)",
-            color: "#f43f5e",
-            border: "1px solid rgba(244, 63, 94, 0.4)",
-          }}
-        >
-          DOWN
-        </span>
-      );
-    }
-    if (isDegraded) {
-      return (
-        <span
-          style={{
-            padding: "2px 8px",
-            borderRadius: "var(--radius-full, 9999px)",
-            fontSize: "10px",
-            fontFamily: "var(--font-mono, monospace)",
-            fontWeight: 700,
-            backgroundColor: "rgba(245, 158, 11, 0.2)",
-            color: "#f59e0b",
-            border: "1px solid rgba(245, 158, 11, 0.4)",
-          }}
-        >
-          DEG
-        </span>
-      );
-    }
-    return (
-      <span
-        style={{
-          padding: "2px 8px",
-          borderRadius: "var(--radius-full, 9999px)",
-          fontSize: "10px",
-          fontFamily: "var(--font-mono, monospace)",
-          fontWeight: 700,
-          backgroundColor: "rgba(16, 185, 129, 0.2)",
-          color: "#10b981",
-          border: "1px solid rgba(16, 185, 129, 0.3)",
-        }}
-      >
-        UP
-      </span>
-    );
-  };
-
-  const getBorderAndShadow = () => {
-    if (isDown) {
-      return {
-        borderColor: "rgba(244, 63, 94, 0.6)",
-        boxShadow: "0 0 20px -3px rgba(244, 63, 94, 0.25)",
-      };
-    }
-    if (isDegraded) {
-      return {
-        borderColor: "rgba(245, 158, 11, 0.5)",
-        boxShadow: "0 0 20px -3px rgba(245, 158, 11, 0.25)",
-      };
-    }
-    return {
-      borderColor: "rgba(255, 255, 255, 0.08)",
-      boxShadow: "0 10px 30px -10px rgba(0, 0, 0, 0.5)",
-    };
-  };
-
-  const borderStyles = getBorderAndShadow();
+  const statusKey = getStatusKey(device);
+  const visual = STATUS_VISUALS[statusKey];
 
   return (
     <article
       data-testid={`device-card-${device.device_id}`}
-      style={{
-        backgroundColor: "var(--color-surface-card, #0d1424)",
-        border: `1px solid ${borderStyles.borderColor}`,
-        borderRadius: "16px",
-        padding: "18px 20px",
-        boxShadow: borderStyles.boxShadow,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        gap: "14px",
-        transition: "border-color 200ms ease, box-shadow 200ms ease",
-      }}
+      data-tenant={device.tenant_id}
+      data-severity={device.severity}
+      className={`device-card bg-obsidian-900 rounded-xl p-4 flex flex-col justify-between transition-colors shadow-sm ${visual.cardBorder}`}
     >
       <div>
         {/* Cabeçalho do Card */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
+        <div className="flex items-start justify-between">
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => onSelect?.(device)}
-                style={{
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: "0.875rem",
-                  fontWeight: 700,
-                  color: isDown ? "#f43f5e" : isDegraded ? "#f59e0b" : "var(--color-text-primary, #f8fafc)",
-                  background: "transparent",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-                className="hover-text-brand"
+                className={`font-mono tabular-nums font-bold text-sm text-left transition-colors cursor-pointer ${visual.titleColor}`}
               >
                 {device.name}
               </button>
-              {getStatusBadge()}
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${visual.badge.className}`}>
+                {visual.badge.label}
+              </span>
             </div>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                color: "var(--color-text-muted, #94a3b8)",
-                marginTop: "4px",
-                margin: 0,
-              }}
-            >
-              {device.model_description || `${device.category || "DISPOSITIVO"} • ${device.location || "Cluster Principal"}`}
+            <p className="text-xs text-slate-400 mt-0.5">
+              {device.model_description || `${device.category || "DISPOSITIVO"} • Cluster`}
             </p>
           </div>
 
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "50%",
-              backgroundColor: isDown
-                ? "rgba(244, 63, 94, 0.1)"
-                : isDegraded
-                ? "rgba(245, 158, 11, 0.1)"
-                : "rgba(16, 185, 129, 0.1)",
-              border: `1px solid ${
-                isDown
-                  ? "rgba(244, 63, 94, 0.2)"
-                  : isDegraded
-                  ? "rgba(245, 158, 11, 0.2)"
-                  : "rgba(16, 185, 129, 0.2)"
-              }`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: isDown ? "#f43f5e" : isDegraded ? "#f59e0b" : "#10b981",
-              flexShrink: 0,
-            }}
-          >
-            {isDown ? <WifiOff size={16} /> : isDegraded ? <AlertTriangle size={16} /> : <Server size={16} />}
-          </div>
+          <div className="shrink-0">{getCategoryIcon(statusKey, device.category, device.name)}</div>
         </div>
 
         {/* Grade 2x2 de Informações Técnicas */}
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "8px",
-            marginTop: "14px",
-            padding: "10px 12px",
-            borderRadius: "12px",
-            backgroundColor: isDown
-              ? "rgba(244, 63, 94, 0.08)"
-              : isDegraded
-              ? "rgba(245, 158, 11, 0.08)"
-              : "rgba(7, 10, 18, 0.75)",
-            border: `1px solid ${
-              isDown
-                ? "rgba(244, 63, 94, 0.2)"
-                : isDegraded
-                ? "rgba(245, 158, 11, 0.2)"
-                : "rgba(255, 255, 255, 0.06)"
-            }`,
-            fontFamily: "var(--font-mono, monospace)",
-            fontSize: "11px",
-          }}
+          className={`grid grid-cols-2 gap-2 font-mono text-[11px] tabular-nums mt-3 p-2 rounded ${visual.metricsGridBg}`}
         >
+          {/* Célula 1: IP / WAN IP */}
           <div>
-            <span style={{ color: "var(--color-text-dim, #64748b)" }}>IP: </span>
-            <span style={{ color: "var(--color-text-primary, #f8fafc)" }}>{device.ip_address}</span>
+            <span className={visual.metricsLabelColor}>{visual.ipLabel}</span>
+            <span className="text-slate-200">{device.ip_address}</span>
           </div>
 
-          <div style={{ textAlign: "right" }}>
-            <span style={{ color: "var(--color-text-dim, #64748b)" }}>RTT: </span>
-            <span
-              style={{
-                fontWeight: 700,
-                color: isDown
-                  ? "#f43f5e"
-                  : isDegraded
-                  ? "#f59e0b"
-                  : "var(--color-healthy, #10b981)",
-              }}
-            >
-              {device.last_latency_ms !== null && device.last_latency_ms !== undefined
-                ? `${device.last_latency_ms.toFixed(1)}ms`
-                : isDown
-                ? "TIMEOUT"
-                : "--"}
+          {/* Célula 2: RTT / Perda */}
+          <div className="text-right">
+            <span className={visual.metricsLabelColor}>{visual.metric2Label}</span>
+            <span className={`font-bold ${visual.latencyColor}`}>
+              {visual.getMetric2Value(device)}
             </span>
           </div>
 
+          {/* Célula 3: Causa / CPU */}
           <div>
-            <span style={{ color: "var(--color-text-dim, #64748b)" }}>
-              {isDown ? "Causa: " : "CPU / RAM: "}
-            </span>
-            <span style={{ color: isDown ? "#fca5a5" : "var(--color-text-secondary, #cbd5e1)" }}>
-              {isDown
-                ? device.root_cause || "Fibra Rompida"
-                : `${device.cpu_usage_pct || 45}% / ${device.ram_usage_pct || 52}%`}
+            <span className={visual.metricsLabelColor}>{visual.metric3Label}</span>
+            <span className={visual.metric3Color}>
+              {visual.getMetric3Value(device)}
             </span>
           </div>
 
-          <div style={{ textAlign: "right" }}>
-            <span style={{ color: "var(--color-text-dim, #64748b)" }}>
-              {isDown ? "Downtime: " : "SFP+: "}
-            </span>
-            <span
-              style={{
-                color: isDown
-                  ? "#f43f5e"
-                  : isDegraded
-                  ? "#f59e0b"
-                  : "var(--color-text-primary, #f8fafc)",
-                fontWeight: 600,
-              }}
-            >
-              {isDown
-                ? device.downtime_duration || "00:14:32"
-                : device.ports_summary || "18/24 UP"}
+          {/* Célula 4: Downtime / SFP+ / Pool */}
+          <div className="text-right">
+            <span className={visual.metricsLabelColor}>{visual.metric4Label}</span>
+            <span className={`font-bold ${visual.metric4Color}`}>
+              {visual.getMetric4Value(device)}
             </span>
           </div>
         </div>
-
-        {/* Sparkline de Latência dos Últimos Pings */}
-        {device.recent_latency && device.recent_latency.length > 0 && (
-          <div style={{ marginTop: "12px", width: "100%" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                fontSize: "10px",
-                fontFamily: "var(--font-mono, monospace)",
-                color: "var(--color-text-dim, #64748b)",
-                marginBottom: "4px",
-              }}
-            >
-              <span>Latência (Últimos 60 pings)</span>
-              <span>
-                Min: {Math.min(...device.recent_latency).toFixed(1)}ms • Max:{" "}
-                {Math.max(...device.recent_latency).toFixed(1)}ms
-              </span>
-            </div>
-            <Sparkline
-              data={device.recent_latency}
-              width={280}
-              height={32}
-              severity={device.severity}
-            />
-          </div>
-        )}
       </div>
 
       {/* Rodapé com Uptime e Ações */}
       <div
-        style={{
-          borderTop: "1px solid rgba(255, 255, 255, 0.06)",
-          paddingTop: "10px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          fontSize: "11px",
-          fontFamily: "var(--font-mono, monospace)",
-        }}
+        className={`mt-3 pt-2 border-t flex items-center justify-between text-xs font-mono ${visual.footerBorder}`}
       >
-        <span style={{ color: "var(--color-text-muted, #94a3b8)" }}>
-          {isDown ? (
-            <span style={{ color: "#f43f5e", fontWeight: 700 }}>
-              {device.ticket_id ? `Ticket #${device.ticket_id}` : "Incidente P1"}
-            </span>
-          ) : (
-            `Uptime: ${device.uptime_duration || "184d 12h"}`
-          )}
+        <span className="text-slate-400">
+          {visual.renderFooterStatus(device, onSelect)}
         </span>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div className="flex items-center gap-2">
           {onPing && (
             <button
               type="button"
               onClick={() => onPing(device)}
-              style={{
-                backgroundColor: "transparent",
-                border: "none",
-                color: "var(--brand-primary, #eab308)",
-                fontWeight: 600,
-                cursor: "pointer",
-                padding: "2px 6px",
-                borderRadius: "4px",
-              }}
-              className="hover:underline"
+              className="text-emerald-400 hover:underline cursor-pointer font-medium"
             >
               Ping Agora
             </button>
@@ -331,16 +258,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
           <button
             type="button"
             onClick={() => onSelect?.(device)}
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.06)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              borderRadius: "9999px",
-              padding: "3px 10px",
-              fontSize: "10px",
-              color: "var(--color-text-secondary, #cbd5e1)",
-              cursor: "pointer",
-              transition: "background-color 150ms ease, color 150ms ease",
-            }}
+            className="px-2 py-0.5 rounded bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 hover:text-white border border-obsidian-700 text-[11px] font-medium transition-colors cursor-pointer"
           >
             Detalhes
           </button>

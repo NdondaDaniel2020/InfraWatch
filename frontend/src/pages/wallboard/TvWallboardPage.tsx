@@ -12,10 +12,8 @@ import {
   Clock,
 } from "lucide-react";
 import { useAutoRotate } from "../../hooks/useAutoRotate";
-import {
-  CriticalAlarmBanner,
-  CriticalAlarmData,
-} from "../../components/tv/CriticalAlarmBanner";
+import { CriticalAlarmBanner } from "../../components/tv/CriticalAlarmBanner";
+import type { CriticalAlarmData } from "../../types/telemetry";
 import { LiveIndicator } from "../../components/common/LiveIndicator";
 import { TV_DEVICES } from "../../mocks/tvMocks";
 import { TvOverviewPanel } from "../../components/tv/TvOverviewPanel";

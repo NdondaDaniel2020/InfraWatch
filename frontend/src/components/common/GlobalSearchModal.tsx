@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CornerDownLeft, Router, Search } from "lucide-react";
+import { CornerDownLeft, Router, Search, X } from "lucide-react";
 import type { MonitoredDevice } from "../../types/telemetry";
+import { getNormalizedStatus, STATUS_TOKENS } from "../telemetry/statusConfig";
 
 export interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -81,20 +82,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   return (
     <div
       data-testid="global-search-modal-backdrop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        zIndex: 110,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        paddingTop: "10vh",
-        paddingLeft: "16px",
-        paddingRight: "16px",
-      }}
+      className="fixed inset-0 bg-obsidian-950/80 backdrop-blur-md z-[110] flex items-start justify-center pt-[10vh] px-4 animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="global-search-title"
@@ -104,34 +92,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     >
       <div
         data-testid="global-search-modal-container"
-        style={{
-          width: "100%",
-          maxWidth: "680px",
-          backgroundColor: "rgba(13, 20, 36, 0.98)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          borderRadius: "16px",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.8)",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
+        className="w-full max-w-2xl bg-obsidian-900 border border-obsidian-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
       >
         <h2 id="global-search-title" className="sr-only">
           Busca Global e Command Palette (Ctrl+K)
         </h2>
 
         {/* Input de Busca */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            padding: "16px 20px",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-            backgroundColor: "rgba(7, 10, 18, 0.8)",
-          }}
-        >
-          <Search size={20} style={{ color: "var(--brand-primary, #eab308)" }} />
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-obsidian-800 bg-obsidian-950/80">
+          <Search size={20} className="text-emerald-400 shrink-0" aria-hidden="true" />
           <input
             ref={inputRef}
             data-testid="global-search-input"
@@ -143,80 +112,39 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             }}
             onKeyDown={handleKeyDown}
             placeholder="Buscar ativos, IPs, chamados GLPI, rotas ou comandos…"
-            style={{
-              flex: 1,
-              backgroundColor: "transparent",
-              border: "none",
-              color: "var(--color-text-primary, #f8fafc)",
-              fontSize: "14px",
-              fontFamily: "var(--font-sans, sans-serif)",
-              outline: "none",
-            }}
+            className="flex-1 bg-transparent border-none text-slate-100 placeholder:text-slate-500 text-sm outline-none font-sans"
           />
           <button
             type="button"
             onClick={onClose}
             aria-label="Fechar busca global"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "4px 8px",
-              borderRadius: "6px",
-              backgroundColor: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              color: "var(--color-text-muted, #94a3b8)",
-              fontSize: "11px",
-              fontFamily: "var(--font-mono, monospace)",
-              cursor: "pointer",
-            }}
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-obsidian-850 border border-obsidian-800 text-slate-400 hover:text-white text-[11px] font-mono cursor-pointer transition-colors"
           >
-            ESC
+            <span>ESC</span>
+            <X size={12} />
           </button>
         </div>
 
         {/* Lista de Resultados */}
         <div
           role="listbox"
-          style={{
-            maxHeight: "420px",
-            overflowY: "auto",
-            padding: "8px 0",
-          }}
+          className="max-h-[420px] overflow-y-auto py-2"
         >
-          <div
-            style={{
-              padding: "8px 20px 4px 20px",
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: "10px",
-              fontFamily: "var(--font-mono, monospace)",
-              color: "var(--color-text-dim, #64748b)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
+          <div className="px-5 py-2 flex justify-between text-[10px] font-mono text-slate-400 uppercase tracking-wider">
             <span>Dispositivos & Ativos de Rede</span>
             <span>{filteredDevices.length} resultados</span>
           </div>
 
           {filteredDevices.length === 0 ? (
-            <div
-              style={{
-                padding: "32px 20px",
-                textAlign: "center",
-                color: "var(--color-text-muted, #94a3b8)",
-                fontSize: "13px",
-                fontFamily: "var(--font-mono, monospace)",
-              }}
-            >
+            <div className="py-8 px-5 text-center text-slate-400 text-xs font-mono">
               Nenhum ativo ou rota encontrado para &quot;{query}&quot;.
             </div>
           ) : (
             filteredDevices.map((dev, idx) => {
               const isSelected = idx === selectedIndex;
-              const isDown = dev.status === "DOWN" || dev.severity === "critical";
-              const isDegraded = dev.status === "DEG" || dev.severity === "degraded";
+              const statusKey = getNormalizedStatus(dev.status, dev.severity);
+              const statusToken = STATUS_TOKENS[statusKey];
+              const isDown = statusKey === "DOWN";
 
               return (
                 <div
@@ -228,83 +156,34 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     onClose();
                   }}
                   onMouseEnter={() => setSelectedIndex(idx)}
-                  style={{
-                    padding: "12px 20px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    backgroundColor: isSelected
-                      ? "rgba(255, 255, 255, 0.08)"
-                      : "transparent",
-                    borderLeft: isSelected
-                      ? "3px solid var(--brand-primary, #eab308)"
-                      : "3px solid transparent",
-                    cursor: "pointer",
-                    transition: "background-color 100ms ease",
-                  }}
+                  className={`px-5 py-3 flex items-center justify-between cursor-pointer transition-colors ${
+                    isSelected
+                      ? "bg-obsidian-850 border-l-2 border-emerald-500"
+                      : "hover:bg-obsidian-850/50 border-l-2 border-transparent"
+                  }`}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div className="flex items-center gap-3">
                     <div
-                      style={{
-                        width: "36px",
-                        height: "36px",
-                        borderRadius: "10px",
-                        backgroundColor: isDown
-                          ? "rgba(244, 63, 94, 0.15)"
-                          : isDegraded
-                          ? "rgba(245, 158, 11, 0.15)"
-                          : "rgba(16, 185, 129, 0.15)",
-                        border: `1px solid ${
-                          isDown
-                            ? "rgba(244, 63, 94, 0.3)"
-                            : isDegraded
-                            ? "rgba(245, 158, 11, 0.3)"
-                            : "rgba(16, 185, 129, 0.3)"
-                        }`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: isDown ? "#f43f5e" : isDegraded ? "#f59e0b" : "#10b981",
-                      }}
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${statusToken.iconBgClass}`}
                     >
                       <Router size={18} />
                     </div>
 
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span
-                          style={{
-                            fontFamily: "var(--font-mono, monospace)",
-                            fontWeight: 700,
-                            fontSize: "13px",
-                            color: "var(--color-text-primary, #f8fafc)",
-                          }}
-                        >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-xs text-white">
                           {dev.name}
                         </span>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                        <span className="text-[11px] text-slate-400">
                           • {dev.tenant_name || "Cluster Principal"}
                         </span>
                       </div>
 
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          fontSize: "11px",
-                          fontFamily: "var(--font-mono, monospace)",
-                          color: "var(--color-text-dim, #64748b)",
-                          marginTop: "2px",
-                        }}
-                      >
-                        <span style={{ color: "var(--color-text-secondary)" }}>{dev.ip_address}</span>
+                      <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 mt-0.5">
+                        <span className="text-slate-300">{dev.ip_address}</span>
                         <span>•</span>
                         <span
-                          style={{
-                            color: isDown ? "#f43f5e" : isDegraded ? "#f59e0b" : "#10b981",
-                            fontWeight: 600,
-                          }}
+                          className={`font-semibold ${statusToken.textColor}`}
                         >
                           {dev.status} (
                           {dev.last_latency_ms !== null && dev.last_latency_ms !== undefined
@@ -319,20 +198,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   </div>
 
                   {isSelected && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        fontSize: "11px",
-                        fontFamily: "var(--font-mono)",
-                        color: "var(--brand-primary, #eab308)",
-                        backgroundColor: "rgba(234, 179, 8, 0.12)",
-                        padding: "3px 8px",
-                        borderRadius: "6px",
-                        border: "1px solid rgba(234, 179, 8, 0.3)",
-                      }}
-                    >
+                    <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
                       <span>Abrir</span>
                       <CornerDownLeft size={12} />
                     </div>
@@ -344,26 +210,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         </div>
 
         {/* Rodapé com Dicas de Atalho */}
-        <div
-          style={{
-            padding: "10px 20px",
-            borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-            backgroundColor: "rgba(7, 10, 18, 0.9)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            fontSize: "11px",
-            fontFamily: "var(--font-mono, monospace)",
-            color: "var(--color-text-dim, #64748b)",
-          }}
-        >
-          <div style={{ display: "flex", gap: "14px" }}>
+        <div className="px-5 py-2.5 border-t border-obsidian-800 bg-obsidian-950/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+          <div className="flex gap-3">
             <span>
-              <kbd style={{ padding: "1px 4px", borderRadius: "3px", background: "rgba(255,255,255,0.1)" }}>↑</kbd>{" "}
-              <kbd style={{ padding: "1px 4px", borderRadius: "3px", background: "rgba(255,255,255,0.1)" }}>↓</kbd> navegar
+              <kbd className="px-1.5 py-0.5 rounded bg-obsidian-850 border border-obsidian-800 text-[10px]">↑</kbd>{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-obsidian-850 border border-obsidian-800 text-[10px]">↓</kbd> navegar
             </span>
             <span>
-              <kbd style={{ padding: "1px 4px", borderRadius: "3px", background: "rgba(255,255,255,0.1)" }}>↵</kbd> selecionar
+              <kbd className="px-1.5 py-0.5 rounded bg-obsidian-850 border border-obsidian-800 text-[10px]">↵</kbd> selecionar
             </span>
           </div>
           <span>PostgreSQL Full-Text Search</span>

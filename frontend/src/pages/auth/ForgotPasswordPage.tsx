@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { authApi } from "../../services/authApi";
-import { Button } from "../../components/ui/Button";
-import { Card, CardContent, CardFooter, CardHeader } from "../../components/ui/Card";
 import { AlertTriangle, ArrowLeft, CheckCircle2, KeyRound, Mail } from "lucide-react";
 
 export const ForgotPasswordPage: React.FC = () => {
@@ -37,204 +35,138 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <main
+    <div
       data-testid="forgot-password-page"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-obsidian-950 text-slate-100 select-none relative overflow-hidden"
       style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px 16px",
-        backgroundColor: "var(--color-bg-deep)",
+        backgroundImage:
+          "radial-gradient(circle at 50% 20%, rgba(234, 179, 8, 0.05) 0%, transparent 65%)",
       }}
     >
-      <Card
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          backgroundColor: "var(--color-surface-card)",
-          border: "var(--border-subtle)",
-          boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
-        }}
-      >
-        <CardHeader
-          style={{
-            textAlign: "center",
-            padding: "28px 24px 16px 24px",
-            borderBottom: "var(--border-subtle)",
-          }}
-        >
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "48px",
-              height: "48px",
-              borderRadius: "var(--radius-md)",
-              backgroundColor: "rgba(16, 185, 129, 0.1)",
-              border: "1px solid var(--color-border-focus)",
-              color: "var(--color-healthy)",
-              margin: "0 auto 12px auto",
-            }}
-          >
-            <KeyRound size={26} />
+      <main className="w-full max-w-[440px] bg-obsidian-900/95 rounded-[32px] sm:rounded-[36px] shadow-card-glass border border-white/10 p-7 sm:p-9 flex flex-col items-center text-center relative backdrop-blur-xl">
+        {/* 1. Logotipo Oficial */}
+        <header className="flex items-center justify-center gap-2.5 mb-5">
+          <div className="w-8 h-8 rounded-xl bg-obsidian-950/80 border border-white/10 flex items-center justify-center p-1.5 shadow-sm">
+            <svg className="w-full h-full shrink-0" viewBox="0 0 24 24" fill="none">
+              <polygon
+                points="12,3 20,7.5 12,12 4,7.5"
+                fill="#ffffff"
+                stroke="#111827"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+              <polygon
+                points="4,7.5 12,12 12,21 4,16.5"
+                fill="#eab308"
+                stroke="#ca8a04"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+              <polygon
+                points="12,12 20,7.5 20,16.5 12,21"
+                fill="#111827"
+                stroke="#374151"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+            </svg>
           </div>
-          <h1
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: 700,
-              color: "var(--color-text-primary)",
-              letterSpacing: "-0.02em",
-              margin: 0,
-            }}
+          <span className="font-display font-bold text-[20px] tracking-tight text-white">
+            InfraWatch
+          </span>
+        </header>
+
+        {/* 2. Ícone & Título */}
+        <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-glow-brand mb-4">
+          <KeyRound size={26} />
+        </div>
+
+        <h1 className="text-[22px] sm:text-[24px] font-bold font-display tracking-tight text-white leading-snug">
+          Recuperação de Senha
+        </h1>
+        <p className="text-[12.5px] sm:text-[13px] text-slate-400 font-normal mt-1 mb-6 leading-relaxed max-w-[320px]">
+          Enviaremos instruções criptografadas para redefinição de acesso à sua credencial
+        </p>
+
+        {/* Feedback de Sucesso */}
+        {successMessage && (
+          <div
+            role="status"
+            data-testid="forgot-password-success-alert"
+            className="w-full flex items-start gap-2.5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[12.5px] mb-5 text-left"
           >
-            Recuperação de Senha
-          </h1>
-          <p
-            style={{
-              fontSize: "0.8125rem",
-              color: "var(--color-text-secondary)",
-              margin: "6px 0 0 0",
-            }}
+            <CheckCircle2 size={18} className="shrink-0 mt-0.5 text-emerald-400" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
+        {/* Alerta de Erro */}
+        {errorMessage && (
+          <div
+            role="alert"
+            className="w-full flex items-start gap-2.5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[12.5px] mb-5 text-left"
           >
-            Enviaremos instruções seguras para redefinição de acesso
-          </p>
-        </CardHeader>
+            <AlertTriangle size={18} className="shrink-0 mt-0.5 text-rose-400" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
-        <CardContent style={{ padding: "24px" }}>
-          {successMessage && (
-            <div
-              role="status"
-              data-testid="forgot-password-success-alert"
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "10px",
-                padding: "12px",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: "rgba(16, 185, 129, 0.1)",
-                border: "1px solid var(--color-border-focus)",
-                color: "var(--color-healthy)",
-                fontSize: "0.8125rem",
-                marginBottom: "16px",
-              }}
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} noValidate className="w-full space-y-4">
+          <div className="text-left space-y-1.5">
+            <label
+              htmlFor="reset-email"
+              className="block text-[12px] font-medium text-slate-300"
             >
-              <CheckCircle2 size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
-              <span>{successMessage}</span>
+              E-mail Cadastrado
+            </label>
+            <div className="relative flex items-center">
+              <Mail
+                size={16}
+                className="absolute left-3.5 text-slate-400 pointer-events-none"
+              />
+              <input
+                id="reset-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                placeholder="operador@infrawatch.io"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-obsidian-950 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-[13.5px] text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all duration-150"
+              />
             </div>
-          )}
+          </div>
 
-          {errorMessage && (
-            <div
-              role="alert"
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "10px",
-                padding: "12px",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--color-critical-bg)",
-                border: "1px solid var(--color-critical-border)",
-                color: "var(--color-critical)",
-                fontSize: "0.8125rem",
-                marginBottom: "16px",
-              }}
-            >
-              <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} noValidate>
-            <div style={{ marginBottom: "20px" }}>
-              <label
-                htmlFor="reset-email"
-                style={{
-                  display: "block",
-                  fontSize: "0.8125rem",
-                  fontWeight: 600,
-                  color: "var(--color-text-primary)",
-                  marginBottom: "6px",
-                }}
-              >
-                E-mail Cadastrado
-              </label>
-              <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <Mail
-                  size={16}
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    color: "var(--color-text-muted)",
-                    pointerEvents: "none",
-                  }}
-                />
-                <input
-                  id="reset-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder="operador@infrawatch.io"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px 10px 38px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "var(--border-subtle)",
-                    backgroundColor: "var(--color-bg-deep)",
-                    color: "var(--color-text-primary)",
-                    fontSize: "0.875rem",
-                    outline: "none",
-                  }}
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              fullWidth
-              isLoading={isSubmitting}
-              disabled={isSubmitting || !email}
-            >
-              Enviar Link de Redefinição
-            </Button>
-          </form>
-        </CardContent>
-
-        <CardFooter
-          style={{
-            padding: "16px 24px",
-            borderTop: "var(--border-subtle)",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <Link
-            to="/login"
-            style={{
-              color: "var(--color-text-muted)",
-              fontSize: "0.8125rem",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              textDecoration: "none",
-            }}
+          <button
+            type="submit"
+            disabled={isSubmitting || !email}
+            className="w-full py-3 px-4 bg-amber-400 hover:bg-amber-300 active:scale-[0.99] text-slate-950 font-bold text-[14px] rounded-full shadow-glow-brand transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ArrowLeft size={14} /> Voltar para o Login
-          </Link>
-        </CardFooter>
-      </Card>
-    </main>
+            <span>
+              {isSubmitting
+                ? "Enviando solicitação..."
+                : "Enviar Link de Redefinição"}
+            </span>
+          </button>
+
+          <div className="pt-3 border-t border-white/10 flex justify-center">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <ArrowLeft size={15} />
+              <span>Voltar para o Login</span>
+            </Link>
+          </div>
+        </form>
+      </main>
+
+      <footer className="mt-6 flex items-center justify-center gap-2 text-[11.5px] font-mono text-slate-500">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        <span>InfraWatch Identity &amp; Access Management</span>
+      </footer>
+    </div>
   );
 };

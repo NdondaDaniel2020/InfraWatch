@@ -1,4 +1,21 @@
-import type { MonitoredDevice } from "../types/telemetry";
+import type { DayAvailability, IncidentItem, MonitoredDevice, TrafficChartPoint } from "../types/telemetry";
+
+export const generateAvailabilityHistory = (barCount: number = 30): DayAvailability[] => {
+  const generated: DayAvailability[] = [];
+  const now = new Date();
+  for (let i = barCount - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const isDowntime = i === 12;
+    const isDegraded = i === 4;
+    generated.push({
+      date: d.toISOString().split("T")[0],
+      uptime_pct: isDowntime ? 92.4 : isDegraded ? 98.7 : 100,
+      has_incident: isDowntime,
+    });
+  }
+  return generated;
+};
 
 export const INITIAL_MOCK_DEVICES: MonitoredDevice[] = [
   {
@@ -170,3 +187,48 @@ export const MOCK_ACTIVE_INCIDENTS = [
     engineer: "Equipe Core App",
   },
 ];
+
+export const INITIAL_NOC_INCIDENTS: IncidentItem[] = [
+  {
+    id: "inc-8492",
+    ticketId: "8492",
+    priorityLabel: "P1 CRITICAL",
+    severity: "critical",
+    title: "Fibra Rompida — RT-BENGUELA",
+    timeAgo: "14m atrás",
+    description:
+      "Perda total de comunicação no enlace Catumbela-Benguela. Rota de contingência satélite em espera.",
+    slaOrStatusText: "SLA Restante: 00:15:28",
+    actionType: "ack_resolve",
+    operatorName: "Daniel Ndonda",
+  },
+  {
+    id: "inc-8493",
+    ticketId: "8493",
+    priorityLabel: "P2 WARNING",
+    severity: "warning",
+    title: "Spike Latência Envoy Gateway",
+    timeAgo: "28m atrás",
+    description:
+      "Latência média acima de 142ms no serviço de relatórios SLA do Banco Sol.",
+    slaOrStatusText: "Mitigação em Análise",
+    actionType: "timeline",
+  },
+];
+
+export const CANONICAL_TRAFFIC_CHART_24H: TrafficChartPoint[] = [
+  { time: "00:00", throughput: 32.4, baseline: 30.0, latency: 12.1 },
+  { time: "02:00", throughput: 28.1, baseline: 29.0, latency: 11.8 },
+  { time: "04:00", throughput: 25.6, baseline: 28.0, latency: 11.5 },
+  { time: "06:00", throughput: 45.2, baseline: 35.0, latency: 13.4 },
+  { time: "08:00", throughput: 68.7, baseline: 55.0, latency: 16.2 },
+  { time: "10:00", throughput: 82.3, baseline: 65.0, latency: 18.0 },
+  { time: "12:00", throughput: 91.5, baseline: 75.0, latency: 21.4 },
+  { time: "14:15", throughput: 98.2, baseline: 80.0, latency: 24.8 },
+  { time: "16:00", throughput: 86.4, baseline: 78.0, latency: 19.5 },
+  { time: "18:00", throughput: 74.2, baseline: 70.0, latency: 17.1 },
+  { time: "20:00", throughput: 61.9, baseline: 58.0, latency: 15.3 },
+  { time: "22:00", throughput: 48.0, baseline: 45.0, latency: 13.9 },
+  { time: "Agora", throughput: 54.3, baseline: 42.0, latency: 14.2 },
+];
+

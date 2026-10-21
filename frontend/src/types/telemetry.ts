@@ -5,6 +5,7 @@
 
 export type DeviceStatus = "UP" | "DOWN" | "DEG" | "MAINT";
 export type DeviceSeverity = "healthy" | "critical" | "degraded" | "maint";
+export type NormalizedStatus = "DOWN" | "DEG" | "UP" | "MAINT";
 
 export interface LatencyMetricPoint {
   timestamp: string;
@@ -73,5 +74,104 @@ export interface NocIncident {
   status: "OPEN" | "ACKNOWLEDGED" | "RESOLVED";
 }
 
+export type IncidentSeverity = "critical" | "warning" | "info";
+
+export interface IncidentItem {
+  id: string;
+  ticketId: string;
+  priorityLabel: string;
+  severity: IncidentSeverity;
+  title: string;
+  timeAgo: string;
+  description: string;
+  slaOrStatusText: string;
+  actionType: "ack_resolve" | "timeline";
+  operatorName?: string;
+}
+
+export type ToastType = "success" | "warning" | "info" | "error";
+
+export interface ToastMessage {
+  text: string;
+  type: ToastType;
+}
+
+export interface TrafficChartPoint {
+  time: string;
+  throughput: number;
+  baseline: number;
+  latency: number;
+}
+
 export type DashboardViewMode = "nominal" | "skeleton" | "empty" | "error";
 export type SeverityFilterType = "all" | "critical" | "degraded" | "healthy";
+
+export interface NocKpiStats {
+  total: number;
+  up: number;
+  deg: number;
+  down: number;
+  maint?: number;
+}
+
+export interface CriticalAlarmData {
+  id: string;
+  hostname: string;
+  ip: string;
+  location?: string;
+  downDuration: string;
+  packetLoss: string;
+  glpiTicketId?: string;
+  impactedClients?: string;
+}
+
+export interface StatusTickerData {
+  total?: number;
+  up?: number;
+  degraded?: number;
+  down?: number;
+  maintenance?: number;
+}
+
+export interface TvDeviceItem {
+  id: string;
+  hostname: string;
+  category: string;
+  protocol: string;
+  ip: string;
+  status: "UP" | "DOWN" | "DEGRADADO" | "MANUTENÇÃO";
+  rtt: string;
+  rttUnit: string;
+  heroSub: string;
+  metricLabel: string;
+  metricBadge: string;
+  bottomLeft: string;
+  bottomRight: string;
+}
+
+export interface TvIncidentItem {
+  id: string;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM";
+  device: string;
+  ip: string;
+  client: string;
+  title: string;
+  startedAgo: string;
+  slaRemaining: string;
+  glpiTicket: string;
+  assignee: string;
+  status: "INVESTIGANDO" | "EM ATENDIMENTO" | "MITIGANDO";
+}
+
+export interface TvBackboneLink {
+  id: string;
+  name: string;
+  type: string;
+  capacity: string;
+  utilization: string;
+  utilizationPercent: number;
+  rtt: string;
+  packetLoss: string;
+  status: "HEALTHY" | "DEGRADED" | "DOWN";
+}
+

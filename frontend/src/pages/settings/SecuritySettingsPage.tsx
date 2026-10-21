@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { securityApi } from "../../services/securityApi";
 import { Button } from "../../components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import type { ActiveSession, MfaSetupResponse } from "../../types/auth";
@@ -80,21 +79,21 @@ export const SecuritySettingsPage: React.FC = () => {
   // Validar primeiro código e habilitar MFA
   const handleConfirmEnableMfa = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!verificationCode) return;
+    if (!setupData || verificationCode.length !== 6) return;
 
     setIsActionLoading(true);
     try {
       const res = await securityApi.enableMfa(verificationCode);
-      setBackupCodes(res.backup_codes);
       setIsMfaActive(true);
+      setBackupCodes(res.backup_codes || []);
       setFeedbackMessage({
         type: "success",
-        text: "MFA ativado com sucesso! Guarde seus códigos de backup.",
+        text: "Autenticação em duas etapas configurada com sucesso!",
       });
     } catch (err) {
       setFeedbackMessage({
         type: "error",
-        text: err instanceof Error ? err.message : "Código de ativação inválido.",
+        text: err instanceof Error ? err.message : "Código de verificação incorreto.",
       });
     } finally {
       setIsActionLoading(false);
@@ -115,26 +114,26 @@ export const SecuritySettingsPage: React.FC = () => {
       setDisableCode("");
       setFeedbackMessage({
         type: "success",
-        text: "Autenticação em dois fatores desativada.",
+        text: "Proteção MFA desativada na conta.",
       });
     } catch (err) {
       setFeedbackMessage({
         type: "error",
-        text: err instanceof Error ? err.message : "Erro ao desativar MFA.",
+        text: err instanceof Error ? err.message : "Falha ao desativar MFA.",
       });
     } finally {
       setIsActionLoading(false);
     }
   };
 
-  // Revogar uma sessão
+  // Revogar uma sessão específica
   const handleRevokeSession = async (sessionId: string) => {
     try {
       await securityApi.revokeSession(sessionId);
-      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      await fetchSessions();
       setFeedbackMessage({
         type: "success",
-        text: "Dispositivo desconectado com sucesso.",
+        text: "Sessão desconectada com sucesso.",
       });
     } catch (err) {
       setFeedbackMessage({
@@ -168,26 +167,13 @@ export const SecuritySettingsPage: React.FC = () => {
   return (
     <div
       data-testid="security-settings-page"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "24px",
-        maxWidth: "960px",
-        margin: "0 auto",
-      }}
+      className="max-w-4xl mx-auto flex flex-col gap-6"
     >
       <div>
-        <h1
-          style={{
-            fontSize: "1.5rem",
-            fontWeight: 700,
-            color: "var(--color-text-primary)",
-            margin: "0 0 6px 0",
-          }}
-        >
-          Segurança da Conta & Gestão de Acessos
+        <h1 className="text-2xl font-bold font-display text-white tracking-tight mb-1">
+          Segurança da Conta &amp; Gestão de Acessos
         </h1>
-        <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", margin: 0 }}>
+        <p className="text-sm text-slate-400">
           Gerencie a proteção de login em duas etapas (MFA) e controle os dispositivos com sessões ativas
         </p>
       </div>
@@ -195,188 +181,134 @@ export const SecuritySettingsPage: React.FC = () => {
       {feedbackMessage && (
         <div
           role="alert"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            padding: "12px 16px",
-            borderRadius: "var(--radius-sm)",
-            backgroundColor:
-              feedbackMessage.type === "success"
-                ? "rgba(16, 185, 129, 0.1)"
-                : "var(--color-critical-bg)",
-            border:
-              feedbackMessage.type === "success"
-                ? "1px solid var(--color-border-focus)"
-                : "1px solid var(--color-critical-border)",
-            color:
-              feedbackMessage.type === "success"
-                ? "var(--color-healthy)"
-                : "var(--color-critical)",
-            fontSize: "0.875rem",
-          }}
+          className={`flex items-center gap-2.5 p-3.5 rounded-xl border text-sm ${
+            feedbackMessage.type === "success"
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+              : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+          }`}
         >
           {feedbackMessage.type === "success" ? (
-            <CheckCircle2 size={18} />
+            <CheckCircle2 size={18} className="shrink-0" />
           ) : (
-            <AlertTriangle size={18} />
+            <AlertTriangle size={18} className="shrink-0" />
           )}
           <span>{feedbackMessage.text}</span>
         </div>
       )}
 
-      {/* =================================================================== */}
-      {/* 1. SEÇÃO DE AUTENTICAÇÃO EM DUAS ETAPAS (MFA TOTP)                  */}
-      {/* =================================================================== */}
-      <Card>
-        <CardHeader>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <CardTitle>Autenticação em Duas Etapas (MFA / 2FA)</CardTitle>
-              <CardDescription>
-                Protege sua conta exigindo um código de 6 dígitos gerado no Google Authenticator ou 1Password
-              </CardDescription>
-            </div>
-            <Badge variant={isMfaActive ? "healthy" : "neutral"}>
-              {isMfaActive ? "MFA Ativo" : "Desativado"}
-            </Badge>
+      {/* 1. SEÇÃO DE AUTENTICAÇÃO EM DUAS ETAPAS (MFA TOTP) */}
+      <section className="bg-obsidian-900 border border-white/10 rounded-2xl p-6 shadow-card-glass space-y-5">
+        <div className="flex justify-between items-start flex-wrap gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-white tracking-tight">
+              Autenticação em Duas Etapas (MFA / 2FA)
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Protege sua conta exigindo um código de 6 dígitos gerado no Google Authenticator ou 1Password
+            </p>
           </div>
-        </CardHeader>
+          <Badge variant={isMfaActive ? "healthy" : "neutral"}>
+            {isMfaActive ? "MFA Ativo" : "Desativado"}
+          </Badge>
+        </div>
 
-        <CardContent>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "16px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: "var(--color-bg-deep)",
-              border: "var(--border-subtle)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "44px",
-                  height: "44px",
-                  borderRadius: "var(--radius-sm)",
-                  backgroundColor: isMfaActive
-                    ? "rgba(16, 185, 129, 0.1)"
-                    : "rgba(255, 255, 255, 0.05)",
-                  color: isMfaActive ? "var(--color-healthy)" : "var(--color-text-muted)",
-                }}
-              >
-                {isMfaActive ? <ShieldCheck size={24} /> : <ShieldAlert size={24} />}
-              </div>
-              <div>
-                <strong style={{ display: "block", color: "var(--color-text-primary)", fontSize: "0.9375rem" }}>
-                  {isMfaActive
-                    ? "Sua conta está protegida com TOTP"
-                    : "MFA não está configurado"}
-                </strong>
-                <span style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
-                  {isMfaActive
-                    ? "Será solicitado um código de segurança em cada novo login."
-                    : "Adicione uma camada extra de proteção contra roubo de senhas."}
-                </span>
-              </div>
+        <div className="flex items-center justify-between p-4 rounded-xl bg-obsidian-950/80 border border-white/5 flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div
+              className={`flex items-center justify-center w-11 h-11 rounded-xl ${
+                isMfaActive
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  : "bg-white/5 text-slate-400 border border-white/10"
+              }`}
+            >
+              {isMfaActive ? <ShieldCheck size={24} /> : <ShieldAlert size={24} />}
             </div>
-
             <div>
-              {isMfaActive ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsDisableModalOpen(true)}
-                >
-                  Desativar MFA
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  isLoading={isActionLoading}
-                  onClick={handleStartMfaSetup}
-                >
-                  Configurar MFA Agora
-                </Button>
-              )}
+              <strong className="block text-white text-[14px]">
+                {isMfaActive
+                  ? "Sua conta está protegida com TOTP"
+                  : "MFA não está configurado"}
+              </strong>
+              <span className="text-xs text-slate-400">
+                {isMfaActive
+                  ? "Será solicitado um código de segurança em cada novo login."
+                  : "Adicione uma camada extra de proteção contra roubo de senhas."}
+              </span>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* =================================================================== */}
-      {/* 2. SEÇÃO DE DISPOSITIVOS E SESSÕES ATIVAS                            */}
-      {/* =================================================================== */}
-      <Card>
-        <CardHeader>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <CardTitle>Sessões & Dispositivos Conectados</CardTitle>
-              <CardDescription>
-                Lista de computadores e navegadores autorizados com refresh tokens ativos
-              </CardDescription>
-            </div>
-            {sessions.length > 1 && (
+          <div>
+            {isMfaActive ? (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRevokeAllSessions}
-                icon={<LogOut size={14} />}
+                onClick={() => setIsDisableModalOpen(true)}
               >
-                Desconectar Outras Sessões
+                Desativar MFA
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={isActionLoading}
+                onClick={handleStartMfaSetup}
+              >
+                Configurar MFA Agora
               </Button>
             )}
           </div>
-        </CardHeader>
+        </div>
+      </section>
 
-        <CardContent>
-          {isLoadingSessions ? (
-            <p style={{ color: "var(--color-text-secondary)", fontSize: "0.875rem" }}>
-              Carregando lista de dispositivos...
+      {/* 2. SEÇÃO DE DISPOSITIVOS E SESSÕES ATIVAS */}
+      <section className="bg-obsidian-900 border border-white/10 rounded-2xl p-6 shadow-card-glass space-y-5">
+        <div className="flex justify-between items-start flex-wrap gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-white tracking-tight">
+              Sessões &amp; Dispositivos Conectados
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Lista de computadores e navegadores autorizados com refresh tokens ativos
             </p>
-          ) : sessions.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "24px",
-                color: "var(--color-text-secondary)",
-                fontSize: "0.875rem",
-              }}
+          </div>
+          {sessions.length > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRevokeAllSessions}
+              icon={<LogOut size={14} />}
             >
+              Desconectar Outras Sessões
+            </Button>
+          )}
+        </div>
+
+        <div>
+          {isLoadingSessions ? (
+            <p className="text-sm text-slate-400">Carregando lista de dispositivos...</p>
+          ) : sessions.length === 0 ? (
+            <div className="text-center p-6 text-slate-400 text-sm">
               Nenhuma outra sessão ativa encontrada.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div className="flex flex-col gap-2.5">
               {sessions.map((session) => (
                 <article
                   key={session.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "12px 16px",
-                    borderRadius: "var(--radius-sm)",
-                    backgroundColor: "var(--color-bg-deep)",
-                    border: "var(--border-subtle)",
-                  }}
+                  className="flex items-center justify-between p-3.5 rounded-xl bg-obsidian-950/80 border border-white/5 hover:border-white/10 transition-colors"
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <div style={{ color: "var(--color-text-secondary)" }}>
-                      {session.device_name?.toLowerCase().includes("mobile") ? (
+                  <div className="flex items-center gap-3">
+                    <div className="text-slate-400">
+                      {session.device_name?.toLowerCase().includes("mobile") ||
+                      session.device_name?.toLowerCase().includes("iphone") ? (
                         <Smartphone size={20} />
                       ) : (
                         <Laptop size={20} />
                       )}
                     </div>
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontWeight: 600, color: "var(--color-text-primary)", fontSize: "0.875rem" }}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white text-sm">
                           {session.device_name || "Navegador Web Desconhecido"}
                         </span>
                         {session.is_current && (
@@ -385,14 +317,7 @@ export const SecuritySettingsPage: React.FC = () => {
                           </Badge>
                         )}
                       </div>
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "var(--color-text-muted)",
-                          fontFamily: "var(--font-mono)",
-                          marginTop: "2px",
-                        }}
-                      >
+                      <div className="text-xs font-mono text-slate-500 mt-0.5">
                         IP: {session.ip_address || "Não informado"} • Criado em:{" "}
                         {new Date(session.created_at).toLocaleString("pt-BR")}
                       </div>
@@ -414,12 +339,10 @@ export const SecuritySettingsPage: React.FC = () => {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* =================================================================== */}
-      {/* MODAL DE CONFIGURAÇÃO DO MFA                                        */}
-      {/* =================================================================== */}
+      {/* MODAL DE CONFIGURAÇÃO DO MFA */}
       <Modal
         isOpen={isSetupModalOpen}
         onClose={() => setIsSetupModalOpen(false)}
@@ -428,26 +351,15 @@ export const SecuritySettingsPage: React.FC = () => {
       >
         {backupCodes.length > 0 ? (
           <div>
-            <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+            <p className="text-sm text-slate-400 mb-4">
               Guarde os 10 códigos abaixo em um local seguro (gerenciador de senhas ou impresso). Cada código pode ser utilizado apenas uma vez caso você perca o acesso ao seu aplicativo autenticador.
             </p>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "8px",
-                padding: "16px",
-                backgroundColor: "var(--color-bg-deep)",
-                borderRadius: "var(--radius-sm)",
-                border: "var(--border-subtle)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.875rem",
-                color: "var(--color-text-primary)",
-                marginBottom: "20px",
-              }}
-            >
+            <div className="grid grid-cols-2 gap-2 p-4 bg-obsidian-950 rounded-xl border border-white/10 font-mono text-sm text-white mb-5">
               {backupCodes.map((c, i) => (
-                <div key={i} style={{ padding: "4px 8px", backgroundColor: "rgba(255, 255, 255, 0.03)", borderRadius: "var(--radius-xs)" }}>
+                <div
+                  key={i}
+                  className="p-1.5 px-2 bg-white/5 rounded text-center tracking-wider"
+                >
                   {c}
                 </div>
               ))}
@@ -462,7 +374,7 @@ export const SecuritySettingsPage: React.FC = () => {
                 navigator.clipboard.writeText(backupCodes.join("\n"));
                 alert("Códigos copiados para a área de transferência!");
               }}
-              style={{ marginBottom: "12px" }}
+              className="mb-3"
             >
               Copiar Todos os Códigos
             </Button>
@@ -477,30 +389,16 @@ export const SecuritySettingsPage: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleConfirmEnableMfa}>
-            <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+          <form onSubmit={handleConfirmEnableMfa} className="space-y-4">
+            <p className="text-sm text-slate-400">
               1. Insira a chave secreta abaixo no seu aplicativo autenticador (Google Authenticator, Authy ou 1Password):
             </p>
 
-            <div
-              style={{
-                padding: "12px",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--color-bg-deep)",
-                border: "var(--border-subtle)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "1rem",
-                fontWeight: 700,
-                textAlign: "center",
-                color: "var(--color-healthy)",
-                letterSpacing: "0.1em",
-                marginBottom: "16px",
-              }}
-            >
+            <div className="p-3 rounded-xl bg-obsidian-950 border border-white/10 font-mono text-base font-bold text-center text-amber-400 tracking-wider">
               {setupData?.secret}
             </div>
 
-            <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", marginBottom: "8px" }}>
+            <p className="text-sm text-slate-400">
               2. Digite o código de 6 dígitos exibido no aplicativo para validar:
             </p>
 
@@ -512,24 +410,10 @@ export const SecuritySettingsPage: React.FC = () => {
               placeholder="000000"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--color-border-focus)",
-                backgroundColor: "var(--color-bg-deep)",
-                color: "var(--color-text-primary)",
-                fontSize: "1.25rem",
-                fontWeight: 700,
-                textAlign: "center",
-                letterSpacing: "0.2em",
-                fontFamily: "var(--font-mono)",
-                marginBottom: "20px",
-                outline: "none",
-              }}
+              className="w-full bg-obsidian-950 border border-white/15 rounded-xl p-3 text-xl font-mono font-bold text-center tracking-widest text-white focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
             />
 
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            <div className="flex gap-3 justify-end pt-2">
               <Button
                 variant="outline"
                 type="button"
@@ -550,24 +434,22 @@ export const SecuritySettingsPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* =================================================================== */}
-      {/* MODAL DE DESATIVAÇÃO DO MFA                                         */}
-      {/* =================================================================== */}
+      {/* MODAL DE DESATIVAÇÃO DO MFA */}
       <Modal
         isOpen={isDisableModalOpen}
         onClose={() => setIsDisableModalOpen(false)}
         title="Desativar Autenticação em Duas Etapas"
         maxWidth="440px"
       >
-        <form onSubmit={handleConfirmDisableMfa}>
-          <p style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+        <form onSubmit={handleConfirmDisableMfa} className="space-y-4">
+          <p className="text-xs text-slate-400">
             Para confirmar a desativação da proteção em duas etapas, forneça sua senha atual e um código do aplicativo autenticador.
           </p>
 
-          <div style={{ marginBottom: "12px" }}>
+          <div className="space-y-1">
             <label
               htmlFor="disable-pwd"
-              style={{ display: "block", fontSize: "0.8125rem", color: "var(--color-text-primary)", marginBottom: "4px" }}
+              className="block text-xs font-medium text-slate-300"
             >
               Sua Senha
             </label>
@@ -577,22 +459,14 @@ export const SecuritySettingsPage: React.FC = () => {
               required
               value={disablePassword}
               onChange={(e) => setDisablePassword(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: "var(--radius-sm)",
-                border: "var(--border-subtle)",
-                backgroundColor: "var(--color-bg-deep)",
-                color: "var(--color-text-primary)",
-                fontSize: "0.875rem",
-              }}
+              className="w-full bg-obsidian-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
             />
           </div>
 
-          <div style={{ marginBottom: "20px" }}>
+          <div className="space-y-1">
             <label
               htmlFor="disable-code"
-              style={{ display: "block", fontSize: "0.8125rem", color: "var(--color-text-primary)", marginBottom: "4px" }}
+              className="block text-xs font-medium text-slate-300"
             >
               Código TOTP ou de Backup
             </label>
@@ -603,20 +477,11 @@ export const SecuritySettingsPage: React.FC = () => {
               value={disableCode}
               onChange={(e) => setDisableCode(e.target.value)}
               placeholder="000000"
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: "var(--radius-sm)",
-                border: "var(--border-subtle)",
-                backgroundColor: "var(--color-bg-deep)",
-                color: "var(--color-text-primary)",
-                fontSize: "0.875rem",
-                fontFamily: "var(--font-mono)",
-              }}
+              className="w-full bg-obsidian-950 border border-white/10 rounded-xl px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
             />
           </div>
 
-          <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+          <div className="flex gap-3 justify-end pt-2">
             <Button
               variant="outline"
               type="button"

@@ -3,13 +3,16 @@ import { NavLink } from "react-router-dom";
 import {
   AlertTriangle,
   BarChart3,
+  BookOpen,
   Building2,
   HardDrive,
   LayoutDashboard,
   Network,
+  Power,
   Server,
   ShieldAlert,
   ShieldCheck,
+  Terminal,
   Wrench,
   X,
 } from "lucide-react";
@@ -54,7 +57,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
   },
   {
     to: "/maintenance",
-    label: "Janelas de Manutenção",
+    label: "Manutenção",
     icon: <Wrench size={18} />,
     allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR"],
   },
@@ -93,9 +96,14 @@ export const NAV_ITEMS: NavItemConfig[] = [
 export interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  onEmergencyDrain?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen = false,
+  onClose,
+  onEmergencyDrain,
+}) => {
   const { hasRole } = useAuth();
 
   const visibleItems = NAV_ITEMS.filter((item) => hasRole(item.allowedRoles));
@@ -107,139 +115,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
         <div
           data-testid="sidebar-backdrop"
           onClick={onClose}
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(9, 13, 22, 0.75)",
-            backdropFilter: "blur(4px)",
-            zIndex: 40,
-          }}
+          className="fixed inset-0 bg-obsidian-950/80 backdrop-blur-sm z-30 lg:hidden transition-opacity cursor-pointer"
+          aria-hidden="true"
         />
       )}
 
+      {/* SIDEBAR DE NAVEGAÇÃO OPERACIONAL NOC */}
       <aside
+        id="sidebar"
         data-testid="app-sidebar"
-        style={{
-          width: "240px",
-          height: "calc(100vh - 56px)",
-          backgroundColor: "var(--color-bg-deep)",
-          borderRight: "var(--border-subtle)",
-          position: "fixed",
-          top: "56px",
-          left: 0,
-          zIndex: 45,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          padding: "16px 12px",
-          transition: "transform var(--transition-normal)",
-          transform: isOpen ? "translateX(0)" : undefined,
-        }}
-        className={`sidebar-nav ${isOpen ? "open" : ""}`}
+        className={`fixed top-14 left-0 h-[calc(100vh-3.5rem)] w-60 flex flex-col justify-between py-4 border-r border-obsidian-800/80 z-40 bg-obsidian-950 transition-transform duration-200 ease-in-out shadow-2xl lg:shadow-none ${
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+        aria-label="Menu principal do NOC"
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto" }}>
+        {/* Top Group: Header Operacional + Links de Navegação */}
+        <div className="flex flex-col gap-3 overflow-y-auto">
           {/* Header do Cluster NOC */}
-          <div
-            style={{
-              padding: "0 8px 12px 8px",
-              borderBottom: "var(--border-subtle)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+          <div className="px-4 pb-2 border-b border-obsidian-800/60 flex items-center justify-between">
             <div>
-              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                Painel Operacional
-              </div>
-              <div
-                style={{
-                  fontSize: "0.6875rem",
-                  fontFamily: "var(--font-mono)",
-                  color: "var(--color-healthy)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  marginTop: "2px",
-                }}
-              >
-                <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "var(--color-healthy)" }} />
+              <div className="text-xs font-semibold text-slate-200">Painel Operacional</div>
+              <div className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 CLUSTER LUANDA-01
               </div>
             </div>
 
-            {onClose && (
+            {onClose ? (
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar menu"
                 data-testid="close-sidebar-button"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--color-text-muted)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                }}
+                className="lg:hidden text-slate-400 hover:text-white transition-colors"
               >
                 <X size={16} />
               </button>
+            ) : (
+              <Network size={18} className="text-slate-500" aria-hidden="true" />
             )}
           </div>
 
-          {/* Lista de Rotas Filtradas */}
+          {/* Links da Aplicação */}
           <nav
-            style={{ display: "flex", flexDirection: "column", gap: "4px" }}
-            aria-label="Navegação Principal do Sistema"
+            className="flex flex-col space-y-1 px-2.5"
+            aria-label="Navegação Principal do NOC"
           >
             {visibleItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 onClick={onClose}
-                style={({ isActive }) => ({
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "8px 12px",
-                  borderRadius: "var(--radius-md)",
-                  textDecoration: "none",
-                  fontSize: "0.8125rem",
-                  fontWeight: isActive ? 600 : 500,
-                  fontFamily: "var(--font-sans)",
-                  color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                  backgroundColor: isActive ? "var(--color-surface-hover)" : "transparent",
-                  borderLeft: isActive ? "3px solid var(--color-healthy)" : "3px solid transparent",
-                  transition: "background-color var(--transition-fast), color var(--transition-fast), border-left-color var(--transition-fast)",
-                })}
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-3 py-2 text-xs transition-colors font-medium ${
+                    isActive
+                      ? "bg-obsidian-850 text-white border-l-2 border-emerald-500 font-semibold rounded-r-lg"
+                      : "text-slate-300 hover:text-white hover:bg-obsidian-900 rounded-lg"
+                  }`
+                }
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ display: "flex", color: "inherit" }}>{item.icon}</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="flex items-center justify-center text-inherit">
+                    {item.icon}
+                  </span>
                   <span>{item.label}</span>
                 </div>
 
                 {item.badge && (
                   <span
-                    style={{
-                      fontSize: "0.625rem",
-                      fontFamily: "var(--font-mono)",
-                      fontWeight: 700,
-                      padding: "1px 6px",
-                      borderRadius: "var(--radius-xs)",
-                      backgroundColor:
-                        item.badgeVariant === "critical"
-                          ? "var(--color-critical-bg)"
-                          : "rgba(255, 255, 255, 0.08)",
-                      color:
-                        item.badgeVariant === "critical"
-                          ? "var(--color-critical)"
-                          : "var(--color-text-secondary)",
-                      border:
-                        item.badgeVariant === "critical"
-                          ? "1px solid var(--color-critical-border)"
-                          : "var(--border-subtle)",
-                    }}
+                    className={`px-1.5 py-0.5 text-[10px] font-mono font-bold rounded tabular-nums ${
+                      item.badgeVariant === "critical"
+                        ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                        : "bg-obsidian-800 text-slate-300 border border-obsidian-700"
+                    }`}
                   >
                     {item.badge}
                   </span>
@@ -249,22 +197,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
           </nav>
         </div>
 
-        {/* Rodapé da Sidebar */}
-        <footer
-          style={{
-            padding: "12px 8px 4px 8px",
-            borderTop: "var(--border-subtle)",
-            fontSize: "0.6875rem",
-            color: "var(--color-text-muted)",
-            fontFamily: "var(--font-mono)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>v0.1.0-prod</span>
-          <span style={{ color: "var(--color-healthy)" }}>ONLINE</span>
-        </footer>
+        {/* Bottom Rail: Emergency Drain & Suporte */}
+        <div className="px-3 flex flex-col gap-2 pt-3 border-t border-obsidian-800/60">
+          <button
+            type="button"
+            data-testid="sidebar-emergency-drain-btn"
+            onClick={() => {
+              if (onEmergencyDrain) {
+                onEmergencyDrain();
+              } else {
+                const btn = document.querySelector('[data-testid="emergency-drain-btn"]') as HTMLButtonElement;
+                if (btn) btn.click();
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-rose-400 cursor-pointer"
+          >
+            <Power size={16} aria-hidden="true" />
+            <span>Emergency Drain</span>
+          </button>
+
+          <div className="flex flex-col space-y-0.5">
+            <a
+              href="#docs"
+              onClick={(e) => e.preventDefault()}
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-obsidian-900 text-xs transition-colors"
+            >
+              <BookOpen size={16} aria-hidden="true" />
+              <span>Documentação</span>
+            </a>
+            <a
+              href="#cli"
+              onClick={(e) => e.preventDefault()}
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-obsidian-900 text-xs transition-colors"
+            >
+              <Terminal size={16} aria-hidden="true" />
+              <span>Console CLI</span>
+            </a>
+          </div>
+        </div>
       </aside>
     </>
   );
