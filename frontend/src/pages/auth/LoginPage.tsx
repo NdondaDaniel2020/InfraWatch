@@ -656,24 +656,6 @@ export const LoginPage: React.FC = () => {
             {/* Halo sutil de iluminação ambiente dourada atrás dos servidores */}
             <div className="absolute w-56 h-56 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
-            {/* Badges Flutuantes de Telemetria */}
-            <div className="absolute top-6 left-6 px-3.5 py-1.5 rounded-full bg-obsidian-900/90 border border-white/10 backdrop-blur-md flex items-center gap-2 shadow-lg">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-mono text-[11px] font-semibold text-slate-100">LUANDA-CORE-01</span>
-              <span className="font-mono text-[11px] font-semibold text-emerald-400">• 1.2ms</span>
-            </div>
-
-            <div className="absolute top-6 right-6 px-3.5 py-1.5 rounded-full bg-obsidian-900/90 border border-white/10 backdrop-blur-md flex items-center gap-2 shadow-lg">
-              <span className="w-2 h-2 rounded-full bg-sky-400" />
-              <span className="font-mono text-[11px] font-semibold text-slate-100">Cluster K8s</span>
-              <span className="font-mono text-[11px] font-semibold text-sky-400">• 99.98% SLA</span>
-            </div>
-
-            <div className="absolute bottom-6 px-4 py-1.5 rounded-full bg-obsidian-900/90 border border-amber-500/30 backdrop-blur-md flex items-center gap-2 shadow-lg">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="font-mono text-[11px] font-semibold text-slate-100">Telemetria Ativa</span>
-              <span className="font-mono text-[11px] font-semibold text-amber-400">• SSE v2</span>
-            </div>
 
             {/* Ilustração Vetorial Transparente de Redes */}
             <img
