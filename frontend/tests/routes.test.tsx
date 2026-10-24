@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalErrorBoundary } from "../src/components/common/GlobalErrorBoundary";
 import { AuthContext } from "../src/context/AuthContext";
 import { TelemetryProvider } from "../src/context/TelemetryContext";
@@ -138,15 +139,20 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
   describe("3. Shell da Aplicação (AppLayout, Header e Sidebar)", () => {
     it("deve renderizar Header e Sidebar estruturais mantendo o conteúdo da rota", () => {
       const authMock = createAuthMock({}, "NOC_OPERATOR", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
 
       render(
-        <MemoryRouter initialEntries={["/devices"]}>
-          <AuthContext.Provider value={authMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/devices"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
       );
 
       expect(screen.getByTestId("app-header")).toBeInTheDocument();

@@ -16,6 +16,7 @@ import { ClientPortalPage } from "../pages/client/ClientPortalPage";
 import { TvWallboardPage } from "../pages/wallboard/TvWallboardPage";
 import { IncidentManagement } from "../pages/IncidentManagement";
 import { PlaceholderPage } from "../pages/common/PlaceholderPage";
+import { DeviceListPage } from "../pages/inventory/DeviceListPage";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -80,11 +81,7 @@ export const AppRoutes: React.FC = () => {
               path="/devices"
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
-                  <PlaceholderPage
-                    title="Inventário de Ativos & Dispositivos"
-                    description="Gestão centralizada de sondas ICMP, HTTP, TCP, Docker e Heartbeats."
-                    testId="devices-page"
-                  />
+                  <DeviceListPage />
                 </ProtectedRoute>
               }
             />
