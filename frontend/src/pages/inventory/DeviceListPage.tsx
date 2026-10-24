@@ -282,7 +282,11 @@ export const DeviceListPage: React.FC = () => {
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ position: "relative", flex: 1, minWidth: "280px", maxWidth: "400px" }}>
             <Search style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)", fontSize: "16px" }} />
+            <label htmlFor="device-search" style={{ position: "absolute", width: "1px", height: "1px", padding: "0", margin: "-1px", overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: "0" }}>
+              Buscar por nome, hostname, IP
+            </label>
             <input
+              id="device-search"
               type="text"
               placeholder="Buscar por nome, hostname, IP..."
               value={searchDebounce}
@@ -306,7 +310,11 @@ export const DeviceListPage: React.FC = () => {
           </div>
 
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <label htmlFor="device-category-filter" style={{ position: "absolute", width: "1px", height: "1px", padding: "0", margin: "-1px", overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: "0" }}>
+              Categoria
+            </label>
             <select
+              id="device-category-filter"
               value={filters.category || ""}
               onChange={handleCategoryChangeFromEvent}
               style={{
@@ -329,7 +337,11 @@ export const DeviceListPage: React.FC = () => {
               ))}
             </select>
 
+            <label htmlFor="device-status-filter" style={{ position: "absolute", width: "1px", height: "1px", padding: "0", margin: "-1px", overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: "0" }}>
+              Status
+            </label>
             <select
+              id="device-status-filter"
               value={filters.healthStatus || ""}
               onChange={(e) => handleStatusChange(e.target.value as DeviceHealthStatus | undefined)}
               style={{
@@ -352,7 +364,11 @@ export const DeviceListPage: React.FC = () => {
               ))}
             </select>
 
+            <label htmlFor="device-protocol-filter" style={{ position: "absolute", width: "1px", height: "1px", padding: "0", margin: "-1px", overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: "0" }}>
+              Protocolo
+            </label>
             <select
+              id="device-protocol-filter"
               value={filters.protocol || ""}
               onChange={(e) => handleProtocolChange(e.target.value as ProberProtocol | undefined)}
               style={{
@@ -423,7 +439,11 @@ export const DeviceListPage: React.FC = () => {
                 Mostrando <strong>{((currentPage - 1) * pageSize) + 1}</strong> a <strong>{Math.min(currentPage * pageSize, totalItems)}</strong> de <strong>{totalItems}</strong> ativos
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <label htmlFor="page-size-select" style={{ position: "absolute", width: "1px", height: "1px", padding: "0", margin: "-1px", overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: "0" }}>
+                  Itens por página
+                </label>
                 <select
+                  id="page-size-select"
                   value={pageSize}
                   onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                   style={{
@@ -450,6 +470,7 @@ export const DeviceListPage: React.FC = () => {
                     icon={<ChevronLeft size={14} />}
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage <= 1}
+                    aria-label="Página anterior"
                     data-testid="prev-page-button"
                   />
                   <span style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", minWidth: "60px", textAlign: "center" }}>
@@ -462,6 +483,7 @@ export const DeviceListPage: React.FC = () => {
                     iconPosition="right"
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage >= totalPages}
+                    aria-label="Próxima página"
                     data-testid="next-page-button"
                   />
                 </div>

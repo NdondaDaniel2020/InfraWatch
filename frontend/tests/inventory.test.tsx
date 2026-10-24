@@ -9,7 +9,11 @@ import { DeviceFormModal } from "../src/components/inventory/DeviceFormModal";
 import { PauseDeviceModal } from "../src/components/inventory/PauseDeviceModal";
 import { MaintenanceModal } from "../src/components/inventory/MaintenanceModal";
 import { devicesApi } from "../src/services/devicesApi";
-import type { DeviceListItem, PaginatedResponse } from "../src/types/inventory";
+import {
+  createMockDevice,
+  createMockResponse,
+  mockDeviceList,
+} from "../src/mocks/devicesMocks";
 
 vi.mock("../src/services/devicesApi", () => ({
   devicesApi: {
@@ -20,39 +24,6 @@ vi.mock("../src/services/devicesApi", () => ({
     createDevice: vi.fn(),
   },
 }));
-
-const createMockDevice = (overrides: Partial<DeviceListItem> = {}): DeviceListItem => ({
-  id: "dev-1",
-  name: "Roteador Core SP",
-  hostname: "router-core-sp.infrawatch.local",
-  ipAddress: "192.168.1.1",
-  port: undefined,
-  protocol: "ICMP",
-  category: "ROUTER",
-  healthStatus: "UP",
-  intervalSeconds: 60,
-  lastCheckAt: "2024-01-15T10:30:00Z",
-  nextCheckAt: "2024-01-15T10:31:00Z",
-  createdAt: "2024-01-01T00:00:00Z",
-  updatedAt: "2024-01-01T00:00:00Z",
-  ...overrides,
-});
-
-const createMockResponse = (devices: DeviceListItem[], page = 1, pageSize = 20, total?: number): PaginatedResponse<DeviceListItem> => ({
-  items: devices,
-  total: total ?? devices.length,
-  page,
-  pageSize,
-  totalPages: Math.ceil((total ?? devices.length) / pageSize),
-});
-
-const mockDevices = [
-  createMockDevice({ id: "dev-1", name: "Roteador Core SP", healthStatus: "UP" }),
-  createMockDevice({ id: "dev-2", name: "Switch Acesso RJ", healthStatus: "DOWN", protocol: "TCP", port: 22 }),
-  createMockDevice({ id: "dev-3", name: "Firewall DF", healthStatus: "DEG", protocol: "HTTP" }),
-  createMockDevice({ id: "dev-4", name: "Servidor DB", healthStatus: "MAINT", protocol: "DOCKER" }),
-  createMockDevice({ id: "dev-5", name: "Job Backup", healthStatus: "PAUSED", protocol: "HEARTBEAT" }),
-];
 
 const renderWithProviders = (ui: ReactNode, queryClient?: QueryClient) => {
   const client = queryClient || new QueryClient({
@@ -79,16 +50,16 @@ describe("Inventory Management — Issue #217", () => {
 
   describe("DeviceListPage — Rendering & Loading", () => {
     it("deve exibir skeleton durante carregamento inicial", () => {
-      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse(mockDevices));
+      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse(mockDeviceList));
 
       renderWithProviders(<DeviceListPage />);
 
-      // Skeleton rows (5) + filter bar skeletons
+      // Skeleton rows (5) - data-testid usado pois skeleton não tem papel semântico
       expect(screen.getAllByTestId("skeleton").length).toBeGreaterThanOrEqual(5);
     });
 
     it("deve renderizar tabela paginada com dados mockados", async () => {
-      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse(mockDevices));
+      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse(mockDeviceList));
 
       renderWithProviders(<DeviceListPage />);
 
@@ -99,6 +70,7 @@ describe("Inventory Management — Issue #217", () => {
       });
 
       // Verifica se badges de status estão presentes (5 dispositivos = 5 badges)
+      // data-testid usado pois o dot do badge não tem papel semântico
       expect(screen.getAllByTestId("badge-dot")).toHaveLength(5);
     });
 
@@ -116,13 +88,13 @@ describe("Inventory Management — Issue #217", () => {
 
   describe("DeviceListPage — Filtragem & Paginação", () => {
     it("deve disparar busca por texto livre com debounce", async () => {
-      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse([mockDevices[0]]));
+      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse([mockDeviceList[0]]));
 
       renderWithProviders(<DeviceListPage />);
 
       await waitFor(() => expect(screen.getByText("Roteador Core SP")).toBeInTheDocument());
 
-      const searchInput = screen.getByTestId("device-search-input");
+      const searchInput = screen.getByLabelText(/buscar por nome, hostname, ip/i);
       fireEvent.change(searchInput, { target: { value: "Core" } });
 
       await waitFor(() => {
@@ -133,13 +105,13 @@ describe("Inventory Management — Issue #217", () => {
     });
 
     it("deve filtrar por categoria", async () => {
-      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse([mockDevices[0]]));
+      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse([mockDeviceList[0]]));
 
       renderWithProviders(<DeviceListPage />);
 
       await waitFor(() => expect(screen.getByText("Roteador Core SP")).toBeInTheDocument());
 
-      const categorySelect = screen.getByTestId("device-category-filter");
+      const categorySelect = screen.getByLabelText(/categoria/i);
       fireEvent.change(categorySelect, { target: { value: "ROUTER" } });
 
       await waitFor(() => {
@@ -150,16 +122,14 @@ describe("Inventory Management — Issue #217", () => {
     });
 
     it("deve filtrar por status de saúde", async () => {
-      // Primeiro retorna todos os dispositivos
-      (devicesApi.listDevices as Mock).mockResolvedValueOnce(createMockResponse(mockDevices));
-      // Depois retorna apenas o dispositivo com status DOWN
-      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse([mockDevices[1]]));
+      (devicesApi.listDevices as Mock).mockResolvedValueOnce(createMockResponse(mockDeviceList));
+      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse([mockDeviceList[1]]));
 
       renderWithProviders(<DeviceListPage />);
 
       await waitFor(() => expect(screen.getByText("Roteador Core SP")).toBeInTheDocument());
 
-      const statusSelect = screen.getByTestId("device-status-filter");
+      const statusSelect = screen.getByLabelText(/status/i);
       fireEvent.change(statusSelect, { target: { value: "DOWN" } });
 
       await waitFor(() => {
@@ -170,19 +140,17 @@ describe("Inventory Management — Issue #217", () => {
     });
 
     it("deve ter controles de paginação funcionais", async () => {
-      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse(mockDevices));
+      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse(mockDeviceList));
 
       renderWithProviders(<DeviceListPage />);
 
       await waitFor(() => expect(screen.getByText("Roteador Core SP")).toBeInTheDocument());
 
-      // Verifica se botões de paginação existem
-      expect(screen.getByTestId("prev-page-button")).toBeInTheDocument();
-      expect(screen.getByTestId("next-page-button")).toBeInTheDocument();
-      expect(screen.getByTestId("page-size-select")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /página anterior/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /próxima página/i })).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: /itens por página/i })).toBeInTheDocument();
 
-      // Verifica se o seletor de tamanho de página funciona
-      const pageSizeSelect = screen.getByTestId("page-size-select");
+      const pageSizeSelect = screen.getByRole("combobox", { name: /itens por página/i });
       fireEvent.change(pageSizeSelect, { target: { value: "50" } });
 
       await waitFor(() => {
@@ -200,15 +168,14 @@ describe("Inventory Management — Issue #217", () => {
           isOpen={true}
           onClose={vi.fn()}
           onSubmit={vi.fn()}
-          data-testid="device-form-modal"
         />
       );
 
-      expect(screen.getByTestId("device-name-input")).toBeInTheDocument();
-      expect(screen.getByTestId("device-hostname-input")).toBeInTheDocument();
-      expect(screen.getByTestId("device-ip-input")).toBeInTheDocument();
-      expect(screen.getByTestId("device-interval-input")).toBeInTheDocument();
-      expect(screen.getByTestId("device-category-select")).toBeInTheDocument();
+      expect(screen.getByLabelText(/nome do ativo/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/hostname \/ fqdn/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/endereço ip/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/intervalo de sondagem/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/categoria/i)).toBeInTheDocument();
     });
 
     it("deve bloquear envio e exibir erro para IP inválido", async () => {
@@ -219,16 +186,15 @@ describe("Inventory Management — Issue #217", () => {
           isOpen={true}
           onClose={vi.fn()}
           onSubmit={vi.fn()}
-          data-testid="device-form-modal"
         />
       );
 
-      await user.type(screen.getByTestId("device-name-input"), "Test Device");
-      await user.type(screen.getByTestId("device-hostname-input"), "test.local");
-      await user.type(screen.getByTestId("device-ip-input"), "invalid-ip");
-      await user.type(screen.getByTestId("device-interval-input"), "60");
+      await user.type(screen.getByLabelText(/nome do ativo/i), "Test Device");
+      await user.type(screen.getByLabelText(/hostname \/ fqdn/i), "test.local");
+      await user.type(screen.getByLabelText(/endereço ip/i), "invalid-ip");
+      await user.type(screen.getByLabelText(/intervalo de sondagem/i), "60");
 
-      const submitButton = screen.getByTestId("device-form-submit");
+      const submitButton = screen.getByRole("button", { name: /cadastrar ativo/i });
       await user.click(submitButton);
 
       expect(await screen.findByText(/endereço ip/i)).toBeInTheDocument();
@@ -243,22 +209,20 @@ describe("Inventory Management — Issue #217", () => {
           isOpen={true}
           onClose={vi.fn()}
           onSubmit={vi.fn()}
-          data-testid="device-form-modal"
         />
       );
 
-      await user.type(screen.getByTestId("device-name-input"), "TCP Test");
-      await user.type(screen.getByTestId("device-hostname-input"), "tcp.test");
-      await user.type(screen.getByTestId("device-ip-input"), "10.0.0.1");
+      await user.type(screen.getByLabelText(/nome do ativo/i), "TCP Test");
+      await user.type(screen.getByLabelText(/hostname \/ fqdn/i), "tcp.test");
+      await user.type(screen.getByLabelText(/endereço ip/i), "10.0.0.1");
 
       await user.click(screen.getByRole("tab", { name: /porta tcp/i }));
 
-      await user.type(screen.getByTestId("tcp-port-input"), "70000");
+      await user.type(screen.getByRole("spinbutton", { name: /porta tcp/i }), "70000");
 
-      const submitButton = screen.getByTestId("device-form-submit");
+      const submitButton = screen.getByRole("button", { name: /cadastrar ativo/i });
       await user.click(submitButton);
 
-      // Verifica se o botão continua desabilitado ou erro aparece
       expect((submitButton as HTMLButtonElement).disabled || (await screen.findByText(/porta|máx|65535/i))).toBeTruthy();
     });
 
@@ -270,29 +234,23 @@ describe("Inventory Management — Issue #217", () => {
           isOpen={true}
           onClose={vi.fn()}
           onSubmit={vi.fn()}
-          data-testid="device-form-modal"
         />
       );
 
-      await user.type(screen.getByTestId("device-name-input"), "Novo Roteador");
-      await user.type(screen.getByTestId("device-hostname-input"), "router-new.infrawatch.local");
-      await user.type(screen.getByTestId("device-ip-input"), "192.168.10.1");
+      await user.type(screen.getByLabelText(/nome do ativo/i), "Novo Roteador");
+      await user.type(screen.getByLabelText(/hostname \/ fqdn/i), "router-new.infrawatch.local");
+      await user.type(screen.getByLabelText(/endereço ip/i), "192.168.10.1");
 
-      // Limpa e preenche o intervalo
-      const intervalInput = screen.getByTestId("device-interval-input");
+      const intervalInput = screen.getByLabelText(/intervalo de sondagem/i);
       await user.clear(intervalInput);
       await user.type(intervalInput, "60");
 
-      // Seleciona categoria
-      await user.selectOptions(screen.getByTestId("device-category-select"), "ROUTER");
+      await user.selectOptions(screen.getByLabelText(/categoria/i), "ROUTER");
 
-      // Verifica se os campos foram preenchidos corretamente
-      expect(screen.getByTestId("device-name-input")).toHaveValue("Novo Roteador");
-      expect(screen.getByTestId("device-hostname-input")).toHaveValue("router-new.infrawatch.local");
-      expect(screen.getByTestId("device-ip-input")).toHaveValue("192.168.10.1");
-      // O valor pode ser string ou number dependendo da implementação
-      const intervalValue = (screen.getByTestId("device-interval-input") as HTMLInputElement).value;
-      expect(intervalValue).toBeTruthy();
+      expect(screen.getByLabelText(/nome do ativo/i)).toHaveValue("Novo Roteador");
+      expect(screen.getByLabelText(/hostname \/ fqdn/i)).toHaveValue("router-new.infrawatch.local");
+      expect(screen.getByLabelText(/endereço ip/i)).toHaveValue("192.168.10.1");
+      expect((screen.getByLabelText(/intervalo de sondagem/i) as HTMLInputElement).value).toBeTruthy();
     });
   });
 
@@ -308,16 +266,15 @@ describe("Inventory Management — Issue #217", () => {
           onClose={vi.fn()}
           deviceName="Roteador Core SP"
           onConfirm={onConfirm}
-          data-testid="pause-device-modal"
         />
       );
 
       expect(screen.getByText("Pausar Monitoramento")).toBeInTheDocument();
 
-      const reasonInput = screen.getByTestId("pause-reason-input");
+      const reasonInput = screen.getByLabelText(/motivo da pausa/i);
       await user.type(reasonInput, "Manutenção programada na janela 02:00-04:00");
 
-      const confirmButton = screen.getByTestId("pause-confirm-button");
+      const confirmButton = screen.getByRole("button", { name: /confirmar pausa/i });
       await user.click(confirmButton);
 
       await waitFor(() => {
@@ -335,19 +292,18 @@ describe("Inventory Management — Issue #217", () => {
           onClose={vi.fn()}
           deviceName="Roteador Core SP"
           onConfirm={onConfirm}
-          data-testid="pause-device-modal"
         />
       );
 
-      const reasonInput = screen.getByTestId("pause-reason-input");
+      const reasonInput = screen.getByLabelText(/motivo da pausa/i);
       await user.type(reasonInput, "Curto");
 
-      const confirmButton = screen.getByTestId("pause-confirm-button");
+      const confirmButton = screen.getByRole("button", { name: /confirmar pausa/i });
       expect(confirmButton).toBeDisabled();
 
       await user.type(reasonInput, " - motivo válido agora");
 
-      expect(screen.getByTestId("pause-confirm-button")).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: /confirmar pausa/i })).not.toBeDisabled();
     }, 10000);
   });
 
@@ -363,15 +319,14 @@ describe("Inventory Management — Issue #217", () => {
           onClose={vi.fn()}
           deviceName="Firewall DF"
           onConfirm={onConfirm}
-          data-testid="maintenance-modal"
         />
       );
 
-      await user.type(screen.getByTestId("maintenance-title-input"), "Atualização de firmware");
-      await user.type(screen.getByTestId("maintenance-until-input"), "2024-01-20T04:00");
-      await user.type(screen.getByTestId("maintenance-reason-input"), "Atualização crítica de segurança do firewall");
+      await user.type(screen.getByLabelText(/título da manutenção/i), "Atualização de firmware");
+      await user.type(screen.getByLabelText(/prazo final/i), "2024-01-20T04:00");
+      await user.type(screen.getByLabelText(/justificativa/i), "Atualização crítica de segurança do firewall");
 
-      const confirmButton = screen.getByTestId("maintenance-confirm-button");
+      const confirmButton = screen.getByRole("button", { name: /agendar manutenção/i });
       await user.click(confirmButton);
 
       await waitFor(() => {
@@ -393,21 +348,20 @@ describe("Inventory Management — Issue #217", () => {
           onClose={vi.fn()}
           deviceName="Firewall DF"
           onConfirm={onConfirm}
-          data-testid="maintenance-modal"
         />
       );
 
-      const confirmButton = screen.getByTestId("maintenance-confirm-button");
+      const confirmButton = screen.getByRole("button", { name: /agendar manutenção/i });
       expect(confirmButton).toBeDisabled();
 
-      await user.type(screen.getByTestId("maintenance-title-input"), "Título");
+      await user.type(screen.getByLabelText(/título da manutenção/i), "Título");
       expect(confirmButton).toBeDisabled();
 
-      await user.type(screen.getByTestId("maintenance-until-input"), "2024-01-20T04:00");
+      await user.type(screen.getByLabelText(/prazo final/i), "2024-01-20T04:00");
       expect(confirmButton).toBeDisabled();
 
-      await user.type(screen.getByTestId("maintenance-reason-input"), "Justificativa");
-      expect(screen.getByTestId("maintenance-confirm-button")).not.toBeDisabled();
+      await user.type(screen.getByLabelText(/justificativa/i), "Justificativa");
+      expect(screen.getByRole("button", { name: /agendar manutenção/i })).not.toBeDisabled();
     }, 10000);
   });
 
@@ -421,7 +375,6 @@ describe("Inventory Management — Issue #217", () => {
           isOpen={true}
           onClose={onClose}
           onSubmit={vi.fn()}
-          data-testid="device-form-modal"
         />
       );
 
@@ -436,7 +389,6 @@ describe("Inventory Management — Issue #217", () => {
           isOpen={true}
           onClose={vi.fn()}
           onSubmit={vi.fn()}
-          data-testid="device-form-modal"
         />
       );
 
@@ -452,7 +404,6 @@ describe("Inventory Management — Issue #217", () => {
           isOpen={true}
           onClose={vi.fn()}
           onSubmit={vi.fn()}
-          data-testid="device-form-modal"
         />
       );
 
@@ -463,7 +414,6 @@ describe("Inventory Management — Issue #217", () => {
       await user.keyboard("{ArrowRight}");
       await user.keyboard("{ArrowRight}");
 
-      // Verifica se o foco moveu
       expect(document.activeElement).toBeInTheDocument();
     }, 10000);
   });
