@@ -118,19 +118,23 @@ interface DeviceFormModalProps {
 const Input: React.FC<{
   label: string;
   error?: string;
-  children: React.ReactNode;
+  children: React.ReactElement;
   helperText?: string;
   required?: boolean;
-}> = ({ label, error, children, helperText, required }) => (
-  <div style={{ marginBottom: "16px" }}>
-    <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 500, color: "var(--color-text-primary)", marginBottom: "6px" }}>
-      {label} {required && <span style={{ color: "var(--color-critical)" }}>*</span>}
-    </label>
-    <div>{children}</div>
-    {error && <p style={{ color: "var(--color-critical)", fontSize: "0.75rem", marginTop: "4px" }}>{error}</p>}
-    {helperText && !error && <p style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", marginTop: "4px" }}>{helperText}</p>}
-  </div>
-);
+  id?: string;
+}> = ({ label, error, children, helperText, required, id }) => {
+  const generatedId = id || label.toLowerCase().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
+  return (
+    <div style={{ marginBottom: "16px" }}>
+      <label htmlFor={generatedId} style={{ display: "block", fontSize: "0.8125rem", fontWeight: 500, color: "var(--color-text-primary)", marginBottom: "6px" }}>
+        {label} {required && <span style={{ color: "var(--color-critical)" }}>*</span>}
+      </label>
+      <div>{React.cloneElement(children, { id: generatedId })}</div>
+      {error && <p style={{ color: "var(--color-critical)", fontSize: "0.75rem", marginTop: "4px" }}>{error}</p>}
+      {helperText && !error && <p style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", marginTop: "4px" }}>{helperText}</p>}
+    </div>
+  );
+};
 
 const StyledInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ style, className, onFocus, onBlur, ...props }, ref) => (
@@ -556,7 +560,7 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
             name="port"
             control={control}
             render={({ field }) => (
-              <Input label="Porta (TCP)" error={errors.port?.message} helperText="Obrigatório para TCP, opcional para outros">
+              <Input label="Porta (opcional)" error={errors.port?.message} helperText="Obrigatório para TCP, opcional para outros">
                 <StyledInput {...field} type="number" min="1" max="65535" placeholder="80, 443, 5432..." data-testid="device-port-input" />
               </Input>
             )}
