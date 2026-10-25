@@ -17,6 +17,7 @@ import { TvWallboardPage } from "../pages/wallboard/TvWallboardPage";
 import { IncidentManagement } from "../pages/IncidentManagement";
 import { PlaceholderPage } from "../pages/common/PlaceholderPage";
 import { DeviceListPage } from "../pages/inventory/DeviceListPage";
+import { DeviceDetailPage } from "../pages/inventory/DeviceDetailPage";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -82,6 +83,14 @@ export const AppRoutes: React.FC = () => {
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
                   <DeviceListPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/devices/:id"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
+                  <DeviceDetailPage />
                 </ProtectedRoute>
               }
             />
