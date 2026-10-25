@@ -15,7 +15,6 @@ import { NocDashboardPage } from "../pages/noc/NocDashboardPage";
 import { ClientPortalPage } from "../pages/client/ClientPortalPage";
 import { TvWallboardPage } from "../pages/wallboard/TvWallboardPage";
 import { IncidentManagement } from "../pages/IncidentManagement";
-import { PlaceholderPage } from "../pages/common/PlaceholderPage";
 import { DeviceListPage } from "../pages/inventory/DeviceListPage";
 import { DeviceDetailPage } from "../pages/inventory/DeviceDetailPage";
 import { MaintenanceWindowsPage } from "../pages/sla/MaintenanceWindowsPage";
@@ -23,6 +22,7 @@ import { SlaReportsPage } from "../pages/sla/SlaReportsPage";
 import { AuditLogsPage } from "../pages/audit/AuditLogsPage";
 import { AdminManagementPage } from "../pages/admin/AdminManagementPage";
 import { TopologyMapPage } from "../pages/topology/TopologyMapPage";
+import { BackupRecoveryPage } from "../pages/backup/BackupRecoveryPage";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -165,11 +165,15 @@ export const AppRoutes: React.FC = () => {
               path="/dr"
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
-                  <PlaceholderPage
-                    title="Backup & Recuperação de Desastres (DR)"
-                    description="Disparo manual assíncrono e monitoramento em tempo real via SSE."
-                    testId="dr-page"
-                  />
+                  <BackupRecoveryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/backup"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                  <BackupRecoveryPage />
                 </ProtectedRoute>
               }
             />
