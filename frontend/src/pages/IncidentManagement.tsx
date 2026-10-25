@@ -13,6 +13,7 @@ import { IncidentTable } from "../components/incidents/IncidentTable";
 import { IncidentDetailDrawer } from "../components/incidents/IncidentDetailDrawer";
 import { AcknowledgeModal } from "../components/incidents/AcknowledgeModal";
 import { ResolveIncidentModal } from "../components/incidents/ResolveIncidentModal";
+import { useAuth } from "../context/AuthContext";
 
 export type { ViewState };
 
@@ -21,6 +22,7 @@ export type { ViewState };
  * Orquestra componentes atômicos em frontend/src/components/incidents/.
  */
 export const IncidentManagement: React.FC = () => {
+  const { user } = useAuth();
   const [viewState, setViewState] = useState<ViewState>("nominal");
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
   const [kpiSummary, setKpiSummary] = useState<IncidentsKpiSummary | null>(null);
@@ -29,6 +31,17 @@ export const IncidentManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSeverity, setSelectedSeverity] = useState<"all" | IncidentSeverity>("all");
   const [selectedOrg, setSelectedOrg] = useState("all");
+
+  // Se o usuário for ORG_ADMIN, restringe os incidentes aos do seu tenant/organização
+  const tenantFilteredIncidents = useMemo(() => {
+    if (user?.role === "ORG_ADMIN") {
+      const userOrg = user.organization_name || "Banco Sol";
+      return incidents.filter((i) =>
+        i.organization_name.toLowerCase().includes(userOrg.toLowerCase())
+      );
+    }
+    return incidents;
+  }, [incidents, user]);
 
   // Seleção de linhas (Checkboxes)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -73,7 +86,7 @@ export const IncidentManagement: React.FC = () => {
 
   // Filtragem
   const filteredIncidents = useMemo(() => {
-    let result = [...incidents];
+    let result = [...tenantFilteredIncidents];
 
     if (selectedSeverity !== "all") {
       result = result.filter((i) => i.severity === selectedSeverity);
@@ -97,17 +110,17 @@ export const IncidentManagement: React.FC = () => {
     }
 
     return result;
-  }, [incidents, selectedSeverity, searchQuery, selectedOrg]);
+  }, [tenantFilteredIncidents, selectedSeverity, searchQuery, selectedOrg]);
 
   // Contadores para pills de severidade
   const counts = useMemo(() => {
     return {
-      all: incidents.length,
-      critical: incidents.filter((i) => i.severity === "critical").length,
-      degraded: incidents.filter((i) => i.severity === "degraded").length,
-      resolved: incidents.filter((i) => i.severity === "resolved").length,
+      all: tenantFilteredIncidents.length,
+      critical: tenantFilteredIncidents.filter((i) => i.severity === "critical").length,
+      degraded: tenantFilteredIncidents.filter((i) => i.severity === "degraded").length,
+      resolved: tenantFilteredIncidents.filter((i) => i.severity === "resolved").length,
     };
-  }, [incidents]);
+  }, [tenantFilteredIncidents]);
 
   // Seleção de linhas
   const allFilteredSelected =
