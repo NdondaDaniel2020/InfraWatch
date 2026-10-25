@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore front-dev front-test front-build front-lint
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -17,6 +17,10 @@ help:
 	@echo "  make app            - Inicia apenas a aplicação backend FastAPI com hot-reload (alias: run, api)"
 	@echo "  make run            - Inicia a aplicação backend (alias para app)"
 	@echo "  make api            - Inicia a aplicação backend (alias para app)"
+	@echo "  make front-dev      - Inicia o servidor de desenvolvimento do Frontend Vite"
+	@echo "  make front-test     - Executa os testes automatizados do frontend com Vitest"
+	@echo "  make front-build    - Compila os artefatos estáticos de produção do frontend"
+	@echo "  make front-lint     - Executa checagem de tipos estritos do frontend com tsc"
 	@echo "  make migrate        - Executa migrações pendentes do Alembic (upgrade head)"
 	@echo "  make seed           - Executa carga de dados base idempotente (roda migrate previamente)"
 	@echo "  make backup         - Executa rotina de backup multi-destino (local, Google Drive, R2)"
@@ -258,3 +262,18 @@ restore:
 	else \
 		bash scripts/restore.sh "$(FILE)" "$(FROM)"; \
 	fi
+
+# -----------------------------------------------------------------------------
+# Frontend NOC Dashboard & TV Mode (Issue #219)
+# -----------------------------------------------------------------------------
+front-dev:
+	cd frontend && npm run dev
+
+front-test:
+	cd frontend && npm test
+
+front-build:
+	cd frontend && npm run build
+
+front-lint:
+	cd frontend && npx tsc --noEmit
