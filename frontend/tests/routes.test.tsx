@@ -270,6 +270,43 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
       expect(screen.queryByText("Trilha de Auditoria")).not.toBeInTheDocument();
       expect(screen.queryByText("Backup & DR")).not.toBeInTheDocument();
     });
+
+    it("deve ocultar relógio UTC, badge SSE LIVE, Modo TV e status-ticker para CLIENT_VIEWER e ORG_ADMIN", () => {
+      // 1. Validar para CLIENT_VIEWER
+      const clientAuthMock = createAuthMock({}, "CLIENT_VIEWER", true);
+      const { unmount: unmountClient } = render(
+        <MemoryRouter initialEntries={["/portal"]}>
+          <AuthContext.Provider value={clientAuthMock}>
+            <TelemetryProvider enabled={false}>
+              <AppRoutes />
+            </TelemetryProvider>
+          </AuthContext.Provider>
+        </MemoryRouter>
+      );
+
+      expect(screen.queryByTestId("utc-clock")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("sse-live-badge")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("tv-mode-link")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("status-ticker")).not.toBeInTheDocument();
+      unmountClient();
+
+      // 2. Validar para ORG_ADMIN
+      const orgAuthMock = createAuthMock({}, "ORG_ADMIN", true);
+      render(
+        <MemoryRouter initialEntries={["/portal"]}>
+          <AuthContext.Provider value={orgAuthMock}>
+            <TelemetryProvider enabled={false}>
+              <AppRoutes />
+            </TelemetryProvider>
+          </AuthContext.Provider>
+        </MemoryRouter>
+      );
+
+      expect(screen.queryByTestId("utc-clock")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("sse-live-badge")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("tv-mode-link")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("status-ticker")).not.toBeInTheDocument();
+    });
   });
 
   describe("4. Rota Especial Wallboard TV (/tv)", () => {
