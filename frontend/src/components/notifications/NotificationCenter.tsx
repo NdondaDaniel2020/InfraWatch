@@ -72,7 +72,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           data-testid="notification-popover"
           role="dialog"
           aria-label="Notificações e Comunicados do NOC"
-          className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-[#0d1424] border border-white/10 p-4 shadow-2xl z-50 flex flex-col gap-3 backdrop-blur-xl animate-fadeIn"
+          className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-[#0d1424] border border-white/10 p-4 shadow-2xl z-[60] flex flex-col gap-3 backdrop-blur-xl animate-fadeIn"
         >
           {/* Cabeçalho */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
