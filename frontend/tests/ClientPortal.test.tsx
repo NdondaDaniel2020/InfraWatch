@@ -115,7 +115,9 @@ describe("Portal do Cliente Sanitizado & Relatórios de SLA (Issue #31)", () => 
       const bellBtn = screen.getByTestId("notification-bell-btn");
       fireEvent.click(bellBtn);
 
-      expect(screen.getByTestId("notification-popover")).toBeInTheDocument();
+      const popover = screen.getByTestId("notification-popover");
+      expect(popover).toBeInTheDocument();
+      expect(popover.className).toContain("z-[60]");
       expect(screen.getByText(/Incidente Resolvido: Link Secundário Talatona/i)).toBeInTheDocument();
     });
 

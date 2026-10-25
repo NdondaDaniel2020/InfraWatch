@@ -86,7 +86,7 @@ export const ClientPortalPage: React.FC = () => {
       <section
         role="toolbar"
         aria-label="Barra de Ações do Portal do Cliente"
-        className="w-full p-4 bg-[#0d1424]/80 border border-white/10 rounded-2xl flex items-center justify-between flex-wrap gap-4 backdrop-blur-md"
+        className="w-full p-4 bg-[#0d1424]/80 border border-white/10 rounded-2xl flex items-center justify-between flex-wrap gap-4 backdrop-blur-md relative z-30"
       >
         {/* Identificação do Cliente & Escopo */}
         <div className="flex items-center gap-4">
