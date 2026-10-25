@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Terminal,
+  Users,
   Wrench,
   X,
 } from "lucide-react";
@@ -45,7 +46,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
     to: "/incidents",
     label: "Incidentes",
     icon: <AlertTriangle size={18} />,
-    allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR"],
+    allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"],
     badge: "1 CRIT",
     badgeVariant: "critical",
   },
@@ -71,6 +72,12 @@ export const NAV_ITEMS: NavItemConfig[] = [
     to: "/audit",
     label: "Trilha de Auditoria",
     icon: <ShieldCheck size={18} />,
+    allowedRoles: ["SUPER_ADMIN", "ORG_ADMIN"],
+  },
+  {
+    to: "/admin/management",
+    label: "Gestão de Usuários",
+    icon: <Users size={18} />,
     allowedRoles: ["SUPER_ADMIN", "ORG_ADMIN"],
   },
   {

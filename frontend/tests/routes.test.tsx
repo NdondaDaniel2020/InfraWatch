@@ -140,7 +140,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
       expect(screen.getByTestId("audit-logs-page")).toBeInTheDocument();
     });
 
-    it("deve permitir que ORG_ADMIN acesse /devices e /maintenance, mas bloquear /noc e /dr", () => {
+    it("deve permitir que ORG_ADMIN acesse /devices, /maintenance, /incidents, /audit e /admin/management, mas bloquear /noc, /topology e /dr", () => {
       const authMock = createAuthMock({}, "ORG_ADMIN", true);
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -176,7 +176,52 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
       expect(screen.getByTestId("maintenance-windows-page")).toBeInTheDocument();
       unmountMaint();
 
-      // 3. Acesso bloqueado (403) a /noc
+      // 3. Acesso permitido a /incidents
+      const { unmount: unmountIncidents } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/incidents"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("incidents-page")).toBeInTheDocument();
+      unmountIncidents();
+
+      // 4. Acesso permitido a /audit
+      const { unmount: unmountAudit } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/audit"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("audit-logs-page")).toBeInTheDocument();
+      unmountAudit();
+
+      // 5. Acesso permitido a /admin/management
+      const { unmount: unmountMgmt } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/admin/management"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("admin-management-page")).toBeInTheDocument();
+      unmountMgmt();
+
+      // 6. Acesso bloqueado (403) a /noc
       const { unmount: unmountNoc } = render(
         <QueryClientProvider client={queryClient}>
           <MemoryRouter initialEntries={["/noc"]}>
@@ -191,10 +236,106 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
       expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
       unmountNoc();
 
-      // 4. Acesso bloqueado (403) a /dr
+      // 7. Acesso bloqueado (403) a /topology
+      const { unmount: unmountTopology } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/topology"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      unmountTopology();
+
+      // 8. Acesso bloqueado (403) a /dr
       render(
         <QueryClientProvider client={queryClient}>
           <MemoryRouter initialEntries={["/dr"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+    });
+
+    it("deve permitir que NOC_OPERATOR acesse /incidents, /noc, /topology e /devices, mas bloquear /audit e /admin/management", () => {
+      const authMock = createAuthMock({}, "NOC_OPERATOR", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+
+      // 1. Acesso permitido a /incidents
+      const { unmount: unmountIncidents } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/incidents"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("incidents-page")).toBeInTheDocument();
+      unmountIncidents();
+
+      // 2. Acesso permitido a /noc
+      const { unmount: unmountNoc } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/noc"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("noc-dashboard-page")).toBeInTheDocument();
+      unmountNoc();
+
+      // 3. Acesso permitido a /topology
+      const { unmount: unmountTopology } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/topology"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("topology-map-page")).toBeInTheDocument();
+      unmountTopology();
+
+      // 4. Acesso bloqueado (403) a /audit
+      const { unmount: unmountAudit } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/audit"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      unmountAudit();
+
+      // 5. Acesso bloqueado (403) a /admin/management
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/admin/management"]}>
             <AuthContext.Provider value={authMock}>
               <TelemetryProvider enabled={false}>
                 <AppRoutes />
