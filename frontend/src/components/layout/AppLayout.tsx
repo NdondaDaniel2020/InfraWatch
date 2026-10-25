@@ -1,7 +1,10 @@
-import React, { useState } from "react";
-import { Outlet } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
+import { GlobalSearchModal } from "../common/GlobalSearchModal";
+import { INITIAL_MOCK_DEVICES } from "../../mocks/nocMocks";
+import type { MonitoredDevice } from "../../types/telemetry";
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -13,7 +16,21 @@ export interface AppLayoutProps {
  * delegando o conteúdo das páginas filhas ao <Outlet />.
  */
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
+  const navigate = useNavigate();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Escuta atalho global Ctrl + K / Cmd + K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const toggleMobileSidebar = () => {
     setIsMobileSidebarOpen((prev) => !prev);
@@ -21,6 +38,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const closeMobileSidebar = () => {
     setIsMobileSidebarOpen(false);
+  };
+
+  const handleSelectDevice = (device: MonitoredDevice) => {
+    setIsSearchOpen(false);
+    navigate(`/devices/${device.device_id}`);
   };
 
   return (
@@ -36,8 +58,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         Pular para o cockpit operacional
       </a>
 
-      {/* Header Global Fixo */}
-      <Header onToggleSidebar={toggleMobileSidebar} />
+      {/* Header Global Fixo com gatilho de busca */}
+      <Header
+        onToggleSidebar={toggleMobileSidebar}
+        onOpenSearch={() => setIsSearchOpen(true)}
+      />
 
       {/* Workspace Wrapper */}
       <div className="flex flex-1 w-full relative">
@@ -63,6 +88,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           {children || <Outlet />}
         </main>
       </div>
+
+      {/* Modal de Busca Global (Ctrl + K) */}
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        devices={INITIAL_MOCK_DEVICES}
+        onSelectDevice={handleSelectDevice}
+      />
     </div>
   );
 };
