@@ -1,5 +1,5 @@
 import React from "react";
-import { ShieldCheck, Clock, HardDrive, Cloud, AlertCircle } from "lucide-react";
+import { ShieldCheck, Clock, HardDrive, Cloud } from "lucide-react";
 import { BackupMetricsSummary } from "../../types/backup";
 
 interface BackupMetricsCardsProps {
