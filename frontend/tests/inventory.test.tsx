@@ -25,6 +25,8 @@ vi.mock("../src/services/devicesApi", () => ({
   },
 }));
 
+import { MemoryRouter } from "react-router-dom";
+
 const renderWithProviders = (ui: ReactNode, queryClient?: QueryClient) => {
   const client = queryClient || new QueryClient({
     defaultOptions: {
@@ -34,8 +36,10 @@ const renderWithProviders = (ui: ReactNode, queryClient?: QueryClient) => {
   });
   return render(
     <QueryClientProvider client={client}>
-      {ui}
-      <Toaster />
+      <MemoryRouter>
+        {ui}
+        <Toaster />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 };
