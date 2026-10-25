@@ -18,6 +18,8 @@ import { IncidentManagement } from "../pages/IncidentManagement";
 import { PlaceholderPage } from "../pages/common/PlaceholderPage";
 import { DeviceListPage } from "../pages/inventory/DeviceListPage";
 import { DeviceDetailPage } from "../pages/inventory/DeviceDetailPage";
+import { MaintenanceWindowsPage } from "../pages/sla/MaintenanceWindowsPage";
+import { SlaReportsPage } from "../pages/sla/SlaReportsPage";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -118,11 +120,7 @@ export const AppRoutes: React.FC = () => {
               path="/maintenance"
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
-                  <PlaceholderPage
-                    title="Janelas de Manutenção Programada"
-                    description="Isenção de alarmes e expurgo automático de cálculo de downtime no SLA."
-                    testId="maintenance-page"
-                  />
+                  <MaintenanceWindowsPage />
                 </ProtectedRoute>
               }
             />
@@ -134,11 +132,7 @@ export const AppRoutes: React.FC = () => {
                 <ProtectedRoute
                   allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN", "CLIENT_VIEWER"]}
                 >
-                  <PlaceholderPage
-                    title="Relatórios Analíticos de SLA"
-                    description="Disponibilidade acumulada, MTTR, MTBF e exportação em CSV/JSON."
-                    testId="sla-page"
-                  />
+                  <SlaReportsPage />
                 </ProtectedRoute>
               }
             />
