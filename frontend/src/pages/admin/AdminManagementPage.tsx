@@ -12,8 +12,11 @@ import { toast } from "sonner";
 import { adminApi } from "../../services/adminApi";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
+import { useAuth } from "../../context/AuthContext";
 
 export const AdminManagementPage: React.FC = () => {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"users" | "organizations">("users");
   const [searchUser, setSearchUser] = useState("");
@@ -235,19 +238,25 @@ export const AdminManagementPage: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-3">
-                        <select
-                          aria-label={`Alterar papel de ${u.full_name}`}
-                          value={u.role}
-                          onChange={(e) =>
-                            updateRoleMutation.mutate({ userId: u.id, role: e.target.value })
-                          }
-                          className="bg-obsidian-950 border border-obsidian-800 rounded px-2 py-1 text-[11px] text-slate-200 focus-visible:border-emerald-500"
-                        >
-                          <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-                          <option value="NOC_OPERATOR">NOC_OPERATOR</option>
-                          <option value="ORG_ADMIN">ORG_ADMIN</option>
-                          <option value="CLIENT_VIEWER">CLIENT_VIEWER</option>
-                        </select>
+                        {isSuperAdmin ? (
+                          <select
+                            aria-label={`Alterar papel de ${u.full_name}`}
+                            value={u.role}
+                            onChange={(e) =>
+                              updateRoleMutation.mutate({ userId: u.id, role: e.target.value })
+                            }
+                            className="bg-obsidian-950 border border-obsidian-800 rounded px-2 py-1 text-[11px] text-slate-200 focus-visible:border-emerald-500"
+                          >
+                            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                            <option value="NOC_OPERATOR">NOC_OPERATOR</option>
+                            <option value="ORG_ADMIN">ORG_ADMIN</option>
+                            <option value="CLIENT_VIEWER">CLIENT_VIEWER</option>
+                          </select>
+                        ) : (
+                          <span className="text-[11px] font-mono text-slate-300 px-2 py-1 bg-obsidian-950 rounded border border-obsidian-800/80">
+                            {u.role}
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-3 px-3">
@@ -263,7 +272,7 @@ export const AdminManagementPage: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4 text-right">
-                        {!u.is_active && (
+                        {!u.is_active && isSuperAdmin && (
                           <Button
                             type="button"
                             variant="primary"
@@ -292,15 +301,18 @@ export const AdminManagementPage: React.FC = () => {
               <strong className="text-white">{orgsData?.total || 0}</strong>
             </div>
 
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => setIsCreateOrgModalOpen(true)}
-              className="h-8 text-xs gap-1.5"
-            >
-              <Plus size={14} />
-              <span>Nova Organização</span>
-            </Button>
+            {isSuperAdmin && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setIsCreateOrgModalOpen(true)}
+                className="h-8 text-xs gap-1.5"
+                data-testid="create-organization-btn"
+              >
+                <Plus size={14} />
+                <span>Nova Organização</span>
+              </Button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
