@@ -13,7 +13,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
-import { Network, CloudOff, RefreshCw, Layers } from "lucide-react";
+import { Network, CloudOff } from "lucide-react";
 import { TopologyDeviceNode } from "../../components/topology/TopologyDeviceNode";
 import { TopologyEdge } from "../../components/topology/TopologyEdge";
 import {
@@ -24,7 +24,6 @@ import { TopologyInspectorDrawer } from "../../components/topology/TopologyInspe
 import { mockTopologyNodes, mockTopologyEdges } from "../../mocks/topologyMocks";
 import { TopologyDeviceData } from "../../types/topology";
 import { topologyApi } from "../../services/topologyApi";
-import { useTelemetry } from "../../context/TelemetryContext";
 
 // Definição de Tipos Customizados para o React Flow
 const nodeTypes: NodeTypes = {
@@ -54,16 +53,19 @@ export const TopologyMapPage: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
-  // Integração com Telemetria SSE em tempo real
-  const { isConnected } = useTelemetry();
-
   // Mapeia os dados dos nós para o formato do React Flow
   const initialNodes: Node[] = useMemo(() => {
     return mockTopologyNodes.map((dev) => ({
       id: dev.id,
       type: "deviceNode",
       position: INITIAL_NODE_POSITIONS[dev.id] || { x: 200, y: 200 },
-      data: dev as any,
+      data: {
+        ...dev,
+        onSelect: (id: string) => {
+          setSelectedDeviceId(id);
+          setIsInspectorOpen(true);
+        },
+      } as any,
       selected: dev.id === "SW-CORE-LUANDA-01",
     }));
   }, []);
@@ -81,7 +83,7 @@ export const TopologyMapPage: React.FC = () => {
   }, []);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
   // Filtra nós no canvas conforme a categoria selecionada
   const filteredNodes = useMemo(() => {
@@ -95,7 +97,10 @@ export const TopologyMapPage: React.FC = () => {
   // Dispositivo selecionado atualmente para o Drawer
   const selectedDevice = useMemo(() => {
     const node = nodes.find((n) => n.id === selectedDeviceId);
-    return (node?.data as unknown as TopologyDeviceData) || null;
+    if (node?.data) {
+      return node.data as unknown as TopologyDeviceData;
+    }
+    return mockTopologyNodes.find((d) => d.id === selectedDeviceId) || null;
   }, [nodes, selectedDeviceId]);
 
   // Manipulador de clique no nó

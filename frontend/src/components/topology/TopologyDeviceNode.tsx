@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import {
   Router,
@@ -11,67 +11,73 @@ import {
 } from "lucide-react";
 import { TopologyDeviceData } from "../../types/topology";
 
-export const TopologyDeviceNode = memo(({ data, selected }: NodeProps) => {
+export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
   const device = data as unknown as TopologyDeviceData;
+  const onNodeSelect = (data as any)?.onSelect;
+
+  const getBorderAndBgStyles = () => {
+    if (selected) {
+      return "border-2 border-emerald-500 shadow-lg shadow-emerald-950/40";
+    }
+    switch (device.status) {
+      case "CRITICAL_DOWN":
+        return "border-2 border-rose-500/80 bg-rose-950/20 shadow-lg shadow-rose-950/30";
+      case "DEGRADED":
+        return "border-2 border-amber-500/80 bg-amber-950/15 shadow-md shadow-amber-950/20";
+      case "MAINTENANCE":
+        return "border-2 border-sky-500/60 bg-sky-950/10";
+      case "UP":
+      default:
+        return "border border-obsidian-700/70 hover:border-obsidian-500/80 shadow-md";
+    }
+  };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "router":
-        return <Router size={18} className="text-emerald-400" />;
+        return <Router className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
       case "switch":
-        return <Network size={18} className="text-sky-400" />;
+        return <Network className="w-3.5 h-3.5 text-sky-400 shrink-0" />;
       case "database":
-        return <Database size={18} className="text-emerald-400" />;
-      case "workload":
-        if (device.label.includes("API")) {
-          return <Layers size={18} className="text-amber-400" />;
-        }
-        return <Database size={18} className="text-emerald-400" />;
+        return <Database className="w-3.5 h-3.5 text-purple-400 shrink-0" />;
+      case "gateway":
+      case "server":
+        return <Server className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+      case "branch":
+        return <Radio className="w-3.5 h-3.5 text-rose-400 shrink-0" />;
       default:
-        if (device.status === "CRITICAL_DOWN") {
-          return <Radio size={18} className="text-rose-400" />;
-        }
-        return <Server size={18} className="text-slate-300" />;
+        return <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
     }
-  };
-
-  const getBorderAndBgStyles = () => {
-    if (device.status === "CRITICAL_DOWN") {
-      return "border-2 border-rose-500 shadow-rose-950/40 shadow-xl";
-    }
-    if (device.status === "DEGRADED") {
-      return "border-2 border-amber-500/80 shadow-amber-950/30 shadow-xl";
-    }
-    if (selected) {
-      return "border-2 border-emerald-500 ring-2 ring-emerald-500/20 shadow-2xl";
-    }
-    return "border border-obsidian-800 hover:border-emerald-500/70 shadow-xl";
   };
 
   const getStatusBadge = () => {
     switch (device.status) {
-      case "UP":
+      case "CRITICAL_DOWN":
         return (
-          <span className="flex items-center gap-1 font-mono text-[10px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-1.5 py-0.5 rounded font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> UP
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+            DOWN
           </span>
         );
       case "DEGRADED":
         return (
-          <span className="flex items-center gap-1 font-mono text-[10px] bg-amber-500/20 border border-amber-500/40 text-amber-400 px-1.5 py-0.5 rounded font-bold animate-pulse">
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             DEG
           </span>
         );
-      case "CRITICAL_DOWN":
+      case "MAINTENANCE":
         return (
-          <span className="flex items-center gap-1 font-mono text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/40 px-1.5 py-0.5 rounded font-bold animate-pulse">
-            CRITICAL DOWN
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/40">
+            MANUT
           </span>
         );
+      case "UP":
       default:
         return (
-          <span className="font-mono text-[10px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">
-            MAINT
+          <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            UP
           </span>
         );
     }
@@ -79,7 +85,8 @@ export const TopologyDeviceNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <article
-      data-testid={`topology-node-${device.id}`}
+      data-testid={`topology-node-${device.id || id}`}
+      onClick={() => onNodeSelect?.(device.id || id)}
       className={`w-60 bg-obsidian-900 rounded-xl p-3 select-none cursor-pointer transition-colors ${getBorderAndBgStyles()}`}
     >
       {/* Handles para Conexões */}

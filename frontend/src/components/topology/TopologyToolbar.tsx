@@ -5,7 +5,6 @@ import {
   Maximize2,
   PanelRightClose,
   PanelRightOpen,
-  Radio,
 } from "lucide-react";
 
 export type TopologyStateSimulation = "nominal" | "skeleton" | "empty" | "error";

@@ -1,4 +1,4 @@
-import { TopologyGraphResponse, TopologyDeviceData, TopologyEdgeData } from "../types/topology";
+import { TopologyGraphResponse } from "../types/topology";
 import { mockTopologyNodes, mockTopologyEdges } from "../mocks/topologyMocks";
 
 export const topologyApi = {
