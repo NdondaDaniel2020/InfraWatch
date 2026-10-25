@@ -392,6 +392,45 @@ services:
     networks:
       - infrawatch-net
 
+  infrawatch-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: infrawatch-frontend
+    restart: always
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - infrawatch-net
+
+  infrawatch-gateway:
+    image: nginx:1.27-alpine
+    container_name: infrawatch-gateway
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      infrawatch-frontend:
+        condition: service_healthy
+      infrawatch-api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - infrawatch-net
+
 secrets:
   postgres_password:
     file: ./secrets/postgres_password.txt
