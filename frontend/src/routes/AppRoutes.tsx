@@ -22,6 +22,7 @@ import { MaintenanceWindowsPage } from "../pages/sla/MaintenanceWindowsPage";
 import { SlaReportsPage } from "../pages/sla/SlaReportsPage";
 import { AuditLogsPage } from "../pages/audit/AuditLogsPage";
 import { AdminManagementPage } from "../pages/admin/AdminManagementPage";
+import { TopologyMapPage } from "../pages/topology/TopologyMapPage";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -110,11 +111,7 @@ export const AppRoutes: React.FC = () => {
               path="/topology"
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
-                  <PlaceholderPage
-                    title="Topologia de Rede Interativa"
-                    description="Visualização em grafo de nós de borda, switches de agregação e enlaces."
-                    testId="topology-page"
-                  />
+                  <TopologyMapPage />
                 </ProtectedRoute>
               }
             />
