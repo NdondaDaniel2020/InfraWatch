@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search, ChevronLeft, ChevronRight, RefreshCw, MoreHorizontal } from "lucide-react";
 import { Button, Badge, Skeleton } from "../../components/ui";
 import { DeviceFormModal } from "../../components/inventory/DeviceFormModal";
@@ -134,6 +135,7 @@ const DeviceRow: React.FC<{
 
 export const DeviceListPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<DeviceFilters>({
     page: 1,
     pageSize: 20,
@@ -217,8 +219,8 @@ export const DeviceListPage: React.FC = () => {
   }, [createMutation]);
 
   const handleViewDetails = useCallback((deviceId: string) => {
-    console.log("View details for device:", deviceId);
-  }, []);
+    navigate(`/devices/${deviceId}`);
+  }, [navigate]);
 
   const handlePageChange = useCallback((newPage: number) => {
     setFilters((prev) => ({ ...prev, page: newPage }));
