@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { Download, FileSpreadsheet, Code2, Check, Loader2 } from "lucide-react";
+import { FileSpreadsheet, Code2, Loader2 } from "lucide-react";
 import { Button } from "../ui";
-import { slaApi } from "../../services/slaApi";
 import type { SlaExportFormat, SlaMetricOverview, SlaDeviceBreakdown } from "../../types/sla";
 import { toast } from "sonner";
 

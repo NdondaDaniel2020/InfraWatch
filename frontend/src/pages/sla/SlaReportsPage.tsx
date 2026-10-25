@@ -7,7 +7,6 @@ import {
   Calendar,
   Lock,
   AlertCircle,
-  Clock,
   Printer,
 } from "lucide-react";
 import { Button, Skeleton } from "../../components/ui";
@@ -252,7 +251,7 @@ export const SlaReportsPage: React.FC = () => {
               setManualState("auto");
               refetch();
             }}
-            variant="critical"
+            variant="destructive"
             size="sm"
           >
             Recalcular SLA

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, AlertTriangle, ShieldCheck, Server } from "lucide-react";
+import { Server } from "lucide-react";
 import type { SlaDeviceBreakdown } from "../../types/sla";
 import { Badge } from "../ui";
 

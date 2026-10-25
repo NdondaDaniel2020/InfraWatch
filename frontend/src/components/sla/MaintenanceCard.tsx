@@ -36,14 +36,14 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
     APPROVED: {
       color: "var(--color-primary)",
       edgeBg: "var(--color-primary)",
-      badgeVariant: "primary" as const,
+      badgeVariant: "maintenance" as const,
       label: "PROGRAMADA",
       icon: <Calendar size={18} className="text-sky-400" />,
     },
     PENDING_APPROVAL: {
       color: "var(--color-warning)",
       edgeBg: "var(--color-warning)",
-      badgeVariant: "warning" as const,
+      badgeVariant: "degraded" as const,
       label: "PENDENTE CAB",
       icon: <AlertTriangle size={18} className="text-amber-400" />,
     },

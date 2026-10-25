@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AlertCircle, AlertTriangle, Calendar, Clock, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Calendar, X } from "lucide-react";
 import type { CreateMaintenanceInput } from "../../types/sla";
 import { Button } from "../ui";
 

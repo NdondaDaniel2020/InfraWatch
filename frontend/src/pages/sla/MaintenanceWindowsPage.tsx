@@ -22,7 +22,6 @@ import {
   mockMaintenanceKpiSummary,
 } from "../../mocks/slaMocks";
 import type {
-  MaintenanceWindow,
   MaintenanceStatus,
   CreateMaintenanceInput,
 } from "../../types/sla";
@@ -329,7 +328,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
               setManualState("auto");
               refetch();
             }}
-            variant="critical"
+            variant="destructive"
             size="sm"
           >
             Reconectar
