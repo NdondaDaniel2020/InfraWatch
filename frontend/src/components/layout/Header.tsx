@@ -48,6 +48,9 @@ export const Header: React.FC<HeaderProps> = ({
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
+  const isOperator =
+    user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR";
+
   return (
     <header
       data-testid="app-header"
@@ -85,35 +88,37 @@ export const Header: React.FC<HeaderProps> = ({
         </Link>
       </div>
 
-      {/* Centro: Status Ticker Global em Tempo Real */}
-      <div
-        data-testid="status-ticker"
-        className="hidden xl:flex items-center gap-3 px-3 py-1 bg-obsidian-900 rounded-lg border border-obsidian-800 text-xs font-mono tabular-nums"
-      >
-        <span className="text-slate-400">
-          TOTAL: <strong className="text-white">{ticker.total ?? 48}</strong>
-        </span>
-        <span className="h-3 w-px bg-obsidian-800" />
-        <span className="flex items-center gap-1.5 text-emerald-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> UP:{" "}
-          {ticker.up ?? 45}
-        </span>
-        <span className="h-3 w-px bg-obsidian-800" />
-        <span className="flex items-center gap-1.5 text-amber-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> DEG:{" "}
-          {ticker.degraded ?? 2}
-        </span>
-        <span className="h-3 w-px bg-obsidian-800" />
-        <span className="flex items-center gap-1.5 text-rose-400 font-semibold">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />{" "}
-          DOWN: {ticker.down ?? 1}
-        </span>
-        <span className="h-3 w-px bg-obsidian-800" />
-        <span className="flex items-center gap-1.5 text-sky-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400" /> MAINT:{" "}
-          {ticker.maintenance ?? 0}
-        </span>
-      </div>
+      {/* Centro: Status Ticker Global em Tempo Real (Apenas Operadores do Provedor) */}
+      {isOperator && (
+        <div
+          data-testid="status-ticker"
+          className="hidden xl:flex items-center gap-3 px-3 py-1 bg-obsidian-900 rounded-lg border border-obsidian-800 text-xs font-mono tabular-nums"
+        >
+          <span className="text-slate-400">
+            TOTAL: <strong className="text-white">{ticker.total ?? 48}</strong>
+          </span>
+          <span className="h-3 w-px bg-obsidian-800" />
+          <span className="flex items-center gap-1.5 text-emerald-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> UP:{" "}
+            {ticker.up ?? 45}
+          </span>
+          <span className="h-3 w-px bg-obsidian-800" />
+          <span className="flex items-center gap-1.5 text-amber-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> DEG:{" "}
+            {ticker.degraded ?? 2}
+          </span>
+          <span className="h-3 w-px bg-obsidian-800" />
+          <span className="flex items-center gap-1.5 text-rose-400 font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />{" "}
+            DOWN: {ticker.down ?? 1}
+          </span>
+          <span className="h-3 w-px bg-obsidian-800" />
+          <span className="flex items-center gap-1.5 text-sky-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" /> MAINT:{" "}
+            {ticker.maintenance ?? 0}
+          </span>
+        </div>
+      )}
 
       {/* Direita: Busca Global, UTC, SSE, Modo TV e Perfil */}
       <div className="flex items-center gap-3">
@@ -136,33 +141,42 @@ export const Header: React.FC<HeaderProps> = ({
           </kbd>
         </button>
 
-        {/* Relógio UTC */}
-        <time
-          data-testid="utc-clock"
-          dateTime={new Date().toISOString()}
-          className="hidden sm:inline-block font-mono text-[11px] text-slate-400 px-2.5 py-1 rounded-md bg-obsidian-900 border border-obsidian-800"
-          title="Relógio Oficial UTC do Barramento"
-        >
-          {utcTime || "--:--:-- UTC"}
-        </time>
+        {/* Relógio UTC (Exclusivo Operadores) */}
+        {isOperator && (
+          <time
+            data-testid="utc-clock"
+            dateTime={new Date().toISOString()}
+            className="hidden sm:inline-block font-mono text-[11px] text-slate-400 px-2.5 py-1 rounded-md bg-obsidian-900 border border-obsidian-800"
+            title="Relógio Oficial UTC do Barramento"
+          >
+            {utcTime || "--:--:-- UTC"}
+          </time>
+        )}
 
-        {/* Live SSE Streaming Badge */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="tracking-wide">SSE LIVE</span>
-        </div>
+        {/* Live SSE Streaming Badge (Exclusivo Operadores) */}
+        {isOperator && (
+          <div
+            data-testid="sse-live-badge"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="tracking-wide">SSE LIVE</span>
+          </div>
+        )}
 
-        {/* Modo TV */}
-        <Link
-          to="/tv"
-          data-testid="tv-mode-link"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-slate-300 hover:text-white text-xs font-medium transition-colors no-underline"
-          title="Visualizar em Modo Wallboard TV 16:9"
-          aria-label="Abrir modo TV operacional"
-        >
-          <Tv size={15} className="text-slate-400" />
-          <span className="hidden sm:inline">Modo TV</span>
-        </Link>
+        {/* Modo TV (Exclusivo Operadores) */}
+        {isOperator && (
+          <Link
+            to="/tv"
+            data-testid="tv-mode-link"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-slate-300 hover:text-white text-xs font-medium transition-colors no-underline"
+            title="Visualizar em Modo Wallboard TV 16:9"
+            aria-label="Abrir modo TV operacional"
+          >
+            <Tv size={15} className="text-slate-400" />
+            <span className="hidden sm:inline">Modo TV</span>
+          </Link>
+        )}
 
         {/* Perfil Operador Daniel Ndonda */}
         <div className="flex items-center gap-2.5 pl-3 border-l border-obsidian-800">
