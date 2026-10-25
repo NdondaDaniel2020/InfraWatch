@@ -150,19 +150,19 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
             {"\n"}
             <span className="text-sky-300"> &quot;resource_id&quot;</span>:{" "}
             <span className="text-emerald-300">&quot;{log.resource_id}&quot;</span>,{"\n"}
-            {log.details?.before && (
+            {Boolean(log.details?.before) && (
               <span className="bg-rose-950/40 text-rose-300 block w-full px-2 -mx-2 rounded">
                 <span className="text-rose-400 font-bold select-none">- </span>
                 <span className="text-rose-300">
-                  &quot;before&quot;: {JSON.stringify(log.details.before, null, 2)}
+                  &quot;before&quot;: {JSON.stringify(log.details?.before, null, 2)}
                 </span>
               </span>
             )}
-            {log.details?.after && (
+            {Boolean(log.details?.after) && (
               <span className="bg-emerald-950/40 text-emerald-300 block w-full px-2 -mx-2 rounded">
                 <span className="text-emerald-400 font-bold select-none">+ </span>
                 <span className="text-emerald-300">
-                  &quot;after&quot;: {JSON.stringify(log.details.after, null, 2)}
+                  &quot;after&quot;: {JSON.stringify(log.details?.after, null, 2)}
                 </span>
               </span>
             )}

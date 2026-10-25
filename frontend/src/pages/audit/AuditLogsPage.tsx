@@ -5,7 +5,6 @@ import {
   FileDown,
   Settings,
   ShieldCheck,
-  RefreshCw,
   Clock,
   Key,
 } from "lucide-react";

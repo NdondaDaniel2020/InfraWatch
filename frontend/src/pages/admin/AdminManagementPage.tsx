@@ -4,16 +4,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users,
   Building2,
-  Shield,
-  UserCheck,
-  UserX,
   Plus,
   RefreshCw,
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { adminApi } from "../../services/adminApi";
-import { AdminUser, AdminOrganization } from "../../types/admin";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 
@@ -38,11 +34,7 @@ export const AdminManagementPage: React.FC = () => {
   });
 
   // Query de Organizações
-  const {
-    data: orgsData,
-    isLoading: isLoadingOrgs,
-    refetch: refetchOrgs,
-  } = useQuery({
+  const { data: orgsData } = useQuery({
     queryKey: ["adminOrgs"],
     queryFn: () => adminApi.listOrganizations(),
   });
