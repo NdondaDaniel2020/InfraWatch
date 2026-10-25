@@ -121,18 +121,23 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
 
     it("deve permitir que SUPER_ADMIN acesse rotas administrativas (/audit e /security)", () => {
       const authMock = createAuthMock({}, "SUPER_ADMIN", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
 
       render(
-        <MemoryRouter initialEntries={["/audit"]}>
-          <AuthContext.Provider value={authMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/audit"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
       );
 
-      expect(screen.getByTestId("audit-page")).toBeInTheDocument();
+      expect(screen.getByTestId("audit-logs-page")).toBeInTheDocument();
     });
   });
 
