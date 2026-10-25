@@ -20,6 +20,8 @@ import { DeviceListPage } from "../pages/inventory/DeviceListPage";
 import { DeviceDetailPage } from "../pages/inventory/DeviceDetailPage";
 import { MaintenanceWindowsPage } from "../pages/sla/MaintenanceWindowsPage";
 import { SlaReportsPage } from "../pages/sla/SlaReportsPage";
+import { AuditLogsPage } from "../pages/audit/AuditLogsPage";
+import { AdminManagementPage } from "../pages/admin/AdminManagementPage";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -142,11 +144,23 @@ export const AppRoutes: React.FC = () => {
               path="/audit"
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
-                  <PlaceholderPage
-                    title="Trilha de Auditoria Forense"
-                    description="Logs de auditoria append-only e prova de integridade da cadeia SHA-256."
-                    testId="audit-page"
-                  />
+                  <AuditLogsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/audit"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                  <AuditLogsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/management"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                  <AdminManagementPage />
                 </ProtectedRoute>
               }
             />
