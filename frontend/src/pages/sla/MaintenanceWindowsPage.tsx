@@ -148,6 +148,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
   return (
     <main
       role="main"
+      data-testid="maintenance-windows-page"
       style={{
         display: "flex",
         flexDirection: "column",
