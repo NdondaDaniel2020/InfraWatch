@@ -34,18 +34,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   children,
   initialState,
 }) => {
-  const [user, setUser] = useState<AuthUser | null>(
-    initialState?.user ?? null
-  );
-  const [accessToken, setAccessToken] = useState<string | null>(
-    initialState?.accessToken ?? null
-  );
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (initialState?.user) return initialState.user;
+    try {
+      const storedDevUser = sessionStorage.getItem("infrawatch_dev_user");
+      return storedDevUser ? JSON.parse(storedDevUser) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [accessToken, setAccessToken] = useState<string | null>(() => {
+    if (initialState?.accessToken) return initialState.accessToken;
+    try {
+      return sessionStorage.getItem("infrawatch_dev_token");
+    } catch {
+      return null;
+    }
+  });
   const [mfaPendingToken, setMfaPendingToken] = useState<string | null>(
     initialState?.mfaPendingToken ?? null
   );
-  const [isLoading, setIsLoading] = useState<boolean>(
-    initialState?.isLoading ?? (initialState?.user ? false : true)
-  );
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (initialState?.isLoading !== undefined) return initialState.isLoading;
+    if (initialState?.user) return false;
+    try {
+      if (sessionStorage.getItem("infrawatch_dev_user")) return false;
+    } catch {
+      // fallback
+    }
+    return true;
+  });
 
   const isAuthenticated = Boolean(user && accessToken);
 
@@ -67,8 +85,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
   // Bootstrap da Aplicação: Silent Refresh automático ao carregar a página (F5)
   useEffect(() => {
-    // Se o estado inicial já foi injetado (ex: em testes), pula bootstrap
-    if (initialState?.user !== undefined || initialState?.isLoading === false) {
+    // Se o estado inicial já foi injetado (ex: em testes ou dev session), pula bootstrap
+    if (
+      initialState?.user !== undefined ||
+      initialState?.isLoading === false ||
+      Boolean(sessionStorage.getItem("infrawatch_dev_user"))
+    ) {
       setIsLoading(false);
       return;
     }
@@ -252,6 +274,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     setInMemoryAccessToken(token);
     setMfaPendingToken(null);
     setIsLoading(false);
+    try {
+      sessionStorage.setItem("infrawatch_dev_user", JSON.stringify(authUser));
+      sessionStorage.setItem("infrawatch_dev_token", token);
+    } catch {
+      // Ignora falhas de storage em ambientes restritos
+    }
   }, []);
 
   // Logout e revogação
@@ -268,6 +296,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       setMfaPendingToken(null);
       setInMemoryAccessToken(null);
       setStoredRefreshToken(null);
+      try {
+        sessionStorage.removeItem("infrawatch_dev_user");
+        sessionStorage.removeItem("infrawatch_dev_token");
+      } catch {
+        // noop
+      }
       setIsLoading(false);
     }
   }, []);
