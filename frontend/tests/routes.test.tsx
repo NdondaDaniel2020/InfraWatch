@@ -139,6 +139,72 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
 
       expect(screen.getByTestId("audit-logs-page")).toBeInTheDocument();
     });
+
+    it("deve permitir que ORG_ADMIN acesse /devices e /maintenance, mas bloquear /noc e /dr", () => {
+      const authMock = createAuthMock({}, "ORG_ADMIN", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+
+      // 1. Acesso permitido a /devices
+      const { unmount: unmountDevices } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/devices"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("devices-page")).toBeInTheDocument();
+      unmountDevices();
+
+      // 2. Acesso permitido a /maintenance
+      const { unmount: unmountMaint } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/maintenance"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("maintenance-windows-page")).toBeInTheDocument();
+      unmountMaint();
+
+      // 3. Acesso bloqueado (403) a /noc
+      const { unmount: unmountNoc } = render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/noc"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      unmountNoc();
+
+      // 4. Acesso bloqueado (403) a /dr
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/dr"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+    });
   });
 
   describe("3. Shell da Aplicação (AppLayout, Header e Sidebar)", () => {

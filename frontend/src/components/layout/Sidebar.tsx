@@ -39,7 +39,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
     to: "/devices",
     label: "Inventário de Ativos",
     icon: <Server size={18} />,
-    allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR"],
+    allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"],
   },
   {
     to: "/incidents",
@@ -59,7 +59,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
     to: "/maintenance",
     label: "Manutenção",
     icon: <Wrench size={18} />,
-    allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR"],
+    allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"],
   },
   {
     to: "/sla",
@@ -71,7 +71,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
     to: "/audit",
     label: "Trilha de Auditoria",
     icon: <ShieldCheck size={18} />,
-    allowedRoles: ["SUPER_ADMIN"],
+    allowedRoles: ["SUPER_ADMIN", "ORG_ADMIN"],
   },
   {
     to: "/dr",

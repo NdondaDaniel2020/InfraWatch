@@ -33,6 +33,8 @@ export const MaintenanceWindowsPage: React.FC = () => {
   const { user } = useAuth();
   const isOperator =
     user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR";
+  const canSchedule =
+    isOperator || user?.role === "ORG_ADMIN";
 
   // Depuração de estados canônicos
   const [manualState, setManualState] = useState<
@@ -146,6 +148,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
   return (
     <main
       role="main"
+      data-testid="maintenance-windows-page"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -280,7 +283,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
             Exportar RFCs
           </Button>
 
-          {isOperator && (
+          {canSchedule && (
             <Button
               type="button"
               onClick={() => setIsModalOpen(true)}
