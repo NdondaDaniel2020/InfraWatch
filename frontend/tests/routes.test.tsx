@@ -333,9 +333,44 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
       unmountAudit();
 
       // 5. Acesso bloqueado (403) a /admin/management
-      render(
+      const { unmount: unmountMgmt } = render(
         <QueryClientProvider client={queryClient}>
           <MemoryRouter initialEntries={["/admin/management"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      unmountMgmt();
+
+      // 6. Acesso bloqueado (403) a /security
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/security"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+    });
+
+    it("deve bloquear ORG_ADMIN de acessar /security com 403", () => {
+      const authMock = createAuthMock({}, "ORG_ADMIN", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/security"]}>
             <AuthContext.Provider value={authMock}>
               <TelemetryProvider enabled={false}>
                 <AppRoutes />

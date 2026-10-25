@@ -180,7 +180,7 @@ export const AppRoutes: React.FC = () => {
             <Route
               path="/security"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
                   <SecuritySettingsPage />
                 </ProtectedRoute>
               }
@@ -188,7 +188,7 @@ export const AppRoutes: React.FC = () => {
             <Route
               path="/settings/security"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
                   <SecuritySettingsPage />
                 </ProtectedRoute>
               }
