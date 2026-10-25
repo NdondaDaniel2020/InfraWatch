@@ -86,7 +86,7 @@ export const AppRoutes: React.FC = () => {
             <Route
               path="/devices"
               element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"]}>
                   <DeviceListPage />
                 </ProtectedRoute>
               }
@@ -94,7 +94,7 @@ export const AppRoutes: React.FC = () => {
             <Route
               path="/devices/:id"
               element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"]}>
                   <DeviceDetailPage />
                 </ProtectedRoute>
               }
@@ -118,7 +118,7 @@ export const AppRoutes: React.FC = () => {
             <Route
               path="/maintenance"
               element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"]}>
                   <MaintenanceWindowsPage />
                 </ProtectedRoute>
               }
@@ -136,11 +136,11 @@ export const AppRoutes: React.FC = () => {
               }
             />
 
-            {/* Rotas Exclusivas SUPER_ADMIN */}
+            {/* Rotas Administrativas e Auditoria */}
             <Route
               path="/audit"
               element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN"]}>
                   <AuditLogsPage />
                 </ProtectedRoute>
               }
@@ -148,7 +148,7 @@ export const AppRoutes: React.FC = () => {
             <Route
               path="/admin/audit"
               element={
-                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ORG_ADMIN"]}>
                   <AuditLogsPage />
                 </ProtectedRoute>
               }
