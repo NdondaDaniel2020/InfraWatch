@@ -15,7 +15,6 @@ import { NocDashboardPage } from "../pages/noc/NocDashboardPage";
 import { ClientPortalPage } from "../pages/client/ClientPortalPage";
 import { TvWallboardPage } from "../pages/wallboard/TvWallboardPage";
 import { IncidentManagement } from "../pages/IncidentManagement";
-import { PlaceholderPage } from "../pages/common/PlaceholderPage";
 import { DeviceListPage } from "../pages/inventory/DeviceListPage";
 import { DeviceDetailPage } from "../pages/inventory/DeviceDetailPage";
 import { MaintenanceWindowsPage } from "../pages/sla/MaintenanceWindowsPage";
