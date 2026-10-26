@@ -53,12 +53,19 @@ async def list_incidents(
     _: object = Depends(require_roles(*READ_ROLES)),
 ) -> IncidentListResponse:
     """Lista incidentes registrados com suporte a filtros e isolamento de tenant."""
-    # Clientes regulares ficam restritos à sua própria organização
-    if user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN} and user.organization_id:
-        organization_id = UUID(user.organization_id)
+    # Validação e resolução estrita de tenant scope (prevenção BOLA / IDOR)
+    if not user.is_global_operator:
+        if organization_id and str(organization_id) != user.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: você não tem permissão para visualizar incidentes de outra organização.",
+            )
+        resolved_org_id = UUID(user.organization_id) if user.organization_id else None
+    else:
+        resolved_org_id = organization_id
 
     items, total = await service.list_incidents(
-        organization_id=organization_id,
+        organization_id=resolved_org_id,
         status=status_filter,
         device_id=device_id,
         limit=pagination.limit,
