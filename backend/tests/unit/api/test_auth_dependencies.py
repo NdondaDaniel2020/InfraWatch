@@ -167,3 +167,48 @@ class TestUnifiedAuthDependency:
             await get_current_user(request=mock_request, token_bearer=token)
         assert exc_info.value.status_code == 401
         assert "revogado ou na lista de bloqueio" in exc_info.value.detail
+
+    def test_authenticated_user_scoping_resolution_by_role(self) -> None:
+        """Valida que perfis restritos de cliente forçam o próprio org_id e perfis globais têm flexibilidade."""
+        # Cliente Viewer não pode escapar de sua organização mesmo passando outro target
+        viewer = AuthenticatedUser(
+            id="usr-viewer",
+            email="viewer@cliente.ao",
+            role=UserRole.CLIENT_VIEWER.value,
+            organization_id="org-cliente-123",
+        )
+        assert viewer.is_global_operator is False
+        assert viewer.get_scoped_organization_id("org-concorrente-999") == "org-cliente-123"
+        assert viewer.get_scoped_organization_id(None) == "org-cliente-123"
+
+        # Org Admin também fica restrito estritamente ao seu tenant
+        admin = AuthenticatedUser(
+            id="usr-org-admin",
+            email="admin@cliente.ao",
+            role=UserRole.ORG_ADMIN.value,
+            organization_id="org-cliente-123",
+        )
+        assert admin.is_global_operator is False
+        assert admin.get_scoped_organization_id("org-concorrente-999") == "org-cliente-123"
+
+        # Super Admin tem visão global ou pode filtrar um cliente específico
+        super_admin = AuthenticatedUser(
+            id="usr-super",
+            email="admin@infrawatch.ao",
+            role=UserRole.SUPER_ADMIN.value,
+            organization_id=None,
+        )
+        assert super_admin.is_global_operator is True
+        assert super_admin.get_scoped_organization_id("org-cliente-123") == "org-cliente-123"
+        assert super_admin.get_scoped_organization_id(None) is None
+
+        # NOC Operator tem privilégio de auditoria operacional cross-tenant
+        noc_op = AuthenticatedUser(
+            id="usr-noc",
+            email="noc@infrawatch.ao",
+            role=UserRole.NOC_OPERATOR.value,
+            organization_id=None,
+        )
+        assert noc_op.is_global_operator is True
+        assert noc_op.get_scoped_organization_id("org-cliente-123") == "org-cliente-123"
+        assert noc_op.get_scoped_organization_id(None) is None
