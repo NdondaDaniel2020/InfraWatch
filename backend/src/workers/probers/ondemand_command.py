@@ -6,7 +6,7 @@ entre a API REST de topologia e o daemon ProbeWorker.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 
 @dataclass

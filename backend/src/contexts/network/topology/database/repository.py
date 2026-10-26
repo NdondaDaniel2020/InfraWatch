@@ -6,7 +6,7 @@ Adapter de persistência (Driven) que abstrai o acesso às tabelas
 
 from __future__ import annotations
 
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,6 +77,8 @@ class TopologyRepository:
         model.cluster = node.cluster
         model.position_x = node.position_x
         model.position_y = node.position_y
+        model.created_at = node.created_at
+        model.updated_at = node.updated_at
 
         await self._session.flush()
         return self._node_to_domain(model)
@@ -88,7 +90,8 @@ class TopologyRepository:
             TopologyNodeModel.organization_id == organization_id,
         )
         result = await self._session.execute(stmt)
-        return result.rowcount > 0
+        rowcount = getattr(result, "rowcount", 0)
+        return bool(rowcount > 0)
 
     # ------------------------------------------------------------------
     # Enlaces (TopologyEdge)
@@ -131,6 +134,8 @@ class TopologyRepository:
         model.bandwidth_gbps = edge.bandwidth_gbps
         model.port_src = edge.port_src
         model.port_dst = edge.port_dst
+        model.created_at = edge.created_at
+        model.updated_at = edge.updated_at
 
         await self._session.flush()
         return self._edge_to_domain(model)
@@ -142,7 +147,8 @@ class TopologyRepository:
             TopologyEdgeModel.organization_id == organization_id,
         )
         result = await self._session.execute(stmt)
-        return result.rowcount > 0
+        rowcount = getattr(result, "rowcount", 0)
+        return bool(rowcount > 0)
 
     async def edge_exists_between(
         self, source_id: UUID, target_id: UUID, organization_id: UUID

@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID
 
-
 # ---------------------------------------------------------------------------
 # Enums de Domínio
 # ---------------------------------------------------------------------------

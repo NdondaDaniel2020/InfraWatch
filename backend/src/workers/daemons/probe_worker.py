@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
+from redis.exceptions import RedisError
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -310,7 +311,7 @@ class ProbeWorkerDaemon:
                     finally:
                         try:
                             await self.event_bus.ack(topic, group, msg_id)
-                        except Exception:
+                        except (RedisError, ConnectionRefusedError, OSError):
                             logger.debug("Falha ao enviar ack para msg %s", msg_id)
 
             except asyncio.CancelledError:
@@ -326,11 +327,13 @@ class ProbeWorkerDaemon:
             org_uuid = UUID(cmd.organization_id) if cmd.organization_id else None
             target = ProbeTarget(
                 device_id=device_uuid,
+                organization_id=org_uuid or uuid4(),
                 name=f"on-demand:{cmd.node_id}",
                 ip_address=cmd.ip_address,
+                port=0,
                 protocol="icmp",
+                category="network",
                 interval_seconds=0,
-                organization_id=org_uuid,
             )
 
             icmp_prober = IcmpProber(packets=3)
@@ -354,7 +357,7 @@ class ProbeWorkerDaemon:
             # 2. Publicação no barramento para instâncias distribuídas
             try:
                 await self.event_bus.publish("stream:sse:broadcast", event)
-            except Exception:
+            except (RedisError, ConnectionRefusedError, OSError):
                 logger.debug("Falha secundária ao publicar probe_result em stream:sse:broadcast")
 
             logger.info(
