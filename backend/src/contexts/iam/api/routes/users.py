@@ -162,13 +162,15 @@ async def list_users(
     organization_id: UUID | None = None,
 ) -> UserListResponse:
     """Lista usuários cadastrados respeitando o isolamento do tenant caso não seja Super Admin."""
-    effective_org = organization_id
-    if (
-        not current_user.is_super_admin
-        and current_user.role != UserRole.NOC_OPERATOR
-        and current_user.organization_id
-    ):
-        effective_org = UUID(current_user.organization_id)
+    if not current_user.is_global_operator:
+        if organization_id and str(organization_id) != current_user.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: você não tem permissão para visualizar usuários de outra organização.",
+            )
+        effective_org = UUID(current_user.organization_id) if current_user.organization_id else None
+    else:
+        effective_org = organization_id
 
     users, total = await query_service.list_users(
         organization_id=effective_org,
