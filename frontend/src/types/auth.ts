@@ -15,6 +15,7 @@ export interface AuthUser {
   name: string;
   role: UserRole;
   organization_id?: string | null;
+  organization_name?: string | null;
   initials?: string;
   is_active?: boolean;
   mfa_enabled?: boolean;
