@@ -14,6 +14,7 @@ import { SlaKpiCards } from "../../components/sla/SlaKpiCards";
 import { SlaExportActions } from "../../components/sla/SlaExportActions";
 import { SlaDeviceBreakdownTable } from "../../components/sla/SlaDeviceBreakdownTable";
 import { slaApi } from "../../services/slaApi";
+import { useAuth } from "../../context/AuthContext";
 import {
   mockSlaOverviewBancoSol,
   mockSlaOverviewUnitel,
@@ -23,10 +24,18 @@ import {
 import { toast } from "sonner";
 
 export const SlaReportsPage: React.FC = () => {
-  const [tenantId, setTenantId] = useState("bancosol");
+  const { user } = useAuth();
+  const isGlobalOperator = user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR";
+
+  // Se for cliente (ORG_ADMIN ou CLIENT_VIEWER), trava estritamente na organização do usuário
+  const userOrgId = user?.organization_id || "bancosol";
+  const [tenantId, setTenantId] = useState(isGlobalOperator ? "bancosol" : userOrgId);
   const [manualState, setManualState] = useState<
     "auto" | "nominal" | "skeleton" | "empty" | "error"
   >("auto");
+
+  // Garante sincronização caso o usuário mude
+  const effectiveTenantId = isGlobalOperator ? tenantId : userOrgId;
 
   const tenantOverviews = {
     bancosol: mockSlaOverviewBancoSol,
@@ -35,7 +44,7 @@ export const SlaReportsPage: React.FC = () => {
   };
 
   const currentOverview =
-    tenantOverviews[tenantId as keyof typeof tenantOverviews] ||
+    tenantOverviews[effectiveTenantId as keyof typeof tenantOverviews] ||
     mockSlaOverviewBancoSol;
 
   const {
@@ -45,14 +54,14 @@ export const SlaReportsPage: React.FC = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["slaOverview", tenantId],
-    queryFn: () => slaApi.getSlaOverview(tenantId),
+    queryKey: ["slaOverview", effectiveTenantId],
+    queryFn: () => slaApi.getSlaOverview(effectiveTenantId),
     initialData: currentOverview,
   });
 
   const { data: devices = mockSlaDeviceBreakdown } = useQuery({
-    queryKey: ["slaDevices", tenantId],
-    queryFn: () => slaApi.getSlaDeviceBreakdown(tenantId),
+    queryKey: ["slaDevices", effectiveTenantId],
+    queryFn: () => slaApi.getSlaDeviceBreakdown(effectiveTenantId),
     initialData: mockSlaDeviceBreakdown,
   });
 
@@ -274,39 +283,61 @@ export const SlaReportsPage: React.FC = () => {
         }}
       >
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
-          {/* Seletor de Tenant */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              backgroundColor: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-              borderRadius: "var(--radius-sm)",
-              padding: "6px 10px",
-            }}
-          >
-            <Building2 size={16} className="text-emerald-400" />
-            <select
-              id="tenant-select"
-              aria-label="Selecionar Contratante Enterprise"
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
+          {/* Identificação / Seletor de Tenant */}
+          {isGlobalOperator ? (
+            <div
               style={{
-                backgroundColor: "transparent",
-                border: "none",
-                color: "var(--color-text-primary)",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                outline: "none",
-                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: "var(--color-surface-card)",
+                border: "var(--border-subtle)",
+                borderRadius: "var(--radius-sm)",
+                padding: "6px 10px",
               }}
             >
-              <option value="bancosol">Banco Sol (Internet Banking & Agências)</option>
-              <option value="unitel">Unitel Angola (Backbone & Core)</option>
-              <option value="sonangol">Sonangol Logistics (Terminal Luanda)</option>
-            </select>
-          </div>
+              <Building2 size={16} className="text-emerald-400" />
+              <select
+                id="tenant-select"
+                aria-label="Selecionar Contratante Enterprise"
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+                style={{
+                  backgroundColor: "transparent",
+                  border: "none",
+                  color: "var(--color-text-primary)",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="bancosol">Banco Sol (Internet Banking & Agências)</option>
+                <option value="unitel">Unitel Angola (Backbone & Core)</option>
+                <option value="sonangol">Sonangol Logistics (Terminal Luanda)</option>
+              </select>
+            </div>
+          ) : (
+            <div
+              data-testid="static-tenant-badge"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: "rgba(16, 185, 129, 0.1)",
+                border: "1px solid rgba(16, 185, 129, 0.25)",
+                borderRadius: "var(--radius-sm)",
+                padding: "6px 12px",
+                color: "var(--color-healthy)",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              <Building2 size={16} />
+              <span>{user?.organization_name || overview.tenantName || "Sua Organização"}</span>
+            </div>
+          )}
 
           {/* Período Vigente */}
           <div

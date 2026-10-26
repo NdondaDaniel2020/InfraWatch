@@ -294,6 +294,8 @@ export const IncidentManagement: React.FC = () => {
         onSeverityChange={setSelectedSeverity}
         selectedOrg={selectedOrg}
         onOrgChange={setSelectedOrg}
+        isGlobalOperator={user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR"}
+        userOrgName={user?.organization_name}
         counts={counts}
       />
 

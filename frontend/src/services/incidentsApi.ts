@@ -73,14 +73,17 @@ export const incidentsApi = {
     organization?: string;
   }): Promise<IncidentItem[]> {
     try {
-      // Tenta consultar a API REST caso o backend esteja ativo
       const params = new URLSearchParams();
       if (filters?.severity && filters.severity !== "all") {
         params.append("severity", filters.severity.toUpperCase());
       }
+      if (filters?.organization && filters.organization !== "all" && !filters.organization.includes("Todas")) {
+        // Envia organization_id para o backend caso seja uma busca de NOC / Super Admin
+        params.append("organization_id", filters.organization);
+      }
       const response = await apiClient.get<any>(`/api/v1/incidents?${params.toString()}`);
       if (response && Array.isArray(response.items)) {
-        // Mapeia retorno do backend para o formato rico da interface
+        // Mapeia retorno do backend para o formato rico da interface (já escopado pelo backend)
         return response.items.map((item: any) => {
           const match = inMemoryIncidents.find((m) => m.id === item.id || m.code === item.id);
           return {
@@ -95,7 +98,7 @@ export const incidentsApi = {
         });
       }
     } catch {
-      // Fallback transparente para o estado em memória
+      // Fallback transparente para o estado em memória caso a API esteja indisponível
     }
 
     let result = [...inMemoryIncidents];
@@ -116,8 +119,9 @@ export const incidentsApi = {
       );
     }
 
+    // Se o filtro vier preenchido explicitamente em fallback de mock (ex.: tela de NOC)
     if (filters?.organization && filters.organization !== "all" && !filters.organization.includes("Todas")) {
-      result = result.filter((i) => i.organization_name === filters.organization);
+      result = result.filter((i) => i.organization_name === filters.organization || i.organization_id === filters.organization);
     }
 
     return result;

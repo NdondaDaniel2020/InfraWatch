@@ -96,6 +96,11 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
     userEmail: string,
     initials: string
   ) => {
+    const orgId =
+      role === "ORG_ADMIN" || role === "CLIENT_VIEWER" ? "bancosol" : null;
+    const orgName =
+      role === "ORG_ADMIN" || role === "CLIENT_VIEWER" ? "Banco Sol" : null;
+
     setSession(
       {
         id: `usr-${role.toLowerCase()}-01`,
@@ -103,6 +108,8 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
         name,
         role,
         initials,
+        organization_id: orgId,
+        organization_name: orgName,
       },
       `mock-jwt-token-${role.toLowerCase()}`
     );
