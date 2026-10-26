@@ -58,6 +58,29 @@ class SelfLoopEdgeError(TopologyDomainError):
         )
 
 
+class NodeNotFoundError(TopologyDomainError):
+    """Nó de topologia não encontrado."""
+
+    def __init__(self, node_id: UUID) -> None:
+        super().__init__(f"Nó de topologia '{node_id}' não encontrado.")
+
+
+class EdgeNotFoundError(TopologyDomainError):
+    """Enlace de topologia não encontrado."""
+
+    def __init__(self, edge_id: UUID) -> None:
+        super().__init__(f"Enlace de topologia '{edge_id}' não encontrado.")
+
+
+class EdgeAlreadyExistsError(TopologyDomainError):
+    """Já existe um enlace entre os nós especificados."""
+
+    def __init__(self, source_id: UUID, target_id: UUID) -> None:
+        super().__init__(
+            f"Já existe um enlace cadastrado entre os nós '{source_id}' e '{target_id}'."
+        )
+
+
 class MissingIpAddressError(TopologyDomainError):
     """Nó de tipo 'device' deve ter ip_address para sondas."""
 
