@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.contexts.network.topology.api.dependencies.services import (
+from src.contexts.network_topology.api.dependencies.services import (
     TopologyServiceDep,
     get_topology_repository,
     get_topology_service,

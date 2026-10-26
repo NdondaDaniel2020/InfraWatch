@@ -23,15 +23,15 @@ from src.contexts.iam.api.dependencies import (
     require_roles,
 )
 from src.contexts.iam.domain.enums import UserRole
-from src.contexts.network.topology.api.dependencies import TopologyServiceDep
-from src.contexts.network.topology.domain.models import (
+from src.contexts.network_topology.api.dependencies import TopologyServiceDep
+from src.contexts.network_topology.domain.models import (
     EdgeAlreadyExistsError,
     EdgeNotFoundError,
     MissingIpAddressError,
     NodeNotFoundError,
     TopologyDomainError,
 )
-from src.contexts.network.topology.schemas import (
+from src.contexts.network_topology.schemas import (
     CreateTopologyEdgeRequest,
     CreateTopologyNodeRequest,
     ProbeDispatchResponse,

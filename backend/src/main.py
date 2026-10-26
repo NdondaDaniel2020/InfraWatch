@@ -20,7 +20,7 @@ warnings.filterwarnings(
 from src.contexts.alerting.api.router import router as alerting_router
 from src.contexts.iam.api.router import router as iam_router
 from src.contexts.inventory.api.router import router as inventory_router
-from src.contexts.network.topology.api.router import router as topology_router
+from src.contexts.network_topology.api.router import router as topology_router
 from src.contexts.sla.api.router import router as sla_router
 from src.contexts.system.api.router import router as system_router
 from src.contexts.telemetry.api.router import router as telemetry_router

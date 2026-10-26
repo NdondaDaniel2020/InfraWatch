@@ -5,14 +5,14 @@ from uuid import uuid4
 
 import pytest
 
-from src.contexts.network.topology.domain.models import (
+from src.contexts.network_topology.domain.models import (
     EdgeAlreadyExistsError,
     MissingIpAddressError,
     NodeNotFoundError,
     TopologyGraph,
     TopologyNode,
 )
-from src.contexts.network.topology.services.topology_service import TopologyService
+from src.contexts.network_topology.services.topology_service import TopologyService
 
 
 @pytest.fixture

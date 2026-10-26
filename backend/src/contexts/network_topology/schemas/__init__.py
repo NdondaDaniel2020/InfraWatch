@@ -1,12 +1,12 @@
 """Pacote de schemas Pydantic de entrada e saída do contexto Network Topology."""
 
-from src.contexts.network.topology.schemas.requests import (
+from src.contexts.network_topology.schemas.requests import (
     CreateTopologyEdgeRequest,
     CreateTopologyNodeRequest,
     TriggerOnDemandProbeRequest,
     UpdateTopologyNodePositionRequest,
 )
-from src.contexts.network.topology.schemas.responses import (
+from src.contexts.network_topology.schemas.responses import (
     ProbeDispatchResponse,
     TopologyEdgeResponse,
     TopologyGraphResponse,

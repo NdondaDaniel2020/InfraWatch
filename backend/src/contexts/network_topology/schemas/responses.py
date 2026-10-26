@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from src.contexts.network.topology.domain.models import (
+from src.contexts.network_topology.domain.models import (
     TopologyEdge,
     TopologyGraph,
     TopologyNode,

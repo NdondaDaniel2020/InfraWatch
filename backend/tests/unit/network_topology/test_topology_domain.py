@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from src.contexts.network.topology.domain.models import (
+from src.contexts.network_topology.domain.models import (
     EdgeAlreadyExistsError,
     EdgeNotFoundError,
     InvalidLinkTypeError,

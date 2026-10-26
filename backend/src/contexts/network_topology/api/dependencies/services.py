@@ -6,8 +6,8 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from src.contexts.network.topology.database.repository import TopologyRepository
-from src.contexts.network.topology.services.topology_service import TopologyService
+from src.contexts.network_topology.database.repository import TopologyRepository
+from src.contexts.network_topology.services.topology_service import TopologyService
 from src.core.web.dependencies import DbSessionDep, EventBusDep
 
 

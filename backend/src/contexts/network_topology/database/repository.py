@@ -11,8 +11,8 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.network.topology.database.models import TopologyEdgeModel, TopologyNodeModel
-from src.contexts.network.topology.domain.models import (
+from src.contexts.network_topology.database.models import TopologyEdgeModel, TopologyNodeModel
+from src.contexts.network_topology.domain.models import (
     TopologyEdge,
     TopologyGraph,
     TopologyNode,

@@ -13,8 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.inventory.database.models import DeviceModel
-from src.contexts.network.topology.database.repository import TopologyRepository
-from src.contexts.network.topology.domain.models import (
+from src.contexts.network_topology.database.repository import TopologyRepository
+from src.contexts.network_topology.domain.models import (
     EdgeAlreadyExistsError,
     EdgeNotFoundError,
     MissingIpAddressError,
@@ -28,7 +28,7 @@ from src.core.messaging.interfaces import EventBus
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.workers.probers.ondemand_command import OnDemandProbeCommand
 
-logger = logging.getLogger("infrawatch.network.topology.service")
+logger = logging.getLogger("infrawatch.network_topology.service")
 
 
 class TopologyService:

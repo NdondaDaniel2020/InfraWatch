@@ -30,8 +30,8 @@ from sqlalchemy.pool import StaticPool
 
 from src.contexts.iam.api.dependencies.auth import AuthenticatedUser, get_current_user
 from src.contexts.iam.domain.enums import UserRole
-from src.contexts.network.topology.api.dependencies import get_topology_service
-from src.contexts.network.topology.services.topology_service import TopologyService
+from src.contexts.network_topology.api.dependencies import get_topology_service
+from src.contexts.network_topology.services.topology_service import TopologyService
 from src.core.database.base_model import Base
 from src.core.database.session import get_db_session
 from src.core.messaging.in_memory_bus import InMemoryEventBus
