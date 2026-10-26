@@ -23,12 +23,17 @@ import { SanitizedEndpointsTable } from "../../components/client/SanitizedEndpoi
 import { NotificationCenter } from "../../components/notifications/NotificationCenter";
 import { notificationsApi } from "../../services/notificationsApi";
 import { pdfExportService } from "../../services/pdfExportService";
+import { useAuth } from "../../context/AuthContext";
 
 export type PortalViewState = "nominal" | "skeleton" | "empty" | "error";
 
 export const ClientPortalPage: React.FC = () => {
+  const { user } = useAuth();
   const [viewState, setViewState] = useState<PortalViewState>("nominal");
-  const [slaSummary] = useState<ClientSlaSummary>(MOCK_CLIENT_SLA_SUMMARY);
+  const [slaSummary] = useState<ClientSlaSummary>(() => ({
+    ...MOCK_CLIENT_SLA_SUMMARY,
+    tenantName: user?.organization_name || MOCK_CLIENT_SLA_SUMMARY.tenantName,
+  }));
   const [services] = useState<ClientServiceItem[]>(MOCK_CLIENT_SERVICES);
   const [endpoints] = useState<SanitizedEndpoint[]>(MOCK_SANITIZED_ENDPOINTS);
   const [notifications, setNotifications] = useState<ClientNotification[]>(MOCK_CLIENT_NOTIFICATIONS);
@@ -37,6 +42,14 @@ export const ClientPortalPage: React.FC = () => {
   );
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const displayTenantName = user?.organization_name || slaSummary.tenantName;
+  const tenantInitials = displayTenantName
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   // Exibe toast temporário
   const showToast = useCallback((msg: string) => {
@@ -91,18 +104,24 @@ export const ClientPortalPage: React.FC = () => {
         {/* Identificação do Cliente & Escopo */}
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center font-mono font-bold text-sm text-emerald-400 shadow-sm">
-            BS
+            {tenantInitials}
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base sm:text-lg font-bold text-white tracking-tight m-0">
-                {slaSummary.tenantName}
+                {displayTenantName}
               </h1>
               <span
                 data-testid="client-role-badge"
                 className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10.5px] font-mono font-bold"
               >
-                Client Viewer (Read-Only)
+                {user?.role === "ORG_ADMIN"
+                  ? "Org Admin"
+                  : user?.role === "SUPER_ADMIN"
+                  ? "Super Admin (Visão Global)"
+                  : user?.role === "NOC_OPERATOR"
+                  ? "NOC Operator (Suporte)"
+                  : "Client Viewer (Read-Only)"}
               </span>
             </div>
             <p className="text-xs text-slate-400 m-0 mt-0.5">

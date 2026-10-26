@@ -8,6 +8,8 @@ export interface IncidentFilterToolbarProps {
   onSeverityChange: (severity: "all" | IncidentSeverity) => void;
   selectedOrg: string;
   onOrgChange: (org: string) => void;
+  isGlobalOperator?: boolean;
+  userOrgName?: string | null;
   counts: {
     all: number;
     critical: number;
@@ -27,6 +29,8 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
   onSeverityChange,
   selectedOrg,
   onOrgChange,
+  isGlobalOperator = true,
+  userOrgName,
   counts,
 }) => {
   return (
@@ -116,18 +120,30 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
 
       {/* Seletores de Organização & Período */}
       <div className="flex items-center gap-2">
-        <select
-          data-testid="select-organization"
-          aria-label="Filtrar por organização cliente"
-          value={selectedOrg}
-          onChange={(e) => onOrgChange(e.target.value)}
-          className="bg-obsidian-950 border border-obsidian-800 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:border-emerald-500 focus:ring-0 cursor-pointer outline-none"
-        >
-          <option value="all">Todas as Organizações (Unitel, Banco Sol, Sonangol)</option>
-          <option value="Unitel Angola">Unitel Angola</option>
-          <option value="Banco Sol">Banco Sol</option>
-          <option value="Sonangol Logistics">Sonangol Logistics</option>
-        </select>
+        {isGlobalOperator ? (
+          <select
+            data-testid="select-organization"
+            aria-label="Filtrar por organização cliente"
+            value={selectedOrg}
+            onChange={(e) => onOrgChange(e.target.value)}
+            className="bg-obsidian-950 border border-obsidian-800 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:border-emerald-500 focus:ring-0 cursor-pointer outline-none"
+          >
+            <option value="all">Todas as Organizações (Unitel, Banco Sol, Sonangol)</option>
+            <option value="Unitel Angola">Unitel Angola</option>
+            <option value="Banco Sol">Banco Sol</option>
+            <option value="Sonangol Logistics">Sonangol Logistics</option>
+          </select>
+        ) : (
+          <div
+            data-testid="static-incident-tenant-badge"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono font-semibold"
+          >
+            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
+              corporate_fare
+            </span>
+            <span>{userOrgName || "Sua Organização"}</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-1.5 bg-obsidian-950 border border-obsidian-800 text-slate-300 text-xs rounded-lg px-3 py-1.5 font-mono">
           <span className="material-symbols-outlined text-[16px] text-slate-400" aria-hidden="true">

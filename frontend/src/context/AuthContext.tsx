@@ -353,10 +353,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+const DEFAULT_UNAUTHENTICATED_AUTH: AuthContextValue = {
+  user: null,
+  accessToken: null,
+  isAuthenticated: false,
+  isLoading: false,
+  mfaPendingToken: null,
+  login: async () => ({
+    success: true as const,
+    user: null as unknown as AuthUser,
+    accessToken: "",
+    mfaRequired: false as const,
+  }),
+  submitMfaChallenge: async () => {
+    throw new Error("Não autenticado");
+  },
+  completeGoogleLogin: async () => {
+    throw new Error("Não autenticado");
+  },
+  setSession: () => {},
+  logout: async () => {},
+  clearMfaPending: () => {},
+  hasRole: () => false,
+};
+
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth deve ser utilizado dentro de um <AuthProvider>.");
+    return DEFAULT_UNAUTHENTICATED_AUTH;
   }
   return context;
 }
