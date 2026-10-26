@@ -15,8 +15,9 @@ import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from redis.exceptions import RedisError
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -29,7 +30,10 @@ from src.contexts.telemetry.services.batch_writer import MetricsBatchWriter
 from src.core.database.outbox_repository import OutboxRepository
 from src.core.database.session import get_session_factory
 from src.core.messaging.resilient_bus import ResilientEventBus
+from src.core.messaging.sse_broadcaster import get_sse_broadcaster
 from src.workers.probers.executor import ProbeExecutor
+from src.workers.probers.icmp import IcmpProber
+from src.workers.probers.ondemand_command import OnDemandProbeCommand
 from src.workers.scheduler.in_memory_inventory import InMemorySchedule, ProbeTarget
 
 logger = logging.getLogger("infrawatch.workers.probe_worker")
@@ -278,6 +282,94 @@ class ProbeWorkerDaemon:
             except TimeoutError:
                 pass
 
+    async def _ondemand_probe_loop(self) -> None:
+        """Consome comandos de sondas on-demand do Redis Stream com prioridade alta."""
+        topic = "stream:probes:ondemand"
+        group = "probe-worker-ondemand"
+        consumer_name = "probe-worker-ondemand-1"
+
+        logger.info("Iniciando loop de sondas on-demand no tópico '%s'...", topic)
+
+        while not self._stop_event.is_set():
+            try:
+                messages = await self.event_bus.consume_batch(
+                    topic=topic,
+                    group=group,
+                    consumer_name=consumer_name,
+                    batch_size=5,
+                    timeout_ms=500,
+                )
+                if not messages:
+                    continue
+
+                for msg_id, payload in messages:
+                    try:
+                        cmd = OnDemandProbeCommand.from_dict(payload)
+                        asyncio.create_task(self._execute_ondemand_probe(cmd))
+                    except Exception:
+                        logger.exception("Falha ao parsear OnDemandProbeCommand da msg %s", msg_id)
+                    finally:
+                        try:
+                            await self.event_bus.ack(topic, group, msg_id)
+                        except (RedisError, ConnectionRefusedError, OSError):
+                            logger.debug("Falha ao enviar ack para msg %s", msg_id)
+
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                logger.exception("Erro no loop de consumo de sondas on-demand")
+                await asyncio.sleep(1.0)
+
+    async def _execute_ondemand_probe(self, cmd: OnDemandProbeCommand) -> None:
+        """Executa ping ICMP real e publica resultado no SSE Broadcaster."""
+        try:
+            device_uuid = UUID(cmd.node_id) if cmd.node_id else uuid4()
+            org_uuid = UUID(cmd.organization_id) if cmd.organization_id else None
+            target = ProbeTarget(
+                device_id=device_uuid,
+                organization_id=org_uuid or uuid4(),
+                name=f"on-demand:{cmd.node_id}",
+                ip_address=cmd.ip_address,
+                port=0,
+                protocol="icmp",
+                category="network",
+                interval_seconds=0,
+            )
+
+            icmp_prober = IcmpProber(packets=3)
+            result = await icmp_prober.probe(target, timeout_ms=cmd.timeout_ms)
+
+            event: dict[str, Any] = {
+                "event_type": "probe_result",
+                "probe_id": cmd.probe_id,
+                "node_id": cmd.node_id,
+                "status": result.status,
+                "rtt_ms": result.latency_ms,
+                "packet_loss": result.packet_loss_pct,
+                "error": result.error_message,
+                "organization_id": cmd.organization_id,
+            }
+
+            # 1. Transmissão imediata aos clientes conectados ao SSE local
+            broadcaster = get_sse_broadcaster()
+            await broadcaster.broadcast(event, organization_id=cmd.organization_id or None)
+
+            # 2. Publicação no barramento para instâncias distribuídas
+            try:
+                await self.event_bus.publish("stream:sse:broadcast", event)
+            except (RedisError, ConnectionRefusedError, OSError):
+                logger.debug("Falha secundária ao publicar probe_result em stream:sse:broadcast")
+
+            logger.info(
+                "Sonda on-demand concluída para probe_id=%s, node_id=%s: status=%s, rtt=%.2fms",
+                cmd.probe_id,
+                cmd.node_id,
+                result.status,
+                result.latency_ms,
+            )
+        except Exception:
+            logger.exception("Falha ao executar sonda on-demand para probe_id=%s", cmd.probe_id)
+
     async def run(self) -> None:
         """Inicia todos os serviços e tarefas do daemon com tolerância a falhas."""
         logger.info("Inicializando ProbeWorkerDaemon...")
@@ -297,6 +389,7 @@ class ProbeWorkerDaemon:
         reconciliation_task = asyncio.create_task(self._reconciliation_loop())
         scheduler_task = asyncio.create_task(self._scheduler_loop())
         flush_task = asyncio.create_task(self._telemetry_flush_loop())
+        ondemand_task = asyncio.create_task(self._ondemand_probe_loop())
 
         try:
             await asyncio.gather(
@@ -304,6 +397,7 @@ class ProbeWorkerDaemon:
                 reconciliation_task,
                 scheduler_task,
                 flush_task,
+                ondemand_task,
             )
         except asyncio.CancelledError:
             logger.info("Sinal de desligamento recebido. Parando ProbeWorkerDaemon...")
@@ -315,6 +409,7 @@ class ProbeWorkerDaemon:
                 reconciliation_task,
                 scheduler_task,
                 flush_task,
+                ondemand_task,
                 return_exceptions=True,
             )
             # Flush final de drenagem de telemetria pendente
