@@ -316,11 +316,18 @@ export const SlaReportsPage: React.FC = () => {
                   fontWeight: 600,
                   outline: "none",
                   cursor: "pointer",
+                  colorScheme: "dark",
                 }}
               >
-                <option value="bancosol">Banco Sol (Internet Banking & Agências)</option>
-                <option value="unitel">Unitel Angola (Backbone & Core)</option>
-                <option value="sonangol">Sonangol Logistics (Terminal Luanda)</option>
+                <option value="bancosol" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                  Banco Sol (Internet Banking & Agências)
+                </option>
+                <option value="unitel" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                  Unitel Angola (Backbone & Core)
+                </option>
+                <option value="sonangol" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                  Sonangol Logistics (Terminal Luanda)
+                </option>
               </select>
             </div>
           ) : (
@@ -379,12 +386,21 @@ export const SlaReportsPage: React.FC = () => {
                 fontWeight: 600,
                 outline: "none",
                 cursor: "pointer",
+                colorScheme: "dark",
               }}
             >
-              <option value="last_7d">Últimos 7 dias</option>
-              <option value="last_30d">Últimos 30 dias</option>
-              <option value="current_month">Mês Vigente ({overview.periodLabel})</option>
-              <option value="last_90d">Último Trimestre (90 dias)</option>
+              <option value="last_7d" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                Últimos 7 dias
+              </option>
+              <option value="last_30d" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                Últimos 30 dias
+              </option>
+              <option value="current_month" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                Mês Vigente ({overview.periodLabel})
+              </option>
+              <option value="last_90d" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                Último Trimestre (90 dias)
+              </option>
             </select>
           </div>
 

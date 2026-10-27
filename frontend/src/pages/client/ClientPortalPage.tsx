@@ -262,11 +262,6 @@ export const ClientPortalPage: React.FC = () => {
       {/* 3. RODAPÉ INSTITUCIONAL & CONFORMIDADE                                 */}
       {/* ===================================================================== */}
       <footer className="w-full pt-4 pb-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-slate-500 gap-2">
-        <div className="flex items-center gap-2">
-          <ShieldCheck size={14} className="text-emerald-500" />
-          <span>Conformidade Regulatória BNA &amp; ISO 27001 • Sanitização Ativa (ADR-009)</span>
-        </div>
-        <span>InfraWatch Observability • RCS Angola</span>
       </footer>
     </div>
   );
