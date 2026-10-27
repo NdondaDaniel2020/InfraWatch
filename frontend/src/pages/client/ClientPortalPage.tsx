@@ -4,21 +4,16 @@ import {
   CloudOff,
   Headphones,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 
 import {
-  MOCK_CLIENT_NOTIFICATIONS,
   MOCK_CLIENT_SERVICES,
   MOCK_CLIENT_SLA_SUMMARY,
-  type ClientNotification,
   type ClientServiceItem,
   type ClientSlaSummary,
 } from "../../mocks/clientPortalMocks";
 import { SlaKpiCards } from "../../components/client/SlaKpiCards";
 import { SanitizedServicesGrid } from "../../components/client/SanitizedServicesGrid";
-import { NotificationCenter } from "../../components/notifications/NotificationCenter";
-import { notificationsApi } from "../../services/notificationsApi";
 import { pdfExportService } from "../../services/pdfExportService";
 import { useAuth } from "../../context/AuthContext";
 
@@ -32,10 +27,6 @@ export const ClientPortalPage: React.FC = () => {
     tenantName: user?.organization_name || MOCK_CLIENT_SLA_SUMMARY.tenantName,
   }));
   const [services] = useState<ClientServiceItem[]>(MOCK_CLIENT_SERVICES);
-  const [notifications, setNotifications] = useState<ClientNotification[]>(MOCK_CLIENT_NOTIFICATIONS);
-  const [unreadCount, setUnreadCount] = useState<number>(() =>
-    MOCK_CLIENT_NOTIFICATIONS.filter((n) => !n.isRead).length
-  );
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -52,14 +43,6 @@ export const ClientPortalPage: React.FC = () => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
-
-  // Marcar todas as notificações como lidas
-  const handleMarkAllRead = async () => {
-    await notificationsApi.markAllAsRead();
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    setUnreadCount(0);
-    showToast("Todas as notificações foram marcadas como lidas.");
-  };
 
   // Download do Relatório de SLA em PDF
   const handleDownloadPdf = async () => {
@@ -134,13 +117,6 @@ export const ClientPortalPage: React.FC = () => {
             <span className="text-slate-300">Telemetria Ativa</span>
             <span className="text-white font-bold">100% Nominal</span>
           </div>
-
-          {/* Central de Notificações In-App */}
-          <NotificationCenter
-            notifications={notifications}
-            unreadCount={unreadCount}
-            onMarkAllAsRead={handleMarkAllRead}
-          />
 
           {/* Simulador de Estados (ai-mockup-rectifier) */}
           <div className="flex items-center gap-1.5 px-3 py-1 bg-[#080c14] rounded-full border border-white/10 text-xs font-mono">

@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LogOut, Menu, Search, Tv } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { NotificationCenter } from "../notifications/NotificationCenter";
+import { notificationsApi } from "../../services/notificationsApi";
+import { MOCK_CLIENT_NOTIFICATIONS, type ClientNotification } from "../../mocks/clientPortalMocks";
 
 import type { StatusTickerData } from "../../types/telemetry";
 
@@ -21,6 +24,26 @@ export const Header: React.FC<HeaderProps> = ({
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [utcTime, setUtcTime] = useState<string>("");
+  const [notifications, setNotifications] = useState<ClientNotification[]>(MOCK_CLIENT_NOTIFICATIONS);
+  const [unreadCount, setUnreadCount] = useState<number>(() =>
+    MOCK_CLIENT_NOTIFICATIONS.filter((n) => !n.isRead).length
+  );
+
+  useEffect(() => {
+    // Carrega contagem inicial de notificações não lidas
+    notificationsApi.listNotifications().then((items) => {
+      if (items && items.length > 0) {
+        setNotifications(items);
+        setUnreadCount(items.filter((n) => !n.isRead).length);
+      }
+    });
+  }, []);
+
+  const handleMarkAllNotificationsRead = async () => {
+    await notificationsApi.markAllAsRead();
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+  };
 
   useEffect(() => {
     const updateUtc = () => {
@@ -178,7 +201,14 @@ export const Header: React.FC<HeaderProps> = ({
           </Link>
         )}
 
-        {/* Perfil Operador Daniel Ndonda */}
+        {/* Central de Notificações Global In-App */}
+        <NotificationCenter
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAllAsRead={handleMarkAllNotificationsRead}
+        />
+
+        {/* Perfil do Usuário / Operador */}
         <div className="flex items-center gap-2.5 pl-3 border-l border-obsidian-800">
           <div
             data-testid="user-avatar"
