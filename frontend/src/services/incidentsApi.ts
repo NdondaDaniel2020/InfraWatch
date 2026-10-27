@@ -119,12 +119,12 @@ export const incidentsApi = {
       );
     }
 
-    // Se o filtro vier preenchido explicitamente em fallback de mock (ex.: tela de NOC)
     const orgFilter = filters?.organization;
     if (orgFilter && orgFilter !== "all" && !orgFilter.includes("Todas")) {
       const targetOrg = orgFilter.toLowerCase();
       result = result.filter(
         (i) =>
+          i.organization_name === orgFilter ||
           i.organization_name.toLowerCase().includes(targetOrg) ||
           (i.organization_domain && i.organization_domain.toLowerCase().includes(targetOrg))
       );
