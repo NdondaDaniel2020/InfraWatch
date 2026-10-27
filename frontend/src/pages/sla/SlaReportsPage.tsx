@@ -137,18 +137,6 @@ export const SlaReportsPage: React.FC = () => {
           >
             Relatórios Analíticos de SLA & Disponibilidade Contratual
           </h1>
-          <p
-            style={{
-              fontSize: "0.75rem",
-              color: "var(--color-text-muted)",
-              maxWidth: "800px",
-              lineHeight: 1.5,
-            }}
-          >
-            Métricas consolidadas de uptime líquido, apuração de penalidades e
-            auditoria com isenção de paradas programadas homologadas conforme
-            ADR-009 e normas do BNA.
-          </p>
         </div>
 
         {/* Ações de Exportação */}

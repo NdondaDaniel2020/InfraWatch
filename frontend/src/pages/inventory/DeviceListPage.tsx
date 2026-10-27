@@ -261,15 +261,22 @@ export const DeviceListPage: React.FC = () => {
   const devices = data?.items ?? [];
 
   return (
-    <div data-testid="devices-page" style={{ display: "flex", flexDirection: "column", gap: "20px", height: "100%" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+    <main
+      data-testid="devices-page"
+      role="main"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "24px",
+        padding: "24px",
+        minHeight: "100%",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", borderBottom: "var(--border-subtle)", paddingBottom: "16px" }}>
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text-primary)", fontFamily: "var(--font-sans)" }}>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--color-text-primary)", fontFamily: "var(--font-sans)", letterSpacing: "-0.02em" }}>
             Inventário de Ativos
           </h1>
-          <p style={{ color: "var(--color-text-secondary)", fontSize: "0.875rem", marginTop: "4px" }}>
-            Gestão centralizada de sondas ICMP, HTTP, TCP, Docker e Heartbeats
-          </p>
         </div>
         <Button
           onClick={() => { setEditingDevice(null); setIsFormModalOpen(true); }}
@@ -530,6 +537,6 @@ export const DeviceListPage: React.FC = () => {
         isLoading={isActionLoading && maintenanceMutation.variables?.id === maintenanceDeviceId}
         data-testid="maintenance-modal"
       />
-    </div>
+    </main>
   );
 };

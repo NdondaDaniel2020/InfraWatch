@@ -62,9 +62,10 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
   };
 
   return (
-    <div
+    <main
       data-testid="client-portal-page"
-      className="flex flex-col gap-6 w-full max-w-[1500px] mx-auto relative text-slate-100"
+      role="main"
+      className="flex flex-col gap-6 w-full p-6 min-h-full relative text-slate-100"
     >
       {/* Toast Feedback */}
       {toastMessage && (
@@ -109,9 +110,6 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
                   : "Client Viewer (Read-Only)"}
               </span>
             </div>
-            <p className="text-xs text-slate-400 m-0 mt-0.5">
-              Portal Executivo de Disponibilidade &amp; Conformidade de SLA (ADR-009)
-            </p>
           </div>
         </div>
 
@@ -222,12 +220,7 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
         {/* GRID DE SERVIÇOS CRÍTICOS CONTRATADOS */}
         <SanitizedServicesGrid services={services} />
       </div>
-
-      {/* ===================================================================== */}
-      {/* 3. RODAPÉ INSTITUCIONAL & CONFORMIDADE                                 */}
-      {/* ===================================================================== */}
-      <footer className="w-full pt-4 pb-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-slate-500 gap-2">
-      </footer>
-    </div>
+      
+    </main>
   );
 };
