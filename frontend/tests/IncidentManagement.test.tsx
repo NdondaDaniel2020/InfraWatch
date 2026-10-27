@@ -486,42 +486,29 @@ describe("Painel de Incidentes, Status GLPI e Ações Rápidas (Issue #32)", () 
   /* 7. Quatro Estados Canônicos de Interface                                  */
   /* ------------------------------------------------------------------------- */
   describe("7. Quatro Estados Canônicos de Interface", () => {
-    it("deve alternar para estado Skeleton ao clicar no botão correspondente", async () => {
-      renderWithProviders(<IncidentManagement />);
+    it("deve renderizar estado Skeleton quando solicitado", async () => {
+      renderWithProviders(<IncidentManagement initialViewState="skeleton" />);
 
-      await waitFor(() => {
-        expect(screen.getByTestId("state-btn-skeleton")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByTestId("state-btn-skeleton"));
       expect(screen.getByTestId("skeleton-state-container")).toBeInTheDocument();
     });
 
-    it("deve alternar para estado Vazio e permitir restauração", async () => {
-      renderWithProviders(<IncidentManagement />);
+    it("deve renderizar estado Vazio e permitir restauração", async () => {
+      renderWithProviders(<IncidentManagement initialViewState="empty" />);
 
-      await waitFor(() => {
-        expect(screen.getByTestId("state-btn-empty")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByTestId("state-btn-empty"));
       expect(screen.getByTestId("empty-state-container")).toBeInTheDocument();
       expect(screen.getByText("Nenhum Incidente Ativo no Momento")).toBeInTheDocument();
 
       // Clica em 'Recarregar Dados Reais'
       fireEvent.click(screen.getByTestId("btn-empty-reset"));
-      expect(screen.queryByTestId("empty-state-container")).not.toBeInTheDocument();
-      expect(screen.getByTestId("incidents-table")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByTestId("empty-state-container")).not.toBeInTheDocument();
+        expect(screen.getByTestId("incidents-table")).toBeInTheDocument();
+      });
     });
 
-    it("deve alternar para estado de Erro SSE e permitir reconexão", async () => {
-      renderWithProviders(<IncidentManagement />);
+    it("deve renderizar estado de Erro SSE e permitir reconexão", async () => {
+      renderWithProviders(<IncidentManagement initialViewState="error" />);
 
-      await waitFor(() => {
-        expect(screen.getByTestId("state-btn-error")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByTestId("state-btn-error"));
       expect(screen.getByTestId("state-overlay-error")).toBeInTheDocument();
       expect(screen.getByText(/FALHA DE SINCRONIZAÇÃO SSE/i)).toBeInTheDocument();
 

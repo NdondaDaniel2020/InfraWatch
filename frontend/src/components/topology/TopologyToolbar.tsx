@@ -12,8 +12,6 @@ export type TopologyStateSimulation = "nominal" | "skeleton" | "empty" | "error"
 interface TopologyToolbarProps {
   categoryFilter: string;
   onCategoryFilterChange: (category: string) => void;
-  stateSimulation: TopologyStateSimulation;
-  onStateSimulationChange: (state: TopologyStateSimulation) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitView: () => void;
@@ -25,8 +23,6 @@ interface TopologyToolbarProps {
 export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
   categoryFilter,
   onCategoryFilterChange,
-  stateSimulation,
-  onStateSimulationChange,
   onZoomIn,
   onZoomOut,
   onFitView,
@@ -109,32 +105,6 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
             DB / API (2)
           </button>
         </div>
-
-        {/* Seletor de Estados Canônicos de UI */}
-        <div className="flex items-center gap-1 bg-obsidian-950 px-2 py-1 rounded-lg border border-obsidian-800 text-[10px] font-mono">
-          <span className="text-slate-400 hidden lg:inline">ESTADO:</span>
-          <select
-            aria-label="Simular Estado da Topologia"
-            value={stateSimulation}
-            onChange={(e) => onStateSimulationChange(e.target.value as TopologyStateSimulation)}
-            className="bg-transparent text-emerald-400 font-semibold text-[10px] border-none focus:ring-0 p-0 cursor-pointer"
-          >
-            <option value="nominal" className="bg-obsidian-900 text-slate-200">
-              Nominal (Ao Vivo)
-            </option>
-            <option value="skeleton" className="bg-obsidian-900 text-slate-200">
-              Carregando (Skeleton)
-            </option>
-            <option value="empty" className="bg-obsidian-900 text-slate-200">
-              Vazio (Sem Descoberta)
-            </option>
-            <option value="error" className="bg-obsidian-900 text-slate-200">
-              Erro de Coletor (Boundary)
-            </option>
-          </select>
-        </div>
-
-        <span className="h-3.5 w-px bg-obsidian-800 hidden sm:block" />
 
         {/* Controles de Zoom & Viewport */}
         <div className="flex items-center gap-1">

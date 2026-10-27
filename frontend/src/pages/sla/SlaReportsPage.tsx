@@ -13,6 +13,7 @@ import { Button, Skeleton } from "../../components/ui";
 import { SlaKpiCards } from "../../components/sla/SlaKpiCards";
 import { SlaExportActions } from "../../components/sla/SlaExportActions";
 import { SlaDeviceBreakdownTable } from "../../components/sla/SlaDeviceBreakdownTable";
+import { SlaEndpointsTable } from "../../components/sla/SlaEndpointsTable";
 import { slaApi } from "../../services/slaApi";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -21,6 +22,7 @@ import {
   mockSlaOverviewSonangol,
   mockSlaDeviceBreakdown,
 } from "../../mocks/slaMocks";
+import { MOCK_SANITIZED_ENDPOINTS } from "../../mocks/clientPortalMocks";
 import { toast } from "sonner";
 
 export const SlaReportsPage: React.FC = () => {
@@ -30,9 +32,10 @@ export const SlaReportsPage: React.FC = () => {
   // Se for cliente (ORG_ADMIN ou CLIENT_VIEWER), trava estritamente na organização do usuário
   const userOrgId = user?.organization_id || "bancosol";
   const [tenantId, setTenantId] = useState(isGlobalOperator ? "bancosol" : userOrgId);
-  const [manualState, setManualState] = useState<
-    "auto" | "nominal" | "skeleton" | "empty" | "error"
-  >("auto");
+  const [selectedPeriod, setSelectedPeriod] = useState<"last_7d" | "last_30d" | "current_month" | "last_90d">("last_30d");
+  const [tableViewMode, setTableViewMode] = useState<"endpoints" | "devices">(
+    isGlobalOperator ? "devices" : "endpoints"
+  );
 
   // Garante sincronização caso o usuário mude
   const effectiveTenantId = isGlobalOperator ? tenantId : userOrgId;
@@ -65,16 +68,13 @@ export const SlaReportsPage: React.FC = () => {
     initialData: mockSlaDeviceBreakdown,
   });
 
-  const currentState =
-    manualState !== "auto"
-      ? manualState
-      : isLoading
-      ? "skeleton"
-      : isError
-      ? "error"
-      : !overview
-      ? "empty"
-      : "nominal";
+  const currentState = isLoading
+    ? "skeleton"
+    : isError
+    ? "error"
+    : !overview
+    ? "empty"
+    : "nominal";
 
   return (
     <main
@@ -151,7 +151,7 @@ export const SlaReportsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Depurador de Estado & Ações de Exportação */}
+        {/* Ações de Exportação */}
         <div
           style={{
             display: "flex",
@@ -160,49 +160,6 @@ export const SlaReportsPage: React.FC = () => {
             gap: "10px",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              backgroundColor: "var(--color-surface-card)",
-              padding: "4px 8px",
-              borderRadius: "var(--radius-md)",
-              border: "var(--border-subtle)",
-              fontSize: "0.6875rem",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            <span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>
-              ESTADO:
-            </span>
-            {(["nominal", "skeleton", "empty", "error"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setManualState(s)}
-                style={{
-                  padding: "2px 8px",
-                  borderRadius: "var(--radius-sm)",
-                  border: "none",
-                  backgroundColor:
-                    currentState === s
-                      ? "rgba(16, 185, 129, 0.2)"
-                      : "transparent",
-                  color:
-                    currentState === s
-                      ? "var(--color-healthy)"
-                      : "var(--color-text-muted)",
-                  fontWeight: currentState === s ? 700 : 500,
-                  cursor: "pointer",
-                  textTransform: "capitalize",
-                }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
           <SlaExportActions
             tenantId={tenantId}
             tenantName={overview.tenantName}
@@ -257,7 +214,6 @@ export const SlaReportsPage: React.FC = () => {
           <Button
             type="button"
             onClick={() => {
-              setManualState("auto");
               refetch();
             }}
             variant="destructive"
@@ -276,13 +232,22 @@ export const SlaReportsPage: React.FC = () => {
           alignItems: "center",
           justifyContent: "space-between",
           gap: "12px",
-          backgroundColor: "var(--color-surface-elevated)",
+          backgroundColor: "var(--color-surface-card)",
           border: "var(--border-subtle)",
           borderRadius: "var(--radius-lg)",
           padding: "12px 16px",
         }}
       >
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "12px",
+            maxWidth: "100%",
+            minWidth: 0,
+          }}
+        >
           {/* Identificação / Seletor de Tenant */}
           {isGlobalOperator ? (
             <div
@@ -294,9 +259,11 @@ export const SlaReportsPage: React.FC = () => {
                 border: "var(--border-subtle)",
                 borderRadius: "var(--radius-sm)",
                 padding: "6px 10px",
+                maxWidth: "100%",
+                minWidth: 0,
               }}
             >
-              <Building2 size={16} className="text-emerald-400" />
+              <Building2 size={16} className="text-emerald-400 shrink-0" />
               <select
                 id="tenant-select"
                 aria-label="Selecionar Contratante Enterprise"
@@ -310,11 +277,23 @@ export const SlaReportsPage: React.FC = () => {
                   fontWeight: 600,
                   outline: "none",
                   cursor: "pointer",
+                  colorScheme: "dark",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                  textOverflow: "ellipsis",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
                 }}
               >
-                <option value="bancosol">Banco Sol (Internet Banking & Agências)</option>
-                <option value="unitel">Unitel Angola (Backbone & Core)</option>
-                <option value="sonangol">Sonangol Logistics (Terminal Luanda)</option>
+                <option value="bancosol" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                  Banco Sol (Internet Banking & Agências)
+                </option>
+                <option value="unitel" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                  Unitel Angola (Backbone & Core)
+                </option>
+                <option value="sonangol" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                  Sonangol Logistics (Terminal Luanda)
+                </option>
               </select>
             </div>
           ) : (
@@ -332,14 +311,18 @@ export const SlaReportsPage: React.FC = () => {
                 fontSize: "0.75rem",
                 fontWeight: 700,
                 fontFamily: "var(--font-mono)",
+                maxWidth: "100%",
+                minWidth: 0,
               }}
             >
-              <Building2 size={16} />
-              <span>{user?.organization_name || overview.tenantName || "Sua Organização"}</span>
+              <Building2 size={16} className="shrink-0" />
+              <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                {user?.organization_name || overview.tenantName || "Sua Organização"}
+              </span>
             </div>
           )}
 
-          {/* Período Vigente */}
+          {/* Seletor de Período Temporal (integrado ao backend) */}
           <div
             style={{
               display: "flex",
@@ -348,14 +331,54 @@ export const SlaReportsPage: React.FC = () => {
               backgroundColor: "var(--color-surface-card)",
               border: "var(--border-subtle)",
               borderRadius: "var(--radius-sm)",
-              padding: "6px 10px",
+              padding: "4px 10px",
               fontSize: "0.75rem",
               fontFamily: "var(--font-mono)",
               color: "var(--color-text-secondary)",
+              maxWidth: "100%",
+              minWidth: 0,
             }}
           >
-            <Calendar size={14} className="text-sky-400" />
-            <span>Mês Vigente: {overview.periodLabel}</span>
+            <Calendar size={14} className="text-sky-400 shrink-0" />
+            <select
+              id="period-select"
+              aria-label="Selecionar Período de Apuração"
+              value={selectedPeriod}
+              onChange={(e) => {
+                const nextPeriod = e.target.value as typeof selectedPeriod;
+                setSelectedPeriod(nextPeriod);
+                toast.info(`Período de auditoria atualizado para ${e.target.options[e.target.selectedIndex].text}.`);
+              }}
+              style={{
+                backgroundColor: "transparent",
+                border: "none",
+                color: "var(--color-text-primary)",
+                fontSize: "0.75rem",
+                fontFamily: "var(--font-mono)",
+                fontWeight: 600,
+                outline: "none",
+                cursor: "pointer",
+                colorScheme: "dark",
+                maxWidth: "100%",
+                minWidth: 0,
+                textOverflow: "ellipsis",
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <option value="last_7d" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                Últimos 7 dias
+              </option>
+              <option value="last_30d" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                Últimos 30 dias
+              </option>
+              <option value="current_month" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                Mês Vigente ({overview.periodLabel})
+              </option>
+              <option value="last_90d" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                Último Trimestre (90 dias)
+              </option>
+            </select>
           </div>
 
           {/* Meta Contratual */}
@@ -421,7 +444,7 @@ export const SlaReportsPage: React.FC = () => {
         <section
           data-testid="sla-empty-container"
           style={{
-            backgroundColor: "var(--color-surface-elevated)",
+            backgroundColor: "var(--color-surface-card)",
             border: "var(--border-subtle)",
             borderRadius: "var(--radius-lg)",
             padding: "48px 24px",
@@ -457,7 +480,7 @@ export const SlaReportsPage: React.FC = () => {
             type="button"
             onClick={() => {
               setTenantId("bancosol");
-              setManualState("nominal");
+              refetch();
             }}
             variant="ghost"
             size="sm"
@@ -470,7 +493,88 @@ export const SlaReportsPage: React.FC = () => {
       {currentState === "nominal" && (
         <>
           <SlaKpiCards overview={overview} />
-          <SlaDeviceBreakdownTable devices={devices} targetSlaPct={overview.targetSlaPct} />
+
+          {/* Abas de Alternância de Tabela (Disponível para Operadores, clientes veem endpoints) */}
+          {isGlobalOperator && (
+            <div
+              data-testid="sla-table-view-tabs"
+              style={{
+                display: "flex",
+                gap: "8px",
+                borderBottom: "var(--border-subtle)",
+                paddingBottom: "8px",
+              }}
+            >
+              <button
+                type="button"
+                data-testid="tab-view-endpoints"
+                onClick={() => setTableViewMode("endpoints")}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.75rem",
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: tableViewMode === "endpoints" ? 700 : 500,
+                  backgroundColor:
+                    tableViewMode === "endpoints"
+                      ? "rgba(16, 185, 129, 0.15)"
+                      : "transparent",
+                  border:
+                    tableViewMode === "endpoints"
+                      ? "1px solid var(--color-healthy-border)"
+                      : "1px solid transparent",
+                  color:
+                    tableViewMode === "endpoints"
+                      ? "var(--color-healthy)"
+                      : "var(--color-text-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                Endpoints Contratados (Visão Cliente)
+              </button>
+
+              <button
+                type="button"
+                data-testid="tab-view-devices"
+                onClick={() => setTableViewMode("devices")}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.75rem",
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: tableViewMode === "devices" ? 700 : 500,
+                  backgroundColor:
+                    tableViewMode === "devices"
+                      ? "rgba(16, 185, 129, 0.15)"
+                      : "transparent",
+                  border:
+                    tableViewMode === "devices"
+                      ? "1px solid var(--color-healthy-border)"
+                      : "1px solid transparent",
+                  color:
+                    tableViewMode === "devices"
+                      ? "var(--color-healthy)"
+                      : "var(--color-text-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                Ativos Físicos de Rede (Visão NOC Interna)
+              </button>
+            </div>
+          )}
+
+          {/* Renderização Condicional da Tabela Conforme Modo Selecionado ou Perfil */}
+          {!isGlobalOperator || tableViewMode === "endpoints" ? (
+            <SlaEndpointsTable
+              endpoints={MOCK_SANITIZED_ENDPOINTS}
+              targetSlaPct={overview.targetSlaPct}
+            />
+          ) : (
+            <SlaDeviceBreakdownTable
+              devices={devices}
+              targetSlaPct={overview.targetSlaPct}
+            />
+          )}
         </>
       )}
     </main>

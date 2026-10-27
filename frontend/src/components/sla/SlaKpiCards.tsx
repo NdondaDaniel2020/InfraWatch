@@ -21,7 +21,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
       {/* Card 1: Disponibilidade Acumulada */}
       <div
         style={{
-          backgroundColor: "var(--color-surface-elevated)",
+          backgroundColor: "var(--color-surface-card)",
           border: isHealthy
             ? "1px solid var(--color-healthy-border)"
             : "1px solid var(--color-critical-border)",
@@ -97,7 +97,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
       {/* Card 2: MTTR */}
       <div
         style={{
-          backgroundColor: "var(--color-surface-elevated)",
+          backgroundColor: "var(--color-surface-card)",
           border: "var(--border-subtle)",
           borderRadius: "var(--radius-lg)",
           padding: "16px 20px",
@@ -142,7 +142,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
       {/* Card 3: MTBF */}
       <div
         style={{
-          backgroundColor: "var(--color-surface-elevated)",
+          backgroundColor: "var(--color-surface-card)",
           border: "var(--border-subtle)",
           borderRadius: "var(--radius-lg)",
           padding: "16px 20px",
@@ -187,7 +187,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
       {/* Card 4: Horas Isentas por Manutenção */}
       <div
         style={{
-          backgroundColor: "var(--color-surface-elevated)",
+          backgroundColor: "var(--color-surface-card)",
           border: "var(--border-subtle)",
           borderRadius: "var(--radius-lg)",
           padding: "16px 20px",

@@ -127,23 +127,24 @@ describe("Painel de Backup e Recuperação de Desastres — Issue #224", () => {
     });
   });
 
-  it("deve alternar para os estados Skeleton, Empty e Error Boundary", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<BackupRecoveryPage />);
-
-    const stateSelect = screen.getByLabelText("Simular Estado do Painel de Backup");
-
+  it("deve renderizar os estados Skeleton, Empty e Error Boundary", async () => {
     // 1. Skeleton
-    await user.selectOptions(stateSelect, "skeleton");
+    const { unmount: unmountSkeleton } = renderWithProviders(
+      <BackupRecoveryPage initialViewState="skeleton" />
+    );
     expect(screen.getByTestId("backup-skeleton")).toBeInTheDocument();
+    unmountSkeleton();
 
     // 2. Empty
-    await user.selectOptions(stateSelect, "empty");
+    const { unmount: unmountEmpty } = renderWithProviders(
+      <BackupRecoveryPage initialViewState="empty" />
+    );
     expect(screen.getByTestId("backup-empty")).toBeInTheDocument();
     expect(screen.getByText("Nenhum Backup Encontrado")).toBeInTheDocument();
+    unmountEmpty();
 
     // 3. Error
-    await user.selectOptions(stateSelect, "error");
+    renderWithProviders(<BackupRecoveryPage initialViewState="error" />);
     expect(screen.getByTestId("backup-error")).toBeInTheDocument();
     expect(
       screen.getByText("Falha de Comunicação com Daemon de Backup")

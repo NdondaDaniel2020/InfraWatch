@@ -4,42 +4,35 @@ import {
   CloudOff,
   Headphones,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 
 import {
-  MOCK_CLIENT_NOTIFICATIONS,
   MOCK_CLIENT_SERVICES,
   MOCK_CLIENT_SLA_SUMMARY,
-  MOCK_SANITIZED_ENDPOINTS,
-  type ClientNotification,
   type ClientServiceItem,
   type ClientSlaSummary,
-  type SanitizedEndpoint,
 } from "../../mocks/clientPortalMocks";
 import { SlaKpiCards } from "../../components/client/SlaKpiCards";
 import { SanitizedServicesGrid } from "../../components/client/SanitizedServicesGrid";
-import { SanitizedEndpointsTable } from "../../components/client/SanitizedEndpointsTable";
-import { NotificationCenter } from "../../components/notifications/NotificationCenter";
-import { notificationsApi } from "../../services/notificationsApi";
 import { pdfExportService } from "../../services/pdfExportService";
 import { useAuth } from "../../context/AuthContext";
 
 export type PortalViewState = "nominal" | "skeleton" | "empty" | "error";
 
-export const ClientPortalPage: React.FC = () => {
+export interface ClientPortalPageProps {
+  initialViewState?: PortalViewState;
+}
+
+export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
+  initialViewState = "nominal",
+}) => {
   const { user } = useAuth();
-  const [viewState, setViewState] = useState<PortalViewState>("nominal");
+  const [viewState, setViewState] = useState<PortalViewState>(initialViewState);
   const [slaSummary] = useState<ClientSlaSummary>(() => ({
     ...MOCK_CLIENT_SLA_SUMMARY,
     tenantName: user?.organization_name || MOCK_CLIENT_SLA_SUMMARY.tenantName,
   }));
   const [services] = useState<ClientServiceItem[]>(MOCK_CLIENT_SERVICES);
-  const [endpoints] = useState<SanitizedEndpoint[]>(MOCK_SANITIZED_ENDPOINTS);
-  const [notifications, setNotifications] = useState<ClientNotification[]>(MOCK_CLIENT_NOTIFICATIONS);
-  const [unreadCount, setUnreadCount] = useState<number>(() =>
-    MOCK_CLIENT_NOTIFICATIONS.filter((n) => !n.isRead).length
-  );
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -56,14 +49,6 @@ export const ClientPortalPage: React.FC = () => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
-
-  // Marcar todas as notificações como lidas
-  const handleMarkAllRead = async () => {
-    await notificationsApi.markAllAsRead();
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    setUnreadCount(0);
-    showToast("Todas as notificações foram marcadas como lidas.");
-  };
 
   // Download do Relatório de SLA em PDF
   const handleDownloadPdf = async () => {
@@ -137,30 +122,6 @@ export const ClientPortalPage: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-slate-300">Telemetria Ativa</span>
             <span className="text-white font-bold">100% Nominal</span>
-          </div>
-
-          {/* Central de Notificações In-App */}
-          <NotificationCenter
-            notifications={notifications}
-            unreadCount={unreadCount}
-            onMarkAllAsRead={handleMarkAllRead}
-          />
-
-          {/* Simulador de Estados (ai-mockup-rectifier) */}
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#080c14] rounded-full border border-white/10 text-xs font-mono">
-            <span className="text-slate-400 text-[11px]">Estado:</span>
-            <select
-              data-testid="portal-state-select"
-              value={viewState}
-              onChange={(e) => setViewState(e.target.value as PortalViewState)}
-              className="bg-transparent text-emerald-400 font-bold border-none outline-none cursor-pointer"
-              aria-label="Simular estados da interface"
-            >
-              <option value="nominal" className="bg-[#0d1424] text-white">Nominal</option>
-              <option value="skeleton" className="bg-[#0d1424] text-white">Skeleton Loading</option>
-              <option value="empty" className="bg-[#0d1424] text-white">Empty State</option>
-              <option value="error" className="bg-[#0d1424] text-white">Error Stream</option>
-            </select>
           </div>
 
           {/* Botão Suporte Prioritário 24/7 */}
@@ -260,20 +221,12 @@ export const ClientPortalPage: React.FC = () => {
 
         {/* GRID DE SERVIÇOS CRÍTICOS CONTRATADOS */}
         <SanitizedServicesGrid services={services} />
-
-        {/* TABELA DE ENDPOINTS SANITIZADOS */}
-        <SanitizedEndpointsTable endpoints={endpoints} />
       </div>
 
       {/* ===================================================================== */}
       {/* 3. RODAPÉ INSTITUCIONAL & CONFORMIDADE                                 */}
       {/* ===================================================================== */}
       <footer className="w-full pt-4 pb-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-slate-500 gap-2">
-        <div className="flex items-center gap-2">
-          <ShieldCheck size={14} className="text-emerald-500" />
-          <span>Conformidade Regulatória BNA &amp; ISO 27001 • Sanitização Ativa (ADR-009)</span>
-        </div>
-        <span>InfraWatch Observability • RCS Angola</span>
       </footer>
     </div>
   );

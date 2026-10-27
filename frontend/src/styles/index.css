@@ -112,3 +112,17 @@ body {
 .pulse-indicator {
   animation: obsidian-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Padronização de Selects e Dropdowns no tema Obsidian Telemetry */
+select option {
+  background-color: var(--color-surface-card, #0d1424);
+  color: var(--color-text-primary, #f8fafc);
+  padding: 8px 12px;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background-color: #1a2542;
+  color: var(--color-healthy, #10b981);
+}

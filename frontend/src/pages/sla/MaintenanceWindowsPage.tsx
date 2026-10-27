@@ -18,7 +18,6 @@ import { MaintenanceGanttTimeline } from "../../components/sla/MaintenanceGanttT
 import { CreateMaintenanceModal } from "../../components/sla/CreateMaintenanceModal";
 import { slaApi } from "../../services/slaApi";
 import {
-  mockMaintenanceWindows,
   mockMaintenanceKpiSummary,
 } from "../../mocks/slaMocks";
 import type {
@@ -36,10 +35,6 @@ export const MaintenanceWindowsPage: React.FC = () => {
   const canSchedule =
     isOperator || user?.role === "ORG_ADMIN";
 
-  // Depuração de estados canônicos
-  const [manualState, setManualState] = useState<
-    "auto" | "nominal" | "skeleton" | "empty" | "error"
-  >("auto");
   const [viewMode, setViewMode] = useState<"cards" | "gantt">("cards");
   const [activeTab, setActiveTab] = useState<MaintenanceStatus | "ALL">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -47,7 +42,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const {
-    data: maintenances = mockMaintenanceWindows,
+    data: maintenances = [],
     isLoading,
     isError,
     error,
@@ -59,7 +54,6 @@ export const MaintenanceWindowsPage: React.FC = () => {
         status: activeTab === "ALL" ? undefined : activeTab,
         client: selectedClient === "all" ? undefined : selectedClient,
       }),
-    initialData: mockMaintenanceWindows,
   });
 
   const { data: kpiSummary = mockMaintenanceKpiSummary } = useQuery({
@@ -134,16 +128,13 @@ export const MaintenanceWindowsPage: React.FC = () => {
   }, [maintenances, activeTab, selectedClient, searchQuery]);
 
   // Decisão de renderização do estado
-  const currentState =
-    manualState !== "auto"
-      ? manualState
-      : isLoading
-      ? "skeleton"
-      : isError
-      ? "error"
-      : filteredMaintenances.length === 0
-      ? "empty"
-      : "nominal";
+  const currentState = isLoading
+    ? "skeleton"
+    : isError
+    ? "error"
+    : filteredMaintenances.length === 0
+    ? "empty"
+    : "nominal";
 
   return (
     <main
@@ -230,49 +221,6 @@ export const MaintenanceWindowsPage: React.FC = () => {
             gap: "10px",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              backgroundColor: "var(--color-surface-card)",
-              padding: "4px 8px",
-              borderRadius: "var(--radius-md)",
-              border: "var(--border-subtle)",
-              fontSize: "0.6875rem",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            <span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>
-              ESTADO:
-            </span>
-            {(["nominal", "skeleton", "empty", "error"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setManualState(s)}
-                style={{
-                  padding: "2px 8px",
-                  borderRadius: "var(--radius-sm)",
-                  border: "none",
-                  backgroundColor:
-                    currentState === s
-                      ? "rgba(16, 185, 129, 0.2)"
-                      : "transparent",
-                  color:
-                    currentState === s
-                      ? "var(--color-healthy)"
-                      : "var(--color-text-muted)",
-                  fontWeight: currentState === s ? 700 : 500,
-                  cursor: "pointer",
-                  textTransform: "capitalize",
-                }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
           <Button
             type="button"
             onClick={() => toast.info("Exportando dossiê de RFCs homologadas...")}
@@ -328,7 +276,6 @@ export const MaintenanceWindowsPage: React.FC = () => {
           <Button
             type="button"
             onClick={() => {
-              setManualState("auto");
               refetch();
             }}
             variant="destructive"
@@ -752,7 +699,6 @@ export const MaintenanceWindowsPage: React.FC = () => {
               setActiveTab("ALL");
               setSearchQuery("");
               setSelectedClient("all");
-              setManualState("nominal");
             }}
             variant="ghost"
             size="sm"

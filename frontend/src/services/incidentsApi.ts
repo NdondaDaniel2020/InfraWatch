@@ -119,9 +119,15 @@ export const incidentsApi = {
       );
     }
 
-    // Se o filtro vier preenchido explicitamente em fallback de mock (ex.: tela de NOC)
-    if (filters?.organization && filters.organization !== "all" && !filters.organization.includes("Todas")) {
-      result = result.filter((i) => i.organization_name === filters.organization || i.organization_id === filters.organization);
+    const orgFilter = filters?.organization;
+    if (orgFilter && orgFilter !== "all" && !orgFilter.includes("Todas")) {
+      const targetOrg = orgFilter.toLowerCase();
+      result = result.filter(
+        (i) =>
+          i.organization_name === orgFilter ||
+          i.organization_name.toLowerCase().includes(targetOrg) ||
+          (i.organization_domain && i.organization_domain.toLowerCase().includes(targetOrg))
+      );
     }
 
     return result;

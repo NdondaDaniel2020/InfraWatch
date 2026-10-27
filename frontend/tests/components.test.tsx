@@ -13,6 +13,8 @@ import {
 } from "../src/components/ui/Card";
 import { Skeleton } from "../src/components/ui/Skeleton";
 import { Modal } from "../src/components/ui/Modal";
+import { BrowserRouter } from "react-router-dom";
+import { Header } from "../src/components/layout/Header";
 
 describe("Obsidian Telemetry — Design System Components", () => {
   describe("Button Component", () => {
@@ -207,6 +209,25 @@ describe("Obsidian Telemetry — Design System Components", () => {
 
       fireEvent.keyDown(window, { key: "Escape" });
       expect(handleClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Header Global & Central de Notificações", () => {
+    it("deve renderizar o sino de notificações no Header e abrir o popover com comunicados", () => {
+      render(
+        <BrowserRouter>
+          <Header />
+        </BrowserRouter>
+      );
+
+      expect(screen.getByTestId("app-header")).toBeInTheDocument();
+      const bellBtn = screen.getByTestId("notification-bell-btn");
+      expect(bellBtn).toBeInTheDocument();
+
+      // Abrir popover
+      fireEvent.click(bellBtn);
+      expect(screen.getByTestId("notification-popover")).toBeInTheDocument();
+      expect(screen.getByText("Comunicados Técnicos")).toBeInTheDocument();
     });
   });
 });
