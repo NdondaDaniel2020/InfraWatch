@@ -17,7 +17,7 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
     <section
       data-testid="sla-device-breakdown-table"
       style={{
-        backgroundColor: "var(--color-surface-elevated)",
+        backgroundColor: "var(--color-surface-card)",
         border: "var(--border-subtle)",
         borderRadius: "var(--radius-lg)",
         padding: "20px",

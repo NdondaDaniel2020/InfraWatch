@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="8" fill="#0B111E" stroke="#1E293B" stroke-width="1.5" />
+  <g transform="translate(16, 16)">
+    <!-- Top Face (White) -->
+    <polygon points="0,-8.5 7.5,-4.2 0,0 -7.5,-4.2" fill="#FFFFFF" stroke="#0B111E" stroke-width="1" stroke-linejoin="round" />
+    <!-- Left Face (Amber/Yellow) -->
+    <polygon points="-7.5,-4.2 0,0 0,8.5 -7.5,4.2" fill="#EAB308" stroke="#CA8A04" stroke-width="0.8" stroke-linejoin="round" />
+    <!-- Right Face (Dark Obsidian/Slate) -->
+    <polygon points="0,0 7.5,-4.2 7.5,4.2 0,8.5" fill="#1E293B" stroke="#334155" stroke-width="0.8" stroke-linejoin="round" />
+  </g>
+</svg>

@@ -232,7 +232,7 @@ export const SlaReportsPage: React.FC = () => {
           alignItems: "center",
           justifyContent: "space-between",
           gap: "12px",
-          backgroundColor: "var(--color-surface-elevated)",
+          backgroundColor: "var(--color-surface-card)",
           border: "var(--border-subtle)",
           borderRadius: "var(--radius-lg)",
           padding: "12px 16px",
@@ -444,7 +444,7 @@ export const SlaReportsPage: React.FC = () => {
         <section
           data-testid="sla-empty-container"
           style={{
-            backgroundColor: "var(--color-surface-elevated)",
+            backgroundColor: "var(--color-surface-card)",
             border: "var(--border-subtle)",
             borderRadius: "var(--radius-lg)",
             padding: "48px 24px",
