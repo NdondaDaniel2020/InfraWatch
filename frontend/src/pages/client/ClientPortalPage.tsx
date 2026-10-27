@@ -1,7 +1,10 @@
 import React, { useCallback, useState } from "react";
+import { Link } from "react-router-dom";
 import {
+  ArrowRight,
   Building2,
   CloudOff,
+  Globe,
   Headphones,
   RefreshCw,
   ShieldCheck,
@@ -11,15 +14,12 @@ import {
   MOCK_CLIENT_NOTIFICATIONS,
   MOCK_CLIENT_SERVICES,
   MOCK_CLIENT_SLA_SUMMARY,
-  MOCK_SANITIZED_ENDPOINTS,
   type ClientNotification,
   type ClientServiceItem,
   type ClientSlaSummary,
-  type SanitizedEndpoint,
 } from "../../mocks/clientPortalMocks";
 import { SlaKpiCards } from "../../components/client/SlaKpiCards";
 import { SanitizedServicesGrid } from "../../components/client/SanitizedServicesGrid";
-import { SanitizedEndpointsTable } from "../../components/client/SanitizedEndpointsTable";
 import { NotificationCenter } from "../../components/notifications/NotificationCenter";
 import { notificationsApi } from "../../services/notificationsApi";
 import { pdfExportService } from "../../services/pdfExportService";
@@ -35,7 +35,6 @@ export const ClientPortalPage: React.FC = () => {
     tenantName: user?.organization_name || MOCK_CLIENT_SLA_SUMMARY.tenantName,
   }));
   const [services] = useState<ClientServiceItem[]>(MOCK_CLIENT_SERVICES);
-  const [endpoints] = useState<SanitizedEndpoint[]>(MOCK_SANITIZED_ENDPOINTS);
   const [notifications, setNotifications] = useState<ClientNotification[]>(MOCK_CLIENT_NOTIFICATIONS);
   const [unreadCount, setUnreadCount] = useState<number>(() =>
     MOCK_CLIENT_NOTIFICATIONS.filter((n) => !n.isRead).length
@@ -261,8 +260,35 @@ export const ClientPortalPage: React.FC = () => {
         {/* GRID DE SERVIÇOS CRÍTICOS CONTRATADOS */}
         <SanitizedServicesGrid services={services} />
 
-        {/* TABELA DE ENDPOINTS SANITIZADOS */}
-        <SanitizedEndpointsTable endpoints={endpoints} />
+        {/* CARD EXECUTIVO: AUDITORIA DETALHADA DE SLA & ENDPOINTS */}
+        <section
+          data-testid="sla-audit-redirect-card"
+          aria-label="Auditoria Analítica de SLA e Endpoints"
+          className="p-5 sm:p-6 rounded-2xl bg-[#0d1424] border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <Globe size={22} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2 m-0">
+                Auditoria de SLA por Endpoint Contratado
+              </h3>
+              <p className="text-xs text-slate-400 mt-1 mb-0 max-w-xl">
+                Acesse o detalhamento analítico com busca, paginação, filtros de período temporal e conformidade contratual individual de cada endpoint e serviço.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/sla"
+            data-testid="link-to-sla-reports"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 font-mono text-xs font-bold transition-all whitespace-nowrap shadow-sm group"
+          >
+            <span>Ver Relatório Completo de SLA</span>
+            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          </Link>
+        </section>
       </div>
 
       {/* ===================================================================== */}

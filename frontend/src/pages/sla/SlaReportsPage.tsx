@@ -13,6 +13,7 @@ import { Button, Skeleton } from "../../components/ui";
 import { SlaKpiCards } from "../../components/sla/SlaKpiCards";
 import { SlaExportActions } from "../../components/sla/SlaExportActions";
 import { SlaDeviceBreakdownTable } from "../../components/sla/SlaDeviceBreakdownTable";
+import { SlaEndpointsTable } from "../../components/sla/SlaEndpointsTable";
 import { slaApi } from "../../services/slaApi";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -21,6 +22,7 @@ import {
   mockSlaOverviewSonangol,
   mockSlaDeviceBreakdown,
 } from "../../mocks/slaMocks";
+import { MOCK_SANITIZED_ENDPOINTS } from "../../mocks/clientPortalMocks";
 import { toast } from "sonner";
 
 export const SlaReportsPage: React.FC = () => {
@@ -30,6 +32,10 @@ export const SlaReportsPage: React.FC = () => {
   // Se for cliente (ORG_ADMIN ou CLIENT_VIEWER), trava estritamente na organização do usuário
   const userOrgId = user?.organization_id || "bancosol";
   const [tenantId, setTenantId] = useState(isGlobalOperator ? "bancosol" : userOrgId);
+  const [selectedPeriod, setSelectedPeriod] = useState<"last_7d" | "last_30d" | "current_month" | "last_90d">("last_30d");
+  const [tableViewMode, setTableViewMode] = useState<"endpoints" | "devices">(
+    isGlobalOperator ? "devices" : "endpoints"
+  );
   const [manualState, setManualState] = useState<
     "auto" | "nominal" | "skeleton" | "empty" | "error"
   >("auto");
@@ -339,7 +345,7 @@ export const SlaReportsPage: React.FC = () => {
             </div>
           )}
 
-          {/* Período Vigente */}
+          {/* Seletor de Período Temporal (integrado ao backend) */}
           <div
             style={{
               display: "flex",
@@ -348,14 +354,38 @@ export const SlaReportsPage: React.FC = () => {
               backgroundColor: "var(--color-surface-card)",
               border: "var(--border-subtle)",
               borderRadius: "var(--radius-sm)",
-              padding: "6px 10px",
+              padding: "4px 10px",
               fontSize: "0.75rem",
               fontFamily: "var(--font-mono)",
               color: "var(--color-text-secondary)",
             }}
           >
             <Calendar size={14} className="text-sky-400" />
-            <span>Mês Vigente: {overview.periodLabel}</span>
+            <select
+              id="period-select"
+              aria-label="Selecionar Período de Apuração"
+              value={selectedPeriod}
+              onChange={(e) => {
+                const nextPeriod = e.target.value as typeof selectedPeriod;
+                setSelectedPeriod(nextPeriod);
+                toast.info(`Período de auditoria atualizado para ${e.target.options[e.target.selectedIndex].text}.`);
+              }}
+              style={{
+                backgroundColor: "transparent",
+                border: "none",
+                color: "var(--color-text-primary)",
+                fontSize: "0.75rem",
+                fontFamily: "var(--font-mono)",
+                fontWeight: 600,
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              <option value="last_7d">Últimos 7 dias</option>
+              <option value="last_30d">Últimos 30 dias</option>
+              <option value="current_month">Mês Vigente ({overview.periodLabel})</option>
+              <option value="last_90d">Último Trimestre (90 dias)</option>
+            </select>
           </div>
 
           {/* Meta Contratual */}
@@ -470,7 +500,88 @@ export const SlaReportsPage: React.FC = () => {
       {currentState === "nominal" && (
         <>
           <SlaKpiCards overview={overview} />
-          <SlaDeviceBreakdownTable devices={devices} targetSlaPct={overview.targetSlaPct} />
+
+          {/* Abas de Alternância de Tabela (Disponível para Operadores, clientes veem endpoints) */}
+          {isGlobalOperator && (
+            <div
+              data-testid="sla-table-view-tabs"
+              style={{
+                display: "flex",
+                gap: "8px",
+                borderBottom: "var(--border-subtle)",
+                paddingBottom: "8px",
+              }}
+            >
+              <button
+                type="button"
+                data-testid="tab-view-endpoints"
+                onClick={() => setTableViewMode("endpoints")}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.75rem",
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: tableViewMode === "endpoints" ? 700 : 500,
+                  backgroundColor:
+                    tableViewMode === "endpoints"
+                      ? "rgba(16, 185, 129, 0.15)"
+                      : "transparent",
+                  border:
+                    tableViewMode === "endpoints"
+                      ? "1px solid var(--color-healthy-border)"
+                      : "1px solid transparent",
+                  color:
+                    tableViewMode === "endpoints"
+                      ? "var(--color-healthy)"
+                      : "var(--color-text-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                Endpoints Contratados (Visão Cliente)
+              </button>
+
+              <button
+                type="button"
+                data-testid="tab-view-devices"
+                onClick={() => setTableViewMode("devices")}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.75rem",
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: tableViewMode === "devices" ? 700 : 500,
+                  backgroundColor:
+                    tableViewMode === "devices"
+                      ? "rgba(16, 185, 129, 0.15)"
+                      : "transparent",
+                  border:
+                    tableViewMode === "devices"
+                      ? "1px solid var(--color-healthy-border)"
+                      : "1px solid transparent",
+                  color:
+                    tableViewMode === "devices"
+                      ? "var(--color-healthy)"
+                      : "var(--color-text-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                Ativos Físicos de Rede (Visão NOC Interna)
+              </button>
+            </div>
+          )}
+
+          {/* Renderização Condicional da Tabela Conforme Modo Selecionado ou Perfil */}
+          {!isGlobalOperator || tableViewMode === "endpoints" ? (
+            <SlaEndpointsTable
+              endpoints={MOCK_SANITIZED_ENDPOINTS}
+              targetSlaPct={overview.targetSlaPct}
+            />
+          ) : (
+            <SlaDeviceBreakdownTable
+              devices={devices}
+              targetSlaPct={overview.targetSlaPct}
+            />
+          )}
         </>
       )}
     </main>

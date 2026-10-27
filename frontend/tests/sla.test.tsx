@@ -241,7 +241,8 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
       expect(window.URL.createObjectURL).toHaveBeenCalledTimes(2);
     });
 
-    it("deve ter tabela detalhada de ativos com conformidade de SLA", async () => {
+    it("deve permitir alternar entre abas de Endpoints Contratados e Ativos de Rede", async () => {
+      const user = userEvent.setup();
       (slaApi.getSlaOverview as Mock).mockResolvedValue(mockSlaOverviewBancoSol);
       (slaApi.getSlaDeviceBreakdown as Mock).mockResolvedValue(mockSlaDeviceBreakdown);
 
@@ -249,9 +250,43 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("sla-device-breakdown-table")).toBeInTheDocument();
-        expect(screen.getAllByText("SW-CORE-LUANDA-01").length).toBeGreaterThanOrEqual(1);
-        expect(screen.getAllByText("CONFORME").length).toBeGreaterThanOrEqual(1);
       });
+
+      // Clicar na aba de Endpoints Contratados (Visão Cliente)
+      const endpointsTab = screen.getByTestId("tab-view-endpoints");
+      await user.click(endpointsTab);
+
+      expect(screen.getByTestId("sla-endpoints-table")).toBeInTheDocument();
+      expect(screen.getByText("api.bancosol.ao")).toBeInTheDocument();
+      expect(screen.getByText("ibanking.bancosol.ao")).toBeInTheDocument();
+
+      // Testar busca de endpoints
+      const searchInput = screen.getByTestId("sla-endpoint-search-input");
+      await user.type(searchInput, "ibanking");
+      expect(screen.getByText("ibanking.bancosol.ao")).toBeInTheDocument();
+      expect(screen.queryByText("wan-agencias.bancosol.ao")).not.toBeInTheDocument();
+
+      // Voltar para aba de Ativos de Rede
+      const devicesTab = screen.getByTestId("tab-view-devices");
+      await user.click(devicesTab);
+      expect(screen.getByTestId("sla-device-breakdown-table")).toBeInTheDocument();
+      expect(screen.getAllByText("SW-CORE-LUANDA-01").length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("deve permitir alterar o período de apuração temporal de SLA", async () => {
+      const user = userEvent.setup();
+      (slaApi.getSlaOverview as Mock).mockResolvedValue(mockSlaOverviewBancoSol);
+      (slaApi.getSlaDeviceBreakdown as Mock).mockResolvedValue(mockSlaDeviceBreakdown);
+
+      renderWithProviders(<SlaReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/selecionar período de apuração/i)).toBeInTheDocument();
+      });
+
+      const periodSelect = screen.getByLabelText(/selecionar período de apuração/i);
+      await user.selectOptions(periodSelect, "last_7d");
+      expect(periodSelect).toHaveValue("last_7d");
     });
   });
 

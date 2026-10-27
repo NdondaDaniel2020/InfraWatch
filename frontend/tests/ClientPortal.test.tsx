@@ -59,24 +59,15 @@ describe("Portal do Cliente Sanitizado & Relatórios de SLA (Issue #31)", () => 
       expect(screen.queryByText(ipRegex)).not.toBeInTheDocument();
     });
 
-    it("deve exibir apenas endpoints públicos sanitizados na tabela", () => {
+    it("deve exibir o card executivo de auditoria com link direto para /sla", () => {
       renderWithProviders(<ClientPortalPage />);
 
-      expect(screen.getByTestId("sanitized-endpoints-table")).toBeInTheDocument();
-      expect(screen.getByText("api.bancosol.ao")).toBeInTheDocument();
-      expect(screen.getByText("ibanking.bancosol.ao")).toBeInTheDocument();
-      expect(screen.getByText("wan-agencias.bancosol.ao")).toBeInTheDocument();
-      expect(screen.getByText("atm-network.bancosol.ao")).toBeInTheDocument();
-    });
-
-    it("deve filtrar endpoints quando o usuário digita no campo de busca", () => {
-      renderWithProviders(<ClientPortalPage />);
-
-      const searchInput = screen.getByTestId("endpoint-search-input");
-      fireEvent.change(searchInput, { target: { value: "ibanking" } });
-
-      expect(screen.getByText("ibanking.bancosol.ao")).toBeInTheDocument();
-      expect(screen.queryByText("wan-agencias.bancosol.ao")).not.toBeInTheDocument();
+      expect(screen.getByTestId("sla-audit-redirect-card")).toBeInTheDocument();
+      expect(screen.getByText("Auditoria de SLA por Endpoint Contratado")).toBeInTheDocument();
+      const linkBtn = screen.getByTestId("link-to-sla-reports");
+      expect(linkBtn).toBeInTheDocument();
+      expect(linkBtn).toHaveAttribute("href", "/sla");
+      expect(screen.getByText("Ver Relatório Completo de SLA")).toBeInTheDocument();
     });
   });
 
