@@ -288,7 +288,16 @@ export const SlaReportsPage: React.FC = () => {
           padding: "12px 16px",
         }}
       >
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "12px",
+            maxWidth: "100%",
+            minWidth: 0,
+          }}
+        >
           {/* Identificação / Seletor de Tenant */}
           {isGlobalOperator ? (
             <div
@@ -300,9 +309,11 @@ export const SlaReportsPage: React.FC = () => {
                 border: "var(--border-subtle)",
                 borderRadius: "var(--radius-sm)",
                 padding: "6px 10px",
+                maxWidth: "100%",
+                minWidth: 0,
               }}
             >
-              <Building2 size={16} className="text-emerald-400" />
+              <Building2 size={16} className="text-emerald-400 shrink-0" />
               <select
                 id="tenant-select"
                 aria-label="Selecionar Contratante Enterprise"
@@ -317,6 +328,11 @@ export const SlaReportsPage: React.FC = () => {
                   outline: "none",
                   cursor: "pointer",
                   colorScheme: "dark",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                  textOverflow: "ellipsis",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
                 }}
               >
                 <option value="bancosol" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
@@ -345,10 +361,14 @@ export const SlaReportsPage: React.FC = () => {
                 fontSize: "0.75rem",
                 fontWeight: 700,
                 fontFamily: "var(--font-mono)",
+                maxWidth: "100%",
+                minWidth: 0,
               }}
             >
-              <Building2 size={16} />
-              <span>{user?.organization_name || overview.tenantName || "Sua Organização"}</span>
+              <Building2 size={16} className="shrink-0" />
+              <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                {user?.organization_name || overview.tenantName || "Sua Organização"}
+              </span>
             </div>
           )}
 
@@ -365,9 +385,11 @@ export const SlaReportsPage: React.FC = () => {
               fontSize: "0.75rem",
               fontFamily: "var(--font-mono)",
               color: "var(--color-text-secondary)",
+              maxWidth: "100%",
+              minWidth: 0,
             }}
           >
-            <Calendar size={14} className="text-sky-400" />
+            <Calendar size={14} className="text-sky-400 shrink-0" />
             <select
               id="period-select"
               aria-label="Selecionar Período de Apuração"
@@ -387,6 +409,11 @@ export const SlaReportsPage: React.FC = () => {
                 outline: "none",
                 cursor: "pointer",
                 colorScheme: "dark",
+                maxWidth: "100%",
+                minWidth: 0,
+                textOverflow: "ellipsis",
+                overflow: "hidden",
+                whiteSpace: "nowrap",
               }}
             >
               <option value="last_7d" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
