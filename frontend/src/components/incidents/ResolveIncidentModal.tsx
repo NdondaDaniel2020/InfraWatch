@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { IncidentItem, FailureCategory } from "../../services/incidentsApi";
 
 export interface ResolveIncidentModalProps {
@@ -95,9 +96,7 @@ export const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
         <header className="px-7 py-5 flex items-start justify-between border-b border-obsidian-800 bg-obsidian-950/60 shrink-0">
           <div className="flex items-start gap-4">
             <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 shadow-lg shadow-emerald-950/20">
-              <span className="material-symbols-outlined text-[24px]" aria-hidden="true">
-                task_alt
-              </span>
+              <CheckCircle2 size={24} className="shrink-0" aria-hidden="true" />
             </div>
 
             <div>
@@ -122,9 +121,7 @@ export const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
             aria-label="Fechar Modal"
             className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-obsidian-850 transition-colors shrink-0 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-              close
-            </span>
+            <X size={20} className="shrink-0" aria-hidden="true" />
           </button>
         </header>
 
@@ -182,9 +179,7 @@ export const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
               data-testid="rca-error-alert"
               className="p-3 bg-rose-500/15 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-center gap-2"
             >
-              <span className="material-symbols-outlined text-[16px] text-rose-400" aria-hidden="true">
-                error
-              </span>
+              <AlertCircle size={16} className="text-rose-400 shrink-0" aria-hidden="true" />
               <span>{validationError}</span>
             </div>
           )}
@@ -204,9 +199,11 @@ export const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                   isMinCharsMet ? "text-emerald-400" : "text-amber-400"
                 }`}
               >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                  {isMinCharsMet ? "check_circle" : "info"}
-                </span>
+                {isMinCharsMet ? (
+                  <CheckCircle2 size={14} className="shrink-0" aria-hidden="true" />
+                ) : (
+                  <Info size={14} className="shrink-0" aria-hidden="true" />
+                )}
                 <span>Min. 20 caracteres (digitados: {charCount})</span>
               </div>
             </div>
@@ -379,9 +376,7 @@ export const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                 </>
               ) : (
                 <>
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                    check_circle
-                  </span>
+                  <CheckCircle2 size={16} className="shrink-0" aria-hidden="true" />
                   <span>Confirmar Resolução</span>
                 </>
               )}

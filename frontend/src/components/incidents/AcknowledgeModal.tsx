@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { CheckCircle2, Headphones, X } from "lucide-react";
 import { IncidentItem } from "../../services/incidentsApi";
 
 export interface AcknowledgeModalProps {
@@ -51,9 +52,7 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({
         <header className="px-6 py-4 border-b border-obsidian-800 bg-obsidian-950/60 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400">
-              <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
-                support_agent
-              </span>
+              <Headphones size={22} className="shrink-0" aria-hidden="true" />
             </div>
             <div>
               <h2 id="ack-modal-title" className="font-display font-bold text-base text-white">
@@ -72,9 +71,7 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({
             aria-label="Fechar diálogo de confirmação"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-obsidian-850 transition-colors cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-              close
-            </span>
+            <X size={20} className="shrink-0" aria-hidden="true" />
           </button>
         </header>
 
@@ -141,9 +138,7 @@ export const AcknowledgeModal: React.FC<AcknowledgeModalProps> = ({
               </>
             ) : (
               <>
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                  check_circle
-                </span>
+                <CheckCircle2 size={16} className="shrink-0" aria-hidden="true" />
                 <span>Confirmar Reconhecimento</span>
               </>
             )}

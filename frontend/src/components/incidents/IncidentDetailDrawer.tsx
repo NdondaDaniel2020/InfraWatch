@@ -1,4 +1,5 @@
 import React from "react";
+import { Check, CheckCircle2, X } from "lucide-react";
 import { IncidentItem } from "../../services/incidentsApi";
 import { GlpiBadge } from "./GlpiBadge";
 import { IncidentTimeline } from "./IncidentTimeline";
@@ -83,9 +84,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
               onClick={onClose}
               className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-obsidian-850 hover:text-white transition-colors shrink-0 cursor-pointer text-slate-400"
             >
-              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-                close
-              </span>
+              <X size={20} className="shrink-0" aria-hidden="true" />
             </button>
           </div>
 
@@ -100,9 +99,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 }}
                 className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 px-3.5 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-colors shadow-sm cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                  check
-                </span>
+                <Check size={16} className="shrink-0" aria-hidden="true" />
                 <span>Reconhecer (Ack)</span>
               </button>
             )}
@@ -116,9 +113,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 }}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3.5 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-colors shadow-sm cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                  task_alt
-                </span>
+                <CheckCircle2 size={16} className="shrink-0" aria-hidden="true" />
                 <span>Resolver Incidente</span>
               </button>
             )}

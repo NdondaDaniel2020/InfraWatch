@@ -1,4 +1,5 @@
 import React from "react";
+import { ArrowUpRight, CheckCircle2, PlusCircle } from "lucide-react";
 
 export interface GlpiBadgeProps {
   /** Número identificador do ticket no GLPI (ex: 8492) */
@@ -38,9 +39,7 @@ export const GlpiBadge: React.FC<GlpiBadgeProps> = ({
           data-testid={`glpi-ticket-closed-${incidentId}`}
           className={`inline-flex items-center gap-1.5 font-mono tabular-nums text-xs text-slate-400 bg-obsidian-850 px-2.5 py-1 rounded-md border border-obsidian-800 ${className}`}
         >
-          <span className="material-symbols-outlined text-[14px] text-emerald-400" aria-hidden="true">
-            task_alt
-          </span>
+          <CheckCircle2 size={14} className="text-emerald-400 shrink-0" aria-hidden="true" />
           <span>Ticket #{ticketId} • Fechado</span>
         </span>
       );
@@ -56,9 +55,7 @@ export const GlpiBadge: React.FC<GlpiBadgeProps> = ({
         className={`inline-flex items-center gap-1 font-mono tabular-nums text-xs text-sky-400 hover:text-sky-300 hover:underline bg-sky-500/10 hover:bg-sky-500/15 border border-sky-500/20 px-2 py-0.5 rounded transition-colors focus-visible:ring-2 focus-visible:ring-sky-400 ${className}`}
       >
         <span>Ticket #{ticketId} • GLPI</span>
-        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-          north_east
-        </span>
+        <ArrowUpRight size={13} className="shrink-0" aria-hidden="true" />
       </a>
     );
   }
@@ -80,9 +77,7 @@ export const GlpiBadge: React.FC<GlpiBadgeProps> = ({
         </>
       ) : (
         <>
-          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-            add_circle
-          </span>
+          <PlusCircle size={14} className="shrink-0" aria-hidden="true" />
           <span>Abrir Chamado no GLPI</span>
         </>
       )}

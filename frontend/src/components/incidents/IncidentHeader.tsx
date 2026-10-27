@@ -1,4 +1,5 @@
 import React from "react";
+import { Download, ExternalLink } from "lucide-react";
 
 export type ViewState = "nominal" | "skeleton" | "empty" | "error";
 
@@ -40,9 +41,7 @@ export const IncidentHeader: React.FC<IncidentHeaderProps> = ({
           data-testid="btn-export-csv"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-200 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
         >
-          <span className="material-symbols-outlined text-[16px] text-slate-400" aria-hidden="true">
-            download
-          </span>
+          <Download size={16} className="text-slate-400 shrink-0" aria-hidden="true" />
           <span>Exportar CSV</span>
         </button>
 
@@ -53,9 +52,7 @@ export const IncidentHeader: React.FC<IncidentHeaderProps> = ({
           data-testid="btn-glpi-helpdesk-external"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 text-sky-400 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sky-400"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-            open_in_new
-          </span>
+          <ExternalLink size={16} className="shrink-0" aria-hidden="true" />
           <span>GLPI Helpdesk ↗</span>
         </a>
       </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { CheckCircle2, Gauge, Headphones } from "lucide-react";
 import { IncidentsKpiSummary } from "../../services/incidentsApi";
 
 export interface IncidentKpiCardsProps {
@@ -65,9 +66,7 @@ export const IncidentKpiCards: React.FC<IncidentKpiCardsProps> = ({
               <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">
                 Incidentes P2 (Alto)
               </span>
-              <span className="material-symbols-outlined text-[18px] text-amber-400" aria-hidden="true">
-                support_agent
-              </span>
+              <Headphones size={18} className="text-amber-400 shrink-0" aria-hidden="true" />
             </div>
             <div
               data-testid="kpi-degraded-count"
@@ -88,9 +87,7 @@ export const IncidentKpiCards: React.FC<IncidentKpiCardsProps> = ({
               <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">
                 Resolvidos Hoje
               </span>
-              <span className="material-symbols-outlined text-[18px] text-emerald-400" aria-hidden="true">
-                task_alt
-              </span>
+              <CheckCircle2 size={18} className="text-emerald-400 shrink-0" aria-hidden="true" />
             </div>
             <div
               data-testid="kpi-resolved-count"
@@ -113,9 +110,7 @@ export const IncidentKpiCards: React.FC<IncidentKpiCardsProps> = ({
               <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">
                 MTTR Médio (Mês)
               </span>
-              <span className="material-symbols-outlined text-[18px] text-sky-400" aria-hidden="true">
-                speed
-              </span>
+              <Gauge size={18} className="text-sky-400 shrink-0" aria-hidden="true" />
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <div

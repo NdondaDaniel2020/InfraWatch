@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Activity, Check, Copy, History, Terminal } from "lucide-react";
 import { IncidentTimelineEvent } from "../../services/incidentsApi";
 
 export interface IncidentTimelineProps {
@@ -92,9 +93,7 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
             id="heading-diagnostico"
             className="text-[11.5px] font-mono font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-emerald-400 text-[16px]" aria-hidden="true">
-              network_ping
-            </span>
+            <Activity size={16} className="text-emerald-400 shrink-0" aria-hidden="true" />
             Telemetria da Última Sonda
           </h3>
           <span className="text-[11px] font-mono text-slate-500">ICMP Ping Prober</span>
@@ -139,9 +138,7 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
           <div className="border-t border-obsidian-800/80 pt-2.5 font-mono text-[11.5px]">
             <div className="flex items-center justify-between text-slate-400 pb-1 text-[11px]">
               <span className="flex items-center gap-1.5 text-rose-400 font-medium">
-                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-                  terminal
-                </span>
+                <Terminal size={13} className="shrink-0" aria-hidden="true" />
                 <span>{socketError}</span>
               </span>
               <button
@@ -149,9 +146,11 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
                 onClick={handleCopyTrace}
                 className="hover:text-white flex items-center gap-1 transition-colors text-slate-400 text-[10.5px] cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-                  {copiedTrace ? "check" : "content_copy"}
-                </span>
+                {copiedTrace ? (
+                  <Check size={13} className="shrink-0" aria-hidden="true" />
+                ) : (
+                  <Copy size={13} className="shrink-0" aria-hidden="true" />
+                )}
                 <span>{copiedTrace ? "Copiado!" : "Copiar"}</span>
               </button>
             </div>
@@ -169,9 +168,7 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
             id="heading-timeline"
             className="text-[11.5px] font-mono font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-emerald-400 text-[16px]" aria-hidden="true">
-              history_toggle_off
-            </span>
+            <History size={16} className="text-emerald-400 shrink-0" aria-hidden="true" />
             Histórico Operacional (Timeline)
           </h3>
           <span className="text-[11px] font-mono text-slate-500">

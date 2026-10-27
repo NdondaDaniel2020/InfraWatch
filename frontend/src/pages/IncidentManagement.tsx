@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { CheckCircle2, CloudOff } from "lucide-react";
 import {
   IncidentItem,
   IncidentSeverity,
@@ -243,9 +244,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
           data-testid="toast-notification"
           className="fixed top-16 right-6 z-50 bg-emerald-950 border border-emerald-500/60 text-emerald-200 px-4 py-2.5 rounded-xl text-xs font-mono shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200"
         >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400" aria-hidden="true">
-            check_circle
-          </span>
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" aria-hidden="true" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -264,9 +263,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
           className="bg-rose-950/40 border border-rose-500/60 p-4 rounded-xl flex items-center justify-between gap-4 text-xs font-mono animate-in fade-in duration-200"
         >
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-rose-400 text-2xl animate-pulse" aria-hidden="true">
-              cloud_off
-            </span>
+            <CloudOff size={24} className="text-rose-400 animate-pulse shrink-0" aria-hidden="true" />
             <div>
               <div className="font-bold text-rose-300">FALHA DE SINCRONIZAÇÃO SSE / GLPI API</div>
               <div className="text-rose-400/80">

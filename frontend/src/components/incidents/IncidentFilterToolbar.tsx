@@ -1,4 +1,5 @@
 import React from "react";
+import { Building2, Calendar, Search } from "lucide-react";
 import { IncidentSeverity } from "../../services/incidentsApi";
 
 export interface IncidentFilterToolbarProps {
@@ -42,9 +43,7 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
       <div className="flex flex-wrap items-center gap-2.5 flex-1">
         {/* Campo de Busca Monospaced */}
         <div className="relative flex items-center bg-obsidian-950 border border-obsidian-800 rounded-lg px-3 py-1.5 w-full sm:w-80 focus-within:border-emerald-500 transition-colors">
-          <span className="material-symbols-outlined text-slate-400 text-[18px] mr-2" aria-hidden="true">
-            search
-          </span>
+          <Search size={18} className="text-slate-400 mr-2 shrink-0" aria-hidden="true" />
           <input
             type="text"
             id="filter-search-input"
@@ -138,17 +137,13 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
             data-testid="static-incident-tenant-badge"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono font-semibold"
           >
-            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
-              corporate_fare
-            </span>
+            <Building2 size={15} className="shrink-0" aria-hidden="true" />
             <span>{userOrgName || "Sua Organização"}</span>
           </div>
         )}
 
         <div className="flex items-center gap-1.5 bg-obsidian-950 border border-obsidian-800 text-slate-300 text-xs rounded-lg px-3 py-1.5 font-mono">
-          <span className="material-symbols-outlined text-[16px] text-slate-400" aria-hidden="true">
-            calendar_month
-          </span>
+          <Calendar size={16} className="text-slate-400 shrink-0" aria-hidden="true" />
           <span>Hoje (Luanda NOC)</span>
         </div>
       </div>

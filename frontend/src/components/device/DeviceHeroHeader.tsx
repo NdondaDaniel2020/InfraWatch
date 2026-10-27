@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Copy, Edit, GitBranch, Play } from "lucide-react";
+import { Copy, Edit, GitBranch, Network, Play } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { toast } from "sonner";
@@ -84,7 +84,7 @@ export const DeviceHeroHeader: React.FC<DeviceHeroHeaderProps> = ({
                   color: "var(--color-healthy)",
                 }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: "24px" }}>hub</span>
+                <Network size={24} aria-hidden="true" />
               </div>
               <h1
                 style={{

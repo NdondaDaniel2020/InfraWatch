@@ -1,4 +1,5 @@
 import React from "react";
+import { AlertTriangle, Check, CheckCircle2, ChevronRight } from "lucide-react";
 import { IncidentItem } from "../../services/incidentsApi";
 import { GlpiBadge } from "./GlpiBadge";
 import { ViewState } from "./IncidentHeader";
@@ -50,9 +51,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
           className="py-16 px-4 text-center space-y-4"
         >
           <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <span className="material-symbols-outlined text-3xl" aria-hidden="true">
-              task_alt
-            </span>
+            <CheckCircle2 size={32} className="shrink-0" aria-hidden="true" />
           </div>
           <div className="space-y-1">
             <h3 className="font-display font-bold text-base text-white">
@@ -155,9 +154,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                       )}
                       {isResolved && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                            check
-                          </span>
+                          <Check size={14} className="shrink-0" aria-hidden="true" />
                           {incident.priority_label}
                         </span>
                       )}
@@ -239,9 +236,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                           data-testid={`resp-badge-pending-${incident.id}`}
                           className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-xs font-mono"
                         >
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                            warning
-                          </span>
+                          <AlertTriangle size={14} className="shrink-0" aria-hidden="true" />
                           Pendente
                         </span>
                       )}
@@ -290,9 +285,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                           title="Abrir Slide-Over Drawer de Detalhes"
                           aria-label={`Abrir detalhes do incidente ${incident.code}`}
                         >
-                          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                            chevron_right
-                          </span>
+                          <ChevronRight size={16} className="shrink-0" aria-hidden="true" />
                         </button>
                       </div>
                     </td>
