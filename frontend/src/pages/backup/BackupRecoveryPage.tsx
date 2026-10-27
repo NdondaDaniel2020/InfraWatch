@@ -22,9 +22,15 @@ import { mockBackupMetrics } from "../../mocks/backupMocks";
 
 export type BackupPageStateSimulation = "nominal" | "skeleton" | "empty" | "error";
 
-export const BackupRecoveryPage: React.FC = () => {
+export interface BackupRecoveryPageProps {
+  initialViewState?: BackupPageStateSimulation;
+}
+
+export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
+  initialViewState = "nominal",
+}) => {
   const [stateSimulation, setStateSimulation] =
-    useState<BackupPageStateSimulation>("nominal");
+    useState<BackupPageStateSimulation>(initialViewState);
   const [historyItems, setHistoryItems] = useState<BackupHistoryItem[]>([]);
   const [metrics, setMetrics] = useState<BackupMetricsSummary>(mockBackupMetrics);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,34 +149,8 @@ export const BackupRecoveryPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Ações de Topo e Seletor de Estado */}
+        {/* Ações de Topo */}
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
-          {/* Seletor de Simulação Canônica */}
-          <div className="flex items-center gap-1.5 bg-obsidian-900 px-2.5 py-1.5 rounded-xl border border-obsidian-800 text-[10px] font-mono">
-            <span className="text-slate-400">ESTADO:</span>
-            <select
-              aria-label="Simular Estado do Painel de Backup"
-              value={stateSimulation}
-              onChange={(e) =>
-                setStateSimulation(e.target.value as BackupPageStateSimulation)
-              }
-              className="bg-transparent text-emerald-400 font-semibold text-[10px] border-none focus:ring-0 p-0 cursor-pointer"
-            >
-              <option value="nominal" className="bg-obsidian-900 text-slate-200">
-                Nominal (Ao Vivo)
-              </option>
-              <option value="skeleton" className="bg-obsidian-900 text-slate-200">
-                Carregando (Skeleton)
-              </option>
-              <option value="empty" className="bg-obsidian-900 text-slate-200">
-                Vazio (Sem Backups)
-              </option>
-              <option value="error" className="bg-obsidian-900 text-slate-200">
-                Erro de Daemon (Boundary)
-              </option>
-            </select>
-          </div>
-
           <BackupTriggerButton
             isLoading={isLoading}
             isRunning={isRunning}

@@ -43,13 +43,19 @@ const fallbackQueryClient = new QueryClient({
   },
 });
 
-export const NocDashboardPage: React.FC = () => {
+export interface NocDashboardPageProps {
+  initialViewState?: DashboardViewMode;
+}
+
+export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
+  initialViewState = "nominal",
+}) => {
   const { reconnect: sseReconnect } = useTelemetry();
 
   // Estados locais da tela
   const [severityFilter, setSeverityFilter] = useState<SeverityFilterType>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
-  const [viewState, setViewState] = useState<DashboardViewMode>("nominal");
+  const [viewState, setViewState] = useState<DashboardViewMode>(initialViewState);
   const [selectedDevice, setSelectedDevice] = useState<MonitoredDevice | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -277,23 +283,6 @@ export const NocDashboardPage: React.FC = () => {
               Ctrl K
             </kbd>
           </button>
-
-          {/* Simulador de Estados (ai-mockup-rectifier) */}
-          <div className="flex items-center gap-1 bg-obsidian-950 px-2.5 py-1 rounded-lg border border-obsidian-800 text-[10px] font-mono">
-            <span className="text-slate-400 hidden sm:inline">ESTADO:</span>
-            <select
-              data-testid="state-simulator-select"
-              value={viewState}
-              onChange={(e) => setViewState(e.target.value as DashboardViewMode)}
-              className="bg-transparent text-emerald-400 font-semibold text-[10px] border-none outline-none cursor-pointer p-0"
-              aria-label="Simular Estado do Dashboard"
-            >
-              <option value="nominal" className="bg-obsidian-900 text-slate-200">Nominal (Ao Vivo)</option>
-              <option value="skeleton" className="bg-obsidian-900 text-slate-200">Carregando (Skeleton)</option>
-              <option value="empty" className="bg-obsidian-900 text-slate-200">Vazio (Sem Alertas)</option>
-              <option value="error" className="bg-obsidian-900 text-slate-200">Erro de Coletor (Boundary)</option>
-            </select>
-          </div>
 
           {/* Botão Forçar Varredura */}
           <button

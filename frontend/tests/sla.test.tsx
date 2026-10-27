@@ -165,8 +165,7 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
       });
     });
 
-    it("deve exibir estado skeleton e estado vazio", async () => {
-      const user = userEvent.setup();
+    it("deve exibir estado vazio quando não houver manutenções agendadas", async () => {
       (slaApi.listMaintenanceWindows as Mock).mockResolvedValue([]);
       (slaApi.getMaintenanceKpiSummary as Mock).mockResolvedValue(mockMaintenanceKpiSummary);
 
@@ -174,12 +173,8 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("maint-empty-container")).toBeInTheDocument();
+        expect(screen.getByText("Nenhuma Janela de Manutenção Programada")).toBeInTheDocument();
       });
-
-      // Alternar manualmente para skeleton
-      const skeletonBtn = screen.getByRole("button", { name: "skeleton" });
-      await user.click(skeletonBtn);
-      expect(screen.getByTestId("maint-skeleton-container")).toBeInTheDocument();
     });
   });
 

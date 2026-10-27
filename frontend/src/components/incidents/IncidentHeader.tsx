@@ -3,8 +3,8 @@ import React from "react";
 export type ViewState = "nominal" | "skeleton" | "empty" | "error";
 
 export interface IncidentHeaderProps {
-  viewState: ViewState;
-  onViewStateChange: (state: ViewState) => void;
+  viewState?: ViewState;
+  onViewStateChange?: (state: ViewState) => void;
   onExportCsv: () => void;
 }
 
@@ -14,8 +14,6 @@ export interface IncidentHeaderProps {
  * e ações rápidas globais (CSV e GLPI Helpdesk).
  */
 export const IncidentHeader: React.FC<IncidentHeaderProps> = ({
-  viewState,
-  onViewStateChange,
   onExportCsv,
 }) => {
   return (
@@ -36,65 +34,6 @@ export const IncidentHeader: React.FC<IncidentHeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-2.5 flex-wrap">
-        {/* Seletor de Estados Canônico (Nominal, Skeleton, Empty, Error) */}
-        <div
-          className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-lg border border-obsidian-800 text-xs font-mono"
-          role="group"
-          aria-label="Alternar estados de interface para auditoria"
-        >
-          <span className="text-slate-500 px-2 text-[11px] uppercase tracking-wider font-semibold">
-            Estado:
-          </span>
-          <button
-            type="button"
-            onClick={() => onViewStateChange("nominal")}
-            data-testid="state-btn-nominal"
-            className={`px-2 py-1 rounded font-semibold transition-colors cursor-pointer ${
-              viewState === "nominal"
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-            }`}
-          >
-            Nominal
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewStateChange("skeleton")}
-            data-testid="state-btn-skeleton"
-            className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-              viewState === "skeleton"
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"
-                : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-            }`}
-          >
-            Skeleton
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewStateChange("empty")}
-            data-testid="state-btn-empty"
-            className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-              viewState === "empty"
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"
-                : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-            }`}
-          >
-            Vazio
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewStateChange("error")}
-            data-testid="state-btn-error"
-            className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-              viewState === "error"
-                ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold"
-                : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-            }`}
-          >
-            Erro SSE
-          </button>
-        </div>
-
         <button
           type="button"
           onClick={onExportCsv}

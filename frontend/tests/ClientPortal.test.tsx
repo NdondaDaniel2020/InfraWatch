@@ -115,20 +115,14 @@ describe("Portal do Cliente Sanitizado & Relatórios de SLA (Issue #31)", () => 
   });
 
   describe("6. Resiliência dos 4 Estados Canônicos da Interface", () => {
-    it("deve alternar para o estado Skeleton ao selecionar no simulador", () => {
-      renderWithProviders(<ClientPortalPage />);
-
-      const stateSelect = screen.getByTestId("portal-state-select");
-      fireEvent.change(stateSelect, { target: { value: "skeleton" } });
+    it("deve renderizar o estado Skeleton quando a tela estiver carregando", () => {
+      renderWithProviders(<ClientPortalPage initialViewState="skeleton" />);
 
       expect(screen.getByTestId("state-skeleton-overlay")).toBeInTheDocument();
     });
 
-    it("deve alternar para o estado Empty e permitir voltar ao modo nominal", () => {
-      renderWithProviders(<ClientPortalPage />);
-
-      const stateSelect = screen.getByTestId("portal-state-select");
-      fireEvent.change(stateSelect, { target: { value: "empty" } });
+    it("deve renderizar o estado Empty e permitir voltar ao modo nominal", () => {
+      renderWithProviders(<ClientPortalPage initialViewState="empty" />);
 
       expect(screen.getByTestId("state-empty-overlay")).toBeInTheDocument();
       expect(screen.getByText("Nenhum Serviço Corporativo Vinculado")).toBeInTheDocument();
@@ -139,11 +133,8 @@ describe("Portal do Cliente Sanitizado & Relatórios de SLA (Issue #31)", () => 
       expect(screen.queryByTestId("state-empty-overlay")).not.toBeInTheDocument();
     });
 
-    it("deve alternar para o estado Error e permitir reconectar", () => {
-      renderWithProviders(<ClientPortalPage />);
-
-      const stateSelect = screen.getByTestId("portal-state-select");
-      fireEvent.change(stateSelect, { target: { value: "error" } });
+    it("deve renderizar o estado Error e permitir reconectar", () => {
+      renderWithProviders(<ClientPortalPage initialViewState="error" />);
 
       expect(screen.getByTestId("state-error-overlay")).toBeInTheDocument();
       expect(screen.getByText("Falha na Sincronização de Telemetria")).toBeInTheDocument();

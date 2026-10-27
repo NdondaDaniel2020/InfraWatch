@@ -77,23 +77,24 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
     expect(screen.getByText("MATRIZ DE PORTAS (24 SFP+)")).toBeInTheDocument();
   });
 
-  it("deve permitir alternar para os estados alternativos: Skeleton, Empty e Error", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<TopologyMapPage />);
-
-    const stateSelect = screen.getByLabelText("Simular Estado da Topologia");
-
+  it("deve renderizar os estados alternativos: Skeleton, Empty e Error", async () => {
     // 1. Simular Skeleton
-    await user.selectOptions(stateSelect, "skeleton");
+    const { unmount: unmountSkeleton } = renderWithProviders(
+      <TopologyMapPage initialViewState="skeleton" />
+    );
     expect(screen.getByTestId("topology-skeleton")).toBeInTheDocument();
+    unmountSkeleton();
 
     // 2. Simular Empty
-    await user.selectOptions(stateSelect, "empty");
+    const { unmount: unmountEmpty } = renderWithProviders(
+      <TopologyMapPage initialViewState="empty" />
+    );
     expect(screen.getByTestId("topology-empty")).toBeInTheDocument();
     expect(screen.getByText("Nenhum Ativo Descoberto")).toBeInTheDocument();
+    unmountEmpty();
 
     // 3. Simular Error
-    await user.selectOptions(stateSelect, "error");
+    renderWithProviders(<TopologyMapPage initialViewState="error" />);
     expect(screen.getByTestId("topology-error")).toBeInTheDocument();
     expect(screen.getByText("Falha de Comunicação com Coletor gRPC")).toBeInTheDocument();
   });

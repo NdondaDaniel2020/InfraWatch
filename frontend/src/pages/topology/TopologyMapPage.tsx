@@ -45,8 +45,14 @@ const INITIAL_NODE_POSITIONS: Record<string, { x: number; y: number }> = {
   "RT-BRANCH-BENGUELA": { x: 880, y: 30 },
 };
 
-export const TopologyMapPage: React.FC = () => {
-  const [stateSimulation, setStateSimulation] = useState<TopologyStateSimulation>("nominal");
+export interface TopologyMapPageProps {
+  initialViewState?: TopologyStateSimulation;
+}
+
+export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
+  initialViewState = "nominal",
+}) => {
+  const [stateSimulation, setStateSimulation] = useState<TopologyStateSimulation>(initialViewState);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>("SW-CORE-LUANDA-01");
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
@@ -162,8 +168,6 @@ export const TopologyMapPage: React.FC = () => {
       <TopologyToolbar
         categoryFilter={categoryFilter}
         onCategoryFilterChange={setCategoryFilter}
-        stateSimulation={stateSimulation}
-        onStateSimulationChange={setStateSimulation}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onFitView={handleFitView}

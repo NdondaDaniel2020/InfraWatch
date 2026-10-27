@@ -150,20 +150,14 @@ describe("NOC Cockpit Dashboard — Telas Mockups & Obsidian Telemetry (Issue #2
   });
 
   describe("4. Estados Alternativos da Esteira ai-mockup-rectifier", () => {
-    it("deve alternar para o estado Skeleton ao selecionar no simulador", () => {
-      renderWithProviders(<NocDashboardPage />);
-
-      const stateSelect = screen.getByTestId("state-simulator-select");
-      fireEvent.change(stateSelect, { target: { value: "skeleton" } });
+    it("deve renderizar o estado Skeleton quando a tela estiver carregando", () => {
+      renderWithProviders(<NocDashboardPage initialViewState="skeleton" />);
 
       expect(screen.getByTestId("state-skeleton-overlay")).toBeInTheDocument();
     });
 
-    it("deve alternar para o estado Empty e permitir retornar ao modo nominal", () => {
-      renderWithProviders(<NocDashboardPage />);
-
-      const stateSelect = screen.getByTestId("state-simulator-select");
-      fireEvent.change(stateSelect, { target: { value: "empty" } });
+    it("deve renderizar o estado Empty e permitir retornar ao modo nominal", () => {
+      renderWithProviders(<NocDashboardPage initialViewState="empty" />);
 
       expect(screen.getByTestId("state-empty-overlay")).toBeInTheDocument();
       expect(screen.getByText("Todos os Ativos Operacionais")).toBeInTheDocument();
@@ -173,11 +167,8 @@ describe("NOC Cockpit Dashboard — Telas Mockups & Obsidian Telemetry (Issue #2
       expect(screen.queryByTestId("state-empty-overlay")).not.toBeInTheDocument();
     });
 
-    it("deve alternar para o estado Error e exibir botão de reconexão", () => {
-      renderWithProviders(<NocDashboardPage />);
-
-      const stateSelect = screen.getByTestId("state-simulator-select");
-      fireEvent.change(stateSelect, { target: { value: "error" } });
+    it("deve renderizar o estado Error e exibir botão de reconexão", () => {
+      renderWithProviders(<NocDashboardPage initialViewState="error" />);
 
       expect(screen.getByTestId("state-error-overlay")).toBeInTheDocument();
       expect(screen.getByText("Falha no Streaming de Telemetria (SSE)")).toBeInTheDocument();

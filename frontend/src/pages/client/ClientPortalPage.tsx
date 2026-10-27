@@ -19,9 +19,15 @@ import { useAuth } from "../../context/AuthContext";
 
 export type PortalViewState = "nominal" | "skeleton" | "empty" | "error";
 
-export const ClientPortalPage: React.FC = () => {
+export interface ClientPortalPageProps {
+  initialViewState?: PortalViewState;
+}
+
+export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
+  initialViewState = "nominal",
+}) => {
   const { user } = useAuth();
-  const [viewState, setViewState] = useState<PortalViewState>("nominal");
+  const [viewState, setViewState] = useState<PortalViewState>(initialViewState);
   const [slaSummary] = useState<ClientSlaSummary>(() => ({
     ...MOCK_CLIENT_SLA_SUMMARY,
     tenantName: user?.organization_name || MOCK_CLIENT_SLA_SUMMARY.tenantName,
@@ -116,23 +122,6 @@ export const ClientPortalPage: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-slate-300">Telemetria Ativa</span>
             <span className="text-white font-bold">100% Nominal</span>
-          </div>
-
-          {/* Simulador de Estados (ai-mockup-rectifier) */}
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#080c14] rounded-full border border-white/10 text-xs font-mono">
-            <span className="text-slate-400 text-[11px]">Estado:</span>
-            <select
-              data-testid="portal-state-select"
-              value={viewState}
-              onChange={(e) => setViewState(e.target.value as PortalViewState)}
-              className="bg-transparent text-emerald-400 font-bold border-none outline-none cursor-pointer"
-              aria-label="Simular estados da interface"
-            >
-              <option value="nominal" className="bg-[#0d1424] text-white">Nominal</option>
-              <option value="skeleton" className="bg-[#0d1424] text-white">Skeleton Loading</option>
-              <option value="empty" className="bg-[#0d1424] text-white">Empty State</option>
-              <option value="error" className="bg-[#0d1424] text-white">Error Stream</option>
-            </select>
           </div>
 
           {/* Botão Suporte Prioritário 24/7 */}

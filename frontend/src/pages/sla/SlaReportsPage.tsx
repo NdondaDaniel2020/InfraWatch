@@ -36,9 +36,6 @@ export const SlaReportsPage: React.FC = () => {
   const [tableViewMode, setTableViewMode] = useState<"endpoints" | "devices">(
     isGlobalOperator ? "devices" : "endpoints"
   );
-  const [manualState, setManualState] = useState<
-    "auto" | "nominal" | "skeleton" | "empty" | "error"
-  >("auto");
 
   // Garante sincronização caso o usuário mude
   const effectiveTenantId = isGlobalOperator ? tenantId : userOrgId;
@@ -71,16 +68,13 @@ export const SlaReportsPage: React.FC = () => {
     initialData: mockSlaDeviceBreakdown,
   });
 
-  const currentState =
-    manualState !== "auto"
-      ? manualState
-      : isLoading
-      ? "skeleton"
-      : isError
-      ? "error"
-      : !overview
-      ? "empty"
-      : "nominal";
+  const currentState = isLoading
+    ? "skeleton"
+    : isError
+    ? "error"
+    : !overview
+    ? "empty"
+    : "nominal";
 
   return (
     <main
@@ -157,7 +151,7 @@ export const SlaReportsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Depurador de Estado & Ações de Exportação */}
+        {/* Ações de Exportação */}
         <div
           style={{
             display: "flex",
@@ -166,49 +160,6 @@ export const SlaReportsPage: React.FC = () => {
             gap: "10px",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              backgroundColor: "var(--color-surface-card)",
-              padding: "4px 8px",
-              borderRadius: "var(--radius-md)",
-              border: "var(--border-subtle)",
-              fontSize: "0.6875rem",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            <span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>
-              ESTADO:
-            </span>
-            {(["nominal", "skeleton", "empty", "error"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setManualState(s)}
-                style={{
-                  padding: "2px 8px",
-                  borderRadius: "var(--radius-sm)",
-                  border: "none",
-                  backgroundColor:
-                    currentState === s
-                      ? "rgba(16, 185, 129, 0.2)"
-                      : "transparent",
-                  color:
-                    currentState === s
-                      ? "var(--color-healthy)"
-                      : "var(--color-text-muted)",
-                  fontWeight: currentState === s ? 700 : 500,
-                  cursor: "pointer",
-                  textTransform: "capitalize",
-                }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
           <SlaExportActions
             tenantId={tenantId}
             tenantName={overview.tenantName}
@@ -263,7 +214,6 @@ export const SlaReportsPage: React.FC = () => {
           <Button
             type="button"
             onClick={() => {
-              setManualState("auto");
               refetch();
             }}
             variant="destructive"
@@ -530,7 +480,7 @@ export const SlaReportsPage: React.FC = () => {
             type="button"
             onClick={() => {
               setTenantId("bancosol");
-              setManualState("nominal");
+              refetch();
             }}
             variant="ghost"
             size="sm"

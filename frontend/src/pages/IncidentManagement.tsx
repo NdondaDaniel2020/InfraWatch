@@ -15,15 +15,19 @@ import { AcknowledgeModal } from "../components/incidents/AcknowledgeModal";
 import { ResolveIncidentModal } from "../components/incidents/ResolveIncidentModal";
 import { useAuth } from "../context/AuthContext";
 
-export type { ViewState };
+export interface IncidentManagementProps {
+  initialViewState?: ViewState;
+}
 
 /**
  * Página Canônica e Modular de Gestão Operacional de Incidentes (Issue #32).
  * Orquestra componentes atômicos em frontend/src/components/incidents/.
  */
-export const IncidentManagement: React.FC = () => {
+export const IncidentManagement: React.FC<IncidentManagementProps> = ({
+  initialViewState,
+}) => {
   const { user } = useAuth();
-  const [viewState, setViewState] = useState<ViewState>("nominal");
+  const [viewState, setViewState] = useState<ViewState>(initialViewState || "skeleton");
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
   const [kpiSummary, setKpiSummary] = useState<IncidentsKpiSummary | null>(null);
 
@@ -65,15 +69,18 @@ export const IncidentManagement: React.FC = () => {
   }, []);
 
   // Carrega incidentes
-  const loadIncidents = useCallback(async () => {
+  const loadIncidents = useCallback(async (overrideViewState?: boolean) => {
     try {
       const data = await incidentsApi.listIncidents();
       setIncidents(data);
       setKpiSummary(incidentsApi.getKpiSummary());
+      if (!initialViewState || overrideViewState) {
+        setViewState(data.length === 0 ? "empty" : "nominal");
+      }
     } catch {
       setViewState("error");
     }
-  }, []);
+  }, [initialViewState]);
 
   useEffect(() => {
     loadIncidents();
@@ -221,6 +228,7 @@ export const IncidentManagement: React.FC = () => {
     setSearchQuery("");
     setSelectedSeverity("all");
     setSelectedOrg("all");
+    loadIncidents(true);
   };
 
   return (
