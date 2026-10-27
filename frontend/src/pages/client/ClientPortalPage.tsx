@@ -1,10 +1,7 @@
 import React, { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
 import {
-  ArrowRight,
   Building2,
   CloudOff,
-  Globe,
   Headphones,
   RefreshCw,
   ShieldCheck,
@@ -259,36 +256,6 @@ export const ClientPortalPage: React.FC = () => {
 
         {/* GRID DE SERVIÇOS CRÍTICOS CONTRATADOS */}
         <SanitizedServicesGrid services={services} />
-
-        {/* CARD EXECUTIVO: AUDITORIA DETALHADA DE SLA & ENDPOINTS */}
-        <section
-          data-testid="sla-audit-redirect-card"
-          aria-label="Auditoria Analítica de SLA e Endpoints"
-          className="p-5 sm:p-6 rounded-2xl bg-[#0d1424] border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
-        >
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-              <Globe size={22} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2 m-0">
-                Auditoria de SLA por Endpoint Contratado
-              </h3>
-              <p className="text-xs text-slate-400 mt-1 mb-0 max-w-xl">
-                Acesse o detalhamento analítico com busca, paginação, filtros de período temporal e conformidade contratual individual de cada endpoint e serviço.
-              </p>
-            </div>
-          </div>
-
-          <Link
-            to="/sla"
-            data-testid="link-to-sla-reports"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 font-mono text-xs font-bold transition-all whitespace-nowrap shadow-sm group"
-          >
-            <span>Ver Relatório Completo de SLA</span>
-            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </section>
       </div>
 
       {/* ===================================================================== */}

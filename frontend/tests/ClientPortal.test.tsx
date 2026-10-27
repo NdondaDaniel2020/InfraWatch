@@ -59,15 +59,14 @@ describe("Portal do Cliente Sanitizado & Relatórios de SLA (Issue #31)", () => 
       expect(screen.queryByText(ipRegex)).not.toBeInTheDocument();
     });
 
-    it("deve exibir o card executivo de auditoria com link direto para /sla", () => {
+    it("deve manter a interface 100% executiva sem expor tabelas redundantes ou rotas internas", () => {
       renderWithProviders(<ClientPortalPage />);
 
-      expect(screen.getByTestId("sla-audit-redirect-card")).toBeInTheDocument();
-      expect(screen.getByText("Auditoria de SLA por Endpoint Contratado")).toBeInTheDocument();
-      const linkBtn = screen.getByTestId("link-to-sla-reports");
-      expect(linkBtn).toBeInTheDocument();
-      expect(linkBtn).toHaveAttribute("href", "/sla");
-      expect(screen.getByText("Ver Relatório Completo de SLA")).toBeInTheDocument();
+      // A página deve focar exclusivamente nos serviços críticos e banner executivo
+      expect(screen.getByTestId("sanitized-services-grid")).toBeInTheDocument();
+      expect(screen.getByTestId("sla-banner")).toBeInTheDocument();
+      expect(screen.queryByTestId("sanitized-endpoints-table")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("sla-audit-redirect-card")).not.toBeInTheDocument();
     });
   });
 
