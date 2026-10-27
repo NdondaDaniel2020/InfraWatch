@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Bell, Check, CheckCheck, Info, Wrench } from "lucide-react";
+import { Bell, Check, CheckCheck, Info, Wrench, X } from "lucide-react";
 import type { ClientNotification } from "../../mocks/clientPortalMocks";
 
 export interface NotificationCenterProps {
@@ -52,7 +52,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         aria-label={`Central de Notificações, ${unreadCount} não lidas`}
-        className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-400"
+        className="relative p-2 rounded-xl bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-slate-300 hover:text-white transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-400"
       >
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -66,39 +66,59 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         )}
       </button>
 
-      {/* Popover de Notificações */}
+      {/* Popover / Modal de Notificações */}
       {isOpen && (
-        <aside
-          data-testid="notification-popover"
-          role="dialog"
-          aria-label="Notificações e Comunicados do NOC"
-          className="fixed sm:absolute top-16 sm:top-full right-2 sm:right-0 left-2 sm:left-auto mt-0 sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-1rem)] rounded-2xl bg-[#0d1424] border border-white/10 p-4 shadow-2xl z-[70] flex flex-col gap-3 backdrop-blur-xl animate-fadeIn"
-        >
-          {/* Cabeçalho */}
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white">Comunicados Técnicos</span>
-              {unreadCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-mono font-bold">
-                  {unreadCount} não lidos
-                </span>
-              )}
-            </div>
+        <>
+          {/* Backdrop escurecido em telas mobile/pequenas */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] sm:hidden"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+          />
 
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                data-testid="mark-all-read-btn"
-                onClick={() => {
-                  onMarkAllAsRead?.();
-                }}
-                className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
-              >
-                <CheckCheck size={14} />
-                <span>Marcar lidas</span>
-              </button>
-            )}
-          </div>
+          <aside
+            data-testid="notification-popover"
+            role="dialog"
+            aria-label="Notificações e Comunicados do NOC"
+            className="fixed inset-x-3 top-16 sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 w-auto sm:w-[380px] md:w-[420px] max-w-[calc(100vw-1.5rem)] rounded-2xl bg-obsidian-950/98 sm:bg-obsidian-950 border border-obsidian-800 p-4 shadow-2xl z-[100] flex flex-col gap-3 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* Cabeçalho */}
+            <div className="flex items-center justify-between border-b border-obsidian-800/80 pb-3 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-bold text-white truncate">Comunicados Técnicos</span>
+                {unreadCount > 0 && (
+                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-mono font-bold">
+                    {unreadCount} não lidos
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    data-testid="mark-all-read-btn"
+                    onClick={() => {
+                      onMarkAllAsRead?.();
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+                  >
+                    <CheckCheck size={14} />
+                    <span className="hidden xs:inline">Marcar lidas</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  data-testid="close-notification-popover"
+                  onClick={() => setIsOpen(false)}
+                  aria-label="Fechar notificações"
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-obsidian-850 transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
 
           {/* Lista de Notificações */}
           <div className="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto pr-1">
@@ -118,8 +138,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     onClick={() => onSelectNotification?.(notif)}
                     className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-colors cursor-pointer ${
                       notif.isRead
-                        ? "bg-[#080c14]/60 border-white/5 opacity-75 hover:opacity-100"
-                        : "bg-[#080c14] border-white/10 hover:border-emerald-500/30"
+                        ? "bg-obsidian-900/60 border-obsidian-800/60 opacity-75 hover:opacity-100"
+                        : "bg-obsidian-900 border-obsidian-800 hover:border-emerald-500/40"
                     }`}
                   >
                     <div className="flex items-center justify-between text-[11px] font-mono">
@@ -152,7 +172,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       {notif.summary}
                     </p>
 
-                    <div className="flex justify-between items-center text-[10px] font-mono pt-1 border-t border-white/5 text-slate-400">
+                    <div className="flex justify-between items-center text-[10px] font-mono pt-1 border-t border-obsidian-800/80 text-slate-400">
                       <span>Impacto SLA:</span>
                       <span className="font-semibold text-emerald-400">
                         {notif.impactSlaFormatted}
@@ -164,7 +184,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             )}
           </div>
         </aside>
-      )}
+      </>
+    )}
     </div>
   );
 };

@@ -18,7 +18,6 @@ import { MaintenanceGanttTimeline } from "../../components/sla/MaintenanceGanttT
 import { CreateMaintenanceModal } from "../../components/sla/CreateMaintenanceModal";
 import { slaApi } from "../../services/slaApi";
 import {
-  mockMaintenanceWindows,
   mockMaintenanceKpiSummary,
 } from "../../mocks/slaMocks";
 import type {
