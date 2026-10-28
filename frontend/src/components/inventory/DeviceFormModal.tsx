@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -19,6 +19,8 @@ import {
   Network,
   Activity,
 } from "lucide-react";
+import { devicesApi } from "../../services/devicesApi";
+import { toast } from "sonner";
 import type { CreateDeviceRequest, ProberProtocol, DeviceCategory } from "../../types/inventory";
 
 const protocolOptions: { value: ProberProtocol; label: string; icon: React.ReactNode }[] = [
@@ -169,7 +171,8 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
   mode = "create",
 }) => {
   const [testingConn, setTestingConn] = useState(false);
-  const [testConnMessage, setTestConnMessage] = useState<string>("Pré-validação de conexão OK (0.8ms)");
+  const [testConnMessage, setTestConnMessage] = useState<string | null>(null);
+  const [testConnStatus, setTestConnStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
 
   const defaultValues: Partial<DeviceFormData> = {
     name: "",
@@ -196,8 +199,8 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
 
   const {
     register,
-    control,
     setValue,
+    getValues,
     watch,
     formState: { errors, isSubmitting, isValid },
   } = useForm<DeviceFormData>({
@@ -230,12 +233,52 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
+    const currentIp = getValues("ipAddress");
+    if (!currentIp || currentIp.trim() === "") {
+      setTestConnStatus("error");
+      setTestConnMessage("Informe o IP do ativo antes de testar");
+      toast.error("Informe o Endereço IP para executar o teste preliminar");
+      return;
+    }
+
     setTestingConn(true);
-    setTimeout(() => {
+    setTestConnStatus("testing");
+    setTestConnMessage("Disparando sonda de rede em tempo real...");
+
+    try {
+      const currentValues = getValues();
+      const response = await devicesApi.testProbe({
+        ipAddress: currentValues.ipAddress,
+        port: currentValues.port || 0,
+        protocol: currentValues.protocol,
+        timeoutMs: 3000,
+        snmpConfig: currentValues.snmpConfig,
+        httpConfig: currentValues.httpConfig ? {
+          ...currentValues.httpConfig,
+          method: currentValues.httpConfig.method,
+          expectedStatusCodes: currentValues.httpConfig.expectedStatusCodes.split(",").map(Number).filter(Boolean),
+        } : undefined,
+        tcpConfig: currentValues.tcpConfig,
+        dockerConfig: currentValues.dockerConfig,
+      });
+
+      setTestConnMessage(response.message);
+      if (response.success) {
+        setTestConnStatus("success");
+        toast.success(response.message);
+      } else {
+        setTestConnStatus("error");
+        toast.error(response.message);
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || "Falha na comunicação com o serviço de sonda";
+      setTestConnStatus("error");
+      setTestConnMessage(`Erro: ${errMsg}`);
+      toast.error(errMsg);
+    } finally {
       setTestingConn(false);
-      setTestConnMessage("Conexão validada com sucesso! RTT: 0.94ms (3/3 entregues)");
-    }, 800);
+    }
   };
 
   const handleFormSubmit = async (data: DeviceFormData) => {
@@ -453,8 +496,10 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
                   </label>
                   <input
                     id="icmp-count"
-                    type="number"
-                    defaultValue={3}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    defaultValue="3"
                     className="w-full bg-[#080c14] border border-slate-800 rounded-xl px-3.5 py-2 font-mono text-xs text-white text-center focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
@@ -720,15 +765,19 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
                   <label htmlFor="device-interval" className="text-slate-400 font-medium cursor-pointer">
                     Intervalo de Sondagem (segundos)
                   </label>
-                  <div className="flex items-center gap-1 font-mono text-emerald-400 font-bold">
+                  <div className="flex items-center gap-0.5 font-mono text-emerald-400 font-bold">
                     <input
                       id="device-interval"
-                      type="number"
-                      min="5"
-                      max="3600"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       aria-label="Intervalo de Sondagem (segundos)"
-                      {...register("intervalSeconds", { valueAsNumber: true })}
-                      className="w-14 bg-transparent border-b border-emerald-500/40 text-right focus:outline-none focus:border-emerald-400"
+                      value={intervalSeconds === undefined || Number.isNaN(intervalSeconds) ? "" : intervalSeconds}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setValue("intervalSeconds", val === "" ? (0 as any) : Number(val), { shouldValidate: true });
+                      }}
+                      className="w-8 bg-transparent text-right focus:outline-none focus:ring-0 p-0 font-mono text-emerald-400 font-bold cursor-text selection:bg-emerald-500/30"
                     />
                     <span>s</span>
                   </div>
@@ -738,11 +787,16 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
                   min="5"
                   max="120"
                   aria-label="Controle deslizante de intervalo"
-                  value={intervalSeconds || 30}
+                  value={Math.min(Math.max(intervalSeconds || 5, 5), 120)}
                   onChange={(e) => setValue("intervalSeconds", Number(e.target.value), { shouldValidate: true })}
                   className="w-full accent-emerald-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
                 />
-                <p className="text-[11px] text-slate-500">Sondagem contínua</p>
+                <div className="flex justify-between items-center">
+                  <p className="text-[11px] text-slate-500">Sondagem contínua</p>
+                  {errors.intervalSeconds && (
+                    <p className="text-[11px] text-rose-400 font-medium">{errors.intervalSeconds.message}</p>
+                  )}
+                </div>
               </div>
 
               {/* Limiar de Degradação (Amber Alert) */}
@@ -798,11 +852,30 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
             </div>
           </div>
 
-          {/* FOOTER COM BOTÕES DE AÇÃO (IDÊNTICO AO MOCKUP) */}
+          {/* FOOTER COM BOTÕES DE AÇÃO */}
           <div className="border-t border-slate-800/80 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2 font-mono text-xs text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true"></span>
-              <span>{testConnMessage}</span>
+            <div className="flex items-center gap-2 font-mono text-xs">
+              {testConnStatus === "idle" && (
+                <span className="text-slate-500 text-[11px]">Nenhum teste prévio executado</span>
+              )}
+              {testConnStatus === "testing" && (
+                <div className="flex items-center gap-2 text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" aria-hidden="true"></span>
+                  <span data-testid="test-conn-message">{testConnMessage}</span>
+                </div>
+              )}
+              {testConnStatus === "success" && (
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                  <span data-testid="test-conn-message">{testConnMessage}</span>
+                </div>
+              )}
+              {testConnStatus === "error" && (
+                <div className="flex items-center gap-2 text-rose-400">
+                  <span className="w-2 h-2 rounded-full bg-rose-400" aria-hidden="true"></span>
+                  <span data-testid="test-conn-message">{testConnMessage}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto justify-end">

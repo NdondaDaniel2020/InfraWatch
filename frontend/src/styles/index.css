@@ -126,3 +126,15 @@ select option:checked {
   background-color: #1a2542;
   color: var(--color-healthy, #10b981);
 }
+
+/* Ocultar spinners/indicadores de inputs numéricos */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

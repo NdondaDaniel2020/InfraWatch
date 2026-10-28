@@ -198,3 +198,23 @@ export interface DeviceActionPayload {
   until?: string;
   title?: string;
 }
+
+export interface TestProbeRequest {
+  ipAddress: string;
+  port?: number;
+  protocol?: string;
+  timeoutMs?: number;
+  snmpConfig?: CreateDeviceRequest["snmpConfig"];
+  httpConfig?: CreateDeviceRequest["httpConfig"];
+  tcpConfig?: CreateDeviceRequest["tcpConfig"];
+  dockerConfig?: CreateDeviceRequest["dockerConfig"];
+}
+
+export interface TestProbeResponse {
+  status: "UP" | "DEGRADED" | "DOWN" | "TIMEOUT" | "ERROR";
+  latencyMs: number;
+  packetLossPct: number;
+  message: string;
+  success: boolean;
+  errorMessage?: string | null;
+}
