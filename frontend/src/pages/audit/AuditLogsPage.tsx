@@ -17,17 +17,23 @@ import {
 } from "../../types/audit";
 import { CustodyIntegrityBanner } from "../../components/audit/CustodyIntegrityBanner";
 import { AuditFilterBar } from "../../components/audit/AuditFilterBar";
+import { useAuth } from "../../context/AuthContext";
 import { AuditLogTable } from "../../components/audit/AuditLogTable";
 import { AuditPayloadInspector } from "../../components/audit/AuditPayloadInspector";
 import { mockCustodyVerificationSuccess } from "../../mocks/auditMocks";
 
 export const AuditLogsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isGlobalAdmin = user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR";
+  const userOrgId = user?.organization_id;
+
   const [filters, setFilters] = useState<AuditFilterParams>({
     search: "",
     role: "ALL",
     action: "ALL",
     page: 1,
     page_size: 10,
+    organization_id: !isGlobalAdmin && userOrgId ? userOrgId : undefined,
   });
 
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
@@ -36,15 +42,23 @@ export const AuditLogsPage: React.FC = () => {
   const [custodyStatus, setCustodyStatus] =
     useState<AuditIntegrityVerificationResponse>(mockCustodyVerificationSuccess);
 
+  // Filtros efetivos garantem isolamento multi-tenant compulsório para clientes
+  const effectiveFilters = React.useMemo(() => {
+    if (!isGlobalAdmin && userOrgId) {
+      return { ...filters, organization_id: userOrgId };
+    }
+    return filters;
+  }, [filters, isGlobalAdmin, userOrgId]);
+
   // Consulta de logs paginados
   const {
     data: logsResponse,
     isLoading: isLoadingLogs,
     refetch: refetchLogs,
   } = useQuery({
-    queryKey: ["auditLogs", filters],
+    queryKey: ["auditLogs", effectiveFilters],
     queryFn: async () => {
-      const res = await auditApi.getAuditLogs(filters);
+      const res = await auditApi.getAuditLogs(effectiveFilters);
       // Se não houver registro selecionado e houver itens, seleciona o primeiro por padrão
       if (!selectedLog && res.items.length > 0) {
         setSelectedLog(res.items[0]);
@@ -100,19 +114,23 @@ export const AuditLogsPage: React.FC = () => {
       <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 text-xs font-mono">
-            <Link to="/noc" className="text-slate-400 hover:text-slate-200 transition-colors">
-              Cockpit
+            <Link to={isGlobalAdmin ? "/noc" : "/portal"} className="text-slate-400 hover:text-slate-200 transition-colors">
+              {isGlobalAdmin ? "Cockpit" : "Portal"}
             </Link>
             <span className="text-obsidian-700">/</span>
-            <span className="text-emerald-400 font-semibold">Trilha de Auditoria Forense</span>
+            <span className="text-emerald-400 font-semibold">
+              {isGlobalAdmin ? "Trilha de Auditoria Forense" : "Auditoria da Organização"}
+            </span>
           </div>
           <h1 className="text-2xl font-display font-extrabold text-white tracking-tight">
-            Trilha de Auditoria Forense &amp; Compliance (Append-Only)
+            {isGlobalAdmin
+              ? "Trilha de Auditoria Forense & Compliance (Append-Only)"
+              : "Trilha de Auditoria da Organização & Governança"}
           </h1>
           <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
-            Registros imutáveis de alterações administrativas, chamadas de sistema e verificabilidade
-            criptográfica via encadeamento SHA-256 HMAC para conformidade BNA, INACOM e auditorias
-            externas.
+            {isGlobalAdmin
+              ? "Registros imutáveis de alterações administrativas, chamadas de sistema e verificabilidade criptográfica via encadeamento SHA-256 HMAC para conformidade BNA, INACOM e auditorias externas."
+              : "Registros auditáveis de acessos, solicitações de isenção de SLA e operações executadas pelos usuários da sua organização."}
           </p>
         </div>
 
@@ -136,15 +154,18 @@ export const AuditLogsPage: React.FC = () => {
             <span>Retenção Legal</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleVerifyIntegrity}
-            disabled={isVerifying}
-            className="h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
-          >
-            <ShieldCheck size={18} />
-            <span>{isVerifying ? "Verificando..." : "Validar Cadeia SHA-256"}</span>
-          </button>
+          {isGlobalAdmin && (
+            <button
+              type="button"
+              data-testid="verify-chain-button"
+              onClick={handleVerifyIntegrity}
+              disabled={isVerifying}
+              className="h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              <ShieldCheck size={18} />
+              <span>{isVerifying ? "Verificando..." : "Validar Cadeia SHA-256"}</span>
+            </button>
+          )}
         </div>
       </section>
 
@@ -163,6 +184,7 @@ export const AuditLogsPage: React.FC = () => {
         isLiveStream={isLiveStream}
         onToggleLiveStream={() => setIsLiveStream((prev) => !prev)}
         isLoading={isLoadingLogs}
+        isGlobalAdmin={isGlobalAdmin}
       />
 
       {/* 4. Layout Bento de 2 Colunas: Tabela (7 cols) + Inspector JSONB (5 cols) */}

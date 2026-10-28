@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuditLogsPage } from "../src/pages/audit/AuditLogsPage";
+import { AuditFilterBar } from "../src/components/audit/AuditFilterBar";
 import { AdminManagementPage } from "../src/pages/admin/AdminManagementPage";
 import { auditApi } from "../src/services/auditApi";
 import { adminApi } from "../src/services/adminApi";
@@ -189,6 +190,45 @@ describe("Trilha de Auditoria Forense & Governança Administrativa (Issue #226)"
       await user.click(screen.getByText("Exportar Ledger (.json)"));
 
       expect(auditApi.exportLedgerJson).toHaveBeenCalledWith(mockAuditLogs);
+    });
+
+    it("deve restringir papéis e ações de alto nível no AuditFilterBar quando não for administrador global (ORG_ADMIN)", () => {
+      const filters = { search: "", role: "ALL", action: "ALL", page: 1, page_size: 10 };
+      const onChange = vi.fn();
+
+      const { rerender } = render(
+        <AuditFilterBar
+          filters={filters}
+          onChange={onChange}
+          onRefresh={vi.fn()}
+          isLiveStream={false}
+          onToggleLiveStream={vi.fn()}
+          isGlobalAdmin={false}
+        />
+      );
+
+      // No modo ORG_ADMIN: NÃO deve existir SUPER_ADMIN nem SYSTEM
+      expect(screen.getByText("Todos os Papéis da Organização")).toBeInTheDocument();
+      expect(screen.queryByText("SYSTEM (WORKER / AUTH)")).not.toBeInTheDocument();
+      expect(screen.queryByText("DEVICE_PAUSED")).not.toBeInTheDocument();
+      expect(screen.queryByText("GLPI_SYNC")).not.toBeInTheDocument();
+
+      // No modo SUPER_ADMIN: deve conter todos os papéis de alto nível
+      rerender(
+        <AuditFilterBar
+          filters={filters}
+          onChange={onChange}
+          onRefresh={vi.fn()}
+          isLiveStream={false}
+          onToggleLiveStream={vi.fn()}
+          isGlobalAdmin={true}
+        />
+      );
+
+      expect(screen.getByText("Todos os Papéis (SUPER_ADMIN, NOC, ORG, SYSTEM)")).toBeInTheDocument();
+      expect(screen.getByText("SYSTEM (WORKER / AUTH)")).toBeInTheDocument();
+      expect(screen.getByText("DEVICE_PAUSED")).toBeInTheDocument();
+      expect(screen.getByText("GLPI_SYNC")).toBeInTheDocument();
     });
   });
 

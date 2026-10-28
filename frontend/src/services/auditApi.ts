@@ -27,6 +27,13 @@ export const auditApi = {
     } catch {
       // Fallback para mock resiliente em caso de backend indisponível no ambiente de dev/teste
       let items = [...mockAuditLogs];
+      if (params?.organization_id) {
+        items = items.filter(
+          (item) =>
+            item.organization_id === params.organization_id ||
+            item.organization_id === `org-${params.organization_id}`
+        );
+      }
       if (params?.role && params.role !== "ALL") {
         items = items.filter((item) => item.actor_role === params.role);
       }

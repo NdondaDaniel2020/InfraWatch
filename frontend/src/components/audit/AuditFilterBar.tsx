@@ -9,6 +9,7 @@ interface AuditFilterBarProps {
   isLiveStream: boolean;
   onToggleLiveStream: () => void;
   isLoading?: boolean;
+  isGlobalAdmin?: boolean;
 }
 
 export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
@@ -18,6 +19,7 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
   isLiveStream,
   onToggleLiveStream,
   isLoading = false,
+  isGlobalAdmin = true,
 }) => {
   return (
     <section
@@ -52,11 +54,22 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
           onChange={(e) => onChange({ ...filters, role: e.target.value, page: 1 })}
           className="bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-300 focus-visible:outline-none focus-visible:border-emerald-500 focus-visible:ring-1 focus-visible:ring-emerald-500 transition-colors"
         >
-          <option value="ALL">Todos os Papéis (SUPER_ADMIN, NOC, ORG, SYSTEM)</option>
-          <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-          <option value="NOC_OPERATOR">NOC_OPERATOR</option>
-          <option value="ORG_ADMIN">ORG_ADMIN</option>
-          <option value="SYSTEM">SYSTEM (WORKER / AUTH)</option>
+          {isGlobalAdmin ? (
+            <>
+              <option value="ALL">Todos os Papéis (SUPER_ADMIN, NOC, ORG, SYSTEM)</option>
+              <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+              <option value="NOC_OPERATOR">NOC_OPERATOR</option>
+              <option value="ORG_ADMIN">ORG_ADMIN</option>
+              <option value="SYSTEM">SYSTEM (WORKER / AUTH)</option>
+            </>
+          ) : (
+            <>
+              <option value="ALL">Todos os Papéis da Organização</option>
+              <option value="ORG_ADMIN">ORG_ADMIN</option>
+              <option value="CLIENT_VIEWER">CLIENT_VIEWER</option>
+              <option value="NOC_OPERATOR">NOC_OPERATOR (Suporte Técnico)</option>
+            </>
+          )}
         </select>
 
         {/* Filtro Ação Executada */}
@@ -66,12 +79,23 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
           onChange={(e) => onChange({ ...filters, action: e.target.value, page: 1 })}
           className="bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-300 focus-visible:outline-none focus-visible:border-emerald-500 focus-visible:ring-1 focus-visible:ring-emerald-500 transition-colors"
         >
-          <option value="ALL">Todas as Ações (CREATE, UPDATE, DELETE, ACK, EXEMPTION)</option>
-          <option value="DEVICE_PAUSED">DEVICE_PAUSED</option>
-          <option value="INCIDENT_ACK">INCIDENT_ACK</option>
-          <option value="GLPI_SYNC">GLPI_SYNC</option>
-          <option value="SLA_EXEMPT_REQ">SLA_EXEMPT_REQ</option>
-          <option value="SESSION_MFA">SESSION_MFA</option>
+          {isGlobalAdmin ? (
+            <>
+              <option value="ALL">Todas as Ações (CREATE, UPDATE, DELETE, ACK, EXEMPTION)</option>
+              <option value="DEVICE_PAUSED">DEVICE_PAUSED</option>
+              <option value="INCIDENT_ACK">INCIDENT_ACK</option>
+              <option value="GLPI_SYNC">GLPI_SYNC</option>
+              <option value="SLA_EXEMPT_REQ">SLA_EXEMPT_REQ</option>
+              <option value="SESSION_MFA">SESSION_MFA</option>
+            </>
+          ) : (
+            <>
+              <option value="ALL">Todas as Ações</option>
+              <option value="INCIDENT_ACK">INCIDENT_ACK</option>
+              <option value="SLA_EXEMPT_REQ">SLA_EXEMPT_REQ</option>
+              <option value="SESSION_MFA">SESSION_MFA</option>
+            </>
+          )}
         </select>
 
         {/* Filtro Data */}
