@@ -16,111 +16,72 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
   return (
     <section
       data-testid="sla-device-breakdown-table"
-      style={{
-        backgroundColor: "var(--color-surface-card)",
-        border: "var(--border-subtle)",
-        borderRadius: "var(--radius-lg)",
-        padding: "20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-      }}
+      className="p-5 sm:p-6 rounded-2xl bg-[#0d1424] border border-white/10 flex flex-col gap-4 shadow-sm"
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div className="flex justify-between items-center border-b border-white/10 pb-3">
+        <div className="flex items-center gap-2">
           <Server size={18} className="text-emerald-400" />
-          <h3 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
+          <h3 className="text-sm font-bold text-white m-0">
             Detalhamento de Disponibilidade por Ativo de Rede
           </h3>
         </div>
-        <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color: "var(--color-text-muted)" }}>
-          Total de Ativos Monitorados: <strong>{devices.length}</strong>
+        <span className="text-xs font-mono text-slate-400">
+          Total de Ativos Monitorados: <strong className="text-white">{devices.length}</strong>
         </span>
       </div>
 
-      <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "0.75rem",
-            fontFamily: "var(--font-mono)",
-            textAlign: "left",
-          }}
-        >
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr
-              style={{
-                borderBottom: "var(--border-subtle)",
-                color: "var(--color-text-muted)",
-                fontSize: "0.6875rem",
-                textTransform: "uppercase",
-              }}
-            >
-              <th style={{ padding: "10px 12px" }}>Ativo / FQDN</th>
-              <th style={{ padding: "10px 12px" }}>Endereço IPv4</th>
-              <th style={{ padding: "10px 12px" }}>Tier</th>
-              <th style={{ padding: "10px 12px" }}>Uptime Bruto</th>
-              <th style={{ padding: "10px 12px" }}>Isenção RFC (min)</th>
-              <th style={{ padding: "10px 12px" }}>Uptime Líquido</th>
-              <th style={{ padding: "10px 12px", textAlign: "right" }}>Conformidade</th>
+            <tr className="border-b border-white/10 font-mono text-slate-400 uppercase text-[10.5px]">
+              <th className="py-2.5 px-3">Ativo / FQDN</th>
+              <th className="py-2.5 px-3">Endereço IPv4</th>
+              <th className="py-2.5 px-3">Tier</th>
+              <th className="py-2.5 px-3">Uptime Bruto</th>
+              <th className="py-2.5 px-3">Isenção RFC (min)</th>
+              <th className="py-2.5 px-3">Uptime Líquido</th>
+              <th className="py-2.5 px-3 text-right">Conformidade</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-white/5 font-mono">
             {devices.map((device) => {
-              const isCompliant = device.netUptimePct >= targetSlaPct;
+              const isCompliant = (device.netUptimePct ?? 100) >= targetSlaPct;
 
               return (
                 <tr
                   key={device.deviceId}
-                  style={{
-                    borderBottom: "var(--border-subtle)",
-                    transition: "background-color var(--transition-fast)",
-                  }}
+                  className="hover:bg-white/5 transition-colors"
                 >
-                  <td style={{ padding: "12px", fontWeight: 600, color: "var(--color-text-primary)" }}>
+                  <td className="py-3 px-3 font-semibold text-white">
                     <Link
                       to={`/devices/${device.deviceId}`}
-                      style={{ color: "inherit", textDecoration: "none" }}
-                      className="hover:underline"
+                      className="text-white hover:underline"
                     >
                       {device.deviceName}
                     </Link>
                   </td>
-                  <td style={{ padding: "12px", color: "var(--color-text-secondary)" }}>
+                  <td className="py-3 px-3 text-slate-300">
                     {device.ipAddress}
                   </td>
-                  <td style={{ padding: "12px" }}>
-                    <span
-                      style={{
-                        padding: "2px 6px",
-                        borderRadius: "var(--radius-sm)",
-                        backgroundColor: "var(--color-surface-card)",
-                        border: "var(--border-subtle)",
-                        fontSize: "0.625rem",
-                        fontWeight: 700,
-                        color: "var(--color-primary)",
-                      }}
-                    >
+                  <td className="py-3 px-3">
+                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10.5px] font-bold text-sky-400">
                       {device.tier}
                     </span>
                   </td>
-                  <td style={{ padding: "12px", color: "var(--color-text-muted)" }}>
+                  <td className="py-3 px-3 text-slate-400">
                     {(device.nominalUptimePct ?? 100).toFixed(2)}%
                   </td>
-                  <td style={{ padding: "12px", color: "var(--color-primary)" }}>
+                  <td className="py-3 px-3 text-sky-400">
                     +{device.exemptedMaintenanceMinutes ?? 0}m (ADR-009)
                   </td>
                   <td
-                    style={{
-                      padding: "12px",
-                      fontWeight: 700,
-                      color: isCompliant ? "var(--color-healthy)" : "var(--color-critical)",
-                    }}
+                    className={`py-3 px-3 font-bold ${
+                      isCompliant ? "text-emerald-400" : "text-rose-400"
+                    }`}
                   >
                     {(device.netUptimePct ?? 100).toFixed(2)}%
                   </td>
-                  <td style={{ padding: "12px", textAlign: "right" }}>
+                  <td className="py-3 px-3 text-right">
                     <Badge variant={isCompliant ? "healthy" : "critical"} size="sm">
                       {isCompliant ? "CONFORME" : "VIOLAÇÃO"}
                     </Badge>

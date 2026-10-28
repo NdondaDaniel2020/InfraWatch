@@ -32,9 +32,6 @@ export const SanitizedEndpointsTable: React.FC<SanitizedEndpointsTableProps> = (
             <ShieldCheck size={18} className="text-emerald-400" />
             <span>Endpoints Contratados (Visão Sanitizada)</span>
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5 mb-0">
-            Conforme política de segurança ADR-009 e ADR-012: mascaramento de endereçamento privado e topologia interna.
-          </p>
         </div>
 
         {/* Input de Busca Rápida */}
