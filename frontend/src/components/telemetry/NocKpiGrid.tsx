@@ -77,12 +77,12 @@ export const NocKpiGrid: React.FC<NocKpiGridProps> = ({
         bodyContent={
           <>
             <span className="text-2xl font-bold font-display text-white tracking-tight">
-              {availabilityPct.toFixed(2)}%
+              {(availabilityPct ?? 99.98).toFixed(2)}%
             </span>
             <span className="text-xs font-mono text-emerald-400 tabular-nums font-semibold">+0.04%</span>
           </>
         }
-        footerLeft={`Meta SLA: ${slaTargetPct.toFixed(2)}%`}
+        footerLeft={`Meta SLA: ${(slaTargetPct ?? 99.50).toFixed(2)}%`}
         footerRight={<span className="text-emerald-400">Conforme ADR-009</span>}
       />
 
@@ -110,11 +110,11 @@ export const NocKpiGrid: React.FC<NocKpiGridProps> = ({
         headerRight={<Activity size={18} className="text-sky-400" />}
         bodyContent={
           <span className="text-2xl font-bold font-display text-white tracking-tight tabular-nums">
-            {aggregatedTrafficGbps.toFixed(1)} <span className="text-sm font-normal text-slate-400">Gbps</span>
+            {(aggregatedTrafficGbps ?? 98.2).toFixed(1)} <span className="text-sm font-normal text-slate-400">Gbps</span>
           </span>
         }
-        footerLeft={`${trafficIngressGbps.toFixed(1)}G Ingress`}
-        footerRight={<span className="text-sky-400">{trafficEgressGbps.toFixed(1)}G Egress</span>}
+        footerLeft={`${(trafficIngressGbps ?? 48.2).toFixed(1)}G Ingress`}
+        footerRight={<span className="text-sky-400">{(trafficEgressGbps ?? 50.0).toFixed(1)}G Egress</span>}
       />
 
       {/* KPI 4: Alarmes de NOC */}

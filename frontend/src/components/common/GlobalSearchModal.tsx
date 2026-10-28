@@ -186,8 +186,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           className={`font-semibold ${statusToken.textColor}`}
                         >
                           {dev.status} (
-                          {dev.last_latency_ms !== null && dev.last_latency_ms !== undefined
-                            ? `${dev.last_latency_ms.toFixed(1)}ms`
+                          {dev.last_latency_ms != null && !isNaN(Number(dev.last_latency_ms))
+                            ? `${Number(dev.last_latency_ms).toFixed(1)}ms`
                             : isDown
                             ? "TIMEOUT"
                             : "--"}

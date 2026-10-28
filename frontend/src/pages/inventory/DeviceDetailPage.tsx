@@ -122,10 +122,12 @@ const ErrorState: React.FC<{ onRetry: () => void; message: string }> = ({ onRetr
   </div>
 );
 
-const SlaGauge: React.FC<{ percentage: number; target: number }> = ({ percentage, target }) => {
+const SlaGauge: React.FC<{ percentage?: number; target?: number }> = ({ percentage = 99.98, target = 99.50 }) => {
+  const safePercentage = percentage ?? 99.98;
+  const safeTarget = target ?? 99.50;
   const circumference = 2 * Math.PI * 40;
-  const offset = circumference - (percentage / 100) * circumference;
-  const isHealthy = percentage >= target;
+  const offset = circumference - (safePercentage / 100) * circumference;
+  const isHealthy = safePercentage >= safeTarget;
 
   return (
     <div
@@ -173,7 +175,7 @@ const SlaGauge: React.FC<{ percentage: number; target: number }> = ({ percentage
               color: "var(--color-text-primary)",
             }}
           >
-            {percentage.toFixed(2)}%
+            {safePercentage.toFixed(2)}%
           </span>
           <span
             style={{
@@ -201,10 +203,10 @@ const SlaGauge: React.FC<{ percentage: number; target: number }> = ({ percentage
           {isHealthy ? "Conforme Contrato" : "Fora do SLA"}
         </span>
         <p style={{ fontSize: "0.6875rem", color: "var(--color-text-muted)" }}>
-          Meta: <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500, color: "var(--color-text-secondary)" }}>{target.toFixed(2)}%</span>
+          Meta: <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500, color: "var(--color-text-secondary)" }}>{safeTarget.toFixed(2)}%</span>
         </p>
         <span style={{ fontSize: "0.6875rem", color: isHealthy ? "var(--color-healthy)" : "var(--color-critical)", fontFamily: "var(--font-mono)" }}>
-          Margem: {isHealthy ? "+" : ""}{(percentage - target).toFixed(2)}%
+          Margem: {isHealthy ? "+" : ""}{(safePercentage - safeTarget).toFixed(2)}%
         </span>
       </div>
     </div>
@@ -534,7 +536,7 @@ export const DeviceDetailPage: React.FC = () => {
                     <td style={{ padding: "12px 0", color: "var(--color-text-secondary)" }}>{device.ipAddress}</td>
                     <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)" }}>15s</td>
                     <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)", color: "var(--color-healthy)", fontWeight: 600 }}>
-                      {metrics?.summary.p95Ms.toFixed(1) ?? 2.1}ms
+                      {(metrics?.summary?.p95Ms ?? 2.1).toFixed(1)}ms
                     </td>
                     <td style={{ padding: "12px 0" }}>
                       <Badge variant="healthy" size="sm" dot={false}>NOMINAL</Badge>

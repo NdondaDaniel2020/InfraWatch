@@ -44,188 +44,106 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
     <section
       data-testid="sla-endpoints-table"
       aria-label="Detalhamento de SLA dos Endpoints Sanitizados"
-      style={{
-        backgroundColor: "var(--color-surface-elevated)",
-        border: "var(--border-subtle)",
-        borderRadius: "var(--radius-lg)",
-        padding: "20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-      }}
+      className="p-5 sm:p-6 rounded-2xl bg-[#0d1424] border border-white/10 flex flex-col gap-4 shadow-sm"
     >
       {/* Cabeçalho da Tabela e Barra de Busca */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "12px",
-          borderBottom: "var(--border-subtle)",
-          paddingBottom: "12px",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Globe size={18} className="text-emerald-400" />
-            <h3 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--color-text-primary)", margin: 0 }}>
-              Detalhamento de SLA por Endpoint Contratado
-            </h3>
-          </div>
-          <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color: "var(--color-text-muted)" }}>
-            Conforme ADR-009 / ADR-012: Endereçamento público sanitizado e conformidade contratual
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+        <div className="flex items-center gap-2">
+          <Globe size={18} className="text-emerald-400" />
+          <h3 className="text-sm font-bold text-white m-0">
+            Detalhamento de SLA por Endpoint Contratado
+          </h3>
         </div>
 
         {/* Campo de Busca */}
-        <div style={{ position: "relative", minWidth: "240px" }}>
-          <Search
-            size={14}
-            style={{
-              position: "absolute",
-              left: "10px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--color-text-muted)",
-            }}
-          />
+        <div className="relative w-full sm:w-64">
+          <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
             data-testid="sla-endpoint-search-input"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar endpoint, serviço ou DC..."
-            style={{
-              width: "100%",
-              backgroundColor: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-              borderRadius: "var(--radius-sm)",
-              padding: "6px 12px 6px 30px",
-              fontSize: "0.75rem",
-              fontFamily: "var(--font-mono)",
-              color: "var(--color-text-primary)",
-              outline: "none",
-            }}
+            className="w-full bg-[#080c14] border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
           />
         </div>
       </div>
 
       {/* Tabela de Dados */}
-      <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "0.75rem",
-            fontFamily: "var(--font-mono)",
-            textAlign: "left",
-          }}
-        >
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr
-              style={{
-                borderBottom: "var(--border-subtle)",
-                color: "var(--color-text-muted)",
-                fontSize: "0.6875rem",
-                textTransform: "uppercase",
-              }}
-            >
-              <th style={{ padding: "10px 12px" }}>Endpoint / FQDN</th>
-              <th style={{ padding: "10px 12px" }}>Serviço Contratado</th>
-              <th style={{ padding: "10px 12px" }}>Protocolo</th>
-              <th style={{ padding: "10px 12px", textAlign: "center" }}>Status Atual</th>
-              <th style={{ padding: "10px 12px", textAlign: "right" }}>SLA no Período</th>
-              <th style={{ padding: "10px 12px", textAlign: "right" }}>Latência Média</th>
-              <th style={{ padding: "10px 12px" }}>Região / DC</th>
-              <th style={{ padding: "10px 12px", textAlign: "right" }}>Conformidade</th>
+            <tr className="border-b border-white/10 font-mono text-slate-400 uppercase text-[10.5px]">
+              <th className="py-2.5 px-3">Endpoint / FQDN</th>
+              <th className="py-2.5 px-3">Serviço Contratado</th>
+              <th className="py-2.5 px-3">Protocolo</th>
+              <th className="py-2.5 px-3 text-center">Status Atual</th>
+              <th className="py-2.5 px-3 text-right">SLA no Período</th>
+              <th className="py-2.5 px-3 text-right">Latência Média</th>
+              <th className="py-2.5 px-3">Região / DC</th>
+              <th className="py-2.5 px-3 text-right">Conformidade</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-white/5 font-mono">
             {paginatedEndpoints.length === 0 ? (
               <tr>
                 <td
                   colSpan={8}
-                  style={{
-                    padding: "24px",
-                    textAlign: "center",
-                    color: "var(--color-text-muted)",
-                    fontFamily: "var(--font-sans)",
-                  }}
+                  className="py-8 text-center text-slate-400 font-sans"
                 >
                   Nenhum endpoint encontrado para o termo pesquisado.
                 </td>
               </tr>
             ) : (
               paginatedEndpoints.map((ep) => {
-                const isCompliant = ep.sla30dPct >= targetSlaPct;
+                const isCompliant = (ep.sla30dPct ?? 100) >= targetSlaPct;
                 const isUp = ep.status === "UP";
 
                 return (
                   <tr
                     key={ep.id}
                     data-testid={`sla-endpoint-row-${ep.id}`}
-                    style={{
-                      borderBottom: "var(--border-subtle)",
-                      transition: "background-color var(--transition-fast)",
-                    }}
+                    className="hover:bg-white/5 transition-colors"
                   >
-                    <td style={{ padding: "12px", fontWeight: 700, color: "var(--color-text-primary)" }}>
+                    <td className="py-3 px-3 font-bold text-white">
                       {ep.domainName}
                     </td>
-                    <td style={{ padding: "12px", color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)" }}>
+                    <td className="py-3 px-3 text-slate-300 font-sans">
                       {ep.serviceType}
                     </td>
-                    <td style={{ padding: "12px", color: "var(--color-text-muted)" }}>{ep.protocol}</td>
-                    <td style={{ padding: "12px", textAlign: "center" }}>
+                    <td className="py-3 px-3 text-slate-400">{ep.protocol}</td>
+                    <td className="py-3 px-3 text-center">
                       <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          padding: "2px 8px",
-                          borderRadius: "var(--radius-full)",
-                          fontSize: "0.625rem",
-                          fontWeight: 700,
-                          backgroundColor: isUp ? "rgba(16, 185, 129, 0.1)" : "rgba(245, 158, 11, 0.1)",
-                          color: isUp ? "var(--color-healthy)" : "var(--color-warning)",
-                          border: `1px solid ${isUp ? "var(--color-healthy-border)" : "var(--color-warning-border)"}`,
-                        }}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold ${
+                          isUp
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        }`}
                       >
                         {isUp ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />}
                         <span>{ep.status}</span>
                       </span>
                     </td>
                     <td
-                      style={{
-                        padding: "12px",
-                        textAlign: "right",
-                        fontWeight: 700,
-                        color: isCompliant ? "var(--color-healthy)" : "var(--color-critical)",
-                      }}
+                      className={`py-3 px-3 text-right tabular-nums font-bold ${
+                        isCompliant ? "text-emerald-400" : "text-rose-400"
+                      }`}
                     >
-                      {ep.sla30dPct.toFixed(2)}%
+                      {(ep.sla30dPct ?? 100).toFixed(2)}%
                     </td>
-                    <td style={{ padding: "12px", textAlign: "right", color: "var(--color-text-secondary)" }}>
-                      {ep.latencyAvgMs.toFixed(1)} ms
+                    <td className="py-3 px-3 text-right tabular-nums text-slate-200">
+                      {(ep.latencyAvgMs ?? 0).toFixed(1)} ms
                     </td>
-                    <td style={{ padding: "12px", color: "var(--color-text-muted)", fontFamily: "var(--font-sans)" }}>
+                    <td className="py-3 px-3 text-slate-400 font-sans">
                       {ep.datacenterRegion}
                     </td>
-                    <td style={{ padding: "12px", textAlign: "right" }}>
+                    <td className="py-3 px-3 text-right">
                       <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          padding: "2px 8px",
-                          borderRadius: "var(--radius-full)",
-                          fontSize: "0.625rem",
-                          fontWeight: 700,
-                          backgroundColor: isCompliant ? "rgba(16, 185, 129, 0.1)" : "rgba(244, 63, 94, 0.1)",
-                          color: isCompliant ? "var(--color-healthy)" : "var(--color-critical)",
-                          border: `1px solid ${isCompliant ? "var(--color-healthy-border)" : "var(--color-critical-border)"}`,
-                        }}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                          isCompliant
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                        }`}
                       >
                         {isCompliant ? "CONFORME" : "VIOLADO"}
                       </span>
@@ -242,39 +160,19 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
       {totalPages > 1 && (
         <div
           data-testid="sla-endpoints-pagination"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            paddingTop: "12px",
-            borderTop: "var(--border-subtle)",
-            fontSize: "0.75rem",
-            fontFamily: "var(--font-mono)",
-            color: "var(--color-text-muted)",
-          }}
+          className="flex justify-between items-center pt-3 border-t border-white/10 text-xs font-mono text-slate-400"
         >
           <span>
             Mostrando <strong>{paginatedEndpoints.length}</strong> de <strong>{filteredEndpoints.length}</strong> endpoints
           </span>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               data-testid="pagination-prev"
               disabled={safeCurrentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "4px 8px",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--color-surface-card)",
-                border: "var(--border-subtle)",
-                color: safeCurrentPage <= 1 ? "var(--color-text-muted)" : "var(--color-text-primary)",
-                cursor: safeCurrentPage <= 1 ? "not-allowed" : "pointer",
-                opacity: safeCurrentPage <= 1 ? 0.5 : 1,
-              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#080c14] border border-white/10 text-xs text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
             >
               <ChevronLeft size={14} />
               <span>Anterior</span>
@@ -289,18 +187,7 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
               data-testid="pagination-next"
               disabled={safeCurrentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "4px 8px",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--color-surface-card)",
-                border: "var(--border-subtle)",
-                color: safeCurrentPage >= totalPages ? "var(--color-text-muted)" : "var(--color-text-primary)",
-                cursor: safeCurrentPage >= totalPages ? "not-allowed" : "pointer",
-                opacity: safeCurrentPage >= totalPages ? 0.5 : 1,
-              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#080c14] border border-white/10 text-xs text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
             >
               <span>Próxima</span>
               <ChevronRight size={14} />

@@ -95,8 +95,8 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
               <div
                 className={`text-lg font-mono font-bold mt-1 ${statusToken.textColor}`}
               >
-                {device.last_latency_ms !== null && device.last_latency_ms !== undefined
-                  ? `${device.last_latency_ms.toFixed(1)}ms`
+                {device.last_latency_ms != null && !isNaN(Number(device.last_latency_ms))
+                  ? `${Number(device.last_latency_ms).toFixed(1)}ms`
                   : "--"}
               </div>
             </div>

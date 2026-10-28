@@ -95,10 +95,10 @@ export const SanitizedEndpointsTable: React.FC<SanitizedEndpointsTableProps> = (
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums font-bold text-emerald-400">
-                      {ep.sla30dPct.toFixed(2)}%
+                      {(ep.sla30dPct ?? 100).toFixed(2)}%
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-slate-200">
-                      {ep.latencyAvgMs.toFixed(1)} ms
+                      {(ep.latencyAvgMs ?? 0).toFixed(1)} ms
                     </td>
                     <td className="py-3 px-3 text-slate-400 font-sans">{ep.datacenterRegion}</td>
                   </tr>

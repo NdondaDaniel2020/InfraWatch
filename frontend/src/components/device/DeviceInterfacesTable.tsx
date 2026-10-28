@@ -59,10 +59,11 @@ const formatPower = (power: string) => {
   );
 };
 
-const formatLoss = (loss: number) => {
-  if (loss === 0) return <span style={{ color: "var(--color-healthy)", fontFamily: "var(--font-mono)" }}>0%</span>;
-  if (loss < 1) return <span style={{ color: "var(--color-degraded)", fontFamily: "var(--font-mono)" }}>{loss.toFixed(1)}%</span>;
-  return <span style={{ color: "var(--color-critical)", fontFamily: "var(--font-mono)" }}>{loss.toFixed(1)}%</span>;
+const formatLoss = (loss?: number) => {
+  const safeLoss = loss ?? 0;
+  if (safeLoss === 0) return <span style={{ color: "var(--color-healthy)", fontFamily: "var(--font-mono)" }}>0%</span>;
+  if (safeLoss < 1) return <span style={{ color: "var(--color-degraded)", fontFamily: "var(--font-mono)" }}>{safeLoss.toFixed(1)}%</span>;
+  return <span style={{ color: "var(--color-critical)", fontFamily: "var(--font-mono)" }}>{safeLoss.toFixed(1)}%</span>;
 };
 
 const formatErrors = (errors: number) => {

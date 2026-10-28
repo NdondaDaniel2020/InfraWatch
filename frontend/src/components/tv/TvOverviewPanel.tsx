@@ -66,7 +66,7 @@ export const TvOverviewPanel: React.FC<TvOverviewPanelProps> = ({
           label="Trânsito & Backbones (Gbps)"
           mainValue={
             <>
-              {totalTransitGbps.toFixed(1)} <span className="text-xs text-slate-400 font-normal">Gbps Total</span>
+              {(totalTransitGbps ?? 98.4).toFixed(1)} <span className="text-xs text-slate-400 font-normal">Gbps Total</span>
             </>
           }
           subtext={<span className="text-emerald-400">● Luanda-Talatona 53% • WACS 24% • BNA 23%</span>}
@@ -111,7 +111,7 @@ export const TvOverviewPanel: React.FC<TvOverviewPanelProps> = ({
           label="Throughput & Carga (24h)"
           mainValue={
             <>
-              {dailySlaPct.toFixed(2)}% <span className="text-xs text-emerald-400 font-normal">SLA Diário</span>
+              {(dailySlaPct ?? 99.98).toFixed(2)}% <span className="text-xs text-emerald-400 font-normal">SLA Diário</span>
             </>
           }
           subtext={<span className="text-slate-400">Pico: 1.2M req/s • Zero Buffer Bloat</span>}

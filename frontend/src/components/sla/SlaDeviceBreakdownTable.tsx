@@ -106,10 +106,10 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
                     </span>
                   </td>
                   <td style={{ padding: "12px", color: "var(--color-text-muted)" }}>
-                    {device.nominalUptimePct.toFixed(2)}%
+                    {(device.nominalUptimePct ?? 100).toFixed(2)}%
                   </td>
                   <td style={{ padding: "12px", color: "var(--color-primary)" }}>
-                    +{device.exemptedMaintenanceMinutes}m (ADR-009)
+                    +{device.exemptedMaintenanceMinutes ?? 0}m (ADR-009)
                   </td>
                   <td
                     style={{
@@ -118,7 +118,7 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
                       color: isCompliant ? "var(--color-healthy)" : "var(--color-critical)",
                     }}
                   >
-                    {device.netUptimePct.toFixed(2)}%
+                    {(device.netUptimePct ?? 100).toFixed(2)}%
                   </td>
                   <td style={{ padding: "12px", textAlign: "right" }}>
                     <Badge variant={isCompliant ? "healthy" : "critical"} size="sm">

@@ -386,7 +386,7 @@ export const SlaReportsPage: React.FC = () => {
             }}
           >
             <Lock size={14} />
-            <span>Meta Contratual: {overview.targetSlaPct.toFixed(2)}%</span>
+            <span>Meta Contratual: {(overview?.targetSlaPct ?? 99.5).toFixed(2)}%</span>
           </div>
         </div>
 

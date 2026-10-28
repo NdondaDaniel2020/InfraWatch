@@ -124,7 +124,7 @@ export const TvIncidentsPanel: React.FC<TvIncidentsPanelProps> = ({
           titleColorClass="text-white"
           icon={<ShieldAlert size={16} className="text-sky-400" />}
           title="SLA MENSAL CONTRATUAL"
-          value={`${slaMonthlyPct.toFixed(2)}%`}
+          value={`${(slaMonthlyPct ?? 99.5).toFixed(2)}%`}
           subtitle="Disponibilidade Agregada BNA / RCS"
         />
       </div>

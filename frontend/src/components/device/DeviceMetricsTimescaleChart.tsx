@@ -55,8 +55,10 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
     return sampledBuckets
       .map((bucket, i) => {
         const x = getXPosition(i, sampledBuckets.length);
-        const y = getYPosition(bucket.rttP95Ms, maxValue);
-        return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+        const y = getYPosition(bucket?.rttP95Ms ?? 0, maxValue);
+        const safeX = isNaN(x) ? 0 : x;
+        const safeY = isNaN(y) ? 0 : y;
+        return `${i === 0 ? "M" : "L"} ${safeX.toFixed(1)} ${safeY.toFixed(1)}`;
       })
       .join(" ");
   }, [sampledBuckets, maxValue]);
@@ -233,7 +235,7 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {data.summary.minMs.toFixed(1)}
+                {(data?.summary?.minMs ?? 0).toFixed(1)}
               </span>
               <span
                 style={{
@@ -285,7 +287,7 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {data.summary.p95Ms.toFixed(1)}
+                {(data?.summary?.p95Ms ?? 0).toFixed(1)}
               </span>
               <span
                 style={{
@@ -337,7 +339,7 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {data.summary.maxMs.toFixed(1)}
+                {(data?.summary?.maxMs ?? 0).toFixed(1)}
               </span>
               <span
                 style={{
@@ -389,7 +391,7 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {data.summary.avgLossPct.toFixed(1)}
+                {(data?.summary?.avgLossPct ?? 0).toFixed(1)}
               </span>
               <span
                 style={{
@@ -567,7 +569,7 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
                     textAnchor="middle"
                     fontWeight="600"
                   >
-                    {spike.rttMaxMs.toFixed(1)}ms
+                    {(spike?.rttMaxMs ?? 0).toFixed(1)}ms
                   </text>
                 </g>
               ))}

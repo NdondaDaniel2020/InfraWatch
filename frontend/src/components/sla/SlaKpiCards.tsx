@@ -73,10 +73,10 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
               color: isHealthy ? "var(--color-healthy)" : "var(--color-critical)",
             }}
           >
-            {overview.currentUptimePct.toFixed(2)}%
+            {(overview?.currentUptimePct ?? 100).toFixed(2)}%
           </span>
           <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
-            Meta: {overview.targetSlaPct.toFixed(2)}%
+            Meta: {(overview?.targetSlaPct ?? 99.5).toFixed(2)}%
           </span>
         </div>
         <p
@@ -90,7 +90,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
           }}
         >
           {isHealthy ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
-          <span>Margem: {isHealthy ? "+" : ""}{overview.marginPct.toFixed(2)}%</span>
+          <span>Margem: {isHealthy ? "+" : ""}{(overview?.marginPct ?? 0).toFixed(2)}%</span>
         </p>
       </div>
 

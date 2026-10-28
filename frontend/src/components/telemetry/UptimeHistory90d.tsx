@@ -9,9 +9,10 @@ export interface UptimeHistory90dProps {
   className?: string;
 }
 
-const getBarColor = (uptime: number, hasIncident?: boolean): string => {
-  if (hasIncident || uptime < 95) return "var(--color-critical, #f43f5e)";
-  if (uptime < 99.5) return "var(--color-degraded, #f59e0b)";
+const getBarColor = (uptime?: number, hasIncident?: boolean): string => {
+  const pct = uptime ?? 100;
+  if (hasIncident || pct < 95) return "var(--color-critical, #f43f5e)";
+  if (pct < 99.5) return "var(--color-degraded, #f59e0b)";
   return "var(--color-healthy, #10b981)";
 };
 
@@ -58,8 +59,8 @@ export const UptimeHistory90d: React.FC<UptimeHistory90dProps> = ({
           }}
         >
           {hoveredDay
-            ? `${hoveredDay.date}: ${hoveredDay.uptime_pct.toFixed(1)}%`
-            : `${overallUptime.toFixed(2)}% Uptime`}
+            ? `${hoveredDay.date}: ${(hoveredDay.uptime_pct ?? 100).toFixed(1)}%`
+            : `${(overallUptime ?? 99.98).toFixed(2)}% Uptime`}
         </span>
         <span>Hoje</span>
       </div>

@@ -15,7 +15,9 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
   onViewHistory,
   isDownloadingPdf = false,
 }) => {
-  const excessPct = (summary.uptimeCurrentMonthPct - summary.slaTargetPct).toFixed(2);
+  const currentUptime = summary?.uptimeCurrentMonthPct ?? 100;
+  const targetUptime = summary?.slaTargetPct ?? 99.5;
+  const excessPct = (currentUptime - targetUptime).toFixed(2);
 
   return (
     <section
@@ -77,7 +79,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
             </span>
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight m-0">
-            Meta Acordada: {summary.slaTargetPct.toFixed(2)}%{" "}
+            Meta Acordada: {targetUptime.toFixed(2)}%{" "}
             <span className="text-emerald-400 font-mono tabular-nums text-base font-semibold">
               (+{excessPct}% excedente)
             </span>

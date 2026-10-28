@@ -106,7 +106,7 @@ export function useAutoRotate({
         setProgress(0);
       } else {
         const currentProgress = Math.min(100, (elapsed / intervalMs) * 100);
-        setProgress(Number(currentProgress.toFixed(1)));
+        setProgress(Number((currentProgress || 0).toFixed(1)));
       }
     }, tickInterval);
 

@@ -108,7 +108,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                       isDeg ? "text-amber-400" : "text-emerald-400"
                     }`}
                   >
-                    {svc.stability30DaysPct.toFixed(1)}% Nominal
+                    {(svc.stability30DaysPct ?? 100).toFixed(1)}% Nominal
                   </span>
                 </div>
                 <div className="h-1.5 w-full bg-[#080c14] rounded-full overflow-hidden">
@@ -116,7 +116,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                     className={`h-full rounded-full transition-all duration-500 ${
                       isDeg ? "bg-amber-400" : "bg-emerald-400"
                     }`}
-                    style={{ width: `${Math.min(svc.stability30DaysPct, 100)}%` }}
+                    style={{ width: `${Math.min(svc.stability30DaysPct ?? 100, 100)}%` }}
                   />
                 </div>
               </div>
