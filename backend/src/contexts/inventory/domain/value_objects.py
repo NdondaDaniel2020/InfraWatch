@@ -6,7 +6,7 @@ e autovalidantes — rejeitar dados inválidos no momento da construção.
 """
 
 import ipaddress as _ipaddress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -21,6 +21,9 @@ class DeviceCategory(str, Enum):
     ACCESS_POINT = "ACCESS_POINT"
     MICROWAVE_LINK = "MICROWAVE_LINK"
     CONTAINER = "CONTAINER"
+    FIREWALL = "FIREWALL"
+    LOAD_BALANCER = "LOAD_BALANCER"
+    OTHER = "OTHER"
 
 
 class DeviceStatus(str, Enum):
@@ -62,16 +65,17 @@ class IPAddress:
 
 @dataclass(frozen=True, slots=True)
 class NetworkPort:
-    """Porta TCP/UDP validada no intervalo 1–65535.
+    """Porta TCP/UDP validada no intervalo 0–65535.
 
+    Porta 0 indica ausência de porta de transporte (ex: ICMP / Ping ou Docker UDS).
     Lança ``ValueError`` se a porta estiver fora do intervalo permitido.
     """
 
     value: int
 
     def __post_init__(self) -> None:
-        if not isinstance(self.value, int) or not (1 <= self.value <= 65535):
-            raise ValueError(f"Porta de rede inválida: {self.value}. Deve estar entre 1 e 65535")
+        if not isinstance(self.value, int) or not (0 <= self.value <= 65535):
+            raise ValueError(f"Porta de rede inválida: {self.value}. Deve estar entre 0 e 65535")
 
     def __int__(self) -> int:
         return self.value
@@ -94,6 +98,7 @@ class ThresholdConfig:
     max_jitter_ms: float = 50.0
     max_loss_percent: float = 5.0
     zabbix_host_id: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.max_latency_ms < 0:
@@ -114,14 +119,19 @@ class ThresholdConfig:
         }
         if self.zabbix_host_id:
             data["zabbix_host_id"] = self.zabbix_host_id
+        if self.extra:
+            data.update(self.extra)
         return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "ThresholdConfig":
         """Reconstrói a partir de um dicionário JSONB."""
+        known_keys = {"max_latency_ms", "max_jitter_ms", "max_loss_percent", "zabbix_host_id"}
+        extra_keys = {k: v for k, v in data.items() if k not in known_keys}
         return cls(
             max_latency_ms=data.get("max_latency_ms", 200.0),
             max_jitter_ms=data.get("max_jitter_ms", 50.0),
             max_loss_percent=data.get("max_loss_percent", 5.0),
             zabbix_host_id=data.get("zabbix_host_id"),
+            extra=extra_keys,
         )

@@ -103,6 +103,87 @@ async def test_create_device_success():
     "src.contexts.inventory.services.device_command_service.OutboxRepository.add_event",
     new=mock_add_event,
 )
+async def test_create_device_with_camel_case_snmp_and_hostname():
+    session = MockSession()
+    repo = MockRepository()
+    service = DeviceCommandService(session, repo)
+    service.audit_service = MockAuditService()
+
+    org_id = uuid4()
+    actor_id = uuid4()
+
+    # Criação simulando payload do frontend com camelCase
+    cmd = CreateDeviceRequest.model_validate(
+        {
+            "organizationId": str(org_id),
+            "name": "Core Switch Luanda",
+            "hostname": "sw-core-01.local",
+            "ipAddress": "192.168.10.5",
+            "port": 0,  # Omitido / 0 no frontend para SNMP
+            "protocol": "SNMP",
+            "category": "SWITCH",
+            "intervalSeconds": 30,
+            "snmpConfig": {
+                "version": "v3",
+                "port": 161,
+                "username": "noc_admin",
+                "securityLevel": "authPriv",
+            },
+        }
+    )
+
+    device = await service.create_device(cmd, actor_user_id=actor_id, actor_ip="127.0.0.1")
+
+    assert device.name == "Core Switch Luanda"
+    assert device.hostname == "sw-core-01.local"
+    assert device.ip_address == "192.168.10.5"
+    assert device.port == 161  # Auto-resolvido para 161
+    assert device.protocol == "SNMP"
+    assert "snmp_config" in device.thresholds
+    assert device.thresholds["snmp_config"]["username"] == "noc_admin"
+
+
+@pytest.mark.asyncio
+@patch(
+    "src.contexts.inventory.services.device_command_service.OutboxRepository.add_event",
+    new=mock_add_event,
+)
+async def test_create_device_icmp_zero_port():
+    session = MockSession()
+    repo = MockRepository()
+    service = DeviceCommandService(session, repo)
+    service.audit_service = MockAuditService()
+
+    org_id = uuid4()
+    actor_id = uuid4()
+
+    cmd = CreateDeviceRequest.model_validate(
+        {
+            "organizationId": str(org_id),
+            "name": "Firewall Borda",
+            "hostname": "fw-edge.local",
+            "ipAddress": "10.0.0.1",
+            "port": 0,
+            "protocol": "ICMP",
+            "category": "FIREWALL",
+            "intervalSeconds": 15,
+        }
+    )
+
+    device = await service.create_device(cmd, actor_user_id=actor_id, actor_ip="127.0.0.1")
+
+    assert device.name == "Firewall Borda"
+    assert device.hostname == "fw-edge.local"
+    assert device.port == 0
+    assert device.protocol == "ICMP"
+    assert device.category == "FIREWALL"
+
+
+@pytest.mark.asyncio
+@patch(
+    "src.contexts.inventory.services.device_command_service.OutboxRepository.add_event",
+    new=mock_add_event,
+)
 async def test_create_device_invalid_interval():
     session = MockSession()
     repo = MockRepository()

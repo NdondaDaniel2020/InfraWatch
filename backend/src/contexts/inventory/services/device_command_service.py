@@ -60,16 +60,36 @@ class DeviceCommandService:
             raise ValueError("Interval must be at least 5 seconds")
 
         device_id = generate_uuid7()
+        thresholds_data = dict(cmd.thresholds or {})
+        if cmd.http_config:
+            thresholds_data["http_config"] = cmd.http_config.model_dump(exclude_none=True)
+        if cmd.tcp_config:
+            thresholds_data["tcp_config"] = cmd.tcp_config.model_dump(exclude_none=True)
+        if cmd.docker_config:
+            thresholds_data["docker_config"] = cmd.docker_config.model_dump(exclude_none=True)
+        if cmd.snmp_config:
+            thresholds_data["snmp_config"] = cmd.snmp_config.model_dump(exclude_none=True)
+        if cmd.description:
+            thresholds_data["description"] = cmd.description
+        if cmd.tags:
+            thresholds_data["tags"] = cmd.tags
+
+        # Porta inteligente: se omitida ou 0, para SNMP default é 161
+        resolved_port = cmd.port
+        if resolved_port == 0 and cmd.protocol.upper() == "SNMP":
+            resolved_port = 161
+
         device = Device(
             id=device_id,
             organization_id=org_id,
             name=cmd.name,
             ip_address=cmd.ip_address,
-            port=cmd.port,
+            port=resolved_port,
             protocol=cmd.protocol,
             category=cmd.category,
             interval_seconds=cmd.interval_seconds,
-            thresholds=cmd.thresholds,
+            thresholds=thresholds_data,
+            hostname=cmd.hostname,
         )
 
         event = DeviceCreated(
@@ -77,7 +97,7 @@ class DeviceCommandService:
             organization_id=org_id,
             name=cmd.name,
             ip_address=cmd.ip_address,
-            port=cmd.port,
+            port=resolved_port,
             protocol=cmd.protocol,
             category=cmd.category,
         )
@@ -118,13 +138,32 @@ class DeviceCommandService:
         if cmd.interval_seconds is not None and cmd.interval_seconds < 5:
             raise ValueError("Interval must be at least 5 seconds")
 
+        thresholds_data = None
+        if cmd.thresholds is not None or cmd.http_config or cmd.tcp_config or cmd.docker_config or cmd.snmp_config or cmd.description or cmd.tags:
+            thresholds_data = dict(device.thresholds or {})
+            if cmd.thresholds is not None:
+                thresholds_data.update(cmd.thresholds)
+            if cmd.http_config:
+                thresholds_data["http_config"] = cmd.http_config.model_dump(exclude_none=True)
+            if cmd.tcp_config:
+                thresholds_data["tcp_config"] = cmd.tcp_config.model_dump(exclude_none=True)
+            if cmd.docker_config:
+                thresholds_data["docker_config"] = cmd.docker_config.model_dump(exclude_none=True)
+            if cmd.snmp_config:
+                thresholds_data["snmp_config"] = cmd.snmp_config.model_dump(exclude_none=True)
+            if cmd.description is not None:
+                thresholds_data["description"] = cmd.description
+            if cmd.tags is not None:
+                thresholds_data["tags"] = cmd.tags
+
         device.update(
             name=cmd.name,
             ip_address=cmd.ip_address,
             port=cmd.port,
             protocol=cmd.protocol,
             interval_seconds=cmd.interval_seconds,
-            thresholds=cmd.thresholds,
+            thresholds=thresholds_data,
+            hostname=cmd.hostname,
         )
 
         event = DeviceUpdated(
