@@ -24,6 +24,7 @@ const protocolIcons: Record<ProberProtocol, string> = {
   TCP: "🔌",
   DOCKER: "🐳",
   HEARTBEAT: "💓",
+  SNMP: "📊",
 };
 
 const categoryOptions: { value: DeviceCategory; label: string }[] = [

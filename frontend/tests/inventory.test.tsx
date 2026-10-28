@@ -256,6 +256,34 @@ describe("Inventory Management — Issue #217", () => {
       expect(screen.getByLabelText(/endereço ip/i)).toHaveValue("192.168.10.1");
       expect((screen.getByLabelText(/intervalo de sondagem/i) as HTMLInputElement).value).toBeTruthy();
     });
+
+    it("deve permitir selecionar protocolo SNMP e configurar parâmetros v1, v2c e v3", async () => {
+      const user = userEvent.setup();
+
+      renderWithProviders(
+        <DeviceFormModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      );
+
+      // Clica na aba SNMP
+      const snmpTab = screen.getByRole("tab", { name: /snmp/i });
+      await user.click(snmpTab);
+
+      expect(screen.getByText(/monitoramento nativo via simple network management protocol/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/snmp community string/i)).toBeInTheDocument();
+
+      // Altera versão para v3
+      const versionSelect = screen.getByTestId("snmp-version-select");
+      await user.selectOptions(versionSelect, "v3");
+
+      expect(screen.getByLabelText(/usuário snmp v3/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/nível de segurança/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/protocolo de autenticação/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/protocolo de privacidade/i)).toBeInTheDocument();
+    });
   });
 
   describe("PauseDeviceModal — Comandos Operacionais", () => {
