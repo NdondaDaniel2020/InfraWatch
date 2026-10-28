@@ -25,6 +25,8 @@ from src.contexts.inventory.schemas.requests import (
     PauseDeviceRequest,
     ResumeDeviceRequest,
     SetMaintenanceRequest,
+    TestProbeRequest,
+    TestProbeResponse,
     UpdateDeviceRequest,
 )
 from src.core.web.dependencies import PaginationParamsDep
@@ -63,6 +65,55 @@ async def create_device(
     )
 
     return await query_service.get_device_detail(org_id, device.id)
+
+
+@router.post("/test-probe", response_model=TestProbeResponse)
+async def test_probe(
+    payload: TestProbeRequest,
+    user: CurrentUserDep,
+    _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
+):
+    """Executa sonda preliminar sob demanda para testar conectividade com o alvo."""
+    from uuid import uuid4
+    from src.workers.probers.executor import ProbeExecutor
+    from src.workers.scheduler.in_memory_inventory import ProbeTarget
+
+    resolved_port = payload.port
+    if resolved_port == 0 and payload.protocol.upper() == "SNMP":
+        resolved_port = 161
+
+    target = ProbeTarget(
+        device_id=uuid4(),
+        organization_id=UUID(user.organization_id) if user.organization_id else uuid4(),
+        name=f"Pre-Check-{payload.ip_address}",
+        ip_address=payload.ip_address,
+        port=resolved_port,
+        protocol=payload.protocol,
+        category="PRE_CHECK",
+        interval_seconds=60,
+    )
+
+    executor = ProbeExecutor(max_concurrent=10)
+    result = await executor.execute(target, timeout_ms=payload.timeout_ms)
+
+    success = result.status in ("UP", "DEGRADED")
+    if success:
+        message = (
+            f"Conexão validada com sucesso! RTT: {result.latency_ms:.2f}ms"
+            if result.latency_ms > 0
+            else f"Conexão validada com sucesso! Status: {result.status}"
+        )
+    else:
+        message = result.error_message or f"Falha na sondagem: {result.status}"
+
+    return TestProbeResponse(
+        status=result.status,
+        latency_ms=result.latency_ms,
+        packet_loss_pct=result.packet_loss_pct,
+        message=message,
+        success=success,
+        error_message=result.error_message,
+    )
 
 
 @router.get("/", response_model=PaginatedResponse[DeviceListItem])
