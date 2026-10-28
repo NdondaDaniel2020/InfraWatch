@@ -23,6 +23,7 @@ import { AuditLogsPage } from "../pages/audit/AuditLogsPage";
 import { AdminManagementPage } from "../pages/admin/AdminManagementPage";
 import { TopologyMapPage } from "../pages/topology/TopologyMapPage";
 import { BackupRecoveryPage } from "../pages/backup/BackupRecoveryPage";
+import { SystemSettingsPage } from "../pages/settings/SystemSettingsPage";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -174,6 +175,22 @@ export const AppRoutes: React.FC = () => {
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
                   <BackupRecoveryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                  <SystemSettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/system"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                  <SystemSettingsPage />
                 </ProtectedRoute>
               }
             />

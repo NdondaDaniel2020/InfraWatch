@@ -12,6 +12,7 @@ import {
   Server,
   ShieldAlert,
   ShieldCheck,
+  Sliders,
   Terminal,
   Users,
   Wrench,
@@ -90,6 +91,12 @@ export const NAV_ITEMS: NavItemConfig[] = [
     to: "/security",
     label: "Segurança & RBAC",
     icon: <ShieldAlert size={18} />,
+    allowedRoles: ["SUPER_ADMIN"],
+  },
+  {
+    to: "/settings",
+    label: "Configurações",
+    icon: <Sliders size={18} />,
     allowedRoles: ["SUPER_ADMIN"],
   },
   {
