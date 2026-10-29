@@ -47,7 +47,7 @@ help:
 	@echo "  make zabbix-down    - Encerra os containers do Zabbix Stack"
 	@echo "  make bootstrap-integrations - Sincroniza tokens de API e credenciais no GLPI e Zabbix"
 
-dev: container migrate
+dev: container migrate 
 	@echo "Iniciando Daemons de workers e aplicação FastAPI..."
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
 		(cd backend && $(RUN_PY) -m src.workers.daemons.probe_worker) & \
@@ -56,7 +56,10 @@ dev: container migrate
 		(cd backend && $(RUN_PY) -m src.workers.daemons.zabbix_sync_worker) & \
 		(cd backend && $(RUN_PY) -m src.workers.daemons.integration_worker) & \
 		sleep 1; \
-		(cd backend && $(RUN_PY) main.py)"
+		(cd backend && $(RUN_PY) main.py) & \
+		sleep 1; \
+		(cd frontend && npm run dev)"
+
 
 app:
 	cd backend && $(RUN_PY) main.py
