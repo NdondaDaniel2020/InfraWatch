@@ -66,6 +66,22 @@ describe("Obsidian Telemetry — Design System Components", () => {
         backgroundColor: "var(--color-primary)",
       });
     });
+
+    it("deve renderizar ícone e texto mantendo alinhamento horizontal na mesma linha", () => {
+      render(
+        <Button icon={<span data-testid="button-icon">Icon</span>}>
+          Validar Cadeia SHA-256
+        </Button>
+      );
+      const btn = screen.getByRole("button");
+      expect(btn).toHaveStyle({ display: "inline-flex", whiteSpace: "nowrap" });
+      expect(screen.getByTestId("button-icon")).toBeInTheDocument();
+      expect(screen.getByText("Validar Cadeia SHA-256")).toBeInTheDocument();
+      expect(screen.getByText("Validar Cadeia SHA-256").closest("span")).toHaveClass(
+        "inline-flex",
+        "items-center"
+      );
+    });
   });
 
   describe("Badge Component", () => {
