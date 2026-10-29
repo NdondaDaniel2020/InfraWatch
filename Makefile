@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore front-dev front-test front-build front-lint
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean certs certs-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore front-dev front-test front-build front-lint
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -36,6 +36,8 @@ help:
 	@echo "  make format         - Formata o código com uv run ruff format ou .venv"
 	@echo "  make secrets-init   - Inicializa arquivos locais em secrets/ para Docker Compose"
 	@echo "  make secrets-clean  - Remove arquivos de segredos locais de secrets/"
+	@echo "  make certs          - Gera certificados SSL autoassinados locais em certs/"
+	@echo "  make certs-clean    - Remove certificados SSL locais de certs/"
 	@echo "  make up             - Sobe os containers da infraestrutura com Docker Compose"
 	@echo "  make down           - Encerra os containers do Docker Compose"
 	@echo "  make status         - Exibe o status dos containers"
@@ -121,12 +123,18 @@ secrets-clean:
 	@rm -f secrets/*.txt
 	@echo "Segredos removidos."
 
+certs:
+	@./scripts/init-certs.sh
 
+certs-clean:
+	@echo "Removendo certificados SSL locais..."
+	@rm -f certs/*.pem certs/*.key certs/*.crt
+	@echo "Certificados removidos."
 
 build:
 	docker compose --profile whatsapp build
 
-up: secrets-init
+up: secrets-init certs
 	docker compose up -d
 
 down:
