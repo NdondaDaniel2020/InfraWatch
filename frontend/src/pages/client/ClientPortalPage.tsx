@@ -15,6 +15,7 @@ import {
 import { SlaKpiCards } from "../../components/client/SlaKpiCards";
 import { SanitizedServicesGrid } from "../../components/client/SanitizedServicesGrid";
 import { pdfExportService } from "../../services/pdfExportService";
+import { clientPortalApi } from "../../services/clientPortalApi";
 import { useAuth } from "../../context/AuthContext";
 
 export type PortalViewState = "nominal" | "skeleton" | "empty" | "error";
@@ -28,13 +29,42 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
 }) => {
   const { user } = useAuth();
   const [viewState, setViewState] = useState<PortalViewState>(initialViewState);
-  const [slaSummary] = useState<ClientSlaSummary>(() => ({
+  const [slaSummary, setSlaSummary] = useState<ClientSlaSummary>(() => ({
     ...MOCK_CLIENT_SLA_SUMMARY,
     tenantName: user?.organization_name || MOCK_CLIENT_SLA_SUMMARY.tenantName,
   }));
-  const [services] = useState<ClientServiceItem[]>(MOCK_CLIENT_SERVICES);
+  const [services, setServices] = useState<ClientServiceItem[]>(MOCK_CLIENT_SERVICES);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchPortalData = async () => {
+      try {
+        const [remoteSummary, remoteServices] = await Promise.all([
+          clientPortalApi.getSlaSummary(user?.organization_id),
+          clientPortalApi.getClientServices(user?.organization_id),
+        ]);
+        if (isMounted) {
+          if (remoteSummary) {
+            setSlaSummary({
+              ...remoteSummary,
+              tenantName: user?.organization_name || remoteSummary.tenantName,
+            });
+          }
+          if (remoteServices && remoteServices.length > 0) {
+            setServices(remoteServices);
+          }
+        }
+      } catch {
+        // Mantém fallback resiliente
+      }
+    };
+    fetchPortalData();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.organization_id, user?.organization_name]);
 
   const displayTenantName = user?.organization_name || slaSummary.tenantName;
   const tenantInitials = displayTenantName
