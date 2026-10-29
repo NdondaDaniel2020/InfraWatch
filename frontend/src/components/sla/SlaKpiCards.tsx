@@ -217,7 +217,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
               color: "var(--color-primary)",
             }}
           >
-            {Math.floor(overview.exemptedDowntimeMinutes / 60)}h {(overview.exemptedDowntimeMinutes % 60).toString().padStart(2, "0")}m
+            {Math.floor((overview?.exemptedDowntimeMinutes ?? 0) / 60)}h {String((overview?.exemptedDowntimeMinutes ?? 0) % 60).padStart(2, "0")}m
           </span>
           <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
             expurgadas do SLA

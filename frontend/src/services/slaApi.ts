@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient";
-import { mockMaintenanceWindows } from "../mocks/slaMocks";
+import { mockMaintenanceWindows, mockMaintenanceKpiSummary } from "../mocks/slaMocks";
 import type {
   MaintenanceWindow,
   CreateMaintenanceInput,
@@ -62,7 +62,15 @@ export const slaApi = {
   },
 
   async getMaintenanceKpiSummary(): Promise<MaintenanceKpiSummary> {
-    return apiClient.get<MaintenanceKpiSummary>(`${BASE_PATH_MAINT}/kpis`);
+    try {
+      const res = await apiClient.get<MaintenanceKpiSummary>(`${BASE_PATH_MAINT}/kpis`);
+      if (res && typeof res.exemptedHoursMonth === "number") {
+        return res;
+      }
+    } catch {
+      // Fallback resiliente
+    }
+    return mockMaintenanceKpiSummary;
   },
 
   async createMaintenanceWindow(

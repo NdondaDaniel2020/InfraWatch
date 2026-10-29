@@ -442,10 +442,10 @@ export const MaintenanceWindowsPage: React.FC = () => {
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
             <span style={{ fontSize: "1.75rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--color-text-primary)" }}>
-              {kpiSummary.exemptedHoursMonth.toString().padStart(2, "0")}h 00m
+              {String(kpiSummary?.exemptedHoursMonth ?? 0).padStart(2, "0")}h 00m
             </span>
             <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-              / {kpiSummary.contractualLimitHours}h teto contratual
+              / {kpiSummary?.contractualLimitHours ?? 0}h teto contratual
             </span>
           </div>
           <p style={{ fontSize: "0.6875rem", color: "var(--color-healthy)", display: "flex", alignItems: "center", gap: "4px" }}>
