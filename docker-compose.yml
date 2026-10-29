@@ -49,8 +49,9 @@ services:
       dockerfile: Dockerfile.api
     container_name: infrawatch-api
     restart: always
-    ports:
-      - "8000:8000"
+    # Porta 8000 removida da publicacao no host - acesso apenas via rede interna
+    # ports:
+    #   - "8000:8000"
     env_file:
       - ./backend/.env.production
     secrets:
@@ -97,7 +98,6 @@ services:
       PUT: 0
       BUILD: 0
       COMMIT: 0
-      CONFIGS: 0
       DISTRIBUTION: 0
       EXEC: 0
       IMAGES: 0
@@ -210,47 +210,6 @@ services:
     container_name: infrawatch-outbox-worker
     restart: always
     command: [ "python", "-m", "src.workers.daemons.outbox_relay_worker" ]
-    env_file:
-      - ./backend/.env.production
-    secrets:
-      - postgres_password
-      - redis_password
-      - secret_key
-      - refresh_secret_key
-      - oauth_state_secret
-      - mfa_pending_secret
-      - smtp_password
-      - google_client_id
-      - google_client_secret
-      - admin_email
-      - admin_password
-      - glpi_app_token
-      - glpi_user_token
-      - zabbix_api_url
-      - zabbix_api_token
-      - zabbix_password
-      - telegram_bot_token
-      - telegram_chat_id
-      - whatsapp_token
-      - whatsapp_gateway_url
-      - default_webhook_url
-      - prometheus_metrics_user
-      - prometheus_metrics_pass
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - infrawatch-net
-
-  infrawatch-cleanup-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
-    container_name: infrawatch-cleanup-worker
-    restart: always
-    command: [ "python", "-m", "src.workers.daemons.token_cleanup_worker" ]
     env_file:
       - ./backend/.env.production
     secrets:
@@ -406,6 +365,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+    volumes:
+      - frontend_dist:/usr/share/nginx/html
     networks:
       - infrawatch-net
 
@@ -415,15 +376,19 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - frontend_dist:/usr/share/nginx/html:ro
+      - certbot_acme:/var/www/certbot:ro
     depends_on:
       infrawatch-frontend:
         condition: service_healthy
       infrawatch-api:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:80/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- --no-check-certificate https://localhost/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -494,8 +459,11 @@ volumes:
     driver: local
   backup_data:
     driver: local
+  frontend_dist:
+    driver: local
+  certbot_acme:
+    driver: local
 
 networks:
   infrawatch-net:
     driver: bridge
-
