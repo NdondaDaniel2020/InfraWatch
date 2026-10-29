@@ -129,3 +129,64 @@ async def test_search_device(override_get_db):
         assert resp.status_code == status.HTTP_200_OK
         assert resp.json()["total"] == 1
         assert resp.json()["items"][0]["name"] == "Switch Luanda"
+
+
+@pytest.mark.asyncio
+async def test_create_device_with_camelcase_and_snmp_config(override_get_db):
+    org_id = str(uuid4())
+    token = generate_token("ORG_ADMIN", org_id)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # 1. Cadastro via camelCase com SNMP (port 0 resolvido para 161)
+        payload = {
+            "name": "BGP Edge Core",
+            "hostname": "bgp-core.isp.ao",
+            "ipAddress": "196.223.10.1",
+            "port": 0,
+            "protocol": "SNMP",
+            "category": "FIREWALL",
+            "intervalSeconds": 15,
+            "snmpConfig": {
+                "version": "v3",
+                "port": 161,
+                "username": "snmp_user",
+                "securityLevel": "authPriv",
+            },
+        }
+        resp = await client.post("/api/v1/devices/", json=payload, headers=headers)
+        assert resp.status_code == status.HTTP_201_CREATED
+        data = resp.json()
+        assert data["name"] == "BGP Edge Core"
+        assert data["hostname"] == "bgp-core.isp.ao"
+        assert data["ip_address"] == "196.223.10.1"
+        assert data["port"] == 161
+        assert data["category"] == "FIREWALL"
+        assert data["protocol"] == "SNMP"
+
+
+@pytest.mark.asyncio
+async def test_test_probe_endpoint(override_get_db):
+    org_id = str(uuid4())
+    token = generate_token("ORG_ADMIN", org_id)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # Sonda TCP local (porta fechada ou loopback)
+        payload = {
+            "ipAddress": "127.0.0.1",
+            "port": 65530,
+            "protocol": "TCP",
+            "timeoutMs": 1000,
+        }
+        resp = await client.post("/api/v1/devices/test-probe", json=payload, headers=headers)
+        assert resp.status_code == status.HTTP_200_OK
+        data = resp.json()
+        assert "status" in data
+        assert "success" in data
+        assert "latencyMs" in data
+        assert "message" in data

@@ -1,4 +1,4 @@
-export type ProberProtocol = "ICMP" | "HTTP" | "TCP" | "DOCKER" | "HEARTBEAT";
+export type ProberProtocol = "ICMP" | "HTTP" | "TCP" | "DOCKER" | "HEARTBEAT" | "SNMP";
 
 export type DeviceCategory = "ROUTER" | "SWITCH" | "FIREWALL" | "SERVER" | "DATABASE" | "LOAD_BALANCER" | "OTHER";
 
@@ -50,6 +50,19 @@ export interface DeviceDetail extends DeviceListItem {
   heartbeatConfig?: {
     expectedIntervalSeconds: number;
     gracePeriodSeconds: number;
+  };
+  snmpConfig?: {
+    version: "v1" | "v2c" | "v3";
+    port: number;
+    community?: string;
+    oid?: string;
+    securityLevel?: "noAuthNoPriv" | "authNoPriv" | "authPriv";
+    username?: string;
+    authProtocol?: "MD5" | "SHA" | "SHA256";
+    authPassword?: string;
+    privProtocol?: "DES" | "AES" | "AES128" | "AES256";
+    privPassword?: string;
+    timeoutSeconds: number;
   };
 }
 
@@ -103,6 +116,19 @@ export interface CreateDeviceRequest {
     expectedIntervalSeconds: number;
     gracePeriodSeconds: number;
   };
+  snmpConfig?: {
+    version: "v1" | "v2c" | "v3";
+    port: number;
+    community?: string;
+    oid?: string;
+    securityLevel?: "noAuthNoPriv" | "authNoPriv" | "authPriv";
+    username?: string;
+    authProtocol?: "MD5" | "SHA" | "SHA256";
+    authPassword?: string;
+    privProtocol?: "DES" | "AES" | "AES128" | "AES256";
+    privPassword?: string;
+    timeoutSeconds: number;
+  };
 }
 
 export interface UpdateDeviceRequest {
@@ -136,6 +162,19 @@ export interface UpdateDeviceRequest {
     expectedIntervalSeconds: number;
     gracePeriodSeconds: number;
   };
+  snmpConfig?: {
+    version: "v1" | "v2c" | "v3";
+    port: number;
+    community?: string;
+    oid?: string;
+    securityLevel?: "noAuthNoPriv" | "authNoPriv" | "authPriv";
+    username?: string;
+    authProtocol?: "MD5" | "SHA" | "SHA256";
+    authPassword?: string;
+    privProtocol?: "DES" | "AES" | "AES128" | "AES256";
+    privPassword?: string;
+    timeoutSeconds: number;
+  };
 }
 
 export interface PauseDeviceRequest {
@@ -158,4 +197,24 @@ export interface DeviceActionPayload {
   reason?: string;
   until?: string;
   title?: string;
+}
+
+export interface TestProbeRequest {
+  ipAddress: string;
+  port?: number;
+  protocol?: string;
+  timeoutMs?: number;
+  snmpConfig?: CreateDeviceRequest["snmpConfig"];
+  httpConfig?: CreateDeviceRequest["httpConfig"];
+  tcpConfig?: CreateDeviceRequest["tcpConfig"];
+  dockerConfig?: CreateDeviceRequest["dockerConfig"];
+}
+
+export interface TestProbeResponse {
+  status: "UP" | "DEGRADED" | "DOWN" | "TIMEOUT" | "ERROR";
+  latencyMs: number;
+  packetLossPct: number;
+  message: string;
+  success: boolean;
+  errorMessage?: string | null;
 }

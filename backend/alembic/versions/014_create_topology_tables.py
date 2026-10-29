@@ -16,7 +16,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "014_create_topology_tables"
-down_revision = "013_enable_timescaledb_hypertable"
+down_revision = "013_enable_timescaledb"
 branch_labels = None
 depends_on = None
 

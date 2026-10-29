@@ -68,16 +68,17 @@ class TestNetworkPort:
         assert int(port) == 443
 
     def test_porta_minima(self):
+        port = NetworkPort(0)
+        assert port.value == 0
+        assert int(port) == 0
+
+    def test_porta_um(self):
         port = NetworkPort(1)
         assert port.value == 1
 
     def test_porta_maxima(self):
         port = NetworkPort(65535)
         assert port.value == 65535
-
-    def test_porta_zero_rejeita(self):
-        with pytest.raises(ValueError, match="Porta de rede inválida"):
-            NetworkPort(0)
 
     def test_porta_negativa_rejeita(self):
         with pytest.raises(ValueError, match="Porta de rede inválida"):
@@ -133,6 +134,9 @@ class TestDeviceCategory:
         assert DeviceCategory("ROUTER") == DeviceCategory.ROUTER
         assert DeviceCategory("SWITCH") == DeviceCategory.SWITCH
         assert DeviceCategory("MICROWAVE_LINK") == DeviceCategory.MICROWAVE_LINK
+        assert DeviceCategory("FIREWALL") == DeviceCategory.FIREWALL
+        assert DeviceCategory("LOAD_BALANCER") == DeviceCategory.LOAD_BALANCER
+        assert DeviceCategory("OTHER") == DeviceCategory.OTHER
 
     def test_categoria_invalida_rejeita(self):
         with pytest.raises(ValueError):
@@ -173,7 +177,11 @@ class TestDeviceAggregate:
 
     def test_criacao_com_porta_invalida_rejeita(self):
         with pytest.raises(ValueError, match="Porta de rede inválida"):
-            self._make_device(port=0)
+            self._make_device(port=-1)
+
+    def test_criacao_com_porta_zero_permitida(self):
+        device = self._make_device(port=0, protocol="ICMP")
+        assert device.port == 0
 
     def test_criacao_com_categoria_invalida_rejeita(self):
         with pytest.raises(ValueError):

@@ -24,6 +24,7 @@ const protocolIcons: Record<ProberProtocol, string> = {
   TCP: "🔌",
   DOCKER: "🐳",
   HEARTBEAT: "💓",
+  SNMP: "📊",
 };
 
 const categoryOptions: { value: DeviceCategory; label: string }[] = [
@@ -283,7 +284,7 @@ export const DeviceListPage: React.FC = () => {
           icon={<Plus size={16} />}
           data-testid="new-device-button"
         >
-          + Novo Ativo
+          Novo Ativo
         </Button>
       </div>
 

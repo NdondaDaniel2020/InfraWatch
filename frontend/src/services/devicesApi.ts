@@ -7,6 +7,8 @@ import type {
   PauseDeviceRequest,
   ResumeDeviceRequest,
   SetMaintenanceRequest,
+  TestProbeRequest,
+  TestProbeResponse,
   DeviceFilters,
   PaginatedResponse,
 } from "../types/inventory";
@@ -72,5 +74,9 @@ export const devicesApi = {
 
   async setMaintenance(id: string, payload: SetMaintenanceRequest): Promise<DeviceDetail> {
     return apiClient.post<DeviceDetail>(`${BASE_PATH}/${id}/maintenance`, payload);
+  },
+
+  async testProbe(payload: TestProbeRequest): Promise<TestProbeResponse> {
+    return apiClient.post<TestProbeResponse>(`${BASE_PATH}/test-probe`, payload);
   },
 };

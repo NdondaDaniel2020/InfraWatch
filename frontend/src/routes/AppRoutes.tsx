@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../components/layout/AppLayout";
 import { GlobalErrorBoundary } from "../components/common/GlobalErrorBoundary";
 import { LoginPage, LoginTestPage } from "../pages/auth/LoginPage";
+import { DeviceFormPreviewPage } from "../pages/dev/DeviceFormPreviewPage";
 import { MfaChallengePage } from "../pages/auth/MfaChallengePage";
 import { GoogleCallbackPage } from "../pages/auth/GoogleCallbackPage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
@@ -23,6 +24,7 @@ import { AuditLogsPage } from "../pages/audit/AuditLogsPage";
 import { AdminManagementPage } from "../pages/admin/AdminManagementPage";
 import { TopologyMapPage } from "../pages/topology/TopologyMapPage";
 import { BackupRecoveryPage } from "../pages/backup/BackupRecoveryPage";
+import { SystemSettingsPage } from "../pages/settings/SystemSettingsPage";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -48,6 +50,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/login/mfa-challenge" element={<MfaChallengePage />} />
         <Route path="/login-test" element={<LoginTestPage />} />
         <Route path="/dev/login" element={<LoginTestPage />} />
+        <Route path="/dev/device-form" element={<DeviceFormPreviewPage />} />
         <Route path="/auth/callback" element={<GoogleCallbackPage />} />
         <Route path="/auth/callback/google" element={<GoogleCallbackPage />} />
         <Route path="/password-reset" element={<ForgotPasswordPage />} />
@@ -174,6 +177,22 @@ export const AppRoutes: React.FC = () => {
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
                   <BackupRecoveryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                  <SystemSettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/system"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                  <SystemSettingsPage />
                 </ProtectedRoute>
               }
             />

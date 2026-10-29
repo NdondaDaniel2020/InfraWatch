@@ -22,6 +22,7 @@ vi.mock("../src/services/devicesApi", () => ({
     resumeDevice: vi.fn(),
     setMaintenance: vi.fn(),
     createDevice: vi.fn(),
+    testProbe: vi.fn(),
   },
 }));
 
@@ -255,6 +256,73 @@ describe("Inventory Management — Issue #217", () => {
       expect(screen.getByLabelText(/hostname \/ fqdn/i)).toHaveValue("router-new.infrawatch.local");
       expect(screen.getByLabelText(/endereço ip/i)).toHaveValue("192.168.10.1");
       expect((screen.getByLabelText(/intervalo de sondagem/i) as HTMLInputElement).value).toBeTruthy();
+    });
+
+    it("deve permitir selecionar protocolo SNMP e configurar parâmetros v1, v2c e v3", async () => {
+      const user = userEvent.setup();
+
+      renderWithProviders(
+        <DeviceFormModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      );
+
+      // Clica na aba SNMP
+      const snmpTab = screen.getByRole("tab", { name: /snmp/i });
+      await user.click(snmpTab);
+
+      expect(screen.getByText(/monitoramento nativo via simple network management protocol/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/snmp community string/i)).toBeInTheDocument();
+
+      // Altera versão para v3
+      const versionSelect = screen.getByTestId("snmp-version-select");
+      await user.selectOptions(versionSelect, "v3");
+
+      expect(screen.getByLabelText(/usuário snmp v3/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/nível de segurança/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/protocolo de autenticação/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/protocolo de privacidade/i)).toBeInTheDocument();
+    });
+
+    it("deve disparar teste preliminar real via devicesApi.testProbe ao clicar em Testar Conexão", async () => {
+      const user = userEvent.setup();
+      (devicesApi.testProbe as Mock).mockResolvedValue({
+        status: "UP",
+        latencyMs: 1.84,
+        packetLossPct: 0,
+        message: "Conexão validada com sucesso! RTT: 1.84ms",
+        success: true,
+      });
+
+      renderWithProviders(
+        <DeviceFormModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      );
+
+      const ipInput = screen.getByLabelText(/endereço ip \/ hostname endpoint/i);
+      await user.clear(ipInput);
+      await user.type(ipInput, "192.168.10.50");
+
+      const testBtn = screen.getByRole("button", { name: /testar conexão/i });
+      await user.click(testBtn);
+
+      await waitFor(() => {
+        expect(devicesApi.testProbe).toHaveBeenCalledWith(
+          expect.objectContaining({
+            ipAddress: "192.168.10.50",
+            protocol: "ICMP",
+          })
+        );
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("test-conn-message")).toHaveTextContent(/1.84ms/i);
+      });
     });
   });
 
