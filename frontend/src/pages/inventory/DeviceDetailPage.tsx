@@ -348,6 +348,13 @@ export const DeviceDetailPage: React.FC = () => {
     enabled: !!id,
   });
 
+  const { data: interfaces = mockOpticalInterfaces } = useQuery({
+    queryKey: ["deviceInterfaces", id],
+    queryFn: () => deviceDetailApi.getDeviceInterfaces(id!),
+    enabled: !!id,
+    initialData: mockOpticalInterfaces,
+  });
+
   const probeMutation = useMutation({
     mutationFn: () => deviceDetailApi.triggerManualProbe(id!),
     onSuccess: (result) => {
@@ -703,7 +710,7 @@ export const DeviceDetailPage: React.FC = () => {
         </div>
       </div>
 
-      <DeviceInterfacesTable interfaces={mockOpticalInterfaces} />
+      <DeviceInterfacesTable interfaces={interfaces} />
     </main>
 
       <footer

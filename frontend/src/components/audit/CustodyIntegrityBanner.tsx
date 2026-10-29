@@ -156,11 +156,11 @@ export const CustodyIntegrityBanner: React.FC<CustodyIntegrityBannerProps> = ({
           onClick={onVerify}
           disabled={isLoading}
           variant="primary"
-          className="w-full sm:w-auto h-9 text-xs font-semibold gap-1.5"
+          icon={<RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />}
+          className="w-full sm:w-auto h-9 text-xs font-semibold gap-1.5 whitespace-nowrap"
           data-testid="verify-chain-banner-button"
         >
-          <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
-          <span>{isLoading ? "Validando..." : "Validar Cadeia SHA-256"}</span>
+          {isLoading ? "Validando..." : "Validar Cadeia SHA-256"}
         </Button>
       </div>
     </section>

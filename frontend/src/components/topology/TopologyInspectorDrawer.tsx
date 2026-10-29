@@ -224,7 +224,7 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
             {/* Detalhe da Porta Inspecionada */}
             <div className="mt-2.5 p-2 rounded bg-obsidian-950 border border-obsidian-800 text-[10px] font-mono tabular-nums text-slate-300">
               <div className="flex justify-between text-slate-400">
-                <span>Porta {selectedPort.id.toString().padStart(2, "0")} Selecionada:</span>
+                <span>Porta {String(selectedPort.id ?? "").padStart(2, "0")} Selecionada:</span>
                 <span
                   className={`font-bold ${
                     selectedPort.status === "UP"

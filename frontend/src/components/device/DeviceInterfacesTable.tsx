@@ -83,9 +83,9 @@ export const DeviceInterfacesTable: React.FC<DeviceInterfacesTableProps> = ({
 
   const filteredInterfaces = interfaces.filter(
     (i) =>
-      i.portName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.portNumber.toString().includes(searchTerm)
+      (i.portName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(i.portNumber ?? "").includes(searchTerm)
   );
 
   const handlePortClick = (port: OpticalInterfaceItem) => {

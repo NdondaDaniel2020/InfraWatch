@@ -7,8 +7,10 @@ interface MaintenanceGanttTimelineProps {
 }
 
 export const MaintenanceGanttTimeline: React.FC<MaintenanceGanttTimelineProps> = ({
-  maintenances,
+  maintenances = [],
 }) => {
+  const safeMaintenances = Array.isArray(maintenances) ? maintenances : [];
+
   const hours = [
     "00h", "02h", "04h", "06h", "08h", "10h",
     "12h", "14h", "16h", "18h", "20h", "22h",
@@ -16,7 +18,7 @@ export const MaintenanceGanttTimeline: React.FC<MaintenanceGanttTimelineProps> =
 
   // Ativos únicos envolvidos nas manutenções
   const trackDevices = Array.from(
-    new Set(maintenances.flatMap((m) => m.targetDeviceNames))
+    new Set(safeMaintenances.flatMap((m) => m?.targetDeviceNames || []))
   );
 
   return (
@@ -89,8 +91,8 @@ export const MaintenanceGanttTimeline: React.FC<MaintenanceGanttTimelineProps> =
           </div>
         ) : (
           trackDevices.map((device) => {
-            const relatedMaints = maintenances.filter((m) =>
-              m.targetDeviceNames.includes(device)
+            const relatedMaints = safeMaintenances.filter((m) =>
+              m?.targetDeviceNames?.includes(device)
             );
 
             return (
