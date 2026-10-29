@@ -109,3 +109,9 @@ coverage
 
 # Design Mockups & Stitch Assets
 /telas_mockups/
+
+# SSL/TLS Certificates
+certs/*.pem
+certs/*.key
+certs/*.crt
+!certs/.gitkeep

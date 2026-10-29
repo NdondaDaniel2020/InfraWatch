@@ -14,9 +14,9 @@ mkdir -p "${CERTS_DIR}"
 
 # Verificacao idempotente: se certificados validos ja existirem, nao sobrescrever
 if [[ -f "${CERTS_DIR}/fullchain.pem" && -f "${CERTS_DIR}/privkey.pem" ]]; then
-    if openssl x509 -in "${CERTS_DIR}/fullchain.pem" -noout -dates -subject 2>/dev/null | grep -q "not after"; then
+    if openssl x509 -in "${CERTS_DIR}/fullchain.pem" -noout -dates -subject 2>/dev/null | grep -qi "notafter"; then
         echo "[.] Certificados SSL ja existem e sao validos em ${CERTS_DIR}"
-        echo "[.] Para regenerar, execute: make certs-clean && ./scripts/init-certs.sh"
+        echo "[.] Para regenerar, execute: make certs-clean && make certs"
         exit 0
     fi
 fi

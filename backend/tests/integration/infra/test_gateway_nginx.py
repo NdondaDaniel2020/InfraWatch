@@ -1,5 +1,6 @@
-"""Testes de validação da infraestrutura do Gateway Nginx e Docker Compose (Issue #219)."""
+"""Testes de validação da infraestrutura do Gateway Nginx, TLS HTTPS e Docker Compose (Issue #270)."""
 
+import os
 from pathlib import Path
 import yaml
 
@@ -19,15 +20,41 @@ def test_gateway_nginx_configuration_file_exists():
     assert len(content) > 100, "O arquivo nginx/nginx.conf não deve estar vazio."
 
 
-def test_gateway_nginx_upstreams():
-    """Garante que os upstreams para a API FastAPI e o container do Frontend estão definidos."""
+def test_gateway_nginx_api_upstream():
+    """Garante que o upstream para a API FastAPI está definido."""
     root = get_project_root()
     content = (root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
 
     assert "upstream infrawatch_api" in content
     assert "server infrawatch-api:8000;" in content
-    assert "upstream infrawatch_frontend" in content
-    assert "server infrawatch-frontend:80;" in content
+
+
+def test_gateway_nginx_tls_termination_and_redirect():
+    """Valida terminação TLS/HTTPS na porta 443, protocolos modernos e redirecionamento 301 na porta 80."""
+    root = get_project_root()
+    content = (root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
+
+    # Bloco HTTPS na porta 443
+    assert "listen 443 ssl" in content or "443 ssl http2" in content
+    assert "ssl_certificate /etc/nginx/certs/fullchain.pem;" in content
+    assert "ssl_certificate_key /etc/nginx/certs/privkey.pem;" in content
+    assert "TLSv1.2 TLSv1.3" in content
+    assert "Strict-Transport-Security" in content
+
+    # Bloco HTTP na porta 80 com redirecionamento 301 e rota ACME
+    assert "return 301 https://$host$request_uri;" in content
+    assert "location /.well-known/acme-challenge/" in content
+    assert "/var/www/certbot" in content
+
+
+def test_gateway_nginx_direct_spa_serving():
+    """Valida se o Gateway entrega diretamente os arquivos estáticos da SPA com fallback e cache longo."""
+    root = get_project_root()
+    content = (root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
+
+    assert "root /usr/share/nginx/html;" in content
+    assert "try_files $uri $uri/ /index.html;" in content
+    assert "location ~* \\.(?:css|js|woff2?|eot|ttf|otf|png|jpg|jpeg|gif|ico|svg)$" in content
 
 
 def test_gateway_nginx_sse_streaming_directives():
@@ -35,7 +62,6 @@ def test_gateway_nginx_sse_streaming_directives():
     root = get_project_root()
     content = (root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
 
-    # Bloco regex ou correspondência para rotas SSE
     assert "events/stream" in content
     assert "proxy_buffering off;" in content
     assert "proxy_cache off;" in content
@@ -53,35 +79,21 @@ def test_gateway_nginx_healthcheck_endpoint():
     assert "return 200" in content
 
 
-def test_frontend_spa_fallback_configuration():
-    """Valida se o servidor Nginx estático do frontend tem fallback SPA configurado."""
+def test_init_certs_script():
+    """Valida se o script de geração de certificados autoassinados existe, é executável e possui SAN."""
     root = get_project_root()
-    frontend_conf = root / "frontend" / "nginx.conf"
+    script = root / "scripts" / "init-certs.sh"
 
-    assert frontend_conf.exists(), "O arquivo frontend/nginx.conf deve existir."
-    content = frontend_conf.read_text(encoding="utf-8")
-
-    assert "try_files $uri $uri/ /index.html;" in content
-    assert "location = /healthz" in content
-
-
-def test_frontend_dockerfile_multi_stage():
-    """Valida se o Dockerfile do frontend implementa multi-stage build com Node e Nginx."""
-    root = get_project_root()
-    dockerfile = root / "frontend" / "Dockerfile"
-
-    assert dockerfile.exists(), "frontend/Dockerfile deve existir."
-    content = dockerfile.read_text(encoding="utf-8")
-
-    assert "FROM node:20-alpine AS builder" in content
-    assert "npm run build" in content
-    assert "FROM nginx:1.27-alpine" in content
-    assert "COPY --from=builder /app/dist /usr/share/nginx/html" in content
-    assert "HEALTHCHECK" in content
+    assert script.exists(), "scripts/init-certs.sh deve existir."
+    assert os.access(script, os.X_OK), "scripts/init-certs.sh deve ter permissão de execução."
+    content = script.read_text(encoding="utf-8")
+    assert "subjectAltName=DNS:localhost,IP:127.0.0.1" in content
+    assert "fullchain.pem" in content
+    assert "privkey.pem" in content
 
 
 def test_docker_compose_services():
-    """Valida se infrawatch-frontend e infrawatch-gateway estão integrados ao docker-compose.yml."""
+    """Valida se infrawatch-gateway, infrawatch-frontend e daemons de workers estão integrados no Compose com hardening de rede."""
     root = get_project_root()
     compose_path = root / "docker-compose.yml"
 
@@ -92,11 +104,34 @@ def test_docker_compose_services():
     services = data.get("services", {})
     assert "infrawatch-frontend" in services
     assert "infrawatch-gateway" in services
+    assert "infrawatch-api" in services
+    assert "infrawatch-cleanup-worker" in services, "infrawatch-cleanup-worker deve estar presente no compose."
 
     gateway = services["infrawatch-gateway"]
-    assert "80:80" in gateway.get("ports", [])
+    ports = gateway.get("ports", [])
+    assert "80:80" in ports
+    assert "443:443" in ports
     assert "infrawatch-net" in gateway.get("networks", [])
 
-    frontend = services["infrawatch-frontend"]
-    assert "infrawatch-net" in frontend.get("networks", [])
-    assert frontend.get("healthcheck") is not None
+    # Valida isolamento de rede da API FastAPI (sem porta pública mapeada no host)
+    api = services["infrawatch-api"]
+    api_ports = api.get("ports", [])
+    assert "8000:8000" not in api_ports, "A porta 8000 da API não deve estar exposta publicamente no host."
+
+    # Valida volumes essenciais
+    volumes = data.get("volumes", {})
+    assert "frontend_dist" in volumes
+    assert "certbot_acme" in volumes
+
+
+def test_makefile_up_depends_on_certs():
+    """Valida se o Makefile possui target certs e se o target up depende de secrets-init e certs."""
+    root = get_project_root()
+    makefile = root / "Makefile"
+
+    assert makefile.exists(), "Makefile deve existir."
+    content = makefile.read_text(encoding="utf-8")
+
+    assert "certs:" in content
+    assert "certs-clean:" in content
+    assert "up: secrets-init certs" in content

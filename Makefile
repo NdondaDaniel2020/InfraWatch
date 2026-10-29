@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore front-dev front-test front-build front-lint
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean certs certs-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore front-dev front-test front-build front-lint
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -36,6 +36,8 @@ help:
 	@echo "  make format         - Formata o código com uv run ruff format ou .venv"
 	@echo "  make secrets-init   - Inicializa arquivos locais em secrets/ para Docker Compose"
 	@echo "  make secrets-clean  - Remove arquivos de segredos locais de secrets/"
+	@echo "  make certs          - Gera certificados SSL autoassinados locais em certs/"
+	@echo "  make certs-clean    - Remove certificados SSL locais de certs/"
 	@echo "  make up             - Sobe os containers da infraestrutura com Docker Compose"
 	@echo "  make down           - Encerra os containers do Docker Compose"
 	@echo "  make status         - Exibe o status dos containers"
@@ -47,6 +49,9 @@ help:
 	@echo "  make zabbix-down    - Encerra os containers do Zabbix Stack"
 	@echo "  make bootstrap-integrations - Sincroniza tokens de API e credenciais no GLPI e Zabbix"
 
+# -----------------------------------------------------------------------------
+# Execução Local & Daemons de Monitoramento
+# -----------------------------------------------------------------------------
 dev: container migrate 
 	@echo "Iniciando Daemons de workers e aplicação FastAPI..."
 	@bash -c "trap 'kill 0' SIGINT SIGTERM EXIT; \
@@ -100,8 +105,9 @@ workers:
 		(cd backend && $(RUN_PY) -m src.workers.daemons.integration_worker) & \
 		wait"
 
-
-
+# -----------------------------------------------------------------------------
+# Testes Automatizados, Linting & Qualidade de Código
+# -----------------------------------------------------------------------------
 test:
 	cd backend && $(RUN_PYTEST) tests -v
 
@@ -111,8 +117,9 @@ lint:
 format:
 	cd backend && $(RUN_RUFF) check --fix . && $(RUN_RUFF) format .
 
-
-
+# -----------------------------------------------------------------------------
+# Segredos Docker & Certificados SSL/TLS (Issue #270)
+# -----------------------------------------------------------------------------
 secrets-init:
 	@./scripts/init-secrets.sh
 
@@ -121,12 +128,21 @@ secrets-clean:
 	@rm -f secrets/*.txt
 	@echo "Segredos removidos."
 
+certs:
+	@./scripts/init-certs.sh
 
+certs-clean:
+	@echo "Removendo certificados SSL locais..."
+	@rm -f certs/*.pem certs/*.key certs/*.crt
+	@echo "Certificados removidos."
 
+# -----------------------------------------------------------------------------
+# Orquestração da Infraestrutura (Docker Compose)
+# -----------------------------------------------------------------------------
 build:
 	docker compose --profile whatsapp build
 
-up: secrets-init
+up: secrets-init certs
 	docker compose up -d
 
 down:
@@ -140,6 +156,9 @@ status:
 whatsapp-up: secrets-init
 	docker compose --profile whatsapp up -d infrawatch-whatsapp-gateway
 
+# -----------------------------------------------------------------------------
+# Containers Isolados de Suporte ao Desenvolvimento Local
+# -----------------------------------------------------------------------------
 container: secrets-init
 	@echo "Starting Redis container..."
 	@REDIS_PASS=$$(cat secrets/redis_password.txt 2>/dev/null || echo "redis_secure_password_2026"); \
@@ -183,8 +202,9 @@ container-stop:
 	@docker stop infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
 	@docker rm infrawatch-redis infrawatch-postgres infrawatch-whatsapp-gateway 2>/dev/null || true
 
-
-
+# -----------------------------------------------------------------------------
+# Integrações Corporativas de Teste (GLPI & Zabbix)
+# -----------------------------------------------------------------------------
 glpi-up: secrets-init
 	docker compose -f test-monitoramento/docker-compose.glpi.yml up -d
 	@./scripts/bootstrap_integrations.sh glpi
@@ -214,16 +234,15 @@ test-notif:
 	@echo "Executando teste de notifications..."
 	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)
 
-
-
 integration-up: glpi-up zabbix-up bootstrap-integrations
 
 integration-down: glpi-down zabbix-down
 
 integration-test: test-glpi test-zabbix test-notif
 
-
-
+# -----------------------------------------------------------------------------
+# Topologia de Rede & Simulação com Containerlab
+# -----------------------------------------------------------------------------
 CLAB_CMD := docker run --rm --privileged --network host --pid host -v /var/run/docker.sock:/var/run/docker.sock -v /etc/hosts:/etc/hosts -v $$(pwd):$$(pwd) -w $$(pwd)/test-monitoramento ghcr.io/srl-labs/clab:latest /usr/bin/containerlab
 
 clab-deploy:
@@ -240,10 +259,7 @@ clab-inspect:
 clab-graph:
 	@$(CLAB_CMD) graph -t lab-infrawatch.clab.yml
 
-
-
 monitoring-test-up: clab-deploy integration-up up
-
 
 monitoring-test-down: clab-destroy integration-down down
 
