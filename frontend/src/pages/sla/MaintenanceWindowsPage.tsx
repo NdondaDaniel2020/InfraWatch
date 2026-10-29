@@ -104,9 +104,13 @@ export const MaintenanceWindowsPage: React.FC = () => {
     [createMutation]
   );
 
-  // Filtros aplicados em memória
+  // Filtros aplicados em memória (blindado contra dados nulos, undefined ou objetos)
+  const safeMaintenances = useMemo(() => {
+    return Array.isArray(maintenances) ? maintenances : [];
+  }, [maintenances]);
+
   const filteredMaintenances = useMemo(() => {
-    return maintenances.filter((m) => {
+    return safeMaintenances.filter((m) => {
       if (activeTab !== "ALL" && m.status !== activeTab) return false;
       if (selectedClient !== "all") {
         const matchesClient = m.clientName
@@ -125,7 +129,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
       }
       return true;
     });
-  }, [maintenances, activeTab, selectedClient, searchQuery]);
+  }, [safeMaintenances, activeTab, selectedClient, searchQuery]);
 
   // Decisão de renderização do estado
   const currentState = isLoading
@@ -478,21 +482,21 @@ export const MaintenanceWindowsPage: React.FC = () => {
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
             {(
               [
-                { id: "ALL", label: "Todas as Janelas", count: maintenances.length },
+                { id: "ALL", label: "Todas as Janelas", count: safeMaintenances.length },
                 {
                   id: "APPROVED",
                   label: "Agendadas",
-                  count: maintenances.filter((m) => m.status === "APPROVED").length,
+                  count: safeMaintenances.filter((m) => m.status === "APPROVED").length,
                 },
                 {
                   id: "PENDING_APPROVAL",
                   label: "Pendentes",
-                  count: maintenances.filter((m) => m.status === "PENDING_APPROVAL").length,
+                  count: safeMaintenances.filter((m) => m.status === "PENDING_APPROVAL").length,
                 },
                 {
                   id: "COMPLETED",
                   label: "Concluídas",
-                  count: maintenances.filter((m) => m.status === "COMPLETED").length,
+                  count: safeMaintenances.filter((m) => m.status === "COMPLETED").length,
                 },
               ] as const
             ).map((tab) => (
