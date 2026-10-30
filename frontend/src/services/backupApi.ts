@@ -5,13 +5,14 @@ import {
   BackupTriggerRequest,
   BackupTriggerResponse,
 } from "../types/backup";
+import { resolveApiUrl } from "../utils/env";
 import {
   mockBackupHistoryItems,
   mockBackupMetrics,
   mockSseProgressSequence,
 } from "../mocks/backupMocks";
 
-const BASE_URL = "/api/v1/system/backup";
+const BASE_URL = resolveApiUrl("/api/v1/system/backup");
 
 export const backupApi = {
   /**
