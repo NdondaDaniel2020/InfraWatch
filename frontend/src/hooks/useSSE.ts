@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ENV } from "../utils/env";
 import type {
   SSEConnectionStatus,
   SSEEventPayload,
@@ -6,7 +7,7 @@ import type {
   UseSSEReturn,
 } from "../types/sse";
 
-const DEFAULT_URL = "/api/v1/events/stream";
+const DEFAULT_URL = ENV.SSE_STREAM_URL;
 const DEFAULT_INITIAL_BACKOFF = 1000; // 1s
 const DEFAULT_MAX_BACKOFF = 16000; // 16s
 const DEFAULT_BACKOFF_MULTIPLIER = 2;
