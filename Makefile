@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean certs certs-clean whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore front-dev front-test front-build front-lint
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean certs certs-clean gateway-reload whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore front-dev front-test front-build front-lint
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -38,6 +38,7 @@ help:
 	@echo "  make secrets-clean  - Remove arquivos de segredos locais de secrets/"
 	@echo "  make certs          - Gera certificados SSL autoassinados locais em certs/"
 	@echo "  make certs-clean    - Remove certificados SSL locais de certs/"
+	@echo "  make gateway-reload - Recarrega certificados e configurações no Nginx Gateway"
 	@echo "  make up             - Sobe os containers da infraestrutura com Docker Compose"
 	@echo "  make down           - Encerra os containers do Docker Compose"
 	@echo "  make status         - Exibe o status dos containers"
@@ -135,6 +136,11 @@ certs-clean:
 	@echo "Removendo certificados SSL locais..."
 	@rm -f certs/*.pem certs/*.key certs/*.crt
 	@echo "Certificados removidos."
+
+gateway-reload:
+	@echo "Recarregando certificados e configurações do Nginx Gateway..."
+	@docker compose exec infrawatch-gateway nginx -s reload
+	@echo "Gateway Nginx recarregado com sucesso."
 
 # -----------------------------------------------------------------------------
 # Orquestração da Infraestrutura (Docker Compose)
