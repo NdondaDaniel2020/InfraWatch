@@ -1,12 +1,12 @@
-# 🔐 Gestão de Certificados SSL/TLS e Arquitetura 3-Tier (Issue #270)
+# 🔐 Gestão de Certificados SSL/TLS e Arquitetura de Borda (Issue #270)
 
-Este documento descreve a arquitetura de segurança de borda, o desacoplamento em 3 camadas (Gateway Nginx, Frontend e Backend API) inspirado no padrão **BidLive** (42 Luanda) e o procedimento facilitado para gestão e troca de certificados TLS/HTTPS.
+Este documento descreve a arquitetura de segurança de borda, o modelo de **Ponto Único de Entrada** (*Single Nginx Gateway*) e o procedimento facilitado para gestão e troca de certificados TLS/HTTPS com o domínio **`infrawatch.42.fr`**.
 
 ---
 
-## 🏛️ Arquitetura Desacoplada 3-Tier
+## 🏛️ Arquitetura de Borda (Eliminação do Two-Tier Nginx)
 
-O InfraWatch adota uma separação estrita de responsabilidades entre serviços de rede:
+O InfraWatch elimina qualquer redundância de *Nginx atrás de Nginx*, centralizando a entrega de tráfego em um único Gateway de alta performance:
 
 ```
 [ Cliente / Browser ]
@@ -18,21 +18,20 @@ O InfraWatch adota uma separação estrita de responsabilidades entre serviços 
                                            │
                     ┌──────────────────────┴──────────────────────┐
                     ▼                                             ▼
-        [ infrawatch-frontend:80 ]                    [ infrawatch-api:8000 ]
-        (SPA React / Vite / Nginx)                    (FastAPI REST & Streaming SSE)
+        [ Volume frontend_dist ]                      [ infrawatch-api:8000 ]
+        (SPA Estática Vite via sendfile)              (FastAPI REST & Streaming SSE)
 ```
 
-1. **`infrawatch-gateway`**:
+1. **`infrawatch-gateway` (Único Nginx do Cluster)**:
    - Ponto único de entrada pública (portas `80:80` e `443:443`).
    - Terminação SSL com TLS 1.2/1.3, HSTS e cifras seguras ECDHE.
-   - Proxy reverso dinâmico com streaming SSE sem buffering para a API.
-   - Proxy reverso para o container do frontend.
-2. **`infrawatch-frontend`**:
-   - Container Nginx independente servindo a Single Page Application (SPA).
-   - Isolado na rede interna `infrawatch-net` (porta 80).
-   - Não depende de montagem compartilhada de volumes no host para servir o app.
-3. **`infrawatch-api`**:
-   - Aplicação FastAPI / Python operando estritamente na rede interna (porta 8000).
+   - Entrega direta de arquivos estáticos da SPA (`/usr/share/nginx/html`) com fallback do React Router (`try_files $uri $uri/ /index.html`) e cache imutável para assets Vite com hash via *kernel zero-copy* (`sendfile`).
+   - Proxy reverso com streaming SSE sem buffering para a API FastAPI.
+2. **`infrawatch-frontend` (Build & Volume Exporter)**:
+   - Container leve Alpine responsável por compilar a SPA (`npm run build`) e sincronizar os artefatos no volume compartilhado `frontend_dist`.
+   - **Não executa daemon Nginx nem servidor HTTP**, economizando memória RAM e eliminando duplicações de cabeçalhos.
+3. **`infrawatch-api` (Backend FastAPI)**:
+   - Aplicação FastAPI / Python operando estritamente na rede interna `infrawatch-net` (porta 8000).
    - Protegida contra acessos diretos do host.
 
 ---
@@ -65,7 +64,7 @@ Os arquivos são gerados no diretório seguro `./certs/`:
 
 ---
 
-## 🔄 Troca Facilitada de Certificados (Plug-and-Play)
+## 🔄 Troca Facilitada de Certificados (Zero Downtime)
 
 Para utilizar certificados corporativos válidos emitidos por uma Autoridade Certificadora (CA) pública ou Let's Encrypt:
 
@@ -77,7 +76,7 @@ Para utilizar certificados corporativos válidos emitidos por uma Autoridade Cer
    chmod 600 certs/privkey.pem
    ```
 
-2. **Recarregar o Nginx em Tempo Real (Zero Downtime)**:
+2. **Recarregar o Nginx em Tempo Real**:
    Sem reiniciar os containers e sem rebuild de imagem, execute:
    ```bash
    make gateway-reload

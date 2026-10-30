@@ -30,16 +30,6 @@ def test_gateway_nginx_api_upstream():
     assert "server infrawatch-api:8000;" in content
 
 
-def test_gateway_nginx_frontend_upstream():
-    """Garante que o upstream para o container frontend está desacoplado (padrão BidLive)."""
-    root = get_project_root()
-    content = (root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
-
-    assert "upstream infrawatch_frontend" in content
-    assert "server infrawatch-frontend:80;" in content
-    assert "proxy_pass http://infrawatch_frontend;" in content
-
-
 def test_gateway_nginx_tls_termination_and_redirect():
     """Valida terminação TLS/HTTPS na porta 443, domínio infrawatch.42.fr e redirecionamento 301 na porta 80."""
     root = get_project_root()
@@ -59,6 +49,16 @@ def test_gateway_nginx_tls_termination_and_redirect():
     assert "return 301 https://$host$request_uri;" in content
     assert "location /.well-known/acme-challenge/" in content
     assert "/var/www/certbot" in content
+
+
+def test_gateway_nginx_direct_spa_serving():
+    """Valida se o Gateway entrega diretamente os arquivos estáticos da SPA com fallback e cache longo (Issue #270)."""
+    root = get_project_root()
+    content = (root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
+
+    assert "root /usr/share/nginx/html;" in content
+    assert "try_files $uri $uri/ /index.html;" in content
+    assert "location ~* \\.(?:css|js|woff2?|eot|ttf|otf|png|jpg|jpeg|gif|ico|svg)$" in content
 
 
 def test_gateway_nginx_sse_streaming_directives():
@@ -129,6 +129,7 @@ def test_docker_compose_services():
 
     # Valida volumes essenciais
     volumes = data.get("volumes", {})
+    assert "frontend_dist" in volumes
     assert "certbot_acme" in volumes
 
 

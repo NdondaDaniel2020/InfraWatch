@@ -14,27 +14,23 @@ COPY . .
 RUN npm run build
 
 # ==============================================================================
-# Estágio 2: Runtime (Servidor Nginx ultraleve de produção desacoplado)
+# Estágio 2: Exporter (Exporta artefatos estáticos para o volume compartilhado)
 # ==============================================================================
-FROM nginx:1.27-alpine
+FROM alpine:3.20 AS exporter
 
 LABEL maintainer="InfraWatch Core Team <dev@infrawatch.io>"
 
-# Remove configuração padrão do Nginx
-RUN rm -rf /etc/nginx/conf.d/default.conf /usr/share/nginx/html/*
+WORKDIR /app
 
-# Copia os artefatos estáticos compilados diretamente do builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copia os artefatos compilados do estágio builder
+COPY --from=builder /app/dist /app/dist
 
-# Copia a configuração SPA e healthcheck
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copia script de sincronização e retenção do volume
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Expõe a porta 80 interna
-EXPOSE 80
+# Verificação de integridade: checa se os arquivos foram exportados para o volume
+HEALTHCHECK --interval=5s --timeout=3s --retries=3 --start-period=2s \
+    CMD test -f /usr/share/nginx/html/index.html || exit 1
 
-# Verificação de integridade nativa do container
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s \
-    CMD wget -qO- http://127.0.0.1:80/healthz || exit 1
-
-# Inicia o Nginx em primeiro plano
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/entrypoint.sh"]
