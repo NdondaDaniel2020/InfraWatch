@@ -14,41 +14,23 @@ COPY . .
 RUN npm run build
 
 # ==============================================================================
-# Estágio 2: Exporter (Exporta artefatos para volume compartilhado)
+# Estágio 2: Exporter (Exporta artefatos da SPA para volume compartilhado)
 # ==============================================================================
-FROM alpine:3.20 AS exporter
+FROM alpine:3.20
+
+LABEL maintainer="InfraWatch Core Team <dev@infrawatch.io>"
 
 WORKDIR /app
 
 # Copia os artefatos compilados do estágio builder
 COPY --from=builder /app/dist /app/dist
 
-# Verifica se o volume montado está disponível; se não, usa o diretório local
-# Este estágio apenas prepara os arquivos para serem montados via volume
-RUN ls /usr/share/nginx/html 2>/dev/null && echo "volume disponivel" || echo "usando local"
+# Copia o script de entrypoint para sincronização com o volume
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# ==============================================================================
-# Estágio 3: Runtime (Servidor Nginx ultraleve apenas para produção)
-# ==============================================================================
-FROM nginx:1.27-alpine
+# Verificação de integridade nativa do container: valida presença do index.html no volume
+HEALTHCHECK --interval=5s --timeout=3s --retries=3 --start-period=2s \
+    CMD test -f /usr/share/nginx/html/index.html || exit 1
 
-LABEL maintainer="InfraWatch Core Team <dev@infrawatch.io>"
-
-# Remove configuração padrão do Nginx
-RUN rm -rf /etc/nginx/conf.d/default.conf /usr/share/nginx/html/*
-
-# Copia apenas os artefatos estáticos compilados (injeção via volume no compose)
-COPY --from=exporter /app/dist /usr/share/nginx/html
-
-# Copia a configuração SPA e healthcheck
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Expõe a porta 80 interna
-EXPOSE 80
-
-# Verificação de integridade nativa do container
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s \
-    CMD wget -qO- http://127.0.0.1:80/healthz || exit 1
-
-# Inicia o Nginx em primeiro plano
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
