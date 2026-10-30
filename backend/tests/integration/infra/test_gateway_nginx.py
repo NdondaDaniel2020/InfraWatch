@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+
 import yaml
 
 
@@ -105,7 +106,9 @@ def test_docker_compose_services():
     assert "infrawatch-frontend" in services
     assert "infrawatch-gateway" in services
     assert "infrawatch-api" in services
-    assert "infrawatch-cleanup-worker" in services, "infrawatch-cleanup-worker deve estar presente no compose."
+    assert "infrawatch-cleanup-worker" in services, (
+        "infrawatch-cleanup-worker deve estar presente no compose."
+    )
 
     gateway = services["infrawatch-gateway"]
     ports = gateway.get("ports", [])
@@ -116,7 +119,9 @@ def test_docker_compose_services():
     # Valida isolamento de rede da API FastAPI (sem porta pública mapeada no host)
     api = services["infrawatch-api"]
     api_ports = api.get("ports", [])
-    assert "8000:8000" not in api_ports, "A porta 8000 da API não deve estar exposta publicamente no host."
+    assert "8000:8000" not in api_ports, (
+        "A porta 8000 da API não deve estar exposta publicamente no host."
+    )
 
     # Valida volumes essenciais
     volumes = data.get("volumes", {})

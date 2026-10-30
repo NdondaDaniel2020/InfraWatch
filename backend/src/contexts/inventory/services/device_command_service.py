@@ -139,7 +139,15 @@ class DeviceCommandService:
             raise ValueError("Interval must be at least 5 seconds")
 
         thresholds_data = None
-        if cmd.thresholds is not None or cmd.http_config or cmd.tcp_config or cmd.docker_config or cmd.snmp_config or cmd.description or cmd.tags:
+        if (
+            cmd.thresholds is not None
+            or cmd.http_config
+            or cmd.tcp_config
+            or cmd.docker_config
+            or cmd.snmp_config
+            or cmd.description
+            or cmd.tags
+        ):
             thresholds_data = dict(device.thresholds or {})
             if cmd.thresholds is not None:
                 thresholds_data.update(cmd.thresholds)

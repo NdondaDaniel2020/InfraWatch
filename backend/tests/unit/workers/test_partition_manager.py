@@ -88,7 +88,9 @@ async def test_ensure_partition_creates_when_missing(mock_session_factory, mock_
 
 
 @pytest.mark.asyncio
-async def test_ensure_partition_skips_when_timescaledb_hypertable(mock_session_factory, mock_db_session):
+async def test_ensure_partition_skips_when_timescaledb_hypertable(
+    mock_session_factory, mock_db_session
+):
     pm = PartitionManager(session_factory=mock_session_factory)
 
     mock_relkind = MagicMock()

@@ -40,12 +40,15 @@ RUN rm -rf /etc/nginx/conf.d/default.conf /usr/share/nginx/html/*
 # Copia apenas os artefatos estáticos compilados (injeção via volume no compose)
 COPY --from=exporter /app/dist /usr/share/nginx/html
 
+# Copia a configuração SPA e healthcheck
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 # Expõe a porta 80 interna
 EXPOSE 80
 
 # Verificação de integridade nativa do container
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s \
-    CMD wget -qO- http://localhost:80/healthz || exit 1
+    CMD wget -qO- http://127.0.0.1:80/healthz || exit 1
 
 # Inicia o Nginx em primeiro plano
 CMD ["nginx", "-g", "daemon off;"]

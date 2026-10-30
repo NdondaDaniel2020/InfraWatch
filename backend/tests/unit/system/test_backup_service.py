@@ -35,8 +35,12 @@ async def test_trigger_backup_publishes_event_to_redis() -> None:
 
     service = BackupService()
 
-    with patch("src.contexts.system.services.backup_service.get_redis_client", return_value=mock_redis):
-        response = await service.trigger_backup(user=user, notes="Rotina emergencial antes de manutenção")
+    with patch(
+        "src.contexts.system.services.backup_service.get_redis_client", return_value=mock_redis
+    ):
+        response = await service.trigger_backup(
+            user=user, notes="Rotina emergencial antes de manutenção"
+        )
 
     assert response.status == "accepted"
     assert response.backup_id.startswith("bck_")
@@ -64,7 +68,9 @@ async def test_get_backup_history_reads_directory(tmp_path: Path) -> None:
     b1 = backup_dir / "infrawatch_backup_20261017_010000.tar.gz"
     b1.write_bytes(b"conteudo-backup-1")
     b1_sha = backup_dir / "infrawatch_backup_20261017_010000.tar.gz.sha256"
-    b1_sha.write_text("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  infrawatch_backup_20261017_010000.tar.gz\n")
+    b1_sha.write_text(
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  infrawatch_backup_20261017_010000.tar.gz\n"
+    )
 
     b2 = backup_dir / "infrawatch_backup_20261017_020000.tar.gz"
     b2.write_bytes(b"conteudo-backup-2-mais-recente")
@@ -84,7 +90,9 @@ async def test_get_backup_history_reads_directory(tmp_path: Path) -> None:
 
     # Verifica leitura correta do hash SHA-256
     item_with_sha = next(i for i in history.items if i.filename == b1.name)
-    assert item_with_sha.sha256 == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    assert (
+        item_with_sha.sha256 == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
 
 
 @pytest.mark.asyncio
@@ -111,7 +119,9 @@ async def test_stream_backup_events_emits_messages() -> None:
 
     service = BackupService()
 
-    with patch("src.contexts.system.services.backup_service.get_redis_client", return_value=mock_redis):
+    with patch(
+        "src.contexts.system.services.backup_service.get_redis_client", return_value=mock_redis
+    ):
         gen = service.stream_backup_events(user=user, ping_interval_seconds=1.0)
         first_event = await anext(gen)
         assert "event: ready" in first_event

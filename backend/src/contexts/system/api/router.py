@@ -12,4 +12,3 @@ router.include_router(backup_router)
 router.include_router(settings_router)
 
 __all__ = ["router"]
-

@@ -21,13 +21,17 @@ class IntegrationStatusResponse(BaseModel):
     """Visão consolidada de todas as integrações externas e recursos do cluster."""
 
     integrations: list[IntegrationStatusItem] = Field(default_factory=list)
-    environment: str = Field(description="Ambiente de execução atual (development, production, etc.)")
+    environment: str = Field(
+        description="Ambiente de execução atual (development, production, etc.)"
+    )
 
 
 class GlpiTestRequest(BaseModel):
     """Payload opcional para teste de conexão direta com o GLPI."""
 
-    base_url: str | None = Field(default=None, description="URL da API REST do GLPI para teste efêmero")
+    base_url: str | None = Field(
+        default=None, description="URL da API REST do GLPI para teste efêmero"
+    )
     app_token: str | None = Field(default=None, description="App-Token para teste efêmero")
     user_token: str | None = Field(default=None, description="User-Token para teste efêmero")
 
@@ -38,8 +42,12 @@ class GlpiTestResponse(BaseModel):
     success: bool = Field(description="Indica se todo o fluxo foi executado com sucesso")
     latency_ms: float = Field(description="Tempo total de resposta da API do GLPI em milissegundos")
     message: str = Field(description="Mensagem resumida do diagnóstico")
-    session_token_obtained: bool = Field(default=False, description="Indica se o token de sessão foi obtido")
-    ticket_id: int | None = Field(default=None, description="ID do chamado criado e fechado no teste")
+    session_token_obtained: bool = Field(
+        default=False, description="Indica se o token de sessão foi obtido"
+    )
+    ticket_id: int | None = Field(
+        default=None, description="ID do chamado criado e fechado no teste"
+    )
     error: str | None = Field(default=None, description="Detalhes de erro em caso de falha")
 
 
@@ -58,8 +66,12 @@ class ZabbixTestResponse(BaseModel):
     success: bool = Field(description="Indica se a conexão e autenticação foram bem-sucedidas")
     latency_ms: float = Field(description="Tempo de resposta da API JSON-RPC em milissegundos")
     message: str = Field(description="Mensagem resumida do diagnóstico")
-    api_version: str | None = Field(default=None, description="Versão retornada pelo servidor Zabbix")
-    hosts_count: int = Field(default=0, description="Quantidade de hosts identificados no inventário")
+    api_version: str | None = Field(
+        default=None, description="Versão retornada pelo servidor Zabbix"
+    )
+    hosts_count: int = Field(
+        default=0, description="Quantidade de hosts identificados no inventário"
+    )
     error: str | None = Field(default=None, description="Detalhes de erro em caso de falha")
 
 
@@ -70,7 +82,8 @@ class NotificationTestRequest(BaseModel):
         description="Canal de notificação a ser testado"
     )
     recipient: str | None = Field(
-        default=None, description="Destinatário específico para o teste (e-mail, chat_id ou telefone)"
+        default=None,
+        description="Destinatário específico para o teste (e-mail, chat_id ou telefone)",
     )
     severity: Literal["CRITICAL", "DEGRADED", "RESOLVED", "INFO"] = Field(
         default="CRITICAL", description="Severidade do alerta simulado"
@@ -93,5 +106,7 @@ class InfraTestResponse(BaseModel):
     postgres_ok: bool = Field(description="Conectividade com PostgreSQL / TimescaleDB")
     postgres_latency_ms: float = Field(description="Latência do ping SQL em milissegundos")
     redis_ok: bool = Field(description="Conectividade com Redis Streams")
-    redis_latency_ms: float = Field(description="Latência do comando PING no Redis em milissegundos")
+    redis_latency_ms: float = Field(
+        description="Latência do comando PING no Redis em milissegundos"
+    )
     message: str = Field(description="Resumo do estado operacional do cluster")

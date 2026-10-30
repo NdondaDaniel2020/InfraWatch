@@ -61,9 +61,7 @@ class TopologyService:
     # Consultas do Grafo
     # ------------------------------------------------------------------
 
-    async def get_graph(
-        self, organization_id: UUID
-    ) -> tuple[TopologyGraph, dict[UUID, str]]:
+    async def get_graph(self, organization_id: UUID) -> tuple[TopologyGraph, dict[UUID, str]]:
         """Recupera o grafo completo e enriquece nós com status do inventário se associados."""
         graph = await self._repo.get_graph(organization_id)
 
