@@ -6,6 +6,8 @@
  * - Injeção automática de header 'Authorization: Bearer <token>'.
  */
 
+import { resolveApiUrl } from "../utils/env";
+
 const REFRESH_TOKEN_STORAGE_KEY = "infrawatch_refresh_token";
 
 // Armazenamento estritamente em memória volátil do Access Token (mitigação de XSS)
@@ -92,7 +94,7 @@ export async function apiRequest<T>(
     requestHeaders.set("Authorization", `Bearer ${inMemoryAccessToken}`);
   }
 
-  const url = endpoint.startsWith("http") ? endpoint : endpoint;
+  const url = resolveApiUrl(endpoint);
 
   let response = await fetch(url, {
     ...restOptions,
@@ -113,7 +115,7 @@ export async function apiRequest<T>(
       isRefreshing = true;
 
       try {
-        const refreshResponse = await fetch("/api/v1/auth/refresh", {
+        const refreshResponse = await fetch(resolveApiUrl("/api/v1/auth/refresh"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh_token: rawRefreshToken }),

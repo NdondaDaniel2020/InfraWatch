@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ENV } from "../utils/env";
 import { useSSE } from "../hooks/useSSE";
 import type {
   SSEConnectionStatus,
@@ -73,7 +74,7 @@ function useOptionalQueryClient(overrideClient?: any) {
 
 export const TelemetryProvider: React.FC<TelemetryProviderProps> = ({
   children,
-  url = "/api/v1/events/stream",
+  url = ENV.SSE_STREAM_URL,
   token = null,
   enabled = true,
   bufferLimit = 100,
