@@ -1,50 +1,33 @@
 /**
  * Cliente HTTP unificado para a API do InfraWatch.
- * Implementa ADR-033:
- * - Access Token armazenado estritamente em memória volátil (in-memory).
- * - Fila atômica de Silent Refresh com proteção contra corrida no status 401.
+ * Implementa ADR-033 e Issue #275:
+ * - Delegação transparente para o cliente Axios centralizado ('api').
+ * - Access Token gerenciado em memória volátil (mitigação de XSS) e integrado com interceptors.
+ * - Fila atômica de Silent Refresh (FIFO) com proteção contra condições de corrida no 401.
  * - Injeção automática de header 'Authorization: Bearer <token>'.
  */
 
-import { resolveApiUrl } from "../utils/env";
+import { AxiosError } from "axios";
+import { api } from "./api";
+import {
+  getInMemoryAccessToken,
+  setInMemoryAccessToken,
+  getStoredRefreshToken,
+  setStoredRefreshToken,
+  setOnTokenExpired,
+  setTokens,
+  handleUnauthorized,
+} from "./interceptors";
 
-const REFRESH_TOKEN_STORAGE_KEY = "infrawatch_refresh_token";
-
-// Armazenamento estritamente em memória volátil do Access Token (mitigação de XSS)
-let inMemoryAccessToken: string | null = null;
-let onTokenExpiredCallback: (() => void) | null = null;
-
-export function setInMemoryAccessToken(token: string | null): void {
-  inMemoryAccessToken = token;
-}
-
-export function getInMemoryAccessToken(): string | null {
-  return inMemoryAccessToken;
-}
-
-export function getStoredRefreshToken(): string | null {
-  try {
-    return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setStoredRefreshToken(token: string | null): void {
-  try {
-    if (token) {
-      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
-    } else {
-      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-    }
-  } catch {
-    // Falha silenciosa em ambientes sem acesso a storage
-  }
-}
-
-export function setOnTokenExpired(callback: () => void): void {
-  onTokenExpiredCallback = callback;
-}
+export {
+  getInMemoryAccessToken,
+  setInMemoryAccessToken,
+  getStoredRefreshToken,
+  setStoredRefreshToken,
+  setOnTokenExpired,
+  setTokens,
+  handleUnauthorized,
+};
 
 export class ApiError extends Error {
   constructor(
@@ -57,125 +40,81 @@ export class ApiError extends Error {
   }
 }
 
-interface RequestOptions extends RequestInit {
+export interface RequestOptions extends RequestInit {
   skipAuth?: boolean;
 }
 
-// Controle de concorrência para Silent Refresh (evita rotação dupla)
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string | null) => void> = [];
-
-function subscribeTokenRefresh(callback: (token: string | null) => void): void {
-  refreshSubscribers.push(callback);
-}
-
-function onRefreshed(token: string | null): void {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
-}
-
 /**
- * Executa requisição autenticada com retry automático em caso de token expirado (401).
+ * Executa requisição autenticada utilizando a instância do Axios com retry e silent refresh.
  */
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { skipAuth = false, headers, ...restOptions } = options;
-  const requestHeaders = new Headers(headers);
+  const { skipAuth = false, headers, method = "GET", body } = options;
 
-  // Define Content-Type JSON caso não seja envio de FormData
-  if (!(restOptions.body instanceof FormData) && !requestHeaders.has("Content-Type")) {
-    requestHeaders.set("Content-Type", "application/json");
+  let requestHeaders: Record<string, string> | undefined;
+
+  if (headers) {
+    requestHeaders = {};
+    if (headers instanceof Headers) {
+      headers.forEach((value, key) => {
+        requestHeaders![key] = value;
+      });
+    } else if (Array.isArray(headers)) {
+      headers.forEach(([key, value]) => {
+        requestHeaders![key] = value;
+      });
+    } else {
+      Object.assign(requestHeaders, headers);
+    }
   }
 
-  // Injeta Access Token se disponível e não for rota pública
-  if (!skipAuth && inMemoryAccessToken) {
-    requestHeaders.set("Authorization", `Bearer ${inMemoryAccessToken}`);
+  let dataToSend: unknown = body;
+  if (typeof body === "string") {
+    try {
+      dataToSend = JSON.parse(body);
+    } catch {
+      dataToSend = body;
+    }
   }
 
-  const url = resolveApiUrl(endpoint);
-
-  let response = await fetch(url, {
-    ...restOptions,
-    headers: requestHeaders,
-  });
-
-  // Se receber 401 e a rota necessita de autenticação, tenta Silent Refresh
-  if (response.status === 401 && !skipAuth) {
-    const rawRefreshToken = getStoredRefreshToken();
-
-    if (!rawRefreshToken) {
-      setInMemoryAccessToken(null);
-      onTokenExpiredCallback?.();
-      throw new ApiError("Sessão expirada. Faça login novamente.", 401);
-    }
-
-    if (!isRefreshing) {
-      isRefreshing = true;
-
-      try {
-        const refreshResponse = await fetch(resolveApiUrl("/api/v1/auth/refresh"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: rawRefreshToken }),
-        });
-
-        if (!refreshResponse.ok) {
-          throw new Error("Falha ao renovar token");
-        }
-
-        const data = (await refreshResponse.json()) as {
-          access_token: string;
-          refresh_token: string;
-        };
-
-        setInMemoryAccessToken(data.access_token);
-        setStoredRefreshToken(data.refresh_token);
-        isRefreshing = false;
-        onRefreshed(data.access_token);
-      } catch (err) {
-        isRefreshing = false;
-        setInMemoryAccessToken(null);
-        setStoredRefreshToken(null);
-        onRefreshed(null);
-        onTokenExpiredCallback?.();
-        throw new ApiError("Sessão expirada. Faça login novamente.", 401, err);
-      }
-    }
-
-    // Aguarda a conclusão da renovação em andamento
-    const newToken = await new Promise<string | null>((resolve) => {
-      subscribeTokenRefresh((token) => resolve(token));
-    });
-
-    if (!newToken) {
-      throw new ApiError("Não foi possível autenticar a requisição.", 401);
-    }
-
-    // Reenvia a requisição original com o novo token
-    requestHeaders.set("Authorization", `Bearer ${newToken}`);
-    response = await fetch(url, {
-      ...restOptions,
+  try {
+    const response = await api.request<T>({
+      url: endpoint,
+      method: method as any,
+      data: dataToSend,
       headers: requestHeaders,
+      ...({ skipAuth } as any),
     });
+
+    return response.data;
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      const status = error.response?.status ?? 500;
+      const respData = error.response?.data;
+
+      const errorMessage =
+        (typeof respData === "object" &&
+          respData !== null &&
+          "detail" in respData &&
+          typeof (respData as { detail: unknown }).detail === "string")
+          ? (respData as { detail: string }).detail
+          : error.message || `Erro HTTP ${status}`;
+
+      throw new ApiError(errorMessage, status, respData);
+    }
+
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      (error as Error)?.message || "Erro de rede na comunicação com a API",
+      500,
+      error
+    );
   }
-
-  // Processa a resposta
-  const contentType = response.headers.get("content-type");
-  const isJson = contentType && contentType.includes("application/json");
-  const data = isJson ? await response.json() : await response.text();
-
-  if (!response.ok) {
-    const errorMessage =
-      (typeof data === "object" && data !== null && "detail" in data && typeof (data as { detail: unknown }).detail === "string")
-        ? (data as { detail: string }).detail
-        : response.statusText || `Erro HTTP ${response.status}`;
-
-    throw new ApiError(errorMessage, response.status, data);
-  }
-
-  return data as T;
 }
 
 export const apiClient = {
@@ -196,3 +135,5 @@ export const apiClient = {
   delete: <T>(endpoint: string, options: RequestOptions = {}) =>
     apiRequest<T>(endpoint, { method: "DELETE", ...options }),
 };
+
+export default apiClient;
