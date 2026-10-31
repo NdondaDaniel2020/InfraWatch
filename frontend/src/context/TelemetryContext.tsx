@@ -9,6 +9,7 @@ import React, {
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { ENV } from "../utils/env";
 import { useSSE } from "../hooks/useSSE";
+import { useAuthStore } from "../stores/authStore";
 import type {
   SSEConnectionStatus,
   SSEEventPayload,
@@ -75,7 +76,7 @@ function useOptionalQueryClient(overrideClient?: QueryClient): QueryClient | und
 export const TelemetryProvider: React.FC<TelemetryProviderProps> = ({
   children,
   url = ENV.SSE_STREAM_URL,
-  token = null,
+  token: explicitToken = null,
   enabled = true,
   bufferLimit = 100,
   heartbeatTimeoutMs = 35000,
@@ -84,6 +85,8 @@ export const TelemetryProvider: React.FC<TelemetryProviderProps> = ({
   queryClient: explicitQueryClient,
 }) => {
   const queryClient = useOptionalQueryClient(explicitQueryClient);
+  const storeToken = useAuthStore((state) => state.accessToken);
+  const effectiveToken = explicitToken ?? storeToken;
 
   const [deviceMetrics, setDeviceMetrics] = useState<
     Record<string, DeviceTelemetryMetric>
@@ -158,7 +161,7 @@ export const TelemetryProvider: React.FC<TelemetryProviderProps> = ({
 
   const sse = useSSE({
     url,
-    token,
+    token: effectiveToken,
     enabled,
     bufferLimit,
     heartbeatTimeoutMs,

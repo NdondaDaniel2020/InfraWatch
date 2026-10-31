@@ -83,7 +83,8 @@ function updateTanStackCache(queryClient: QueryClient, payload: SSEEventPayload)
 
 /**
  * Hook customizado useSSE para consumo resiliente de Server-Sent Events em tempo real.
- * Possui auto-reconexão com backoff exponencial, buffer local de telemetria e heartbeat watchdog.
+ * Alinhado ao ADR-033: utiliza Fetch API com ReadableStream e cabeçalho Authorization: Bearer,
+ * com fallback para EventSource e auto-reconexão com backoff exponencial e watchdog.
  */
 export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   const {
@@ -95,6 +96,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     backoffMultiplier = DEFAULT_BACKOFF_MULTIPLIER,
     heartbeatTimeoutMs = DEFAULT_HEARTBEAT_TIMEOUT,
     bufferLimit = DEFAULT_BUFFER_LIMIT,
+    transport,
   } = options;
 
   const [status, setStatus] = useState<SSEConnectionStatus>("connecting");
@@ -106,6 +108,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   // Refs para manter valores estáveis dentro dos callbacks assíncronos e evitar re-renders
   const statusRef = useRef<SSEConnectionStatus>("connecting");
   const eventSourceRef = useRef<EventSource | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const watchdogIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryCountRef = useRef<number>(0);
@@ -181,11 +184,15 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     [appendToBuffer]
   );
 
-  // Fecha conexão ativa e limpa timers pendentes
+  // Fecha conexão ativa e limpa timers e streams pendentes
   const cleanupConnection = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
     if (eventSourceRef.current) {
       eventSourceRef.current.onopen = null;
@@ -196,16 +203,185 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     }
   }, []);
 
-  // Função principal de conexão e gerenciamento de EventSource
+  // Parseia blocos textuais no formato SSE (RFC-8895)
+  const parseSSEBlock = useCallback(
+    (block: string) => {
+      const lines = block.split(/\r?\n/);
+      let eventType = "message";
+      const dataLines: string[] = [];
+
+      for (const line of lines) {
+        if (line.startsWith(":")) {
+          // Comentário SSE / Heartbeat ping
+          lastActivityTimeRef.current = Date.now();
+          setLastHeartbeatAt(new Date());
+          continue;
+        }
+        if (line.startsWith("event:")) {
+          eventType = line.slice(6).trim();
+        } else if (line.startsWith("data:")) {
+          dataLines.push(line.slice(5).trimStart());
+        }
+      }
+
+      if (eventType === "ping") {
+        lastActivityTimeRef.current = Date.now();
+        setLastHeartbeatAt(new Date());
+      }
+
+      if (dataLines.length > 0) {
+        const dataString = dataLines.join("\n");
+        handleIncomingData(dataString, eventType);
+      }
+    },
+    [handleIncomingData]
+  );
+
+  // Agenda reconexão com backoff exponencial e jitter
+  const scheduleReconnect = useCallback(() => {
+    if (isManuallyClosedRef.current) {
+      updateStatus("disconnected");
+      return;
+    }
+
+    cleanupConnection();
+    updateStatus("reconnecting");
+
+    const currentRetry = retryCountRef.current + 1;
+    retryCountRef.current = currentRetry;
+    setRetryCount(currentRetry);
+
+    const exponent = Math.max(0, currentRetry - 1);
+    const calculatedDelay = Math.min(
+      initialBackoffMs * Math.pow(backoffMultiplier, exponent),
+      maxBackoffMs
+    );
+
+    const jitter = Math.floor(Math.random() * 150);
+    const totalDelay = calculatedDelay + jitter;
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      connect();
+    }, totalDelay);
+  }, [
+    cleanupConnection,
+    initialBackoffMs,
+    maxBackoffMs,
+    backoffMultiplier,
+    updateStatus,
+  ]);
+
+  // Função principal de conexão e gerenciamento de SSE
   const connect = useCallback(() => {
-    if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
+    if (typeof window === "undefined") {
       return;
     }
 
     cleanupConnection();
     isManuallyClosedRef.current = false;
 
-    // Constrói URL com token de autenticação JWT se fornecido
+    // Determina se deve usar Fetch com ReadableStream (ADR-033) ou EventSource legado
+    const isMockEventSource =
+      typeof window.EventSource !== "undefined" &&
+      (window.EventSource.name === "MockEventSource" || (window.EventSource as any).isMock);
+
+    const useFetchStream =
+      transport === "fetch" ||
+      (!transport && !isMockEventSource && typeof window.fetch === "function");
+
+    // =========================================================================
+    // 1. MOTOR FETCH COM READABLESTREAM (ADR-033)
+    // =========================================================================
+    if (useFetchStream) {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      const headers: Record<string, string> = {
+        Accept: "text/event-stream",
+        "Cache-Control": "no-cache",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      fetch(url, {
+        method: "GET",
+        headers,
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              updateStatus("disconnected");
+              optionsRef.current.onError?.(
+                new Error(`HTTP ${response.status}: Autenticação necessária ou token expirado.`)
+              );
+              return;
+            }
+            throw new Error(`Falha na resposta HTTP do SSE: ${response.status}`);
+          }
+
+          if (!response.body) {
+            throw new Error("Corpo de resposta ReadableStream não disponível.");
+          }
+
+          retryCountRef.current = 0;
+          setRetryCount(0);
+          lastActivityTimeRef.current = Date.now();
+          setLastHeartbeatAt(new Date());
+          updateStatus("connected");
+          optionsRef.current.onOpen?.();
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let streamBuffer = "";
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              streamBuffer += decoder.decode(value, { stream: true });
+              const blocks = streamBuffer.split(/\r?\n\r?\n/);
+              streamBuffer = blocks.pop() ?? "";
+
+              for (const block of blocks) {
+                if (block.trim()) {
+                  parseSSEBlock(block);
+                }
+              }
+            }
+
+            // Se a stream encerrou normalmente e não foi fechamento intencional, agenda retry
+            if (!isManuallyClosedRef.current && !controller.signal.aborted) {
+              scheduleReconnect();
+            }
+          } catch (readErr: any) {
+            if (controller.signal.aborted || isManuallyClosedRef.current) {
+              return;
+            }
+            optionsRef.current.onError?.(readErr);
+            scheduleReconnect();
+          }
+        })
+        .catch((fetchErr: any) => {
+          if (controller.signal.aborted || isManuallyClosedRef.current) {
+            return;
+          }
+          optionsRef.current.onError?.(fetchErr);
+          scheduleReconnect();
+        });
+
+      return;
+    }
+
+    // =========================================================================
+    // 2. MODO FALLBACK: EVENTSOURCE LEGADO
+    // =========================================================================
+    if (typeof window.EventSource === "undefined") {
+      return;
+    }
+
     let fullUrl = url;
     if (token) {
       const separator = fullUrl.includes("?") ? "&" : "?";
@@ -229,7 +405,6 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
         handleIncomingData(event.data, "message");
       };
 
-      // Listener para eventos de ping / heartbeat se emitidos nominalmente
       es.addEventListener("ping", (event: MessageEvent<string>) => {
         lastActivityTimeRef.current = Date.now();
         setLastHeartbeatAt(new Date());
@@ -238,7 +413,6 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
         }
       });
 
-      // Listeners para eventos conhecidos do domínio NOC
       const standardEvents = [
         "DeviceLatencyMeasured",
         "DeviceStateChanged",
@@ -256,7 +430,6 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
         });
       });
 
-      // Listeners para qualquer outro evento customizado configurado no options.onEvent
       if (optionsRef.current.onEvent) {
         Object.keys(optionsRef.current.onEvent).forEach((customEvent) => {
           if (!standardEvents.includes(customEvent) && customEvent !== "ping") {
@@ -269,35 +442,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
 
       es.onerror = (err: Event) => {
         optionsRef.current.onError?.(err);
-
-        // Se fechado manualmente pelo usuário ou componente, não reconecta
-        if (isManuallyClosedRef.current) {
-          updateStatus("disconnected");
-          return;
-        }
-
-        // Encerra a conexão atual antes de programar o retry
-        cleanupConnection();
-        updateStatus("reconnecting");
-
-        // Cálculo de Backoff Exponencial: min(initial * multiplier^retry, max)
-        const currentRetry = retryCountRef.current + 1;
-        retryCountRef.current = currentRetry;
-        setRetryCount(currentRetry);
-
-        const exponent = Math.max(0, currentRetry - 1);
-        const calculatedDelay = Math.min(
-          initialBackoffMs * Math.pow(backoffMultiplier, exponent),
-          maxBackoffMs
-        );
-
-        // Jitter leve (0 a 150ms) para desincronizar múltiplos clientes reconectando simultaneamente
-        const jitter = Math.floor(Math.random() * 150);
-        const totalDelay = calculatedDelay + jitter;
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, totalDelay);
+        scheduleReconnect();
       };
     } catch {
       updateStatus("disconnected");
@@ -305,12 +450,12 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   }, [
     cleanupConnection,
     handleIncomingData,
-    initialBackoffMs,
-    maxBackoffMs,
-    backoffMultiplier,
+    parseSSEBlock,
+    scheduleReconnect,
     token,
     updateStatus,
     url,
+    transport,
   ]);
 
   // Força reconexão imediata
@@ -349,24 +494,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
       if (isManuallyClosedRef.current) return;
 
       const timeSinceLastActivity = Date.now() - lastActivityTimeRef.current;
-      // Se estiver marcado como conectado mas não houver nenhuma atividade dentro da janela de timeout
       if (statusRef.current === "connected" && timeSinceLastActivity >= heartbeatTimeoutMs) {
-        // Conexão perdida silenciosamente (silent drop)
-        cleanupConnection();
-        updateStatus("reconnecting");
-
-        retryCountRef.current += 1;
-        setRetryCount(retryCountRef.current);
-
-        const exponent = Math.max(0, retryCountRef.current - 1);
-        const delay = Math.min(
-          initialBackoffMs * Math.pow(backoffMultiplier, exponent),
-          maxBackoffMs
-        );
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, delay);
+        scheduleReconnect();
       }
     }, WATCHDOG_CHECK_INTERVAL);
 
@@ -382,10 +511,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     connect,
     cleanupConnection,
     disconnect,
+    scheduleReconnect,
     heartbeatTimeoutMs,
-    initialBackoffMs,
-    maxBackoffMs,
-    backoffMultiplier,
     updateStatus,
   ]);
 

@@ -57,7 +57,7 @@ export interface SSEEventPayload<T = unknown> {
 export interface UseSSEOptions {
   /** URL do endpoint SSE (padrão: /api/v1/events/stream) */
   url?: string;
-  /** Token JWT para autenticação via query param ?token= */
+  /** Token JWT para autenticação via cabeçalho Authorization: Bearer (ADR-033) */
   token?: string | null;
   /** Habilita ou desabilita a conexão automática (padrão: true) */
   enabled?: boolean;
@@ -78,13 +78,15 @@ export interface UseSSEOptions {
   /** Callback disparado quando a conexão é estabelecida com sucesso */
   onOpen?: () => void;
   /** Callback disparado quando ocorre um erro na conexão */
-  onError?: (error: Event) => void;
+  onError?: (error: Event | Error) => void;
   /** Callback disparado quando o status da conexão é alterado */
   onStatusChange?: (status: SSEConnectionStatus) => void;
   /** Instância do QueryClient para atualização cirúrgica do cache */
   queryClient?: QueryClient;
   /** Habilita atualização cirúrgica do cache do TanStack Query (padrão: true se queryClient fornecido) */
   updateQueryCache?: boolean;
+  /** Modo de transporte: "fetch" (padrão ADR-033 com ReadableStream e Bearer token) ou "eventsource" */
+  transport?: "fetch" | "eventsource";
 }
 
 export interface UseSSEReturn {
