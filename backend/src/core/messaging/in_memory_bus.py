@@ -96,6 +96,27 @@ class InMemoryEventBus(EventBus):
                 queue.put_nowait(msg)
         return queue
 
+    async def claim_pending_messages(
+        self,
+        topic: str,
+        group: str,
+        consumer_name: str,
+        min_idle_ms: int = 60000,
+        batch_size: int = 20,
+    ) -> list[tuple[str, dict[str, Any]]]:
+        """Resgata mensagens pendentes no PEL (equivalente a XAUTOCLAIM)."""
+        claimed: list[tuple[str, dict[str, Any]]] = []
+        now = datetime.now(UTC)
+        for msg_id, (prev_consumer, delivered_at, payload) in list(self._pel[topic][group].items()):
+            idle_ms = (now - delivered_at).total_seconds() * 1000
+            if idle_ms >= min_idle_ms or min_idle_ms == 0:
+                self._pel[topic][group][msg_id] = (consumer_name, now, payload)
+                self._delivery_counts[(topic, group, msg_id)] += 1
+                claimed.append((msg_id, payload))
+                if len(claimed) >= batch_size:
+                    break
+        return claimed
+
     async def consume_batch(
         self,
         topic: str,
@@ -109,6 +130,18 @@ class InMemoryEventBus(EventBus):
             return []
 
         queue = self._get_group_queue(topic, group)
+
+        # 1. Se a fila de novas mensagens estiver vazia, resgata mensagens pendentes no PEL
+        if queue.empty() and self._pel[topic][group]:
+            claimed = await self.claim_pending_messages(
+                topic=topic,
+                group=group,
+                consumer_name=consumer_name,
+                min_idle_ms=0,
+                batch_size=batch_size,
+            )
+            if claimed:
+                return claimed
 
         results: list[tuple[str, dict[str, Any]]] = []
         timeout_seconds = timeout_ms / 1000.0
