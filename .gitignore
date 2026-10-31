@@ -115,3 +115,7 @@ certs/*.pem
 certs/*.key
 certs/*.crt
 !certs/.gitkeep
+
+# Frontend Lib
+!frontend/src/lib/
+!frontend/src/lib/**

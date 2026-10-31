@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./context/AuthContext";
 import { TelemetryProvider } from "./context/TelemetryContext";
 import { AppRoutes } from "./routes/AppRoutes";
+import { Toaster } from "./components/ui/sonner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,7 @@ export const App: React.FC = () => {
         <AuthProvider>
           <TelemetryProvider>
             <AppRoutes />
+            <Toaster position="top-right" />
           </TelemetryProvider>
         </AuthProvider>
       </BrowserRouter>
