@@ -70,6 +70,35 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
     };
   }, [user?.organization_id, user?.organization_name]);
 
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchPortalData = async () => {
+      try {
+        const [remoteSummary, remoteServices] = await Promise.all([
+          clientPortalApi.getSlaSummary(user?.organization_id),
+          clientPortalApi.getClientServices(user?.organization_id),
+        ]);
+        if (isMounted) {
+          if (remoteSummary) {
+            setSlaSummary({
+              ...remoteSummary,
+              tenantName: user?.organization_name || remoteSummary.tenantName,
+            });
+          }
+          if (remoteServices && remoteServices.length > 0) {
+            setServices(remoteServices);
+          }
+        }
+      } catch {
+        // Mantém fallback resiliente
+      }
+    };
+    fetchPortalData();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.organization_id, user?.organization_name]);
+
   const displayTenantName = user?.organization_name || slaSummary.tenantName;
   const tenantInitials = displayTenantName
     .split(" ")
