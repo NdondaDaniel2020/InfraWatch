@@ -19,6 +19,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_guard
 from src.core.messaging.interfaces import EventHandler
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.integrations.notifications import (
@@ -44,12 +45,14 @@ class AlertNotificationConsumer(EventHandler):
         consumer_name: str = "notification-worker-1",
         batch_size: int = 10,
         poll_timeout_ms: int = 3000,
+        idempotency_guard: IdempotencyGuard | None = None,
     ) -> None:
         self._event_bus = event_bus
         self._dispatcher = dispatcher or get_notification_dispatcher()
         self.consumer_name = consumer_name
         self.batch_size = batch_size
         self.poll_timeout_ms = poll_timeout_ms
+        self._idempotency_guard = idempotency_guard or get_idempotency_guard()
 
     def _parse_uuid(self, val: Any) -> UUID | None:
         """Converte valor para UUID de forma defensiva."""
@@ -133,6 +136,14 @@ class AlertNotificationConsumer(EventHandler):
 
     async def handle(self, topic: str, event_data: dict[str, Any]) -> None:
         """Implementação do protocolo EventHandler para eventos diretos."""
+        event_id = event_data.get("event_id") or event_data.get("id")
+        if event_id and await self._idempotency_guard.is_processed(event_id, "AlertNotificationConsumer"):
+            logger.warning(
+                "Evento de alerta %s já processado pelo AlertNotificationConsumer (descarte idempotente)",
+                event_id,
+            )
+            return
+
         event_type = str(event_data.get("event_type", topic))
         alert = self._build_alert_message(event_type, event_data)
         if alert is None:
@@ -140,6 +151,8 @@ class AlertNotificationConsumer(EventHandler):
 
         try:
             results = await self._dispatcher.dispatch_by_severity(alert)
+            if event_id:
+                await self._idempotency_guard.mark_processed(event_id, "AlertNotificationConsumer")
             logger.info(
                 "Alerta '%s' processado pelo NotificationConsumer. Resultados por canal: %s",
                 alert.title,
@@ -175,9 +188,7 @@ class AlertNotificationConsumer(EventHandler):
                 for msg_id, payload in messages:
                     try:
                         event_type = str(payload.get("event_type", "Unknown"))
-                        alert = self._build_alert_message(event_type, payload)
-                        if alert is not None:
-                            await self._dispatcher.dispatch_by_severity(alert)
+                        await self.handle(event_type, payload)
                         acked_ids.append(msg_id)
                     except Exception:
                         logger.exception(

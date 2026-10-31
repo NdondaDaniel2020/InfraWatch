@@ -123,6 +123,7 @@ class Incident(AggregateRoot):
         root_cause: str,
         resolved_at: datetime | None = None,
         operator_id: UUID | None = None,
+        idempotent: bool = False,
     ) -> int:
         """Encerra o incidente registrando a justificativa técnica e o downtime."""
         clean_cause = root_cause.strip() if root_cause else ""
@@ -130,6 +131,8 @@ class Incident(AggregateRoot):
             raise ValueError("A causa raiz é obrigatória para a resolução do incidente.")
 
         if self.status == IncidentStatus.RESOLVED:
+            if idempotent:
+                return self.downtime_minutes or 0
             raise IncidentAlreadyResolvedError("O incidente já se encontra resolvido.")
 
         res_time = _ensure_utc(resolved_at) or datetime.now(UTC)
