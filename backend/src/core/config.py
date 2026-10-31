@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     REDIS_HOST: str = Field(default="localhost", alias="REDIS_HOST")
     REDIS_PORT: int = Field(default=6379, alias="REDIS_PORT")
     REDIS_PASSWORD: str = Field(default="", alias="REDIS_PASSWORD")
+    REDIS_DB: int = Field(default=0, alias="REDIS_DB")
     REDIS_URL: str | None = Field(
         default=None,
         alias="REDIS_URL",
