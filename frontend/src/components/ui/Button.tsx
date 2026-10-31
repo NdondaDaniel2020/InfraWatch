@@ -1,8 +1,32 @@
 import React, { forwardRef } from "react";
 import { Loader2 } from "lucide-react";
+import { cn } from "../../lib/utils";
 
 export type ButtonVariant = "primary" | "secondary" | "destructive" | "outline" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
+
+export const buttonVariants = ({
+  variant = "primary",
+  size = "md",
+  className,
+}: {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  className?: string;
+} = {}): string => {
+  return cn(
+    "inline-flex items-center justify-center font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:pointer-events-none disabled:opacity-50",
+    variant === "primary" && "bg-sky-500 text-white hover:bg-sky-400 active:bg-sky-600 shadow-sm",
+    variant === "secondary" && "bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700",
+    variant === "destructive" && "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30",
+    variant === "outline" && "border border-slate-700 text-slate-200 hover:bg-slate-800",
+    variant === "ghost" && "text-slate-300 hover:bg-slate-800 hover:text-white",
+    size === "sm" && "h-8 px-3 text-xs gap-1.5",
+    size === "md" && "h-9 px-4 text-sm gap-2",
+    size === "lg" && "h-11 px-6 text-base gap-2.5",
+    className
+  );
+};
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
