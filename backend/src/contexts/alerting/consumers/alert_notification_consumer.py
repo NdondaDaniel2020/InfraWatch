@@ -46,6 +46,7 @@ class AlertNotificationConsumer(EventHandler):
         batch_size: int = 10,
         poll_timeout_ms: int = 3000,
         idempotency_guard: IdempotencyGuard | None = None,
+        max_retries: int = 5,
     ) -> None:
         self._event_bus = event_bus
         self._dispatcher = dispatcher or get_notification_dispatcher()
@@ -53,6 +54,7 @@ class AlertNotificationConsumer(EventHandler):
         self.batch_size = batch_size
         self.poll_timeout_ms = poll_timeout_ms
         self._idempotency_guard = idempotency_guard or get_idempotency_guard()
+        self.max_retries = max_retries
 
     def _parse_uuid(self, val: Any) -> UUID | None:
         """Converte valor para UUID de forma defensiva."""
@@ -190,11 +192,31 @@ class AlertNotificationConsumer(EventHandler):
                         event_type = str(payload.get("event_type", "Unknown"))
                         await self.handle(event_type, payload)
                         acked_ids.append(msg_id)
-                    except Exception:
-                        logger.exception(
-                            "Falha ao processar notificação da mensagem %s — não será confirmada",
-                            msg_id,
+                    except Exception as exc:
+                        delivery_count = await self._event_bus.get_delivery_count(
+                            STREAM_TOPIC, NOTIFICATION_CONSUMER_GROUP, msg_id
                         )
+                        if delivery_count >= self.max_retries:
+                            logger.error(
+                                "Alerta %s atingiu limite de %d tentativas. Despachando para DLQ.",
+                                msg_id,
+                                self.max_retries,
+                            )
+                            await self._event_bus.send_to_dlq(
+                                topic=STREAM_TOPIC,
+                                group=NOTIFICATION_CONSUMER_GROUP,
+                                message_id=msg_id,
+                                payload=payload,
+                                error=str(exc),
+                                delivery_count=delivery_count,
+                            )
+                        else:
+                            logger.exception(
+                                "Falha ao processar notificação da mensagem %s (tentativa %d/%d) — retentará via XAUTOCLAIM",
+                                msg_id,
+                                delivery_count,
+                                self.max_retries,
+                            )
 
                 if acked_ids:
                     await self._event_bus.ack(STREAM_TOPIC, NOTIFICATION_CONSUMER_GROUP, *acked_ids)
