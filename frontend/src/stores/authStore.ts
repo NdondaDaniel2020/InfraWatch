@@ -168,19 +168,20 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         logout: async (): Promise<void> => {
+          // Limpeza imediata do estado da store para segurança contra acessos residuais
+          set(getInitialState());
+          try {
+            localStorage.removeItem("infrawatch_auth");
+            localStorage.removeItem("infrawatch_refresh_token");
+            sessionStorage.clear();
+          } catch {
+            // Silencioso em ambientes restritos
+          }
+
           try {
             await authApi.logout();
           } catch {
-            // Logout resiliente: limpa credenciais locais mesmo com erro de rede
-          } finally {
-            set(getInitialState());
-            try {
-              localStorage.removeItem("infrawatch_auth");
-              localStorage.removeItem("infrawatch_refresh_token");
-              sessionStorage.clear();
-            } catch {
-              // Silencioso em ambientes restritos
-            }
+            // Logout resiliente: se o backend falhar, o cliente já está limpo
           }
         },
 

@@ -1,22 +1,24 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from "axios";
 import { api } from "./api";
 import { resolveApiUrl } from "../utils/env";
+import { useAuthStore } from "../stores/authStore";
 
 const REFRESH_TOKEN_STORAGE_KEY = "infrawatch_refresh_token";
 
-// Armazenamento estritamente em memória volátil do Access Token (mitigação de XSS)
-let inMemoryAccessToken: string | null = null;
 let onTokenExpiredCallback: (() => void) | null = null;
 
 export function getInMemoryAccessToken(): string | null {
-  return inMemoryAccessToken;
+  return useAuthStore.getState().accessToken;
 }
 
 export function setInMemoryAccessToken(token: string | null): void {
-  inMemoryAccessToken = token;
+  const currentRefresh = useAuthStore.getState().refreshToken;
+  useAuthStore.getState().setTokens(token, currentRefresh);
 }
 
 export function getStoredRefreshToken(): string | null {
+  const token = useAuthStore.getState().refreshToken;
+  if (token) return token;
   try {
     return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
   } catch {
@@ -25,6 +27,8 @@ export function getStoredRefreshToken(): string | null {
 }
 
 export function setStoredRefreshToken(token: string | null): void {
+  const currentAccess = useAuthStore.getState().accessToken;
+  useAuthStore.getState().setTokens(currentAccess, token);
   try {
     if (token) {
       localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
@@ -37,8 +41,16 @@ export function setStoredRefreshToken(token: string | null): void {
 }
 
 export function setTokens(accessToken: string | null, refreshToken: string | null): void {
-  setInMemoryAccessToken(accessToken);
-  setStoredRefreshToken(refreshToken);
+  useAuthStore.getState().setTokens(accessToken, refreshToken);
+  try {
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
+    } else {
+      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    // Silencioso
+  }
 }
 
 export function setOnTokenExpired(callback: () => void): void {
@@ -46,8 +58,13 @@ export function setOnTokenExpired(callback: () => void): void {
 }
 
 export function handleUnauthorized(): void {
-  setInMemoryAccessToken(null);
-  setStoredRefreshToken(null);
+  useAuthStore.getState().reset();
+  try {
+    localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    localStorage.removeItem("infrawatch_auth");
+  } catch {
+    // Silencioso
+  }
   onTokenExpiredCallback?.();
 
   if (typeof window !== "undefined") {
@@ -78,8 +95,8 @@ export function getFailedQueueLength(): number {
 export function resetInterceptorsState(): void {
   isRefreshing = false;
   failedQueue = [];
-  inMemoryAccessToken = null;
   onTokenExpiredCallback = null;
+  useAuthStore.getState().reset();
 }
 
 function processQueue(error: unknown, token: string | null = null): void {
