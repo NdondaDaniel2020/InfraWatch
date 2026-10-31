@@ -85,3 +85,88 @@ class SlaReportResponse(BaseModel):
             incidents_count=result.incidents_count,
             exempted_incidents_count=result.exempted_incidents_count,
         )
+
+
+class OrganizationSlaSummaryResponse(BaseModel):
+    """Resumo executivo de SLA de uma organização para o portal do cliente."""
+
+    tenant_id: str
+    tenant_name: str
+    uptime_current_month_pct: float
+    sla_target_pct: float = 99.50
+    downtime_balance_formatted: str
+    mttr_minutes_avg: float
+    next_maintenance_window: str | None = None
+    cycle_month_label: str
+    services_count: int
+
+
+class OrganizationSlaHistoryItem(BaseModel):
+    """Item mensal do histórico de SLA da organização."""
+
+    cycle_label: str
+    month: str
+    uptime_pct: float
+    target_pct: float = 99.50
+    mttr_minutes: float
+    incidents_count: int
+    unplanned_downtime_minutes: float
+    exempted_downtime_minutes: float
+    status: str
+
+
+class OrganizationSlaHistoryResponse(BaseModel):
+    """Lista cronológica do histórico de SLA de uma organização."""
+
+    tenant_id: str
+    tenant_name: str
+    items: list[OrganizationSlaHistoryItem]
+
+
+class SlaDeviceReportItem(BaseModel):
+    """Dados de SLA por dispositivo para o relatório oficial."""
+
+    device_id: UUID
+    device_name: str
+    category: str
+    uptime_gross_pct: float
+    uptime_net_pct: float
+    rfc_exempted_minutes: float
+    sla_target_pct: float
+    mttr_minutes: float
+    status: str
+
+
+class OrganizationSlaReportDetailsResponse(BaseModel):
+    """Dados consolidados para o Relatório Oficial de SLA e exportação."""
+
+    organization_id: str
+    organization_name: str
+    period_label: str
+    start_period: datetime
+    end_period: datetime
+    uptime_net_pct: float
+    uptime_gross_pct: float
+    sla_target_pct: float
+    sla_met: bool
+    mttr_minutes: float
+    mtbf_hours: float
+    total_devices: int
+    unplanned_downtime_minutes: float
+    exempted_downtime_minutes: float
+    devices: list[SlaDeviceReportItem]
+    digital_signature: str
+
+
+class SupportTicketResponse(BaseModel):
+    """Confirmação de abertura de chamado de suporte pelo cliente."""
+
+    ticket_id: str
+    protocol: str
+    title: str
+    severity: str
+    status: str
+    created_at: datetime
+    glpi_ticket_id: int | None = None
+    message: str
+

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Text, func
@@ -77,12 +77,16 @@ class MaintenanceWindowModel(Base):
 
     def to_domain(self) -> MaintenanceWindow:
         """Converte a entidade relacional para a entidade de domínio."""
+        start_t = _ensure_utc(self.start_time) or self.start_time
+        end_t = _ensure_utc(self.end_time) or self.end_time
+        if end_t <= start_t:
+            end_t = start_t + timedelta(hours=1)
         return MaintenanceWindow(
             id=self.id,
             device_id=self.device_id,
             organization_id=self.organization_id,
-            start_time=_ensure_utc(self.start_time) or self.start_time,
-            end_time=_ensure_utc(self.end_time) or self.end_time,
+            start_time=start_t,
+            end_time=end_t,
             is_approved=self.is_approved,
             description=self.description,
             created_at=_ensure_utc(self.created_at),
