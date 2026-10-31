@@ -50,3 +50,19 @@ export interface ClientNotification {
   type: "resolved" | "maintenance" | "advisory";
   severity: "info" | "warning" | "success";
 }
+
+export interface ClientDeviceDTO {
+  id: string | number;
+  name: string;
+  hostname?: string;
+  category?: string;
+  status?: string;
+  protocol?: string;
+  ip_address?: string;
+  last_latency_ms?: number;
+}
+
+export interface ClientDeviceListResponse {
+  items: ClientDeviceDTO[];
+  total: number;
+}
