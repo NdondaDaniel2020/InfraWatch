@@ -55,6 +55,7 @@ class GlpiTicketConsumer:
         batch_size: int = 10,
         poll_timeout_ms: int = 3000,
         idempotency_guard: IdempotencyGuard | None = None,
+        max_retries: int = 5,
     ) -> None:
         self._event_bus = event_bus
         self._glpi_base_url = glpi_base_url
@@ -64,6 +65,7 @@ class GlpiTicketConsumer:
         self.batch_size = batch_size
         self.poll_timeout_ms = poll_timeout_ms
         self._idempotency_guard = idempotency_guard or get_idempotency_guard()
+        self.max_retries = max_retries
 
     def _build_ticket_payload(self, payload: dict[str, Any]) -> GlpiTicketCreate:
         """Constrói o payload do chamado a partir do evento de incidente."""
@@ -180,11 +182,31 @@ class GlpiTicketConsumer:
                         event_type = payload.get("event_type", "Unknown")
                         await self._handle_event(event_type, payload)
                         acked_ids.append(msg_id)
-                    except Exception:
-                        logger.exception(
-                            "Falha ao processar mensagem %s — não será confirmada (XACK)",
-                            msg_id,
+                    except Exception as exc:
+                        delivery_count = await self._event_bus.get_delivery_count(
+                            STREAM_TOPIC, CONSUMER_GROUP, msg_id
                         )
+                        if delivery_count >= self.max_retries:
+                            logger.error(
+                                "Incidente %s atingiu limite de %d tentativas no GLPI. Despachando para DLQ.",
+                                msg_id,
+                                self.max_retries,
+                            )
+                            await self._event_bus.send_to_dlq(
+                                topic=STREAM_TOPIC,
+                                group=CONSUMER_GROUP,
+                                message_id=msg_id,
+                                payload=payload,
+                                error=str(exc),
+                                delivery_count=delivery_count,
+                            )
+                        else:
+                            logger.exception(
+                                "Falha ao processar chamado GLPI da mensagem %s (tentativa %d/%d) — retentará via XAUTOCLAIM",
+                                msg_id,
+                                delivery_count,
+                                self.max_retries,
+                            )
 
                 if acked_ids:
                     await self._event_bus.ack(STREAM_TOPIC, CONSUMER_GROUP, *acked_ids)
