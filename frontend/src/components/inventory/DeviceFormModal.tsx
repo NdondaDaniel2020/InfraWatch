@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { deviceSchema, type DeviceFormData } from "../../schemas/deviceSchema";
 import {
   Server,
   X,
@@ -40,118 +40,6 @@ const categoryOptions: { value: DeviceCategory; label: string }[] = [
   { value: "LOAD_BALANCER", label: "Load Balancer" },
   { value: "OTHER", label: "Outros Equipamentos" },
 ];
-
-const baseSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
-  hostname: z.string().min(1, "Hostname é obrigatório").max(255),
-  ipAddress: z.string().min(1, "IP/Endereço é obrigatório").max(255),
-  port: z.number().int().min(1, "Porta deve ser entre 1 e 65535").max(65535).optional(),
-  protocol: z.enum(["ICMP", "HTTP", "TCP", "DOCKER", "HEARTBEAT", "SNMP"]),
-  category: z.enum(["ROUTER", "SWITCH", "FIREWALL", "SERVER", "DATABASE", "LOAD_BALANCER", "OTHER"]),
-  intervalSeconds: z.number().int().min(5, "Intervalo mínimo 5s").max(3600, "Intervalo máximo 3600s"),
-  description: z.string().max(500).optional(),
-  tags: z.array(z.string()).optional(),
-  slaExemption48h: z.boolean().default(true),
-  thresholds: z
-    .object({
-      latencyWarningMs: z.number().int().min(1).optional(),
-      latencyCriticalMs: z.number().int().min(1).optional(),
-      packetLossWarningPct: z.number().min(0).max(100).optional(),
-      packetLossCriticalPct: z.number().min(0).max(100).optional(),
-    })
-    .optional(),
-});
-
-const httpConfigSchema = z.object({
-  url: z.string().url("URL inválida").min(1, "URL é obrigatória"),
-  method: z.enum(["GET", "POST", "HEAD"]).default("GET"),
-  expectedStatusCodes: z
-    .string()
-    .refine((val) => val.split(",").map(Number).filter(Boolean).length > 0, "Pelo menos um código esperado"),
-  followRedirects: z.boolean().default(true),
-  verifySsl: z.boolean().default(true),
-  timeoutSeconds: z.number().int().min(1).max(60).default(10),
-});
-
-const tcpConfigSchema = z.object({
-  port: z.number().int().min(1, "Porta deve ser entre 1 e 65535").max(65535),
-  timeoutSeconds: z.number().int().min(1).max(60).default(5),
-});
-
-const dockerConfigSchema = z.object({
-  containerName: z.string().min(1, "Nome do container é obrigatório").max(255),
-  socketPath: z.string().max(255).optional(),
-});
-
-const snmpConfigSchema = z.object({
-  version: z.enum(["v1", "v2c", "v3"]).default("v2c"),
-  port: z.number().int().min(1).max(65535).default(161),
-  community: z.string().max(100).optional(),
-  oid: z.string().max(255).optional(),
-  securityLevel: z.enum(["noAuthNoPriv", "authNoPriv", "authPriv"]).default("authPriv"),
-  username: z.string().max(100).optional(),
-  authProtocol: z.enum(["MD5", "SHA", "SHA256"]).optional(),
-  authPassword: z.string().max(100).optional(),
-  privProtocol: z.enum(["DES", "AES", "AES128", "AES256"]).optional(),
-  privPassword: z.string().max(100).optional(),
-  timeoutSeconds: z.number().int().min(1).max(60).default(5),
-});
-
-const fullSchema = baseSchema
-  .extend({
-    httpConfig: httpConfigSchema.optional(),
-    tcpConfig: tcpConfigSchema.optional(),
-    dockerConfig: dockerConfigSchema.optional(),
-    snmpConfig: snmpConfigSchema.optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.protocol === "HTTP" && !data.httpConfig) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Configuração HTTP é obrigatória para protocolo HTTP",
-        path: ["httpConfig"],
-      });
-    }
-    if (data.protocol === "TCP" && !data.tcpConfig) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Configuração TCP é obrigatória para protocolo TCP",
-        path: ["tcpConfig"],
-      });
-    }
-    if (data.protocol === "DOCKER" && !data.dockerConfig) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Configuração Docker é obrigatória para protocolo Docker",
-        path: ["dockerConfig"],
-      });
-    }
-    if (data.protocol === "TCP" && data.tcpConfig && (!data.port || data.port < 1 || data.port > 65535)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Porta TCP deve estar entre 1 e 65535",
-        path: ["port"],
-      });
-    }
-    if (data.protocol === "SNMP" && data.snmpConfig) {
-      if ((data.snmpConfig.version === "v1" || data.snmpConfig.version === "v2c") && !data.snmpConfig.community) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Community SNMP é obrigatória para v1 e v2c",
-          path: ["snmpConfig", "community"],
-        });
-      }
-      if (data.snmpConfig.version === "v3" && !data.snmpConfig.username) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Usuário (Security Name) é obrigatório para SNMP v3",
-          path: ["snmpConfig", "username"],
-        });
-      }
-    }
-  });
-
-type DeviceFormData = z.infer<typeof fullSchema>;
 
 interface DeviceFormModalProps {
   isOpen: boolean;
@@ -204,7 +92,7 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
     watch,
     formState: { errors, isSubmitting, isValid },
   } = useForm<DeviceFormData>({
-    resolver: zodResolver(fullSchema),
+    resolver: zodResolver(deviceSchema),
     defaultValues,
     mode: "onChange",
   });
