@@ -35,6 +35,9 @@ export const ENV = {
   IS_DEV: Boolean(import.meta.env?.DEV),
   IS_PROD: Boolean(import.meta.env?.PROD),
 
+  /** Habilitação explícita de dados mockados em desenvolvimento */
+  ENABLE_MOCKS: import.meta.env?.VITE_ENABLE_MOCKS === "true",
+
   /** Título da aplicação */
   APP_TITLE: import.meta.env?.VITE_APP_TITLE ?? "InfraWatch NOC",
 

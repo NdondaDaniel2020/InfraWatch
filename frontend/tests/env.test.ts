@@ -32,4 +32,8 @@ describe("Módulo de Ambiente e Resolução de URLs (Issue #274)", () => {
       expect(ENV.WS_BASE_URL).toBe(`${expectedProto}//${window.location.host}`);
     }
   });
+
+  it("deve definir ENABLE_MOCKS como booleano falso por padrao", () => {
+    expect(typeof ENV.ENABLE_MOCKS).toBe("boolean");
+  });
 });
