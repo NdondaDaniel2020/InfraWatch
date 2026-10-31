@@ -44,6 +44,15 @@ const getStatusConfig = (status: OpticalInterfaceItem["status"]) => {
         text: "var(--color-neutral)",
         dotColor: "var(--color-neutral)",
       };
+    default:
+      return {
+        variant: "neutral" as const,
+        label: String(status || "UNKNOWN").toUpperCase(),
+        bg: "var(--color-neutral-bg)",
+        border: "var(--color-neutral-border)",
+        text: "var(--color-neutral)",
+        dotColor: "var(--color-neutral)",
+      };
   }
 };
 

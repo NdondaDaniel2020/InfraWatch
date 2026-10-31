@@ -119,8 +119,8 @@ const DeviceRow: React.FC<{
         </div>
       </td>
       <td style={{ padding: "12px 16px" }}>
-        <Badge variant={status.variant} size="md" pulse={statusKey === "DOWN"}>
-          {status.label}
+        <Badge variant={status?.variant ?? "healthy"} size="md" pulse={statusKey === "DOWN"}>
+          {status?.label ?? "UP"}
         </Badge>
       </td>
       <td style={{ padding: "12px 16px" }}>
