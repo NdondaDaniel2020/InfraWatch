@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse
 
-from src.contexts.iam.api.dependencies.auth import AuthenticatedUser, CurrentUserDep
+from src.contexts.system.api.dependencies import (
+    AdminUserDep,
+    BackupServiceDep,
+    require_admin,
+)
 from src.contexts.system.schemas.backup import (
     BackupHistoryResponse,
     BackupTriggerRequest,
@@ -21,18 +24,11 @@ from src.contexts.system.services.backup_service import (
 
 logger = logging.getLogger("infrawatch.system.api.backup")
 
-router = APIRouter(prefix="/api/v1/system/backup", tags=["System & Disaster Recovery"])
-
-BackupServiceDep = Annotated[BackupService, Depends(get_backup_service)]
-
-
-def _require_admin(user: AuthenticatedUser) -> None:
-    """Garante que apenas operadores com privilégios de administrador possam acessar recursos de backup."""
-    if not user.is_super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso negado: apenas administradores globais podem gerenciar backups do sistema.",
-        )
+router = APIRouter(
+    prefix="/api/v1/system/backup",
+    tags=["System & Disaster Recovery"],
+    dependencies=[Depends(require_admin())],
+)
 
 
 @router.post(
@@ -42,7 +38,7 @@ def _require_admin(user: AuthenticatedUser) -> None:
     summary="Disparar rotina de backup manual em segundo plano",
 )
 async def trigger_manual_backup(
-    user: CurrentUserDep,
+    user: AdminUserDep,
     service: BackupServiceDep,
     body: BackupTriggerRequest | None = None,
 ) -> BackupTriggerResponse:
@@ -50,7 +46,6 @@ async def trigger_manual_backup(
 
     Retorna HTTP 202 imediatamente sem sobrecarregar a API web (Blast Radius Zero).
     """
-    _require_admin(user)
     notes = body.notes if body else None
     return await service.trigger_backup(user=user, notes=notes)
 
@@ -60,15 +55,13 @@ async def trigger_manual_backup(
     summary="Acompanhar progresso de backup em tempo real via Server-Sent Events (SSE)",
 )
 async def stream_backup_progress(
-    user: CurrentUserDep,
+    user: AdminUserDep,
     service: BackupServiceDep,
 ) -> StreamingResponse:
     """Transmite eventos de telemetria e progresso da rotina de backup para o cliente.
 
     Canal compatível com EventSource nativo do navegador e proxies Nginx (X-Accel-Buffering: no).
     """
-    _require_admin(user)
-
     headers = {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -89,9 +82,15 @@ async def stream_backup_progress(
     summary="Listar histórico de backups locais gerados",
 )
 async def list_backup_history(
-    user: CurrentUserDep,
     service: BackupServiceDep,
 ) -> BackupHistoryResponse:
     """Retorna listagem dos backups disponíveis no volume local com tamanhos e hashes SHA-256."""
-    _require_admin(user)
     return await service.get_backup_history()
+
+
+__all__ = [
+    "BackupService",
+    "BackupServiceDep",
+    "get_backup_service",
+    "router",
+]
