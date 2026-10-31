@@ -23,7 +23,7 @@ logger = logging.getLogger("infrawatch.iam.sanitizer")
 MASKED_IP = "***.***.***.***"
 MASKED_SECRET = "********"
 
-# Campos estritamente confidenciais de engenharia de rede da RCS
+# Campos estritamente confidenciais de engenharia de rede da RCS e credenciais SNMP
 SENSITIVE_SECRET_FIELDS = {
     "snmp_community",
     "snmp_v3_auth_key",
@@ -31,6 +31,13 @@ SENSITIVE_SECRET_FIELDS = {
     "router_internal_id",
     "bgp_peer_password",
     "tacacs_key",
+    "community",
+    "auth_password",
+    "auth_passphrase",
+    "priv_password",
+    "priv_passphrase",
+    "authpassphrase",
+    "privpassphrase",
 }
 
 SENSITIVE_IP_FIELDS = {
