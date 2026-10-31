@@ -19,6 +19,7 @@ import json
 import logging
 from typing import Any
 
+from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_guard
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.integrations.glpi import GlpiClient, render_glpi_template
 from src.integrations.glpi.schemas import (
@@ -53,6 +54,7 @@ class GlpiTicketConsumer:
         consumer_name: str = "glpi-worker-1",
         batch_size: int = 10,
         poll_timeout_ms: int = 3000,
+        idempotency_guard: IdempotencyGuard | None = None,
     ) -> None:
         self._event_bus = event_bus
         self._glpi_base_url = glpi_base_url
@@ -61,6 +63,7 @@ class GlpiTicketConsumer:
         self.consumer_name = consumer_name
         self.batch_size = batch_size
         self.poll_timeout_ms = poll_timeout_ms
+        self._idempotency_guard = idempotency_guard or get_idempotency_guard()
 
     def _build_ticket_payload(self, payload: dict[str, Any]) -> GlpiTicketCreate:
         """Constrói o payload do chamado a partir do evento de incidente."""
@@ -68,8 +71,10 @@ class GlpiTicketConsumer:
         device_ip = payload.get("device_ip", "N/A")
         severity = payload.get("severity", "UNKNOWN")
         occurred_at = payload.get("occurred_at", "N/A")
+        event_id = payload.get("event_id") or payload.get("id")
 
-        title = f"[InfraWatch] Incidente {severity} — {device_name} ({device_ip})"
+        tag_suffix = f" [event_id:{event_id}]" if event_id else ""
+        title = f"[InfraWatch] Incidente {severity} — {device_name} ({device_ip}){tag_suffix}"
         content = render_glpi_template(
             "incident_ticket.html",
             device_name=device_name,
@@ -77,6 +82,8 @@ class GlpiTicketConsumer:
             severity=severity,
             occurred_at=occurred_at,
         )
+        if event_id:
+            content += f"\n<p><small>Correlation ID: [event_id:{event_id}]</small></p>"
 
         return GlpiTicketCreate(
             name=title,
@@ -99,6 +106,14 @@ class GlpiTicketConsumer:
             )
             return
 
+        event_id = payload.get("event_id") or payload.get("id")
+        if event_id and await self._idempotency_guard.is_processed(event_id, "GlpiTicketConsumer"):
+            logger.warning(
+                "Evento %s já processado pelo GlpiTicketConsumer (descarte idempotente)",
+                event_id,
+            )
+            return
+
         ticket_payload = self._build_ticket_payload(payload)
 
         try:
@@ -117,6 +132,9 @@ class GlpiTicketConsumer:
                         probe_details_json=json.dumps(probe_details, indent=2, ensure_ascii=False),
                     )
                     await glpi.add_followup(ticket_id, followup_text, private=True)
+
+            if event_id:
+                await self._idempotency_guard.mark_processed(event_id, "GlpiTicketConsumer")
 
             logger.info(
                 "Chamado GLPI #%d criado para incidente no dispositivo '%s' (severidade=%s)",
