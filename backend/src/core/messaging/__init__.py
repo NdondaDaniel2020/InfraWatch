@@ -1,5 +1,10 @@
 """Core messaging and EventBus package for InfraWatch."""
 
+from src.core.messaging.idempotency import (
+    DEFAULT_IDEMPOTENCY_TTL,
+    IdempotencyGuard,
+    get_idempotency_guard,
+)
 from src.core.messaging.in_memory_bus import InMemoryEventBus
 from src.core.messaging.interfaces import (
     EventBus,
@@ -37,10 +42,12 @@ async def close_event_bus() -> None:
 
 
 __all__ = [
+    "DEFAULT_IDEMPOTENCY_TTL",
     "EventBus",
     "EventHandler",
     "EventHandlerCallable",
     "HandlerType",
+    "IdempotencyGuard",
     "InMemoryEventBus",
     "LegacyEventHandlerCallable",
     "RedisStreamsEventBus",
@@ -49,5 +56,6 @@ __all__ = [
     "SSEConnection",
     "close_event_bus",
     "get_event_bus",
+    "get_idempotency_guard",
     "get_sse_broadcaster",
 ]
