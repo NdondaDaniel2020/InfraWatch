@@ -35,12 +35,14 @@ class InventoryChangesConsumer:
         consumer_name: str = "probe-worker-1",
         batch_size: int = 20,
         poll_timeout_ms: int = 2000,
+        max_retries: int = 5,
     ) -> None:
         self.schedule = schedule
         self.event_bus = event_bus
         self.consumer_name = consumer_name
         self.batch_size = batch_size
         self.poll_timeout_ms = poll_timeout_ms
+        self.max_retries = max_retries
 
     async def _handle_event(self, event_type: str, payload: dict[str, Any]) -> None:
         """Aplica a mutação correspondente ao evento no schedule em memória."""
@@ -130,12 +132,32 @@ class InventoryChangesConsumer:
                         event_type = payload.get("event_type", "Unknown")
                         await self._handle_event(event_type, payload)
                         message_ids.append(msg_id)
-                    except Exception:
-                        logger.exception(
-                            "Erro ao processar evento %s (msg_id=%s)",
-                            payload.get("event_type"),
-                            msg_id,
+                    except Exception as exc:
+                        delivery_count = await self.event_bus.get_delivery_count(
+                            STREAM_TOPIC, CONSUMER_GROUP, msg_id
                         )
+                        if delivery_count >= self.max_retries:
+                            logger.error(
+                                "Evento de inventário %s atingiu limite de %d tentativas. Despachando para DLQ.",
+                                msg_id,
+                                self.max_retries,
+                            )
+                            await self.event_bus.send_to_dlq(
+                                topic=STREAM_TOPIC,
+                                group=CONSUMER_GROUP,
+                                message_id=msg_id,
+                                payload=payload,
+                                error=str(exc),
+                                delivery_count=delivery_count,
+                            )
+                        else:
+                            logger.exception(
+                                "Erro ao processar evento %s (msg_id=%s, tentativa %d/%d) — retentará via XAUTOCLAIM",
+                                payload.get("event_type"),
+                                msg_id,
+                                delivery_count,
+                                self.max_retries,
+                            )
 
                 # XACK em lote para todos os eventos processados com sucesso
                 if message_ids:
