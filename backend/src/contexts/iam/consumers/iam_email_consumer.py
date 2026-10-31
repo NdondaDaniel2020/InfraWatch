@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from src.contexts.iam.services.email_service import email_service
+from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_guard
 from src.core.messaging.resilient_bus import ResilientEventBus
 
 logger = logging.getLogger("infrawatch.iam.consumer.email")
@@ -50,11 +51,13 @@ class IamEmailConsumer:
         consumer_name: str = "iam-email-worker-1",
         batch_size: int = 10,
         poll_timeout_ms: int = 3000,
+        idempotency_guard: IdempotencyGuard | None = None,
     ) -> None:
         self._event_bus = event_bus or ResilientEventBus()
         self.consumer_name = consumer_name
         self.batch_size = batch_size
         self.poll_timeout_ms = poll_timeout_ms
+        self._idempotency_guard = idempotency_guard or get_idempotency_guard()
 
     async def consume_loop(self, stop_event: asyncio.Event | None = None) -> None:
         """Loop contínuo de consumo de eventos de identidade via Redis Streams."""
@@ -116,8 +119,18 @@ class IamEmailConsumer:
             logger.warning("Handler '%s' não encontrado para evento '%s'", handler_name, event_type)
             return
 
+        event_id = event_data.get("event_id") or event_data.get("id")
+        if event_id and await self._idempotency_guard.is_processed(event_id, "IamEmailConsumer"):
+            logger.warning(
+                "Evento de IAM %s já processado pelo IamEmailConsumer (descarte idempotente)",
+                event_id,
+            )
+            return
+
         try:
             await handler(event_data)
+            if event_id:
+                await self._idempotency_guard.mark_processed(event_id, "IamEmailConsumer")
             logger.info("E-mail processado com sucesso para evento '%s'", event_type)
         except Exception:
             logger.exception("Falha ao processar e-mail para evento '%s'", event_type)
