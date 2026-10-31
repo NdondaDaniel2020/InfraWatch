@@ -192,6 +192,42 @@ class ResilientEventBus(EventBus):
 
         return await self.fallback_bus.ack(topic, group, *message_ids)
 
+    async def get_delivery_count(self, topic: str, group: str, message_id: str) -> int:
+        """Retorna o número de tentativas de entrega do barramento ativo."""
+        if self._is_primary_healthy:
+            try:
+                return await self.primary_bus.get_delivery_count(topic, group, message_id)
+            except (RedisConnectionError, ConnectionRefusedError, OSError):
+                async with self._lock:
+                    self._is_primary_healthy = False
+                    await self._start_health_checker_if_needed()
+
+        return await self.fallback_bus.get_delivery_count(topic, group, message_id)
+
+    async def send_to_dlq(
+        self,
+        topic: str,
+        group: str,
+        message_id: str,
+        payload: dict[str, Any],
+        error: str,
+        delivery_count: int,
+    ) -> str:
+        """Encaminha mensagem para a DLQ no barramento ativo."""
+        if self._is_primary_healthy:
+            try:
+                return await self.primary_bus.send_to_dlq(
+                    topic, group, message_id, payload, error, delivery_count
+                )
+            except (RedisConnectionError, ConnectionRefusedError, OSError):
+                async with self._lock:
+                    self._is_primary_healthy = False
+                    await self._start_health_checker_if_needed()
+
+        return await self.fallback_bus.send_to_dlq(
+            topic, group, message_id, payload, error, delivery_count
+        )
+
     async def subscribe(
         self,
         topic: str,
