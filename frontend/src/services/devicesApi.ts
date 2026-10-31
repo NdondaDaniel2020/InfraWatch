@@ -2,6 +2,9 @@ import { apiClient } from "./apiClient";
 import type {
   DeviceListItem,
   DeviceDetail,
+  DeviceHealthStatus,
+  ProberProtocol,
+  DeviceCategory,
   CreateDeviceRequest,
   UpdateDeviceRequest,
   PauseDeviceRequest,
