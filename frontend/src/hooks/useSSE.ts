@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { QueryClient } from "@tanstack/react-query";
 import { ENV } from "../utils/env";
 import type {
   SSEConnectionStatus,
@@ -19,14 +20,14 @@ const WATCHDOG_CHECK_INTERVAL = 5000; // 5s
  * Atualiza o cache do TanStack Query de forma cirúrgica sem invalidar consultas inteiras.
  * Evita piscamento de tela e refetch de rede desnecessário.
  */
-function updateTanStackCache(queryClient: any, payload: SSEEventPayload) {
+function updateTanStackCache(queryClient: QueryClient, payload: SSEEventPayload) {
   if (!queryClient?.setQueryData) return;
 
   const { event_type, device_id } = payload;
 
   // Atualização granular por dispositivo
   if (device_id) {
-    queryClient.setQueryData(["device", device_id], (old: any) => {
+    queryClient.setQueryData<Record<string, unknown>>(["device", device_id], (old) => {
       if (!old) return { ...payload, updatedAt: new Date().toISOString() };
       return {
         ...old,
@@ -35,9 +36,9 @@ function updateTanStackCache(queryClient: any, payload: SSEEventPayload) {
       };
     });
 
-    queryClient.setQueryData(["devices"], (oldList: any) => {
+    queryClient.setQueryData<Array<Record<string, unknown>>>(["devices"], (oldList) => {
       if (!Array.isArray(oldList)) return oldList;
-      return oldList.map((dev: any) => {
+      return oldList.map((dev) => {
         if (dev.id === device_id || dev.device_id === device_id) {
           return {
             ...dev,
@@ -56,21 +57,21 @@ function updateTanStackCache(queryClient: any, payload: SSEEventPayload) {
     event_type === "AlertTriggered" ||
     event_type === "BetaAlarmTriggered"
   ) {
-    queryClient.setQueryData(["alerts"], (oldAlerts: any) => {
-      if (!Array.isArray(oldAlerts)) return [payload];
+    queryClient.setQueryData<Array<Record<string, unknown>>>(["alerts"], (oldAlerts) => {
+      if (!Array.isArray(oldAlerts)) return [payload as unknown as Record<string, unknown>];
       const exists = oldAlerts.some(
-        (a: any) =>
+        (a) =>
           (payload.event_id && a.event_id === payload.event_id) ||
           (payload.incident_id && a.incident_id === payload.incident_id)
       );
       if (exists) return oldAlerts;
-      return [payload, ...oldAlerts];
+      return [payload as unknown as Record<string, unknown>, ...oldAlerts];
     });
   } else if (event_type === "AlarmResolved" || event_type === "AlertResolved") {
-    queryClient.setQueryData(["alerts"], (oldAlerts: any) => {
+    queryClient.setQueryData<Array<Record<string, unknown>>>(["alerts"], (oldAlerts) => {
       if (!Array.isArray(oldAlerts)) return oldAlerts;
       return oldAlerts.filter(
-        (a: any) =>
+        (a) =>
           !(
             (payload.event_id && a.event_id === payload.event_id) ||
             (payload.incident_id && a.incident_id === payload.incident_id)
@@ -105,8 +106,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   // Refs para manter valores estáveis dentro dos callbacks assíncronos e evitar re-renders
   const statusRef = useRef<SSEConnectionStatus>("connecting");
   const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectTimeoutRef = useRef<any>(null);
-  const watchdogIntervalRef = useRef<any>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const watchdogIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryCountRef = useRef<number>(0);
   const isManuallyClosedRef = useRef<boolean>(false);
   const lastActivityTimeRef = useRef<number>(Date.now());
@@ -229,7 +230,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
       };
 
       // Listener para eventos de ping / heartbeat se emitidos nominalmente
-      es.addEventListener("ping", (event: any) => {
+      es.addEventListener("ping", (event: MessageEvent<string>) => {
         lastActivityTimeRef.current = Date.now();
         setLastHeartbeatAt(new Date());
         if (event.data) {
@@ -250,7 +251,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
       ];
 
       standardEvents.forEach((evtName) => {
-        es.addEventListener(evtName, (event: any) => {
+        es.addEventListener(evtName, (event: MessageEvent<string>) => {
           handleIncomingData(event.data, evtName);
         });
       });
@@ -259,7 +260,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
       if (optionsRef.current.onEvent) {
         Object.keys(optionsRef.current.onEvent).forEach((customEvent) => {
           if (!standardEvents.includes(customEvent) && customEvent !== "ping") {
-            es.addEventListener(customEvent, (event: any) => {
+            es.addEventListener(customEvent, (event: MessageEvent<string>) => {
               handleIncomingData(event.data, customEvent);
             });
           }

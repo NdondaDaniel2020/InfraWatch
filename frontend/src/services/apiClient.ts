@@ -7,7 +7,7 @@
  * - Injeção automática de header 'Authorization: Bearer <token>'.
  */
 
-import { AxiosError } from "axios";
+import { AxiosError, type Method, type AxiosRequestConfig } from "axios";
 import { api } from "./api";
 import {
   getInMemoryAccessToken,
@@ -80,13 +80,14 @@ export async function apiRequest<T>(
   }
 
   try {
-    const response = await api.request<T>({
+    const config: AxiosRequestConfig & { skipAuth?: boolean } = {
       url: endpoint,
-      method: method as any,
+      method: method as Method,
       data: dataToSend,
       headers: requestHeaders,
-      ...({ skipAuth } as any),
-    });
+      skipAuth,
+    };
+    const response = await api.request<T>(config);
 
     return response.data;
   } catch (error) {

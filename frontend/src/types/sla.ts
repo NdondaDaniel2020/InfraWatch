@@ -5,6 +5,25 @@ export type MaintenanceStatus =
   | "COMPLETED"
   | "CANCELLED";
 
+export interface MaintenanceWindowDTO {
+  id: string | number;
+  rfc_number?: string;
+  title?: string;
+  description?: string;
+  device_id?: string;
+  device_name?: string;
+  client_name?: string;
+  start_time?: string;
+  end_time?: string;
+  is_approved?: boolean;
+  status?: string;
+}
+
+export interface MaintenanceWindowListResponse {
+  items: MaintenanceWindowDTO[];
+  total: number;
+}
+
 export interface MaintenanceWindow {
   id: string;
   rfcNumber: string;

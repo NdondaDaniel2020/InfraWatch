@@ -13,6 +13,8 @@ import type {
   IncidentItem,
   ResolveIncidentPayload,
   IncidentsKpiSummary,
+  IncidentDTO,
+  IncidentListResponse,
 } from "../types/incidents";
 
 export type {
@@ -23,6 +25,8 @@ export type {
   IncidentItem,
   ResolveIncidentPayload,
   IncidentsKpiSummary,
+  IncidentDTO,
+  IncidentListResponse,
 };
 
 // Importa mocks canonicos desacoplados do servico de API
@@ -81,18 +85,18 @@ export const incidentsApi = {
         // Envia organization_id para o backend caso seja uma busca de NOC / Super Admin
         params.append("organization_id", filters.organization);
       }
-      const response = await apiClient.get<any>(`/api/v1/incidents?${params.toString()}`);
+      const response = await apiClient.get<IncidentListResponse>(`/api/v1/incidents?${params.toString()}`);
       if (response && Array.isArray(response.items)) {
         // Mapeia retorno do backend para o formato rico da interface (já escopado pelo backend)
-        return response.items.map((item: any) => {
-          const match = inMemoryIncidents.find((m) => m.id === item.id || m.code === item.id);
+        return response.items.map((item: IncidentDTO) => {
+          const match = inMemoryIncidents.find((m) => String(m.id) === String(item.id) || m.code === String(item.id));
           return {
             ...(match || inMemoryIncidents[0]),
             id: String(item.id),
             title: item.title,
             severity: item.severity.toLowerCase() as IncidentSeverity,
             status: item.status as IncidentStatus,
-            glpi_ticket_id: item.glpi_ticket_id,
+            glpi_ticket_id: item.glpi_ticket_id ?? match?.glpi_ticket_id ?? null,
             root_cause: item.root_cause || match?.root_cause,
           };
         });

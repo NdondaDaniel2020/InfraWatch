@@ -1,5 +1,11 @@
 import { apiClient } from "./apiClient";
-import type { ClientSlaSummary, ClientServiceItem, SanitizedEndpoint } from "../types/clientPortal";
+import type {
+  ClientSlaSummary,
+  ClientServiceItem,
+  SanitizedEndpoint,
+  ClientDeviceDTO,
+  ClientDeviceListResponse,
+} from "../types/clientPortal";
 import {
   MOCK_CLIENT_SLA_SUMMARY,
   MOCK_CLIENT_SERVICES,
@@ -33,9 +39,9 @@ export const clientPortalApi = {
       const url = organizationId
         ? `/api/v1/devices?organization_id=${encodeURIComponent(organizationId)}`
         : "/api/v1/devices";
-      const res = await apiClient.get<any>(url);
+      const res = await apiClient.get<ClientDeviceListResponse>(url);
       if (res && Array.isArray(res.items) && res.items.length > 0) {
-        return res.items.map((item: any) => ({
+        return res.items.map((item: ClientDeviceDTO) => ({
           id: String(item.id),
           name: item.name,
           category: item.category || "Canal Digital",
@@ -62,9 +68,9 @@ export const clientPortalApi = {
       const url = organizationId
         ? `/api/v1/devices?organization_id=${encodeURIComponent(organizationId)}`
         : "/api/v1/devices";
-      const res = await apiClient.get<any>(url);
+      const res = await apiClient.get<ClientDeviceListResponse>(url);
       if (res && Array.isArray(res.items) && res.items.length > 0) {
-        return res.items.map((item: any) => ({
+        return res.items.map((item: ClientDeviceDTO) => ({
           id: String(item.id),
           domainName: item.hostname || item.name,
           serviceType: item.category || "Core Endpoint",
