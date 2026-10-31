@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient";
+import { ENV } from "../utils/env";
 import type {
   DeviceDetail,
   TimescaleMetricsResponse,
@@ -29,14 +30,17 @@ export const deviceDetailApi = {
   },
 
   async getDeviceInterfaces(id: string): Promise<OpticalInterfaceItem[]> {
-    try {
-      const res = await apiClient.get<OpticalInterfaceItem[]>(`${BASE_PATH}/${id}/interfaces`);
-      if (Array.isArray(res) && res.length > 0) {
-        return res;
+    if (ENV.ENABLE_MOCKS) {
+      try {
+        const res = await apiClient.get<OpticalInterfaceItem[]>(`${BASE_PATH}/${id}/interfaces`);
+        if (Array.isArray(res) && res.length > 0) {
+          return res;
+        }
+      } catch {
+        return mockOpticalInterfaces;
       }
-    } catch {
-      // Fallback resiliente
+      return mockOpticalInterfaces;
     }
-    return mockOpticalInterfaces;
+    return apiClient.get<OpticalInterfaceItem[]>(`${BASE_PATH}/${id}/interfaces`);
   },
 };
