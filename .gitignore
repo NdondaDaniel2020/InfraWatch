@@ -116,6 +116,9 @@ certs/*.key
 certs/*.crt
 !certs/.gitkeep
 
+# Git Worktrees
+.worktrees/
+
 # Frontend Lib
 !frontend/src/lib/
 !frontend/src/lib/**
