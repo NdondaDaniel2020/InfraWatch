@@ -398,10 +398,10 @@ services:
       dockerfile: Dockerfile
     container_name: infrawatch-frontend
     restart: always
-    env_file:
-      - ./frontend/.env.production
+    expose:
+      - "80"
     healthcheck:
-      test: ["CMD-SHELL", "test -f /usr/share/nginx/html/index.html || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/healthz || wget -qO- http://localhost:80/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -429,7 +429,7 @@ services:
       infrawatch-api:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- --no-check-certificate https://127.0.0.1/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- --no-check-certificate https://localhost/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
