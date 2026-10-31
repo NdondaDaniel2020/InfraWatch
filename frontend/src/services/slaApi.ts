@@ -8,6 +8,8 @@ import type {
   SlaMetricOverview,
   SlaDeviceBreakdown,
   SlaExportFormat,
+  MaintenanceWindowDTO,
+  MaintenanceWindowListResponse,
 } from "../types/sla";
 
 const BASE_PATH_MAINT = "/api/v1/maintenance-windows";
@@ -32,13 +34,15 @@ export const slaApi = {
         params.append("period", filters.period);
       }
       const query = params.toString() ? `?${params.toString()}` : "";
-      const res = await apiClient.get<any>(`${BASE_PATH_MAINT}${query}`);
+      const res = await apiClient.get<MaintenanceWindowListResponse | MaintenanceWindow[]>(
+        `${BASE_PATH_MAINT}${query}`
+      );
 
       if (Array.isArray(res)) {
         return res;
       }
       if (res && Array.isArray(res.items)) {
-        return res.items.map((item: any): MaintenanceWindow => ({
+        return res.items.map((item: MaintenanceWindowDTO): MaintenanceWindow => ({
           id: String(item.id),
           rfcNumber: item.rfc_number || `RFC-${String(item.id).slice(0, 8).toUpperCase()}`,
           title: item.title || item.description || "Manutenção Programada",
