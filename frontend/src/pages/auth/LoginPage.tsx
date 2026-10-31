@@ -107,7 +107,7 @@ export const LoginPage: React.FC = () => {
         return;
       }
 
-      if (result.user.role === "CLIENT_VIEWER" && from === "/") {
+      if ((result.user.role === "CLIENT_VIEWER" || result.user.role === "ORG_ADMIN") && from === "/") {
         navigate("/portal", { replace: true });
       } else {
         navigate(from, { replace: true });
