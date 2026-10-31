@@ -27,6 +27,7 @@ function createAuthMock(
   return {
     user: isAuthenticated ? user : null,
     accessToken: isAuthenticated ? "mock-jwt-token" : null,
+    refreshToken: isAuthenticated ? "mock-refresh-token" : null,
     isAuthenticated,
     isLoading: false,
     mfaPendingToken: null,
@@ -36,6 +37,9 @@ function createAuthMock(
     setSession: vi.fn(),
     logout: vi.fn(),
     clearMfaPending: vi.fn(),
+    setTokens: vi.fn(),
+    setUser: vi.fn(),
+    reset: vi.fn(),
     hasRole: (roles: UserRole | UserRole[]) => {
       if (!isAuthenticated) return false;
       const target = Array.isArray(roles) ? roles : [roles];
