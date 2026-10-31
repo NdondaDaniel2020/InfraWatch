@@ -15,7 +15,7 @@ interface BackendNotificationItem {
   title: string;
   message: string;
   read: boolean;
-  details?: Record<string, any> | null;
+  details?: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -58,7 +58,7 @@ export const notificationsApi = {
               hour: "2-digit",
               minute: "2-digit",
             }) + " WAT",
-            impactSlaFormatted: item.details?.impact_sla || "0m",
+            impactSlaFormatted: typeof item.details?.impact_sla === "string" ? item.details.impact_sla : "0m",
             isRead: item.read,
             type: item.event_type.includes("maintenance")
               ? "maintenance"
@@ -103,7 +103,7 @@ export const notificationsApi = {
           hour: "2-digit",
           minute: "2-digit",
         }) + " WAT",
-        impactSlaFormatted: item.details?.impact_sla || "0m",
+        impactSlaFormatted: typeof item.details?.impact_sla === "string" ? item.details.impact_sla : "0m",
         isRead: item.read,
         type: "advisory",
         severity: "info",

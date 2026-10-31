@@ -129,11 +129,19 @@ def test_topology_edge_negative_bandwidth_raises_error():
 
 def test_topology_graph_properties():
     org_id = uuid4()
-    n1 = TopologyNode(id=uuid4(), label="N1", node_type="device", organization_id=org_id, cluster="CLUSTER-A")
-    n2 = TopologyNode(id=uuid4(), label="N2", node_type="device", organization_id=org_id, cluster="CLUSTER-A")
-    n3 = TopologyNode(id=uuid4(), label="N3", node_type="service", organization_id=org_id, cluster="CLUSTER-B")
+    n1 = TopologyNode(
+        id=uuid4(), label="N1", node_type="device", organization_id=org_id, cluster="CLUSTER-A"
+    )
+    n2 = TopologyNode(
+        id=uuid4(), label="N2", node_type="device", organization_id=org_id, cluster="CLUSTER-A"
+    )
+    n3 = TopologyNode(
+        id=uuid4(), label="N3", node_type="service", organization_id=org_id, cluster="CLUSTER-B"
+    )
 
-    edge = TopologyEdge(id=uuid4(), source_node_id=n1.id, target_node_id=n2.id, organization_id=org_id)
+    edge = TopologyEdge(
+        id=uuid4(), source_node_id=n1.id, target_node_id=n2.id, organization_id=org_id
+    )
 
     graph = TopologyGraph(nodes=[n1, n2, n3], edges=[edge])
     assert graph.total_nodes == 3

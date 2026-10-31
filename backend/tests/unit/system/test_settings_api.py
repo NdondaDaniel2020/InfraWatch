@@ -50,7 +50,20 @@ def org_admin_token() -> str:
 
 
 @pytest.mark.asyncio
-async def test_settings_status_requires_super_admin(settings_test_app: FastAPI, org_admin_token: str) -> None:
+async def test_settings_status_requires_authentication(settings_test_app: FastAPI) -> None:
+    """Garante que requisição não autenticada receba HTTP 401 Unauthorized."""
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=settings_test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/system/settings/status")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio
+async def test_settings_status_requires_super_admin(
+    settings_test_app: FastAPI, org_admin_token: str
+) -> None:
     """Garante que ORG_ADMIN receba 403 Forbidden em /status."""
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=settings_test_app),
@@ -128,7 +141,11 @@ async def test_test_glpi_endpoint(settings_test_app: FastAPI, admin_token: str) 
             response = await client.post(
                 "/api/v1/system/settings/test/glpi",
                 headers={"Authorization": f"Bearer {admin_token}"},
-                json={"base_url": "https://glpi.test", "app_token": "app123", "user_token": "usr123"},
+                json={
+                    "base_url": "https://glpi.test",
+                    "app_token": "app123",
+                    "user_token": "usr123",
+                },
             )
             assert response.status_code == status.HTTP_200_OK
             data = response.json()

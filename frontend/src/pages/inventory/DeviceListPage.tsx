@@ -77,8 +77,18 @@ const DeviceRow: React.FC<{
   device,
   onViewDetails,
 }) => {
-  const status = statusConfig[device.healthStatus];
-  const protocolIcon = protocolIcons[device.protocol] || "❓";
+  const rawStatus = String(device.healthStatus || (device as any).status || ((device as any).is_paused ? "PAUSED" : "UP")).toUpperCase();
+  const statusKey: DeviceHealthStatus =
+    rawStatus === "DOWN" ? "DOWN" :
+    rawStatus === "DEG" || rawStatus === "DEGRADED" ? "DEG" :
+    rawStatus === "MAINT" || rawStatus === "MAINTENANCE" ? "MAINT" :
+    rawStatus === "PAUSED" || (device as any).is_paused ? "PAUSED" : "UP";
+
+  const status = statusConfig[statusKey] || statusConfig.UP;
+  const protocolKey = String(device.protocol || "ICMP").toUpperCase() as ProberProtocol;
+  const protocolIcon = protocolIcons[protocolKey] || "❓";
+  const ipDisplay = device.ipAddress || (device as any).ip_address || "—";
+  const hostnameDisplay = device.hostname || (device as any).name || ipDisplay;
 
   return (
     <tr style={{ borderBottom: "var(--border-subtle)", transition: "background-color var(--transition-fast)" }}>
@@ -93,24 +103,24 @@ const DeviceRow: React.FC<{
             </Badge>
           </div>
           <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
-            {device.hostname}
+            {hostnameDisplay}
           </span>
         </div>
       </td>
       <td style={{ padding: "12px 16px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--color-text-primary)" }}>
-            {device.ipAddress}{device.port ? `:${device.port}` : ""}
+            {ipDisplay}{device.port ? `:${device.port}` : ""}
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
             <span>{protocolIcon}</span>
-            <span style={{ fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>{device.protocol}</span>
+            <span style={{ fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>{protocolKey}</span>
           </span>
         </div>
       </td>
       <td style={{ padding: "12px 16px" }}>
-        <Badge variant={status.variant} size="md" pulse={device.healthStatus === "DOWN"}>
-          {status.label}
+        <Badge variant={status?.variant ?? "healthy"} size="md" pulse={statusKey === "DOWN"}>
+          {status?.label ?? "UP"}
         </Badge>
       </td>
       <td style={{ padding: "12px 16px" }}>

@@ -1,6 +1,12 @@
-import React, { useState } from "react";
+import React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, AlertTriangle, Calendar, X } from "lucide-react";
 import type { CreateMaintenanceInput } from "../../types/sla";
+import {
+  createMaintenanceSchema,
+  type CreateMaintenanceFormData,
+} from "../../schemas/slaSchema";
 import { Button } from "../ui";
 
 interface CreateMaintenanceModalProps {
@@ -16,16 +22,28 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
   onSubmit,
   isSubmitting = false,
 }) => {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [targetDeviceInput, setTargetDeviceInput] = useState("SW-CORE-LUANDA-01");
-  const [clientName, setClientName] = useState("Unitel Angola (Backbone Core)");
-  const [startTime, setStartTime] = useState("2026-10-22T02:00");
-  const [endTime, setEndTime] = useState("2026-10-22T04:00");
-  const [alarmSuppression, setAlarmSuppression] = useState(true);
-  const [slaExemption, setSlaExemption] = useState(true);
-  const [rollbackPlan, setRollbackPlan] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<CreateMaintenanceFormData>({
+    resolver: zodResolver(createMaintenanceSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      targetDeviceInput: "SW-CORE-LUANDA-01",
+      clientName: "Unitel Angola (Backbone Core)",
+      startTime: "2026-10-22T02:00",
+      endTime: "2026-10-22T04:00",
+      alarmSuppression: true,
+      slaExemption: true,
+      rollbackPlan: "",
+    },
+    mode: "onChange",
+  });
+
+  const targetDeviceInput = watch("targetDeviceInput", "SW-CORE-LUANDA-01");
 
   if (!isOpen) return null;
 
@@ -33,38 +51,36 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
     targetDeviceInput.toUpperCase().includes("SW-CORE") ||
     targetDeviceInput.includes("10.0.1.1");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !description.trim() || !targetDeviceInput.trim()) {
-      setError("Todos os campos obrigatórios devem ser preenchidos.");
-      return;
-    }
+  const onFormSubmit = (data: CreateMaintenanceFormData) => {
+    const startDate = new Date(data.startTime);
+    const endDate = new Date(data.endTime);
 
-    const startDate = new Date(startTime);
-    const endDate = new Date(endTime);
-    if (endDate <= startDate) {
-      setError("A data/hora de término deve ser posterior à data/hora de início.");
-      return;
-    }
-
-    setError(null);
-    const targetDeviceIds = targetDeviceInput
+    const targetDeviceIds = data.targetDeviceInput
       .split(",")
       .map((d) => d.trim())
       .filter(Boolean);
 
     onSubmit({
-      title,
-      description,
+      title: data.title,
+      description: data.description,
       targetDeviceIds,
-      clientName,
+      clientName: data.clientName,
       startTimeUtc: startDate.toISOString(),
       endTimeUtc: endDate.toISOString(),
-      alarmSuppression,
-      slaExemption,
-      rollbackPlan,
+      alarmSuppression: data.alarmSuppression,
+      slaExemption: data.slaExemption,
+      rollbackPlan: data.rollbackPlan,
     });
   };
+
+  // Coleta qualquer erro geral de validação para exibir no banner superior
+  const topErrorMessage =
+    errors.title?.message ||
+    errors.description?.message ||
+    errors.targetDeviceInput?.message ||
+    errors.clientName?.message ||
+    errors.startTime?.message ||
+    errors.endTime?.message;
 
   return (
     <div
@@ -141,8 +157,9 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
           </button>
         </div>
 
-        {error && (
+        {topErrorMessage && (
           <div
+            role="alert"
             style={{
               padding: "10px 14px",
               borderRadius: "var(--radius-sm)",
@@ -156,7 +173,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
             }}
           >
             <AlertCircle size={16} />
-            <span>{error}</span>
+            <span>{topErrorMessage}</span>
           </div>
         )}
 
@@ -182,20 +199,19 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <form onSubmit={handleSubmit(onFormSubmit)} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
               Título da Mudança (RFC) *
             </label>
             <input
               type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              {...register("title")}
               placeholder="Ex: Atualização Crítica de Firmware Cisco IOS-XE"
-              required
+              aria-invalid={!!errors.title}
               style={{
                 backgroundColor: "var(--color-surface-card)",
-                border: "var(--border-subtle)",
+                border: errors.title ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                 borderRadius: "var(--radius-sm)",
                 padding: "8px 12px",
                 color: "var(--color-text-primary)",
@@ -203,6 +219,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                 outline: "none",
               }}
             />
+            {errors.title && (
+              <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
+                {errors.title.message}
+              </span>
+            )}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -212,13 +233,12 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               </label>
               <input
                 type="text"
-                value={targetDeviceInput}
-                onChange={(e) => setTargetDeviceInput(e.target.value)}
+                {...register("targetDeviceInput")}
                 placeholder="Ex: SW-CORE-LUANDA-01, SW-CORE-LUANDA-02"
-                required
+                aria-invalid={!!errors.targetDeviceInput}
                 style={{
                   backgroundColor: "var(--color-surface-card)",
-                  border: "var(--border-subtle)",
+                  border: errors.targetDeviceInput ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 12px",
                   color: "var(--color-text-primary)",
@@ -227,6 +247,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                   outline: "none",
                 }}
               />
+              {errors.targetDeviceInput && (
+                <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
+                  {errors.targetDeviceInput.message}
+                </span>
+              )}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -235,12 +260,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               </label>
               <input
                 type="text"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                required
+                {...register("clientName")}
+                aria-invalid={!!errors.clientName}
                 style={{
                   backgroundColor: "var(--color-surface-card)",
-                  border: "var(--border-subtle)",
+                  border: errors.clientName ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 12px",
                   color: "var(--color-text-primary)",
@@ -248,6 +272,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                   outline: "none",
                 }}
               />
+              {errors.clientName && (
+                <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
+                  {errors.clientName.message}
+                </span>
+              )}
             </div>
           </div>
 
@@ -258,12 +287,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               </label>
               <input
                 type="datetime-local"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                required
+                {...register("startTime")}
+                aria-invalid={!!errors.startTime}
                 style={{
                   backgroundColor: "var(--color-surface-card)",
-                  border: "var(--border-subtle)",
+                  border: errors.startTime ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 12px",
                   color: "var(--color-text-primary)",
@@ -272,6 +300,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                   outline: "none",
                 }}
               />
+              {errors.startTime && (
+                <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
+                  {errors.startTime.message}
+                </span>
+              )}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -280,12 +313,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               </label>
               <input
                 type="datetime-local"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                required
+                {...register("endTime")}
+                aria-invalid={!!errors.endTime}
                 style={{
                   backgroundColor: "var(--color-surface-card)",
-                  border: "var(--border-subtle)",
+                  border: errors.endTime ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 12px",
                   color: "var(--color-text-primary)",
@@ -294,6 +326,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                   outline: "none",
                 }}
               />
+              {errors.endTime && (
+                <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
+                  {errors.endTime.message}
+                </span>
+              )}
             </div>
           </div>
 
@@ -303,13 +340,12 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
             </label>
             <textarea
               rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register("description")}
               placeholder="Descreva o escopo da parada e impacto previsto na topologia..."
-              required
+              aria-invalid={!!errors.description}
               style={{
                 backgroundColor: "var(--color-surface-card)",
-                border: "var(--border-subtle)",
+                border: errors.description ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                 borderRadius: "var(--radius-sm)",
                 padding: "8px 12px",
                 color: "var(--color-text-primary)",
@@ -318,6 +354,11 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                 resize: "vertical",
               }}
             />
+            {errors.description && (
+              <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
+                {errors.description.message}
+              </span>
+            )}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -326,8 +367,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
             </label>
             <input
               type="text"
-              value={rollbackPlan}
-              onChange={(e) => setRollbackPlan(e.target.value)}
+              {...register("rollbackPlan")}
               placeholder="Ex: Rollback de firmware para versão anterior em até 15 minutos"
               style={{
                 backgroundColor: "var(--color-surface-card)",
@@ -356,8 +396,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
             <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
               <input
                 type="checkbox"
-                checked={alarmSuppression}
-                onChange={(e) => setAlarmSuppression(e.target.checked)}
+                {...register("alarmSuppression")}
               />
               <span>Ativar supressão automática de telemetria e alarmes durante a janela</span>
             </label>
@@ -365,8 +404,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
             <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
               <input
                 type="checkbox"
-                checked={slaExemption}
-                onChange={(e) => setSlaExemption(e.target.checked)}
+                {...register("slaExemption")}
               />
               <span>Requerer homologação formal de Isenção de SLA (ADR-009 / BNA)</span>
             </label>

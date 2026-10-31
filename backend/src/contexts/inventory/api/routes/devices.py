@@ -75,6 +75,7 @@ async def test_probe(
 ):
     """Executa sonda preliminar sob demanda para testar conectividade com o alvo."""
     from uuid import uuid4
+
     from src.workers.probers.executor import ProbeExecutor
     from src.workers.scheduler.in_memory_inventory import ProbeTarget
 

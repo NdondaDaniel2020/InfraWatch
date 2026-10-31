@@ -42,9 +42,7 @@ class TelemetryQueryService:
         # Isolamento multitenancy: usuários regulares acessam apenas a sua própria organização
         if not current_user.is_super_admin:
             if current_user.organization_id:
-                stmt = stmt.where(
-                    DeviceModel.organization_id == UUID(current_user.organization_id)
-                )
+                stmt = stmt.where(DeviceModel.organization_id == UUID(current_user.organization_id))
             else:
                 return MonitoredDevicesResponse(total=0, items=[])
 

@@ -114,9 +114,9 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
       `mock-jwt-token-${role.toLowerCase()}`
     );
 
-    // Se cliente viewer, vai para /portal, senão destino original
+    // Se perfil corporativo (viewer ou gestor org), vai para /portal, senão destino original
     if (
-      role === "CLIENT_VIEWER" &&
+      (role === "CLIENT_VIEWER" || role === "ORG_ADMIN") &&
       (from === "/" || from === "/login" || from === "/login-test" || from === "/dev/login")
     ) {
       navigate("/portal", { replace: true });

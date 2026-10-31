@@ -50,9 +50,7 @@ async def test_process_webhook_new_problem_disaster(
 
     assert response.status == "processed"
     assert response.event_id == "9991"
-    mock_redis.set.assert_awaited_once_with(
-        "idempotency:zabbix:event:9991", "1", nx=True, ex=86400
-    )
+    mock_redis.set.assert_awaited_once_with("idempotency:zabbix:event:9991", "1", nx=True, ex=86400)
     mock_event_bus.publish.assert_awaited_once()
     event_topic, event_data = mock_event_bus.publish.call_args[0]
     assert event_topic == "stream:incidents"

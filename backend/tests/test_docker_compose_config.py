@@ -80,12 +80,13 @@ class TestDockerComposeConfig(unittest.TestCase):
         self.assertTrue(any("redis-cli" in arg for arg in healthcheck["test"]))
 
     def test_api_service_build_and_dependencies(self):
-        """Valida se a API usa Dockerfile.api, expõe porta 8000 e depende do Postgres e Redis saudáveis."""
+        """Valida se a API usa Dockerfile.api, opera com isolamento de rede (sem porta 8000 pública) e depende do Postgres e Redis saudáveis."""
         api = self.compose_data["services"]["infrawatch-api"]
         build_cfg = api.get("build", {})
         self.assertEqual(build_cfg.get("context"), "./backend")
         self.assertEqual(build_cfg.get("dockerfile"), "Dockerfile.api")
-        self.assertIn("8000:8000", api.get("ports", []))
+        # Issue #270 / #271: A porta 8000 não deve ser exposta publicamente no host (acesso apenas via gateway)
+        self.assertNotIn("8000:8000", api.get("ports", []))
 
         depends_on = api.get("depends_on", {})
         self.assertEqual(depends_on.get("postgres", {}).get("condition"), "service_healthy")

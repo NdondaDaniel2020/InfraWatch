@@ -37,10 +37,20 @@ export const DeviceHeroHeader: React.FC<DeviceHeroHeaderProps> = ({
         return { variant: "maintenance" as const, label: "EM MANUTENÇÃO", pulse: false };
       case "PAUSED":
         return { variant: "neutral" as const, label: "PAUSADO", pulse: false };
+      default:
+        return {
+          variant: "neutral" as const,
+          label: String(device.healthStatus || "OPERACIONAL / UP").toUpperCase(),
+          pulse: false,
+        };
     }
   };
 
-  const statusConfig = getStatusConfig();
+  const statusConfig = getStatusConfig() || {
+    variant: "neutral" as const,
+    label: "OPERACIONAL / UP",
+    pulse: false,
+  };
 
   return (
     <section

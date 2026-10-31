@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+
 import yaml
 
 
@@ -30,9 +31,12 @@ def test_gateway_nginx_api_upstream():
 
 
 def test_gateway_nginx_tls_termination_and_redirect():
-    """Valida terminação TLS/HTTPS na porta 443, protocolos modernos e redirecionamento 301 na porta 80."""
+    """Valida terminação TLS/HTTPS na porta 443, domínio infrawatch.42.fr e redirecionamento 301 na porta 80."""
     root = get_project_root()
     content = (root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
+
+    # Domínio canônico da 42 Luanda
+    assert "infrawatch.42.fr" in content
 
     # Bloco HTTPS na porta 443
     assert "listen 443 ssl" in content or "443 ssl http2" in content
@@ -48,7 +52,7 @@ def test_gateway_nginx_tls_termination_and_redirect():
 
 
 def test_gateway_nginx_direct_spa_serving():
-    """Valida se o Gateway entrega diretamente os arquivos estáticos da SPA com fallback e cache longo."""
+    """Valida se o Gateway entrega diretamente os arquivos estáticos da SPA com fallback e cache longo (Issue #270)."""
     root = get_project_root()
     content = (root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
 
@@ -80,14 +84,15 @@ def test_gateway_nginx_healthcheck_endpoint():
 
 
 def test_init_certs_script():
-    """Valida se o script de geração de certificados autoassinados existe, é executável e possui SAN."""
+    """Valida se o script de geração de certificados autoassinados existe, é executável e aponta para infrawatch.42.fr."""
     root = get_project_root()
     script = root / "scripts" / "init-certs.sh"
 
     assert script.exists(), "scripts/init-certs.sh deve existir."
     assert os.access(script, os.X_OK), "scripts/init-certs.sh deve ter permissão de execução."
     content = script.read_text(encoding="utf-8")
-    assert "subjectAltName=DNS:localhost,IP:127.0.0.1" in content
+    assert "CN=infrawatch.42.fr" in content
+    assert "DNS:infrawatch.42.fr" in content
     assert "fullchain.pem" in content
     assert "privkey.pem" in content
 
@@ -105,7 +110,9 @@ def test_docker_compose_services():
     assert "infrawatch-frontend" in services
     assert "infrawatch-gateway" in services
     assert "infrawatch-api" in services
-    assert "infrawatch-cleanup-worker" in services, "infrawatch-cleanup-worker deve estar presente no compose."
+    assert "infrawatch-cleanup-worker" in services, (
+        "infrawatch-cleanup-worker deve estar presente no compose."
+    )
 
     gateway = services["infrawatch-gateway"]
     ports = gateway.get("ports", [])
@@ -116,7 +123,9 @@ def test_docker_compose_services():
     # Valida isolamento de rede da API FastAPI (sem porta pública mapeada no host)
     api = services["infrawatch-api"]
     api_ports = api.get("ports", [])
-    assert "8000:8000" not in api_ports, "A porta 8000 da API não deve estar exposta publicamente no host."
+    assert "8000:8000" not in api_ports, (
+        "A porta 8000 da API não deve estar exposta publicamente no host."
+    )
 
     # Valida volumes essenciais
     volumes = data.get("volumes", {})
@@ -124,8 +133,8 @@ def test_docker_compose_services():
     assert "certbot_acme" in volumes
 
 
-def test_makefile_up_depends_on_certs():
-    """Valida se o Makefile possui target certs e se o target up depende de secrets-init e certs."""
+def test_makefile_targets():
+    """Valida se o Makefile possui alvos para certs, certs-clean, gateway-reload e vinculação no up."""
     root = get_project_root()
     makefile = root / "Makefile"
 
@@ -134,4 +143,5 @@ def test_makefile_up_depends_on_certs():
 
     assert "certs:" in content
     assert "certs-clean:" in content
+    assert "gateway-reload:" in content
     assert "up: secrets-init certs" in content

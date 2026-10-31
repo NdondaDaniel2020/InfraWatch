@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 
-from src.contexts.iam.api.dependencies.auth import AuthenticatedUser, CurrentUserDep
+from src.contexts.system.api.dependencies import (
+    IntegrationTesterDep,
+    require_admin,
+)
 from src.contexts.system.schemas.settings import (
     GlpiTestRequest,
     GlpiTestResponse,
@@ -25,18 +27,11 @@ from src.contexts.system.services.integration_tester import (
 
 logger = logging.getLogger("infrawatch.system.api.settings")
 
-router = APIRouter(prefix="/api/v1/system/settings", tags=["System & Settings"])
-
-IntegrationTesterDep = Annotated[IntegrationTesterService, Depends(get_integration_tester_service)]
-
-
-def _require_admin(user: AuthenticatedUser) -> None:
-    """Garante que apenas operadores com privilégios de administrador possam acessar configurações do sistema."""
-    if not user.is_super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso negado: apenas administradores globais podem gerenciar e testar configurações do sistema.",
-        )
+router = APIRouter(
+    prefix="/api/v1/system/settings",
+    tags=["System & Settings"],
+    dependencies=[Depends(require_admin())],
+)
 
 
 @router.get(
@@ -45,11 +40,9 @@ def _require_admin(user: AuthenticatedUser) -> None:
     summary="Obter status consolidado das integrações com segredos mascarados",
 )
 async def get_system_settings_status(
-    user: CurrentUserDep,
     service: IntegrationTesterDep,
 ) -> IntegrationStatusResponse:
     """Retorna o status e os parâmetros operacionais mascarados de todas as integrações."""
-    _require_admin(user)
     return service.get_status()
 
 
@@ -60,11 +53,9 @@ async def get_system_settings_status(
 )
 async def test_glpi_integration(
     body: GlpiTestRequest | None,
-    user: CurrentUserDep,
     service: IntegrationTesterDep,
 ) -> GlpiTestResponse:
     """Valida credenciais, app_token e sessão nativa com o GLPI."""
-    _require_admin(user)
     return await service.test_glpi(body)
 
 
@@ -75,11 +66,9 @@ async def test_glpi_integration(
 )
 async def test_zabbix_integration(
     body: ZabbixTestRequest | None,
-    user: CurrentUserDep,
     service: IntegrationTesterDep,
 ) -> ZabbixTestResponse:
     """Valida endpoint JSON-RPC e token de API com apiinfo.version e host.get."""
-    _require_admin(user)
     return await service.test_zabbix(body)
 
 
@@ -90,11 +79,9 @@ async def test_zabbix_integration(
 )
 async def test_notification_integration(
     body: NotificationTestRequest,
-    user: CurrentUserDep,
     service: IntegrationTesterDep,
 ) -> NotificationTestResponse:
     """Dispara mensagem de teste para o canal especificado (telegram, whatsapp, smtp, webhook)."""
-    _require_admin(user)
     return await service.test_notification(body)
 
 
@@ -104,9 +91,15 @@ async def test_notification_integration(
     summary="Executar diagnóstico de latência e saúde do TimescaleDB e Redis",
 )
 async def test_infra_cluster(
-    user: CurrentUserDep,
     service: IntegrationTesterDep,
 ) -> InfraTestResponse:
     """Verifica latência de roundtrip do banco de dados e Redis."""
-    _require_admin(user)
     return await service.test_infra()
+
+
+__all__ = [
+    "IntegrationTesterDep",
+    "IntegrationTesterService",
+    "get_integration_tester_service",
+    "router",
+]

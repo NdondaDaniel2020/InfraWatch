@@ -21,6 +21,9 @@ import type {
   DeviceStatus,
   MonitoredDevice,
   SeverityFilterType,
+  TelemetryApiResponse,
+  TelemetryDeviceDTO,
+  TelemetryMetricPointDTO,
 } from "../../types/telemetry";
 import { DeviceCard } from "../../components/telemetry/DeviceCard";
 import { DeviceDetailDrawer } from "../../components/telemetry/DeviceDetailDrawer";
@@ -80,10 +83,10 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
       queryKey: ["telemetry-monitored-devices"],
       queryFn: async () => {
         try {
-          const resp = await apiClient.get<{ total: number; items: any[] }>("/api/v1/events/telemetry");
+          const resp = await apiClient.get<TelemetryApiResponse>("/api/v1/events/telemetry");
           if (resp && resp.items && resp.items.length > 0) {
-            return resp.items.map((item: any): MonitoredDevice => ({
-              device_id: item.device_id || item.id,
+            return resp.items.map((item: TelemetryDeviceDTO): MonitoredDevice => ({
+              device_id: item.device_id || item.id || "dev-unknown",
               name: item.name,
               hostname: item.hostname,
               ip_address: item.ip_address || "10.0.0.1",
@@ -101,7 +104,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
               model_description: item.model_description || `${item.category || "Device"} • Cluster`,
               last_latency_ms: item.last_latency_ms,
               last_packet_loss: item.last_packet_loss,
-              recent_latency: item.recent_metrics?.map((m: any) => m.latency_ms) || [2.1, 2.3, 2.0, 2.2],
+              recent_latency: item.recent_metrics?.map((m: TelemetryMetricPointDTO) => m.latency_ms) || [2.1, 2.3, 2.0, 2.2],
             }));
           }
         } catch {

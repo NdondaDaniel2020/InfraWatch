@@ -1,6 +1,6 @@
 /**
- * Tipos e interfaces de Gestão Operacional de Incidentes (Issue #32, Issue #261).
- * Totalmente desacoplados de serviços e componentes visuais.
+ * Tipos e interfaces de Gestão Operacional de Incidentes (Issue #32, Issue #261, Issue #277).
+ * Contratos estritos alinhados com o backend FastAPI e schemas Pydantic.
  */
 
 export type IncidentSeverity = "critical" | "degraded" | "resolved";
@@ -22,6 +22,40 @@ export interface IncidentTimelineEvent {
   title: string;
   description: string;
   operator_name?: string;
+}
+
+/** DTO bruto retornado pela API REST /api/v1/incidents */
+export interface IncidentDTO {
+  id: string | number;
+  code?: string;
+  title: string;
+  severity: string;
+  status: string;
+  device_id?: string;
+  device_name?: string;
+  device_ip?: string;
+  organization_id?: string | null;
+  organization_name?: string;
+  glpi_ticket_id?: number | null;
+  glpi_url?: string;
+  root_cause?: string | null;
+  corrective_action?: string | null;
+  failure_category?: FailureCategory;
+  is_sla_exempt?: boolean;
+  started_at?: string;
+  acknowledged_by?: string | null;
+  acknowledged_at?: string | null;
+  resolved_by?: string | null;
+  resolved_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface IncidentListResponse {
+  items: IncidentDTO[];
+  total: number;
+  page?: number;
+  per_page?: number;
 }
 
 export interface IncidentItem {
@@ -76,4 +110,10 @@ export interface IncidentsKpiSummary {
   glpi_sync_pct: number;
   mttr_average_str: string;
   mttr_diff_pct: string;
+}
+
+export interface GlpiTicketResponse {
+  ticket_id: number;
+  glpi_url?: string;
+  status: string;
 }

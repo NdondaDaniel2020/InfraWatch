@@ -33,8 +33,7 @@ class InvalidNodeTypeError(TopologyDomainError):
 
     def __init__(self, node_type: str) -> None:
         super().__init__(
-            f"Tipo de nó inválido: '{node_type}'. "
-            f"Tipos aceitos: {sorted(VALID_NODE_TYPES)}"
+            f"Tipo de nó inválido: '{node_type}'. Tipos aceitos: {sorted(VALID_NODE_TYPES)}"
         )
 
 
@@ -43,8 +42,7 @@ class InvalidLinkTypeError(TopologyDomainError):
 
     def __init__(self, link_type: str) -> None:
         super().__init__(
-            f"Tipo de enlace inválido: '{link_type}'. "
-            f"Tipos aceitos: {sorted(VALID_LINK_TYPES)}"
+            f"Tipo de enlace inválido: '{link_type}'. Tipos aceitos: {sorted(VALID_LINK_TYPES)}"
         )
 
 
@@ -109,11 +107,11 @@ class TopologyNode:
 
     id: UUID
     label: str
-    node_type: str                   # "device" | "service" | "external" | "cluster"
+    node_type: str  # "device" | "service" | "external" | "cluster"
     organization_id: UUID
-    device_id: UUID | None = None    # Referência soft ao inventário
-    ip_address: str | None = None    # Endereço IP para ping on-demand
-    cluster: str | None = None       # Agrupamento visual (ex: "CLUSTER LUANDA-01")
+    device_id: UUID | None = None  # Referência soft ao inventário
+    ip_address: str | None = None  # Endereço IP para ping on-demand
+    cluster: str | None = None  # Agrupamento visual (ex: "CLUSTER LUANDA-01")
     position_x: float | None = None  # Coordenada X para layout fixo
     position_y: float | None = None  # Coordenada Y para layout fixo
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -167,10 +165,10 @@ class TopologyEdge:
     source_node_id: UUID
     target_node_id: UUID
     organization_id: UUID
-    link_type: str = "ethernet"          # "fiber" | "ethernet" | "vpn" | "logical" | "wireless"
+    link_type: str = "ethernet"  # "fiber" | "ethernet" | "vpn" | "logical" | "wireless"
     bandwidth_gbps: float | None = None  # Capacidade nominal do enlace
-    port_src: str | None = None          # Porta de origem (ex: "GE0/0/1")
-    port_dst: str | None = None          # Porta de destino (ex: "GE0/0/24")
+    port_src: str | None = None  # Porta de origem (ex: "GE0/0/1")
+    port_dst: str | None = None  # Porta de destino (ex: "GE0/0/24")
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 

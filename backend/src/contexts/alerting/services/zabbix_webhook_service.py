@@ -33,9 +33,7 @@ class ZabbixWebhookService:
         """Processa o payload de alerta do Zabbix com idempotência e despacho desacoplado."""
         # 1. Verificação de Idempotência com Redis
         idempotency_key = f"idempotency:zabbix:event:{payload.event_id}"
-        is_new = await self._redis.set(
-            idempotency_key, "1", nx=True, ex=IDEMPOTENCY_TTL_SECONDS
-        )
+        is_new = await self._redis.set(idempotency_key, "1", nx=True, ex=IDEMPOTENCY_TTL_SECONDS)
         if not is_new:
             logger.info(
                 "Alerta duplicado do Zabbix ignorado pelo controle de idempotência (event_id=%s)",

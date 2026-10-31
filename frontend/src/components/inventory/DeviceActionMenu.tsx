@@ -72,7 +72,7 @@ const ActionItem: React.FC<ActionItemProps> = ({ action, onClick, disabled, role
       role={role}
       data-testid={dataTestId}
       style={{
-        ...variantStyles[action.variant],
+        ...(action?.variant && variantStyles[action.variant] ? variantStyles[action.variant] : variantStyles.default),
         display: "flex",
         alignItems: "center",
         gap: "10px",

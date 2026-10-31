@@ -181,7 +181,6 @@ class BackupService:
                 logger.debug("Erro ao encerrar pubsub de backup: %s", cleanup_err)
 
 
-
 _backup_service: BackupService | None = None
 
 

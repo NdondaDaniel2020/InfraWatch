@@ -18,6 +18,34 @@ export interface DayAvailability {
   has_incident?: boolean;
 }
 
+export interface TelemetryMetricPointDTO {
+  latency_ms: number;
+  timestamp?: string;
+}
+
+export interface TelemetryDeviceDTO {
+  id?: string;
+  device_id?: string;
+  name: string;
+  hostname?: string;
+  ip_address?: string;
+  port?: number;
+  protocol?: string;
+  category?: "ROUTER" | "SWITCH" | "FIREWALL" | "SERVER" | "DATABASE" | "API_GATEWAY";
+  status?: string;
+  tenant_id?: string;
+  tenant_name?: string;
+  model_description?: string;
+  last_latency_ms?: number | null;
+  last_packet_loss?: number;
+  recent_metrics?: TelemetryMetricPointDTO[];
+}
+
+export interface TelemetryApiResponse {
+  total: number;
+  items: TelemetryDeviceDTO[];
+}
+
 export interface MonitoredDevice {
   device_id: string;
   name: string;

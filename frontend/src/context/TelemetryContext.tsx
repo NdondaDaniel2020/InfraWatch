@@ -6,8 +6,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { ENV } from "../utils/env";
 import { useSSE } from "../hooks/useSSE";
+import { useAuthStore } from "../stores/authStore";
 import type {
   SSEConnectionStatus,
   SSEEventPayload,
@@ -55,14 +57,14 @@ export interface TelemetryProviderProps {
   heartbeatTimeoutMs?: number;
   initialBackoffMs?: number;
   maxBackoffMs?: number;
-  queryClient?: any;
+  queryClient?: QueryClient;
 }
 
 /**
  * Hook seguro para obter o QueryClient do TanStack Query sem lançar erro
  * caso o componente seja renderizado fora de um QueryClientProvider.
  */
-function useOptionalQueryClient(overrideClient?: any) {
+function useOptionalQueryClient(overrideClient?: QueryClient): QueryClient | undefined {
   if (overrideClient) return overrideClient;
   try {
     return useQueryClient();
@@ -73,8 +75,8 @@ function useOptionalQueryClient(overrideClient?: any) {
 
 export const TelemetryProvider: React.FC<TelemetryProviderProps> = ({
   children,
-  url = "/api/v1/events/stream",
-  token = null,
+  url = ENV.SSE_STREAM_URL,
+  token: explicitToken = null,
   enabled = true,
   bufferLimit = 100,
   heartbeatTimeoutMs = 35000,
@@ -83,6 +85,8 @@ export const TelemetryProvider: React.FC<TelemetryProviderProps> = ({
   queryClient: explicitQueryClient,
 }) => {
   const queryClient = useOptionalQueryClient(explicitQueryClient);
+  const storeToken = useAuthStore((state) => state.accessToken);
+  const effectiveToken = explicitToken ?? storeToken;
 
   const [deviceMetrics, setDeviceMetrics] = useState<
     Record<string, DeviceTelemetryMetric>
@@ -157,7 +161,7 @@ export const TelemetryProvider: React.FC<TelemetryProviderProps> = ({
 
   const sse = useSSE({
     url,
-    token,
+    token: effectiveToken,
     enabled,
     bufferLimit,
     heartbeatTimeoutMs,

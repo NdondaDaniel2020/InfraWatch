@@ -37,6 +37,9 @@ LABEL maintainer="InfraWatch Core Team <dev@infrawatch.io>"
 # Remove configuração padrão do Nginx
 RUN rm -rf /etc/nginx/conf.d/default.conf /usr/share/nginx/html/*
 
+# Copia configuração Nginx com suporte a IPv4/IPv6 e endpoint /healthz
+COPY default.conf /etc/nginx/conf.d/default.conf
+
 # Copia apenas os artefatos estáticos compilados (injeção via volume no compose)
 COPY --from=exporter /app/dist /usr/share/nginx/html
 

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { QueryClient } from "@tanstack/react-query";
 import { LiveIndicator } from "../src/components/common/LiveIndicator";
 import { TelemetryProvider, useTelemetry } from "../src/context/TelemetryContext";
 import { useSSE } from "../src/hooks/useSSE";
@@ -336,7 +337,7 @@ describe("Hook useSSE & Telemetry Infrastructure", () => {
 
       renderHook(() =>
         useSSE({
-          queryClient: mockQueryClient,
+          queryClient: mockQueryClient as unknown as QueryClient,
           updateQueryCache: true,
         })
       );

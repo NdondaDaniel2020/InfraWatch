@@ -33,7 +33,7 @@ import { useAuth } from "../context/AuthContext";
  */
 const RootRedirect: React.FC = () => {
   const { user } = useAuth();
-  if (user?.role === "CLIENT_VIEWER") {
+  if (user?.role === "CLIENT_VIEWER" || user?.role === "ORG_ADMIN") {
     return <Navigate to="/portal" replace />;
   }
   return <Navigate to="/noc" replace />;

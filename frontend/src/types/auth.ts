@@ -1,6 +1,6 @@
 /**
  * Tipos de Autenticação, Perfis de Acesso (RBAC), MFA e Gestão de Sessões do InfraWatch.
- * Conforme especificado na ADR-002, ADR-033 e Issue #216 (Tarefa 7.4).
+ * Conforme especificado na ADR-002, ADR-033 e Issues #216 e #276.
  */
 
 export type UserRole =
@@ -88,17 +88,25 @@ export interface GoogleAuthUrlResponse {
 export interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   mfaPendingToken: string | null;
 }
 
-export interface AuthContextValue extends AuthState {
+export interface AuthActions {
   login: (credentials: LoginCredentials) => Promise<LoginResult>;
   submitMfaChallenge: (code: string) => Promise<AuthUser>;
   completeGoogleLogin: (code: string, state: string) => Promise<AuthUser>;
   setSession: (user: AuthUser, token: string) => void;
+  setTokens: (accessToken: string | null, refreshToken: string | null) => void;
+  setUser: (user: AuthUser | null) => void;
   logout: () => Promise<void>;
   clearMfaPending: () => void;
   hasRole: (roles: UserRole | UserRole[]) => boolean;
+  reset: () => void;
 }
+
+export type AuthStore = AuthState & AuthActions;
+
+export type AuthContextValue = AuthStore;

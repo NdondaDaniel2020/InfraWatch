@@ -129,7 +129,7 @@ class IntegrationTesterService:
                 enabled=True,
                 endpoint=f"{s.REDIS_HOST}:{s.REDIS_PORT}",
                 configured=True,
-                details={"db": s.REDIS_DB},
+                details={"db": getattr(s, "REDIS_DB", 0), "host": s.REDIS_HOST, "port": s.REDIS_PORT},
             ),
         ]
         return IntegrationStatusResponse(
