@@ -128,6 +128,10 @@ async def test_create_device_with_camel_case_snmp_and_hostname():
                 "port": 161,
                 "username": "noc_admin",
                 "securityLevel": "authPriv",
+                "authProtocol": "SHA256",
+                "authPassword": "auth_password_123",
+                "privProtocol": "AES128",
+                "privPassword": "priv_password_123",
             },
         }
     )

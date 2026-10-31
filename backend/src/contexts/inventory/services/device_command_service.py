@@ -100,6 +100,7 @@ class DeviceCommandService:
             port=resolved_port,
             protocol=cmd.protocol,
             category=cmd.category,
+            thresholds=thresholds_data,
         )
 
         await self.repository.save(device)
@@ -181,6 +182,7 @@ class DeviceCommandService:
             ip_address=cmd.ip_address,
             port=cmd.port,
             protocol=cmd.protocol,
+            thresholds=thresholds_data or device.thresholds or {},
         )
 
         await self.repository.save(device)

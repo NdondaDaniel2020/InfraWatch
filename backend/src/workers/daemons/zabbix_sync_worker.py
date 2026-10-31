@@ -36,6 +36,133 @@ class ZabbixTarget:
     name: str = ""
 
 
+def build_zabbix_snmp_interface_details(
+    snmp_config: dict[str, Any] | None = None,
+    port: int = 161,
+    ip_address: str = "",
+) -> dict[str, Any]:
+    """Monta a estrutura de interface Zabbix com suporte dinâmico a SNMP v1, v2c e v3.
+
+    Mapeamento Zabbix JSON-RPC API:
+    - version: 1 (v1), 2 (v2c), 3 (v3)
+    - securitylevel: 0 (noAuthNoPriv), 1 (authNoPriv), 2 (authPriv)
+    - authprotocol: 0 (MD5), 1 (SHA1), 2 (SHA224), 3 (SHA256), 4 (SHA384), 5 (SHA512)
+    - privprotocol: 0 (DES), 1 (AES128), 2 (AES192), 3 (AES256)
+    """
+    if not snmp_config:
+        return {
+            "type": 2,  # SNMP
+            "main": 1,
+            "useip": 1,
+            "ip": ip_address,
+            "dns": "",
+            "port": str(port or 161),
+            "details": {"version": 2, "community": "public"},
+        }
+
+    raw_version = str(snmp_config.get("version", "v2c")).strip().lower()
+    target_port = str(snmp_config.get("port") or port or 161)
+
+    # SNMP v1
+    if raw_version in ("1", "v1"):
+        community = str(snmp_config.get("community") or "public")
+        return {
+            "type": 2,
+            "main": 1,
+            "useip": 1,
+            "ip": ip_address,
+            "dns": "",
+            "port": target_port,
+            "details": {"version": 1, "community": community},
+        }
+
+    # SNMP v3
+    if raw_version in ("3", "v3"):
+        sec_name = str(snmp_config.get("security_name") or snmp_config.get("username") or "")
+        sec_level_raw = str(snmp_config.get("security_level") or "authPriv").strip().lower()
+
+        sec_level_map = {
+            "0": 0,
+            "noauthnopriv": 0,
+            "noauth_nopriv": 0,
+            "1": 1,
+            "authnopriv": 1,
+            "auth_nopriv": 1,
+            "2": 2,
+            "authpriv": 2,
+            "auth_priv": 2,
+        }
+        sec_level = sec_level_map.get(sec_level_raw, 2)
+
+        auth_proto_map = {
+            "md5": 0,
+            "sha": 1,
+            "sha1": 1,
+            "sha224": 2,
+            "sha256": 3,
+            "sha384": 4,
+            "sha512": 5,
+            "0": 0,
+            "1": 1,
+            "2": 2,
+            "3": 3,
+            "4": 4,
+            "5": 5,
+        }
+
+        priv_proto_map = {
+            "des": 0,
+            "aes": 1,
+            "aes128": 1,
+            "aes192": 2,
+            "aes256": 3,
+            "0": 0,
+            "1": 1,
+            "2": 2,
+            "3": 3,
+        }
+
+        details: dict[str, Any] = {
+            "version": 3,
+            "securityname": sec_name,
+            "securitylevel": sec_level,
+        }
+
+        if sec_level in (1, 2):
+            raw_auth_proto = str(snmp_config.get("auth_protocol") or "sha256").strip().lower()
+            details["authprotocol"] = auth_proto_map.get(raw_auth_proto, 3)
+            auth_pass = snmp_config.get("auth_passphrase") or snmp_config.get("auth_password") or ""
+            details["authpassphrase"] = str(auth_pass)
+
+        if sec_level == 2:
+            raw_priv_proto = str(snmp_config.get("priv_protocol") or "aes128").strip().lower()
+            details["privprotocol"] = priv_proto_map.get(raw_priv_proto, 1)
+            priv_pass = snmp_config.get("priv_passphrase") or snmp_config.get("priv_password") or ""
+            details["privpassphrase"] = str(priv_pass)
+
+        return {
+            "type": 2,
+            "main": 1,
+            "useip": 1,
+            "ip": ip_address,
+            "dns": "",
+            "port": target_port,
+            "details": details,
+        }
+
+    # Fallback padrão: SNMP v2c
+    community = str(snmp_config.get("community") or "public")
+    return {
+        "type": 2,
+        "main": 1,
+        "useip": 1,
+        "ip": ip_address,
+        "dns": "",
+        "port": target_port,
+        "details": {"version": 2, "community": community},
+    }
+
+
 class ZabbixSyncWorker:
     """Worker assíncrono resiliente para enriquecimento de telemetria via Zabbix JSON-RPC.
 
@@ -249,6 +376,7 @@ class ZabbixSyncWorker:
                     ip_address=str(payload.get("ip_address", "")),
                     protocol=str(payload.get("protocol", "snmp")),
                     zabbix_host_id=str(zh_id),
+                    thresholds=thresholds,
                 )
 
                 self._monitored_hosts[device_id] = ZabbixTarget(
@@ -376,6 +504,8 @@ class ZabbixSyncWorker:
         ip_address: str,
         protocol: str,
         zabbix_host_id: str | None = None,
+        thresholds: dict[str, Any] | None = None,
+        snmp_config: dict[str, Any] | None = None,
     ) -> str | None:
         """Cria ou atualiza host no Zabbix e vincula templates SNMP padrão.
 
@@ -386,12 +516,19 @@ class ZabbixSyncWorker:
             ip_address: Endereço IP ou hostname DNS
             protocol: Protocolo (snmp, icmp, tcp, etc.)
             zabbix_host_id: HostID existente no Zabbix (se já provisionado)
+            thresholds: Dicionário de configurações e thresholds do dispositivo
+            snmp_config: Dicionário opcional explícito de configuração SNMP
 
         Returns:
             HostID do Zabbix criado/atualizado ou None em caso de falha
         """
         try:
             client = self._get_zabbix_client()
+            resolved_snmp = snmp_config or (thresholds or {}).get("snmp_config") or (thresholds or {}).get("snmp")
+            interface_details = build_zabbix_snmp_interface_details(
+                snmp_config=resolved_snmp,
+                ip_address=ip_address,
+            )
             async with client:
                 if zabbix_host_id:
                     # Atualiza host existente
@@ -401,17 +538,7 @@ class ZabbixSyncWorker:
                             "hostid": zabbix_host_id,
                             "host": name,
                             "name": name,
-                            "interfaces": [
-                                {
-                                    "type": 2,  # SNMP
-                                    "main": 1,
-                                    "useip": 1,
-                                    "ip": ip_address,
-                                    "dns": "",
-                                    "port": "161",
-                                    "details": {"version": 2, "community": "public"},
-                                }
-                            ],
+                            "interfaces": [interface_details],
                         },
                     )
                     logger.info("Host Zabbix atualizado: %s (hostid=%s)", name, zabbix_host_id)
@@ -423,17 +550,7 @@ class ZabbixSyncWorker:
                         params={
                             "host": name,
                             "name": name,
-                            "interfaces": [
-                                {
-                                    "type": 2,  # SNMP
-                                    "main": 1,
-                                    "useip": 1,
-                                    "ip": ip_address,
-                                    "dns": "",
-                                    "port": "161",
-                                    "details": {"version": 2, "community": "public"},
-                                }
-                            ],
+                            "interfaces": [interface_details],
                             "groups": [{"groupid": "2"}],  # Linux servers group (default)
                             "templates": [
                                 {"templateid": "10001"},  # Template OS Linux SNMP

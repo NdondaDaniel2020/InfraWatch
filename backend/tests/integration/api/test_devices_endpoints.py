@@ -154,6 +154,10 @@ async def test_create_device_with_camelcase_and_snmp_config(override_get_db):
                 "port": 161,
                 "username": "snmp_user",
                 "securityLevel": "authPriv",
+                "authProtocol": "SHA256",
+                "authPassword": "auth_password_123",
+                "privProtocol": "AES128",
+                "privPassword": "priv_password_123",
             },
         }
         resp = await client.post("/api/v1/devices/", json=payload, headers=headers)

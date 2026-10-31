@@ -1,5 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from src.core.domain.events import DomainEvent
@@ -13,6 +14,7 @@ class DeviceCreated(DomainEvent):
     port: int = 0
     protocol: str = ""
     category: str = ""
+    thresholds: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,7 @@ class DeviceUpdated(DomainEvent):
     ip_address: str | None = None
     port: int | None = None
     protocol: str | None = None
+    thresholds: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

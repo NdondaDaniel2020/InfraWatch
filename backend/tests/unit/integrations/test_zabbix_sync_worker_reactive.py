@@ -381,6 +381,7 @@ async def test_handle_inventory_event_device_created_triggers_push():
         ip_address="192.168.1.10",
         protocol="snmp",
         zabbix_host_id="10600",
+        thresholds={"zabbix_host_id": "10600"},
     )
 
 
@@ -412,6 +413,7 @@ async def test_handle_inventory_event_device_updated_triggers_push():
         ip_address="192.168.1.11",
         protocol="snmp",
         zabbix_host_id="10600",
+        thresholds={"zabbix_host_id": "10600"},
     )
 
 
