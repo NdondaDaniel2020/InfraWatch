@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from "./apiClient";
+import { ENV } from "../utils/env";
 import type {
   IncidentSeverity,
   IncidentStatus,
@@ -76,65 +77,84 @@ export const incidentsApi = {
     search?: string;
     organization?: string;
   }): Promise<IncidentItem[]> {
-    try {
-      const params = new URLSearchParams();
-      if (filters?.severity && filters.severity !== "all") {
-        params.append("severity", filters.severity.toUpperCase());
-      }
-      if (filters?.organization && filters.organization !== "all" && !filters.organization.includes("Todas")) {
-        // Envia organization_id para o backend caso seja uma busca de NOC / Super Admin
-        params.append("organization_id", filters.organization);
-      }
-      const response = await apiClient.get<IncidentListResponse>(`/api/v1/incidents?${params.toString()}`);
-      if (response && Array.isArray(response.items)) {
-        // Mapeia retorno do backend para o formato rico da interface (já escopado pelo backend)
-        return response.items.map((item: IncidentDTO) => {
-          const match = inMemoryIncidents.find((m) => String(m.id) === String(item.id) || m.code === String(item.id));
-          return {
-            ...(match || inMemoryIncidents[0]),
-            id: String(item.id),
-            title: item.title,
-            severity: item.severity.toLowerCase() as IncidentSeverity,
-            status: item.status as IncidentStatus,
-            glpi_ticket_id: item.glpi_ticket_id ?? match?.glpi_ticket_id ?? null,
-            root_cause: item.root_cause || match?.root_cause,
-          };
-        });
-      }
-    } catch {
-      // Fallback transparente para o estado em memória caso a API esteja indisponível
-    }
-
-    let result = [...inMemoryIncidents];
-
+    const params = new URLSearchParams();
     if (filters?.severity && filters.severity !== "all") {
-      result = result.filter((i) => i.severity === filters.severity);
+      params.append("severity", filters.severity.toUpperCase());
+    }
+    if (filters?.organization && filters.organization !== "all" && !filters.organization.includes("Todas")) {
+      // Envia organization_id para o backend caso seja uma busca de NOC / Super Admin
+      params.append("organization_id", filters.organization);
     }
 
-    if (filters?.search && filters.search.trim()) {
-      const q = filters.search.toLowerCase().trim();
-      result = result.filter(
-        (i) =>
-          i.code.toLowerCase().includes(q) ||
-          i.target_device.name.toLowerCase().includes(q) ||
-          i.target_device.ip.includes(q) ||
-          i.title.toLowerCase().includes(q) ||
-          (i.glpi_ticket_id && String(i.glpi_ticket_id).includes(q))
-      );
+    if (ENV.ENABLE_MOCKS) {
+      try {
+        const response = await apiClient.get<IncidentListResponse>(`/api/v1/incidents?${params.toString()}`);
+        if (response && Array.isArray(response.items)) {
+          return response.items.map((item: IncidentDTO) => {
+            const match = inMemoryIncidents.find((m) => String(m.id) === String(item.id) || m.code === String(item.id));
+            return {
+              ...(match || inMemoryIncidents[0]),
+              id: String(item.id),
+              title: item.title,
+              severity: item.severity.toLowerCase() as IncidentSeverity,
+              status: item.status as IncidentStatus,
+              glpi_ticket_id: item.glpi_ticket_id ?? match?.glpi_ticket_id ?? null,
+              root_cause: item.root_cause || match?.root_cause,
+            };
+          });
+        }
+      } catch {
+        // Fallback transparente em modo mock
+      }
+
+      let result = [...inMemoryIncidents];
+
+      if (filters?.severity && filters.severity !== "all") {
+        result = result.filter((i) => i.severity === filters.severity);
+      }
+
+      if (filters?.search && filters.search.trim()) {
+        const q = filters.search.toLowerCase().trim();
+        result = result.filter(
+          (i) =>
+            i.code.toLowerCase().includes(q) ||
+            i.target_device.name.toLowerCase().includes(q) ||
+            i.target_device.ip.includes(q) ||
+            i.title.toLowerCase().includes(q) ||
+            (i.glpi_ticket_id && String(i.glpi_ticket_id).includes(q))
+        );
+      }
+
+      const orgFilter = filters?.organization;
+      if (orgFilter && orgFilter !== "all" && !orgFilter.includes("Todas")) {
+        const targetOrg = orgFilter.toLowerCase();
+        result = result.filter(
+          (i) =>
+            i.organization_name === orgFilter ||
+            i.organization_name.toLowerCase().includes(targetOrg) ||
+            (i.organization_domain && i.organization_domain.toLowerCase().includes(targetOrg))
+        );
+      }
+
+      return result;
     }
 
-    const orgFilter = filters?.organization;
-    if (orgFilter && orgFilter !== "all" && !orgFilter.includes("Todas")) {
-      const targetOrg = orgFilter.toLowerCase();
-      result = result.filter(
-        (i) =>
-          i.organization_name === orgFilter ||
-          i.organization_name.toLowerCase().includes(targetOrg) ||
-          (i.organization_domain && i.organization_domain.toLowerCase().includes(targetOrg))
-      );
+    const response = await apiClient.get<IncidentListResponse>(`/api/v1/incidents?${params.toString()}`);
+    if (response && Array.isArray(response.items)) {
+      return response.items.map((item: IncidentDTO) => {
+        const match = inMemoryIncidents.find((m) => String(m.id) === String(item.id) || m.code === String(item.id));
+        return {
+          ...(match || inMemoryIncidents[0]),
+          id: String(item.id),
+          title: item.title,
+          severity: item.severity.toLowerCase() as IncidentSeverity,
+          status: item.status as IncidentStatus,
+          glpi_ticket_id: item.glpi_ticket_id ?? match?.glpi_ticket_id ?? null,
+          root_cause: item.root_cause || match?.root_cause,
+        };
+      });
     }
-
-    return result;
+    return [];
   },
 
   /**
@@ -158,10 +178,14 @@ export const incidentsApi = {
       role: "NOC Lead",
     }
   ): Promise<IncidentItem> {
-    try {
+    if (!ENV.ENABLE_MOCKS) {
       await apiClient.post(`/api/v1/incidents/${incidentId}/acknowledge`, {});
-    } catch {
-      // Fallback local caso backend não esteja respondendo
+    } else {
+      try {
+        await apiClient.post(`/api/v1/incidents/${incidentId}/acknowledge`, {});
+      } catch {
+        // Fallback local em modo mock
+      }
     }
 
     const idx = inMemoryIncidents.findIndex((i) => i.id === incidentId || i.code === incidentId);
@@ -196,10 +220,14 @@ export const incidentsApi = {
    * Abertura manual de chamado GLPI em 1 clique (POST /api/v1/incidents/{id}/glpi-ticket).
    */
   async createGlpiTicket(incidentId: string): Promise<IncidentItem> {
-    try {
+    if (!ENV.ENABLE_MOCKS) {
       await apiClient.post(`/api/v1/incidents/${incidentId}/glpi-ticket`, {});
-    } catch {
-      // Fallback local
+    } else {
+      try {
+        await apiClient.post(`/api/v1/incidents/${incidentId}/glpi-ticket`, {});
+      } catch {
+        // Fallback local em modo mock
+      }
     }
 
     const idx = inMemoryIncidents.findIndex((i) => i.id === incidentId || i.code === incidentId);
@@ -247,13 +275,20 @@ export const incidentsApi = {
       throw new Error("A Causa Raiz Técnica (RCA) é obrigatória (mínimo de 20 caracteres).");
     }
 
-    try {
+    if (!ENV.ENABLE_MOCKS) {
       await apiClient.post(`/api/v1/incidents/${incidentId}/resolve`, {
         root_cause: payload.root_cause,
         resolved_at: payload.resolved_at || new Date().toISOString(),
       });
-    } catch {
-      // Fallback local
+    } else {
+      try {
+        await apiClient.post(`/api/v1/incidents/${incidentId}/resolve`, {
+          root_cause: payload.root_cause,
+          resolved_at: payload.resolved_at || new Date().toISOString(),
+        });
+      } catch {
+        // Fallback local em modo mock
+      }
     }
 
     const idx = inMemoryIncidents.findIndex((i) => i.id === incidentId || i.code === incidentId);
