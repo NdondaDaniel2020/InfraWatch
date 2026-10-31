@@ -50,6 +50,17 @@ def org_admin_token() -> str:
 
 
 @pytest.mark.asyncio
+async def test_settings_status_requires_authentication(settings_test_app: FastAPI) -> None:
+    """Garante que requisição não autenticada receba HTTP 401 Unauthorized."""
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=settings_test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/system/settings/status")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio
 async def test_settings_status_requires_super_admin(
     settings_test_app: FastAPI, org_admin_token: str
 ) -> None:
