@@ -52,12 +52,14 @@ class IamEmailConsumer:
         batch_size: int = 10,
         poll_timeout_ms: int = 3000,
         idempotency_guard: IdempotencyGuard | None = None,
+        max_retries: int = 5,
     ) -> None:
         self._event_bus = event_bus or ResilientEventBus()
         self.consumer_name = consumer_name
         self.batch_size = batch_size
         self.poll_timeout_ms = poll_timeout_ms
         self._idempotency_guard = idempotency_guard or get_idempotency_guard()
+        self.max_retries = max_retries
 
     async def consume_loop(self, stop_event: asyncio.Event | None = None) -> None:
         """Loop contínuo de consumo de eventos de identidade via Redis Streams."""
@@ -87,11 +89,31 @@ class IamEmailConsumer:
                         event_type = str(payload.get("event_type", ""))
                         await self.handle(event_type, payload)
                         acked_ids.append(msg_id)
-                    except Exception:
-                        logger.exception(
-                            "Falha ao processar e-mail da mensagem %s — retentará no próximo ciclo",
-                            msg_id,
+                    except Exception as exc:
+                        delivery_count = await self._event_bus.get_delivery_count(
+                            STREAM_TOPIC, IAM_EMAIL_CONSUMER_GROUP, msg_id
                         )
+                        if delivery_count >= self.max_retries:
+                            logger.error(
+                                "E-mail %s atingiu limite de %d tentativas. Despachando para DLQ.",
+                                msg_id,
+                                self.max_retries,
+                            )
+                            await self._event_bus.send_to_dlq(
+                                topic=STREAM_TOPIC,
+                                group=IAM_EMAIL_CONSUMER_GROUP,
+                                message_id=msg_id,
+                                payload=payload,
+                                error=str(exc),
+                                delivery_count=delivery_count,
+                            )
+                        else:
+                            logger.exception(
+                                "Falha ao processar e-mail da mensagem %s (tentativa %d/%d) — retentará no próximo ciclo",
+                                msg_id,
+                                delivery_count,
+                                self.max_retries,
+                            )
 
                 if acked_ids:
                     await self._event_bus.ack(STREAM_TOPIC, IAM_EMAIL_CONSUMER_GROUP, *acked_ids)

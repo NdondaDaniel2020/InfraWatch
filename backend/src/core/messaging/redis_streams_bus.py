@@ -250,6 +250,71 @@ class RedisStreamsEventBus(EventBus):
             logger.error("Erro ao executar XACK em '%s' (grupo=%s): %s", topic, group, exc)
             return 0
 
+    async def get_delivery_count(self, topic: str, group: str, message_id: str) -> int:
+        """Retorna o número de tentativas/entregas realizadas para a mensagem pendente."""
+        client = await self._get_client()
+        try:
+            pending_entries = await client.xpending_range(
+                name=topic,
+                groupname=group,
+                min=message_id,
+                max=message_id,
+                count=1,
+            )
+            if pending_entries:
+                entry = pending_entries[0]
+                if isinstance(entry, dict):
+                    return int(entry.get("times_delivered", 1))
+                if isinstance(entry, (list, tuple)) and len(entry) >= 4:
+                    return int(entry[3])
+            return 1
+        except (RedisError, TimeoutError) as exc:
+            logger.warning(
+                "Falha ao consultar XPENDING em '%s' (grupo=%s, msg_id=%s): %s",
+                topic,
+                group,
+                message_id,
+                exc,
+            )
+            return 1
+
+    async def send_to_dlq(
+        self,
+        topic: str,
+        group: str,
+        message_id: str,
+        payload: dict[str, Any],
+        error: str,
+        delivery_count: int,
+    ) -> str:
+        """Encaminha mensagem com erro permanente para o stream de Dead Letter ({topic}:dlq) e confirma no stream de origem."""
+        from datetime import UTC, datetime
+
+        dlq_topic = f"{topic}:dlq"
+        enriched_payload = dict(payload)
+        enriched_payload.update(
+            {
+                "failed_at": datetime.now(UTC).isoformat(),
+                "error_message": error,
+                "delivery_count": delivery_count,
+                "consumer_group": group,
+                "original_message_id": message_id,
+                "original_topic": topic,
+            }
+        )
+
+        await self.publish(dlq_topic, enriched_payload)
+        await self.ack(topic, group, message_id)
+
+        logger.warning(
+            "Mensagem %s encaminhada para DLQ '%s' após %d tentativas (erro: %s)",
+            message_id,
+            dlq_topic,
+            delivery_count,
+            error,
+        )
+        return message_id
+
     async def _invoke_handler(
         self, handler: HandlerType, topic: str, payload: dict[str, Any]
     ) -> None:

@@ -34,6 +34,8 @@ class InMemoryEventBus(EventBus):
         self._pel: dict[str, dict[str, dict[str, tuple[str, datetime, dict[str, Any]]]]] = (
             defaultdict(lambda: defaultdict(dict))
         )
+        # (topic, group, message_id) -> contagem de entregas realizadas
+        self._delivery_counts: dict[tuple[str, str, str], int] = defaultdict(int)
         self._consumer_tasks: list[asyncio.Task[None]] = []
         self._is_closed: bool = False
         self._lock = asyncio.Lock()
@@ -94,6 +96,27 @@ class InMemoryEventBus(EventBus):
                 queue.put_nowait(msg)
         return queue
 
+    async def claim_pending_messages(
+        self,
+        topic: str,
+        group: str,
+        consumer_name: str,
+        min_idle_ms: int = 60000,
+        batch_size: int = 20,
+    ) -> list[tuple[str, dict[str, Any]]]:
+        """Resgata mensagens pendentes no PEL (equivalente a XAUTOCLAIM)."""
+        claimed: list[tuple[str, dict[str, Any]]] = []
+        now = datetime.now(UTC)
+        for msg_id, (prev_consumer, delivered_at, payload) in list(self._pel[topic][group].items()):
+            idle_ms = (now - delivered_at).total_seconds() * 1000
+            if idle_ms >= min_idle_ms or min_idle_ms == 0:
+                self._pel[topic][group][msg_id] = (consumer_name, now, payload)
+                self._delivery_counts[(topic, group, msg_id)] += 1
+                claimed.append((msg_id, payload))
+                if len(claimed) >= batch_size:
+                    break
+        return claimed
+
     async def consume_batch(
         self,
         topic: str,
@@ -107,6 +130,18 @@ class InMemoryEventBus(EventBus):
             return []
 
         queue = self._get_group_queue(topic, group)
+
+        # 1. Se a fila de novas mensagens estiver vazia, resgata mensagens pendentes no PEL
+        if queue.empty() and self._pel[topic][group]:
+            claimed = await self.claim_pending_messages(
+                topic=topic,
+                group=group,
+                consumer_name=consumer_name,
+                min_idle_ms=0,
+                batch_size=batch_size,
+            )
+            if claimed:
+                return claimed
 
         results: list[tuple[str, dict[str, Any]]] = []
         timeout_seconds = timeout_ms / 1000.0
@@ -126,10 +161,11 @@ class InMemoryEventBus(EventBus):
         except (TimeoutError, asyncio.QueueEmpty):
             pass
 
-        # Registra mensagens consumidas no PEL
+        # Registra mensagens consumidas no PEL e contabiliza entregas
         now = datetime.now(UTC)
         for msg_id, payload in results:
             self._pel[topic][group][msg_id] = (consumer_name, now, payload)
+            self._delivery_counts[(topic, group, msg_id)] += 1
 
         return results
 
@@ -140,8 +176,48 @@ class InMemoryEventBus(EventBus):
         for msg_id in message_ids:
             if msg_id in group_pel:
                 del group_pel[msg_id]
+                self._delivery_counts.pop((topic, group, msg_id), None)
                 acked_count += 1
         return acked_count
+
+    async def get_delivery_count(self, topic: str, group: str, message_id: str) -> int:
+        """Retorna o número de tentativas/entregas realizadas para a mensagem pendente."""
+        return self._delivery_counts.get((topic, group, message_id), 1)
+
+    async def send_to_dlq(
+        self,
+        topic: str,
+        group: str,
+        message_id: str,
+        payload: dict[str, Any],
+        error: str,
+        delivery_count: int,
+    ) -> str:
+        """Encaminha mensagem com erro permanente para o stream de Dead Letter ({topic}:dlq) e confirma no stream de origem."""
+        dlq_topic = f"{topic}:dlq"
+        enriched_payload = dict(payload)
+        enriched_payload.update(
+            {
+                "failed_at": datetime.now(UTC).isoformat(),
+                "error_message": error,
+                "delivery_count": delivery_count,
+                "consumer_group": group,
+                "original_message_id": message_id,
+                "original_topic": topic,
+            }
+        )
+
+        await self.publish(dlq_topic, enriched_payload)
+        await self.ack(topic, group, message_id)
+
+        logger.warning(
+            "Mensagem %s encaminhada para DLQ '%s' após %d tentativas (erro: %s)",
+            message_id,
+            dlq_topic,
+            delivery_count,
+            error,
+        )
+        return message_id
 
     async def _invoke_handler(
         self, handler: HandlerType, topic: str, payload: dict[str, Any]

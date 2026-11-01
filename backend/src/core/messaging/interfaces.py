@@ -72,6 +72,24 @@ class EventBus(ABC):
         ...
 
     @abstractmethod
+    async def get_delivery_count(self, topic: str, group: str, message_id: str) -> int:
+        """Retorna o número de tentativas/entregas realizadas para a mensagem pendente."""
+        ...
+
+    @abstractmethod
+    async def send_to_dlq(
+        self,
+        topic: str,
+        group: str,
+        message_id: str,
+        payload: dict[str, Any],
+        error: str,
+        delivery_count: int,
+    ) -> str:
+        """Encaminha mensagem com erro permanente para o stream de Dead Letter ({topic}:dlq) e confirma no stream de origem."""
+        ...
+
+    @abstractmethod
     async def close(self) -> None:
         """Encerra graciosamente recursos, conexões ou workers associados ao barramento."""
         ...
