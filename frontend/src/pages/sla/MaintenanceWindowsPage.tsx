@@ -17,15 +17,20 @@ import { MaintenanceCard } from "../../components/sla/MaintenanceCard";
 import { MaintenanceGanttTimeline } from "../../components/sla/MaintenanceGanttTimeline";
 import { CreateMaintenanceModal } from "../../components/sla/CreateMaintenanceModal";
 import { slaApi } from "../../services/slaApi";
-import {
-  mockMaintenanceKpiSummary,
-} from "../../mocks/slaMocks";
 import type {
   MaintenanceStatus,
   CreateMaintenanceInput,
+  MaintenanceKpiSummary,
 } from "../../types/sla";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "sonner";
+
+const DEFAULT_MAINTENANCE_KPIS: MaintenanceKpiSummary = {
+  activeNowCount: 0,
+  scheduledCount: 0,
+  exemptedHoursMonth: 0,
+  contractualLimitHours: 0,
+};
 
 export const MaintenanceWindowsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -56,10 +61,9 @@ export const MaintenanceWindowsPage: React.FC = () => {
       }),
   });
 
-  const { data: kpiSummary = mockMaintenanceKpiSummary } = useQuery({
+  const { data: kpiSummary = DEFAULT_MAINTENANCE_KPIS } = useQuery({
     queryKey: ["maintenanceKpis"],
     queryFn: () => slaApi.getMaintenanceKpiSummary(),
-    initialData: mockMaintenanceKpiSummary,
   });
 
   const approveMutation = useMutation({

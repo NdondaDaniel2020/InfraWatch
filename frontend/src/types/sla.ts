@@ -32,7 +32,7 @@ export interface MaintenanceWindow {
   targetDeviceIds: string[];
   targetDeviceNames: string[];
   clientName: string;
-  clientCategory: "TELECOM" | "BANKING" | "ENERGY" | "ENTERPRISE";
+  clientCategory?: "TELECOM" | "BANKING" | "ENERGY" | "ENTERPRISE" | string;
   startTimeUtc: string;
   endTimeUtc: string;
   durationMinutes: number;
@@ -70,10 +70,16 @@ export interface MaintenanceKpiSummary {
   contractualLimitHours: number;
 }
 
+export type SlaReportingPeriod =
+  | "last_7d"
+  | "last_30d"
+  | "current_month"
+  | "last_90d";
+
 export interface SlaMetricOverview {
   tenantId: string;
   tenantName: string;
-  tenantCategory: "TELECOM" | "BANKING" | "ENERGY" | "ENTERPRISE";
+  tenantCategory?: "TELECOM" | "BANKING" | "ENERGY" | "ENTERPRISE";
   targetSlaPct: number;
   currentUptimePct: number;
   marginPct: number;
@@ -81,20 +87,25 @@ export interface SlaMetricOverview {
   mtbfHours: number;
   exemptedDowntimeMinutes: number;
   unexemptedDowntimeMinutes: number;
-  totalIncidents: number;
+  totalIncidents?: number;
   periodLabel: string;
-  daysRemainingInCycle: number;
+  daysRemainingInCycle?: number;
+  nextMaintenanceWindow?: string;
+  downtimeBalanceFormatted?: string;
+  cycleMonthLabel?: string;
+  servicesCount?: number;
 }
 
 export interface SlaDeviceBreakdown {
   deviceId: string;
   deviceName: string;
-  ipAddress: string;
-  tier: "TIER-1" | "TIER-2" | "TIER-3";
+  ipAddress?: string;
+  tier?: "TIER-1" | "TIER-2" | "TIER-3";
+  category?: string;
   nominalUptimePct: number;
   netUptimePct: number;
   exemptedMaintenanceMinutes: number;
-  unplannedOutageMinutes: number;
+  unplannedOutageMinutes?: number;
   status: "COMPLIANT" | "AT_RISK" | "BREACHED";
 }
 

@@ -73,10 +73,10 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
               color: isHealthy ? "var(--color-healthy)" : "var(--color-critical)",
             }}
           >
-            {(overview?.currentUptimePct ?? 100).toFixed(2)}%
+            {overview.currentUptimePct.toFixed(2)}%
           </span>
           <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
-            Meta: {(overview?.targetSlaPct ?? 99.5).toFixed(2)}%
+            Meta: {overview.targetSlaPct.toFixed(2)}%
           </span>
         </div>
         <p
@@ -90,7 +90,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
           }}
         >
           {isHealthy ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
-          <span>Margem: {isHealthy ? "+" : ""}{(overview?.marginPct ?? 0).toFixed(2)}%</span>
+          <span>Margem: {overview.marginPct >= 0 ? "+" : ""}{overview.marginPct.toFixed(2)}%</span>
         </p>
       </div>
 
@@ -135,7 +135,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
         </div>
         <p style={{ fontSize: "0.6875rem", color: "var(--color-primary)", display: "flex", alignItems: "center", gap: "4px" }}>
           <Clock size={12} />
-          <span>Meta máxima: &lt; 30m por incidente</span>
+          <span>Tempo médio de reparo no período auditado</span>
         </p>
       </div>
 
@@ -180,7 +180,12 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
         </div>
         <p style={{ fontSize: "0.6875rem", color: "var(--color-healthy)", display: "flex", alignItems: "center", gap: "4px" }}>
           <Activity size={12} />
-          <span>Total de incidentes no ciclo: {overview.totalIncidents}</span>
+          <span>
+            Total de incidentes no ciclo:{" "}
+            {typeof overview.totalIncidents === "number"
+              ? overview.totalIncidents
+              : "N/D"}
+          </span>
         </p>
       </div>
 
@@ -217,7 +222,8 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({ overview }) => {
               color: "var(--color-primary)",
             }}
           >
-            {Math.floor((overview?.exemptedDowntimeMinutes ?? 0) / 60)}h {String((overview?.exemptedDowntimeMinutes ?? 0) % 60).padStart(2, "0")}m
+            {Math.floor(overview.exemptedDowntimeMinutes / 60)}h{" "}
+            {String(overview.exemptedDowntimeMinutes % 60).padStart(2, "0")}m
           </span>
           <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
             expurgadas do SLA

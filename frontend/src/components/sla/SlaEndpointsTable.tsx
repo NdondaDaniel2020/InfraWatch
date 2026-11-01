@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, Search, ChevronLeft, ChevronRight, Globe } from "lucide-react";
-import type { SanitizedEndpoint } from "../../mocks/clientPortalMocks";
+import type { SanitizedEndpoint } from "../../types/clientPortal";
 
 export interface SlaEndpointsTableProps {
   endpoints: SanitizedEndpoint[];
@@ -23,7 +23,7 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
       (ep) =>
         ep.domainName.toLowerCase().includes(term) ||
         ep.serviceType.toLowerCase().includes(term) ||
-        ep.datacenterRegion.toLowerCase().includes(term)
+        (ep.datacenterRegion ?? "").toLowerCase().includes(term)
     );
   }, [endpoints, searchTerm]);
 
@@ -96,7 +96,8 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
               </tr>
             ) : (
               paginatedEndpoints.map((ep) => {
-                const isCompliant = (ep.sla30dPct ?? 100) >= targetSlaPct;
+                const hasSla = typeof ep.sla30dPct === "number";
+                const isCompliant = hasSla && ep.sla30dPct! >= targetSlaPct;
                 const isUp = ep.status === "UP";
 
                 return (
@@ -126,26 +127,34 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
                     </td>
                     <td
                       className={`py-3 px-3 text-right tabular-nums font-bold ${
-                        isCompliant ? "text-emerald-400" : "text-rose-400"
+                        !hasSla
+                          ? "text-slate-400"
+                          : isCompliant
+                          ? "text-emerald-400"
+                          : "text-rose-400"
                       }`}
                     >
-                      {(ep.sla30dPct ?? 100).toFixed(2)}%
+                      {hasSla ? `${ep.sla30dPct!.toFixed(2)}%` : "N/D"}
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-slate-200">
-                      {(ep.latencyAvgMs ?? 0).toFixed(1)} ms
+                      {typeof ep.latencyAvgMs === "number"
+                        ? `${ep.latencyAvgMs.toFixed(1)} ms`
+                        : "N/D"}
                     </td>
                     <td className="py-3 px-3 text-slate-400 font-sans">
-                      {ep.datacenterRegion}
+                      {ep.datacenterRegion ?? "N/D"}
                     </td>
                     <td className="py-3 px-3 text-right">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
-                          isCompliant
+                          !hasSla
+                            ? "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                            : isCompliant
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                             : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                         }`}
                       >
-                        {isCompliant ? "CONFORME" : "VIOLADO"}
+                        {!hasSla ? "N/D" : isCompliant ? "CONFORME" : "VIOLADO"}
                       </span>
                     </td>
                   </tr>
