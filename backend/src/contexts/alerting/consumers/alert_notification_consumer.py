@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 from uuid import UUID
 
@@ -24,6 +25,11 @@ from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_gua
 from src.core.messaging.interfaces import EventHandler
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.core.messaging.topics import StreamTopics
+from src.core.observability import (
+    MESSAGING_CONSUMED_TOTAL,
+    MESSAGING_DLQ_MESSAGES_TOTAL,
+    MESSAGING_PROCESSING_DURATION,
+)
 from src.integrations.notifications import (
     AlertMessage,
     AlertSeverity,
@@ -200,17 +206,38 @@ class AlertNotificationConsumer(EventHandler):
                         )
                         continue
 
+                    start_time = time.perf_counter()
                     try:
                         event_type = str(payload.get("event_type", "Unknown"))
                         await self.handle(event_type, payload)
+                        elapsed = time.perf_counter() - start_time
+                        MESSAGING_PROCESSING_DURATION.labels(
+                            stream=STREAM_TOPIC, group=NOTIFICATION_CONSUMER_GROUP
+                        ).observe(elapsed)
+                        MESSAGING_CONSUMED_TOTAL.labels(
+                            stream=STREAM_TOPIC, group=NOTIFICATION_CONSUMER_GROUP, status="success"
+                        ).inc()
                         acked_ids.append(msg_id)
                     except Exception as exc:  # noqa: BLE001
+                        elapsed = time.perf_counter() - start_time
+                        MESSAGING_PROCESSING_DURATION.labels(
+                            stream=STREAM_TOPIC, group=NOTIFICATION_CONSUMER_GROUP
+                        ).observe(elapsed)
+                        MESSAGING_CONSUMED_TOTAL.labels(
+                            stream=STREAM_TOPIC, group=NOTIFICATION_CONSUMER_GROUP, status="error"
+                        ).inc()
+
                         if is_poison_error(exc):
                             logger.error(
                                 "Poison message detectada na notificação %s: %s. Desviando imediatamente para DLQ com ACK.",
                                 msg_id,
                                 exc,
                             )
+                            MESSAGING_DLQ_MESSAGES_TOTAL.labels(
+                                stream=STREAM_TOPIC,
+                                group=NOTIFICATION_CONSUMER_GROUP,
+                                reason="PoisonMessage",
+                            ).inc()
                             await self._event_bus.publish_dlq(
                                 original_topic=STREAM_TOPIC,
                                 original_msg_id=msg_id,
@@ -231,6 +258,11 @@ class AlertNotificationConsumer(EventHandler):
                                 msg_id,
                                 self.max_retries,
                             )
+                            MESSAGING_DLQ_MESSAGES_TOTAL.labels(
+                                stream=STREAM_TOPIC,
+                                group=NOTIFICATION_CONSUMER_GROUP,
+                                reason="MaxRetriesExceeded",
+                            ).inc()
                             await self._event_bus.send_to_dlq(
                                 topic=STREAM_TOPIC,
                                 group=NOTIFICATION_CONSUMER_GROUP,
