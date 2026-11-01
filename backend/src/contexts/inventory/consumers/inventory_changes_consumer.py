@@ -9,11 +9,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.resilient_bus import ResilientEventBus
 from src.core.messaging.topics import StreamTopics
+from src.core.observability import (
+    MESSAGING_CONSUMED_TOTAL,
+    MESSAGING_DLQ_MESSAGES_TOTAL,
+    MESSAGING_PROCESSING_DURATION,
+)
 from src.workers.scheduler.in_memory_inventory import InMemorySchedule, ProbeTarget
 
 logger = logging.getLogger("infrawatch.inventory.consumers.changes")
@@ -130,17 +136,38 @@ class InventoryChangesConsumer:
 
                 message_ids = []
                 for msg_id, payload in messages:
+                    start_time = time.perf_counter()
                     try:
                         event_type = payload.get("event_type", "Unknown")
                         await self._handle_event(event_type, payload)
+                        elapsed = time.perf_counter() - start_time
+                        MESSAGING_PROCESSING_DURATION.labels(
+                            stream=STREAM_TOPIC, group=CONSUMER_GROUP
+                        ).observe(elapsed)
+                        MESSAGING_CONSUMED_TOTAL.labels(
+                            stream=STREAM_TOPIC, group=CONSUMER_GROUP, status="success"
+                        ).inc()
                         message_ids.append(msg_id)
                     except Exception as exc:  # noqa: BLE001
+                        elapsed = time.perf_counter() - start_time
+                        MESSAGING_PROCESSING_DURATION.labels(
+                            stream=STREAM_TOPIC, group=CONSUMER_GROUP
+                        ).observe(elapsed)
+                        MESSAGING_CONSUMED_TOTAL.labels(
+                            stream=STREAM_TOPIC, group=CONSUMER_GROUP, status="error"
+                        ).inc()
+
                         if is_poison_error(exc):
                             logger.error(
                                 "Poison message detectada no evento de inventário %s: %s. Desviando imediatamente para DLQ com ACK.",
                                 msg_id,
                                 exc,
                             )
+                            MESSAGING_DLQ_MESSAGES_TOTAL.labels(
+                                stream=STREAM_TOPIC,
+                                group=CONSUMER_GROUP,
+                                reason="PoisonMessage",
+                            ).inc()
                             await self.event_bus.publish_dlq(
                                 original_topic=STREAM_TOPIC,
                                 original_msg_id=msg_id,
@@ -161,6 +188,11 @@ class InventoryChangesConsumer:
                                 msg_id,
                                 self.max_retries,
                             )
+                            MESSAGING_DLQ_MESSAGES_TOTAL.labels(
+                                stream=STREAM_TOPIC,
+                                group=CONSUMER_GROUP,
+                                reason="MaxRetriesExceeded",
+                            ).inc()
                             await self.event_bus.send_to_dlq(
                                 topic=STREAM_TOPIC,
                                 group=CONSUMER_GROUP,
