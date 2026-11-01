@@ -19,6 +19,7 @@ from src.core.database import OutboxRepository
 from src.core.database.session import get_session_factory
 from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.resilient_bus import ResilientEventBus
+from src.core.messaging.topics import EVENT_STREAM_MAPPING, StreamTopics
 
 logger = logging.getLogger(__name__)
 
@@ -33,35 +34,7 @@ class EventPublisher(Protocol):
 
 PublishCallback = Callable[[str, dict[str, Any]], Awaitable[Any]]
 
-# Mapeamento declarativo de tipos de evento para streams contextuais consolidados
-EVENT_STREAM_MAPPING: dict[str, str] = {
-    # Bounded Context: Inventory
-    "DeviceCreated": "stream:inventory:changes",
-    "DeviceUpdated": "stream:inventory:changes",
-    "DeviceDeleted": "stream:inventory:changes",
-    "DevicePaused": "stream:inventory:changes",
-    "DeviceResumed": "stream:inventory:changes",
-    # Bounded Context: Alerting / Incident
-    "IncidentTriggered": "stream:incidents",
-    "IncidentTriggeredEvent": "stream:incidents",
-    "DeviceDegraded": "stream:incidents",
-    "DeviceDegradedEvent": "stream:incidents",
-    "IncidentResolved": "stream:incidents",
-    "IncidentResolvedEvent": "stream:incidents",
-    "IncidentAcknowledged": "stream:incidents",
-    "IncidentAcknowledgedEvent": "stream:incidents",
-    # Bounded Context: IAM
-    "PasswordResetRequestedEvent": "stream:iam:events",
-    "PasswordChangedEvent": "stream:iam:events",
-    "PasswordResetCompletedEvent": "stream:iam:events",
-    "EmailVerificationRequestedEvent": "stream:iam:events",
-    "EmailVerifiedEvent": "stream:iam:events",
-    "AccountLockedEvent": "stream:iam:events",
-    "BackupCodeUsedEvent": "stream:iam:events",
-    "ProfileUpdatedEvent": "stream:iam:events",
-    "RolesChangedEvent": "stream:iam:events",
-    "AccountDeactivatedEvent": "stream:iam:events",
-}
+__all__ = ["EVENT_STREAM_MAPPING", "EventPublisher", "OutboxRelayWorker", "PublishCallback", "StreamTopics"]
 
 
 class OutboxRelayWorker:
