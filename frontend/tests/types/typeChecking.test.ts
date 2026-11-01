@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { incidentsApi } from "../../src/services/incidentsApi";
 import { slaApi } from "../../src/services/slaApi";
 import { clientPortalApi } from "../../src/services/clientPortalApi";
@@ -7,6 +7,64 @@ import type { MaintenanceWindow, MaintenanceWindowDTO, MaintenanceWindowListResp
 import type { ClientDeviceDTO, ClientDeviceListResponse } from "../../src/types/clientPortal";
 import type { TelemetryApiResponse, TelemetryDeviceDTO } from "../../src/types/telemetry";
 import type { KnownSSEPayload, TelemetryUpdatedPayload, AlarmTriggeredPayload, PingPayload } from "../../src/types/sse";
+
+vi.mock("../../src/services/clientPortalApi", () => ({
+  clientPortalApi: {
+    getClientServices: vi.fn().mockResolvedValue([
+      {
+        id: "dev-10",
+        name: "Router Core",
+        category: "Rede",
+        status: "UP",
+        statusLabel: "Nominal",
+        tags: ["ICMP"],
+      },
+    ]),
+  },
+}));
+
+vi.mock("../../src/services/incidentsApi", () => ({
+  incidentsApi: {
+    listIncidents: vi.fn().mockResolvedValue([
+      {
+        id: "inc-100",
+        code: "INC-2026-100",
+        title: "Falha de Roteamento BGP",
+        severity: "critical",
+        status: "TRIGGERED",
+        service: "Rede Core",
+        target_device: { name: "Router Core", ip: "10.0.0.1" },
+        duration_str: "15m",
+        glpi_ticket_id: 1042,
+        organization_name: "InfraWatch NOC",
+        started_at: "2026-10-31T00:00:00Z",
+      },
+    ]),
+  },
+}));
+
+vi.mock("../../src/services/slaApi", () => ({
+  slaApi: {
+    listMaintenanceWindows: vi.fn().mockResolvedValue([
+      {
+        id: "mw-1",
+        rfcNumber: "RFC-2026-001",
+        title: "Atualização de Firmware",
+        description: "Janela aprovada",
+        targetDeviceIds: ["dev-1"],
+        targetDeviceNames: ["Router Core"],
+        clientName: "Organização",
+        clientCategory: "TELECOM",
+        startTimeUtc: "2026-10-31T01:00:00Z",
+        endTimeUtc: "2026-10-31T03:00:00Z",
+        durationMinutes: 120,
+        status: "APPROVED",
+        alarmSuppression: true,
+        slaExemption: true,
+      },
+    ]),
+  },
+}));
 
 describe("Strict Type Contracts & API DTOs (Issue #277)", () => {
   describe("Incidents Contracts", () => {
