@@ -57,6 +57,7 @@ class Settings(BaseSettings):
         alias="REDIS_URL",
     )
     REDIS_MAX_CONNECTIONS: int = Field(default=10, alias="REDIS_MAX_CONNECTIONS")
+    REDIS_STREAM_MAXLEN: int = Field(default=10000, alias="REDIS_STREAM_MAXLEN")
 
     # Segurança & Autenticação
     SECRET_KEY: str = Field(

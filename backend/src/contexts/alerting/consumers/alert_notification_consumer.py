@@ -23,6 +23,7 @@ from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_guard
 from src.core.messaging.interfaces import EventHandler
 from src.core.messaging.resilient_bus import ResilientEventBus
+from src.core.messaging.topics import StreamTopics
 from src.integrations.notifications import (
     AlertMessage,
     AlertSeverity,
@@ -32,7 +33,7 @@ from src.integrations.notifications import (
 
 logger = logging.getLogger("infrawatch.alerting.consumers.notifications")
 
-STREAM_TOPIC = "stream:incidents"
+STREAM_TOPIC = StreamTopics.INCIDENTS
 NOTIFICATION_CONSUMER_GROUP = "cg:notification_workers"
 
 

@@ -33,6 +33,7 @@ class RedisStreamsEventBus(EventBus):
         self,
         redis_client: aioredis.Redis | None = None,
         redis_url: str | None = None,
+        maxlen: int | None = None,
     ) -> None:
         self.redis_url = redis_url or get_settings().REDIS_URL
         self._redis = redis_client
@@ -40,6 +41,7 @@ class RedisStreamsEventBus(EventBus):
         self._consumer_tasks: list[asyncio.Task[None]] = []
         self._known_groups: set[tuple[str, str]] = set()
         self._is_closed: bool = False
+        self._maxlen: int = maxlen if maxlen is not None else get_settings().REDIS_STREAM_MAXLEN
 
     async def _get_client(self) -> aioredis.Redis:
         """Obtém ou instancia o cliente Redis assíncrono."""
@@ -107,7 +109,13 @@ class RedisStreamsEventBus(EventBus):
             }
 
             client = await self._get_client()
-            msg_id = await client.xadd(name=topic, fields=fields, id="*")
+            msg_id = await client.xadd(
+                name=topic,
+                fields=fields,
+                id="*",
+                maxlen=self._maxlen,
+                approximate=True,
+            )
             logger.debug(
                 "Evento %s publicado no Redis Stream '%s' com ID %s",
                 event_type,

@@ -13,12 +13,13 @@ from typing import Any
 
 from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.resilient_bus import ResilientEventBus
+from src.core.messaging.topics import StreamTopics
 from src.workers.scheduler.in_memory_inventory import InMemorySchedule, ProbeTarget
 
 logger = logging.getLogger("infrawatch.inventory.consumers.changes")
 
 # Mapeamento evento -> ação no schedule
-STREAM_TOPIC = "stream:inventory:changes"
+STREAM_TOPIC = StreamTopics.INVENTORY_CHANGES
 CONSUMER_GROUP = "cg:probe_workers"
 
 
