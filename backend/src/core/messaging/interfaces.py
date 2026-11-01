@@ -77,6 +77,15 @@ class EventBus(ABC):
         ...
 
     @abstractmethod
+    async def should_process_retry(self, topic: str, group: str, message_id: str) -> bool:
+        """Avalia se uma mensagem pendente/reentregue atingiu o tempo mínimo de espera (backoff progressivo).
+
+        Retorna True se for a 1ª tentativa ou se o tempo decorrido desde a última entrega exceder o limiar
+        de recuo (30s, 60s, 180s, 300s). Retorna False se a mensagem deve ser ignorada neste ciclo de leitura.
+        """
+        ...
+
+    @abstractmethod
     async def send_to_dlq(
         self,
         topic: str,

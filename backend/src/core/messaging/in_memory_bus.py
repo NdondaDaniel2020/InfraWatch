@@ -184,6 +184,30 @@ class InMemoryEventBus(EventBus):
         """Retorna o número de tentativas/entregas realizadas para a mensagem pendente."""
         return self._delivery_counts.get((topic, group, message_id), 1)
 
+    async def should_process_retry(self, topic: str, group: str, message_id: str) -> bool:
+        """Avalia se uma mensagem pendente/reentregue atingiu o tempo mínimo de espera (backoff progressivo)."""
+        delivery_count = self._delivery_counts.get((topic, group, message_id), 1)
+        if delivery_count <= 1:
+            return True
+
+        pel_entry = self._pel[topic][group].get(message_id)
+        if not pel_entry:
+            return True
+
+        _, delivered_at, _ = pel_entry
+        idle_ms = (datetime.now(UTC) - delivered_at).total_seconds() * 1000
+
+        required_ms = (
+            30_000
+            if delivery_count == 2
+            else 60_000
+            if delivery_count == 3
+            else 180_000
+            if delivery_count == 4
+            else 300_000
+        )
+        return idle_ms >= required_ms
+
     async def send_to_dlq(
         self,
         topic: str,
