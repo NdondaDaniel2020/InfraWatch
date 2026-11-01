@@ -39,10 +39,10 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
 
   // Se o usuário for ORG_ADMIN, restringe os incidentes aos do seu tenant/organização
   const tenantFilteredIncidents = useMemo(() => {
-    if (user?.role === "ORG_ADMIN") {
-      const userOrg = user.organization_name || "Banco Sol";
+    if (user?.role === "ORG_ADMIN" && user.organization_name) {
+      const userOrg = user.organization_name.toLowerCase();
       return incidents.filter((i) =>
-        i.organization_name.toLowerCase().includes(userOrg.toLowerCase())
+        i.organization_name.toLowerCase().includes(userOrg)
       );
     }
     return incidents;
@@ -74,7 +74,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
     try {
       const data = await incidentsApi.listIncidents();
       setIncidents(data);
-      setKpiSummary(incidentsApi.getKpiSummary());
+      setKpiSummary(incidentsApi.getKpiSummary(data));
       if (!initialViewState || overrideViewState) {
         setViewState(data.length === 0 ? "empty" : "nominal");
       }
@@ -87,7 +87,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
     loadIncidents();
     const unsubscribe = incidentsApi.subscribe((updated) => {
       setIncidents(updated);
-      setKpiSummary(incidentsApi.getKpiSummary());
+      setKpiSummary(incidentsApi.getKpiSummary(updated));
     });
     return unsubscribe;
   }, [loadIncidents]);

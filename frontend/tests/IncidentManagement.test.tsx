@@ -11,6 +11,128 @@ import { ResolveIncidentModal } from "../src/components/incidents/ResolveInciden
 import { IncidentTimeline } from "../src/components/incidents/IncidentTimeline";
 import { incidentsApi, IncidentItem } from "../src/services/incidentsApi";
 
+let inMemoryTestIncidents: IncidentItem[] = [];
+let testSubscribers: Array<(incidents: IncidentItem[]) => void> = [];
+
+const notifyTestSubscribers = () => {
+  const copy = [...inMemoryTestIncidents];
+  testSubscribers.forEach((cb) => cb(copy));
+};
+
+vi.mock("../src/services/incidentsApi", async () => {
+  const actual = await vi.importActual<any>("../src/services/incidentsApi");
+  const { INITIAL_CANONICAL_INCIDENTS: canonicals } = await import(
+    "../src/mocks/incidentsMocks"
+  );
+
+  return {
+    ...actual,
+    incidentsApi: {
+      ...actual.incidentsApi,
+      resetState: vi.fn(() => {
+        inMemoryTestIncidents = JSON.parse(JSON.stringify(canonicals));
+        testSubscribers = [];
+      }),
+      listIncidents: vi.fn(async (filters?: any) => {
+        let result = [...inMemoryTestIncidents];
+        if (filters?.severity && filters.severity !== "all") {
+          result = result.filter((i) => i.severity === filters.severity);
+        }
+        if (filters?.search && filters.search.trim()) {
+          const q = filters.search.toLowerCase().trim();
+          result = result.filter(
+            (i) =>
+              i.code.toLowerCase().includes(q) ||
+              i.target_device.name.toLowerCase().includes(q) ||
+              i.target_device.ip.includes(q) ||
+              i.title.toLowerCase().includes(q) ||
+              i.organization_name.toLowerCase().includes(q)
+          );
+        }
+        return result;
+      }),
+      getIncidentById: vi.fn(async (id: string) => {
+        return (
+          inMemoryTestIncidents.find((i) => i.id === id || i.code === id) || null
+        );
+      }),
+      acknowledgeIncident: vi.fn(async (id: string) => {
+        const idx = inMemoryTestIncidents.findIndex((i) => i.id === id || i.code === id);
+        if (idx !== -1) {
+          inMemoryTestIncidents[idx] = {
+            ...inMemoryTestIncidents[idx],
+            status: "ACKNOWLEDGED",
+            assigned_operator: {
+              id: "usr-dn",
+              name: "Daniel Ndonda",
+              initials: "DN",
+              role: "NOC Lead",
+            },
+          };
+          notifyTestSubscribers();
+          return inMemoryTestIncidents[idx];
+        }
+        throw new Error("Not found");
+      }),
+      createGlpiTicket: vi.fn(async (id: string) => {
+        const idx = inMemoryTestIncidents.findIndex((i) => i.id === id || i.code === id);
+        if (idx !== -1) {
+          const ticketId = inMemoryTestIncidents[idx].glpi_ticket_id || 9999;
+          inMemoryTestIncidents[idx] = {
+            ...inMemoryTestIncidents[idx],
+            glpi_ticket_id: ticketId,
+            glpi_url: `https://glpi.infrawatch.ao/front/ticket.form.php?id=${ticketId}`,
+          };
+          notifyTestSubscribers();
+          return inMemoryTestIncidents[idx];
+        }
+        throw new Error("Not found");
+      }),
+      resolveIncident: vi.fn(async (id: string, payload: any) => {
+        const idx = inMemoryTestIncidents.findIndex((i) => i.id === id || i.code === id);
+        if (idx !== -1) {
+          inMemoryTestIncidents[idx] = {
+            ...inMemoryTestIncidents[idx],
+            status: "RESOLVED",
+            severity: "resolved",
+            priority_label: "P3 RESOLVIDO",
+            root_cause: payload.root_cause,
+          };
+          notifyTestSubscribers();
+          return inMemoryTestIncidents[idx];
+        }
+        throw new Error("Not found");
+      }),
+      getKpiSummary: vi.fn((items?: IncidentItem[]) => {
+        const list = items || inMemoryTestIncidents;
+        const critical = list.filter((i) => i.severity === "critical");
+        const degraded = list.filter((i) => i.severity === "degraded");
+        const resolved = list.filter((i) => i.severity === "resolved");
+
+        return {
+          p1_critical_count: critical.length,
+          p1_duration_str: critical[0]?.duration_str || "00m 00s",
+          p2_degraded_count: degraded.length,
+          p2_summary_str:
+            degraded.map((d) => d.target_device.name).join(" & ") ||
+            "Nenhum ativo degradado",
+          resolved_today_count: resolved.length + 12,
+          sla_recovery_pct: 98.2,
+          glpi_sync_pct: 100,
+          mttr_average_str: "6m 45s",
+          mttr_diff_pct: "-12%",
+        };
+      }),
+      subscribe: vi.fn((cb: (incidents: IncidentItem[]) => void) => {
+        testSubscribers.push(cb);
+        return () => {
+          testSubscribers = testSubscribers.filter((s) => s !== cb);
+        };
+      }),
+    },
+  };
+});
+
 const renderWithProviders = (ui: React.ReactElement) => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -30,7 +152,7 @@ const renderWithProviders = (ui: React.ReactElement) => {
 describe("Painel de Incidentes, Status GLPI e Ações Rápidas (Issue #32)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    incidentsApi.resetState();
+    (incidentsApi as any).resetState();
   });
 
   /* ------------------------------------------------------------------------- */

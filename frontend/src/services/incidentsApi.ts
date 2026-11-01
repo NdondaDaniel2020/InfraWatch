@@ -1,11 +1,10 @@
 /**
- * Cliente de API e gerenciador de estado para Gestão Operacional de Incidentes.
- * Integração com GLPI v9.5.7, Acknowledge do operador, Resolução com Causa Raiz (RCA)
- * e emissão de eventos SSE em tempo real (ADR-004, ADR-009, Issue #32).
+ * Cliente de API para Gestão Operacional de Incidentes (Issue #32, Issue #261, Issue #277).
+ * Integração com backend FastAPI (/api/v1/incidents), GLPI v9.5.7, Acknowledge do operador,
+ * Resolução com Causa Raiz (RCA) e emissão de eventos SSE em tempo real (ADR-004, ADR-009).
  */
 
 import { apiClient } from "./apiClient";
-import { ENV } from "../utils/env";
 import type {
   IncidentSeverity,
   IncidentStatus,
@@ -30,19 +29,129 @@ export type {
   IncidentListResponse,
 };
 
-// Importa mocks canonicos desacoplados do servico de API
-import { INITIAL_CANONICAL_INCIDENTS } from "../mocks/incidentsMocks";
-export { INITIAL_CANONICAL_INCIDENTS };
+function formatDuration(startedAt?: string, endedAt?: string | null): string {
+  if (!startedAt) return "N/D";
+  const start = new Date(startedAt).getTime();
+  const end = endedAt ? new Date(endedAt).getTime() : Date.now();
+  if (isNaN(start) || isNaN(end) || end < start) return "N/D";
+  const diffSec = Math.floor((end - start) / 1000);
+  const hours = Math.floor(diffSec / 3600);
+  const mins = Math.floor((diffSec % 3600) / 60);
+  const secs = diffSec % 60;
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s`;
+  }
+  return `${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s`;
+}
 
-// Estado local em memória (para desenvolvimento offline e testes unitários)
-let inMemoryIncidents: IncidentItem[] = JSON.parse(JSON.stringify(INITIAL_CANONICAL_INCIDENTS));
-const incidentSubscribers: Array<(incidents: IncidentItem[]) => void> = [];
+export function dtoToIncidentItem(dto: any): IncidentItem {
+  const idStr = String(dto.id);
+  const sevLower = (dto.severity || "degraded").toLowerCase() as IncidentSeverity;
+  const statusUpper = (dto.status || "TRIGGERED").toUpperCase() as IncidentStatus;
+  const startedAt = dto.started_at
+    ? new Date(dto.started_at).toISOString()
+    : new Date().toISOString();
+  const durationStr = formatDuration(dto.started_at, dto.resolved_at);
 
-function notifySubscribers(): void {
-  const current = [...inMemoryIncidents];
-  incidentSubscribers.forEach((cb) => {
+  let priorityLabel = "P2 DEGRADADO";
+  if (sevLower === "critical") {
+    priorityLabel = "P1 CRÍTICO";
+  } else if (statusUpper === "RESOLVED" || sevLower === "resolved") {
+    priorityLabel = "P3 RESOLVIDO";
+  }
+
+  const opName =
+    dto.acknowledged_by ||
+    (dto.operator_id ? `Operador #${String(dto.operator_id).slice(0, 6)}` : null);
+  const assignedOp = opName
+    ? {
+        id: String(dto.operator_id || "op"),
+        name: opName,
+        initials:
+          opName
+            .split(" ")
+            .map((w: string) => w[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase() || "OP",
+        role: "NOC Analyst",
+      }
+    : null;
+
+  const glpiId = typeof dto.glpi_ticket_id === "number" ? dto.glpi_ticket_id : null;
+
+  return {
+    id: idStr,
+    code: dto.code || `INC-${idStr.slice(0, 8).toUpperCase()}`,
+    title: dto.title || "Incidente Operacional",
+    target_device: {
+      name:
+        dto.device_name ||
+        (dto.device_id
+          ? `DEV-${String(dto.device_id).slice(0, 8).toUpperCase()}`
+          : "Dispositivo N/D"),
+      ip: dto.device_ip || "N/D",
+      model: dto.device_model || "N/D",
+      location: dto.device_location,
+    },
+    organization_name: dto.organization_name || "Organização",
+    organization_domain: dto.organization_domain,
+    severity: sevLower,
+    status: statusUpper,
+    started_at: startedAt,
+    duration_str: durationStr,
+    sla_remaining_str: statusUpper === "RESOLVED" ? "Encerrado" : "Monitoramento Ativo",
+    glpi_ticket_id: glpiId,
+    glpi_url:
+      dto.glpi_url ||
+      (glpiId ? `https://glpi.infrawatch.ao/front/ticket.form.php?id=${glpiId}` : undefined),
+    priority_label: priorityLabel,
+    assigned_operator: assignedOp,
+    root_cause: dto.root_cause || undefined,
+    corrective_action: dto.corrective_action || undefined,
+    failure_category: dto.failure_category,
+    is_sla_exempt: dto.is_sla_exempt ?? false,
+    timeline: Array.isArray(dto.timeline) ? dto.timeline : [],
+  };
+}
+
+export function calculateIncidentsKpis(incidents: IncidentItem[] = []): IncidentsKpiSummary {
+  const critical = incidents.filter(
+    (i) => i.severity === "critical" && i.status !== "RESOLVED"
+  );
+  const degraded = incidents.filter(
+    (i) => i.severity === "degraded" && i.status !== "RESOLVED"
+  );
+  const resolved = incidents.filter(
+    (i) => i.status === "RESOLVED" || i.severity === "resolved"
+  );
+
+  const total = incidents.length;
+  const withGlpi = incidents.filter((i) => i.glpi_ticket_id !== null).length;
+  const glpiSyncPct = total > 0 ? Math.round((withGlpi / total) * 100) : 100;
+
+  const exemptOrMet = incidents.filter((i) => i.is_sla_exempt || i.status === "RESOLVED").length;
+  const slaRecoveryPct = total > 0 ? parseFloat(((exemptOrMet / total) * 100).toFixed(1)) : 100;
+
+  return {
+    p1_critical_count: critical.length,
+    p1_duration_str: critical[0]?.duration_str || "00m 00s",
+    p2_degraded_count: degraded.length,
+    p2_summary_str: degraded.map((d) => d.target_device.name).join(" & ") || "Nenhum ativo degradado",
+    resolved_today_count: resolved.length,
+    sla_recovery_pct: slaRecoveryPct,
+    glpi_sync_pct: glpiSyncPct,
+    mttr_average_str: total > 0 ? "Em apuração" : "0m",
+    mttr_diff_pct: "0%",
+  };
+}
+
+const subscribers: Array<(incidents: IncidentItem[]) => void> = [];
+
+function notifySubscribers(incidents: IncidentItem[]): void {
+  subscribers.forEach((cb) => {
     try {
-      cb(current);
+      cb(incidents);
     } catch {
       // noop
     }
@@ -51,212 +160,110 @@ function notifySubscribers(): void {
 
 export const incidentsApi = {
   /**
-   * Restaura os dados canônicos em memória (útil para testes unitários).
-   */
-  resetState(): void {
-    inMemoryIncidents = JSON.parse(JSON.stringify(INITIAL_CANONICAL_INCIDENTS));
-    notifySubscribers();
-  },
-
-  /**
-   * Assina notificações locais de alteração nos incidentes.
+   * Assina atualizações em tempo real nos incidentes.
    */
   subscribe(callback: (incidents: IncidentItem[]) => void): () => void {
-    incidentSubscribers.push(callback);
+    subscribers.push(callback);
     return () => {
-      const idx = incidentSubscribers.indexOf(callback);
-      if (idx !== -1) incidentSubscribers.splice(idx, 1);
+      const idx = subscribers.indexOf(callback);
+      if (idx !== -1) subscribers.splice(idx, 1);
     };
   },
 
   /**
-   * Lista todos os incidentes com filtros opcionais.
+   * Lista incidentes com filtros opcionais consumindo /api/v1/incidents.
    */
   async listIncidents(filters?: {
     severity?: string;
     search?: string;
     organization?: string;
+    device_id?: string;
   }): Promise<IncidentItem[]> {
     const params = new URLSearchParams();
     if (filters?.severity && filters.severity !== "all") {
-      params.append("severity", filters.severity.toUpperCase());
+      params.append("status", filters.severity.toUpperCase());
     }
-    if (filters?.organization && filters.organization !== "all" && !filters.organization.includes("Todas")) {
-      // Envia organization_id para o backend caso seja uma busca de NOC / Super Admin
+    if (
+      filters?.organization &&
+      filters.organization !== "all" &&
+      !filters.organization.includes("Todas")
+    ) {
       params.append("organization_id", filters.organization);
     }
-
-    if (ENV.ENABLE_MOCKS) {
-      try {
-        const response = await apiClient.get<IncidentListResponse>(`/api/v1/incidents?${params.toString()}`);
-        if (response && Array.isArray(response.items)) {
-          return response.items.map((item: IncidentDTO) => {
-            const match = inMemoryIncidents.find((m) => String(m.id) === String(item.id) || m.code === String(item.id));
-            return {
-              ...(match || inMemoryIncidents[0]),
-              id: String(item.id),
-              title: item.title,
-              severity: item.severity.toLowerCase() as IncidentSeverity,
-              status: item.status as IncidentStatus,
-              glpi_ticket_id: item.glpi_ticket_id ?? match?.glpi_ticket_id ?? null,
-              root_cause: item.root_cause || match?.root_cause,
-            };
-          });
-        }
-      } catch {
-        // Fallback transparente em modo mock
-      }
-
-      let result = [...inMemoryIncidents];
-
-      if (filters?.severity && filters.severity !== "all") {
-        result = result.filter((i) => i.severity === filters.severity);
-      }
-
-      if (filters?.search && filters.search.trim()) {
-        const q = filters.search.toLowerCase().trim();
-        result = result.filter(
-          (i) =>
-            i.code.toLowerCase().includes(q) ||
-            i.target_device.name.toLowerCase().includes(q) ||
-            i.target_device.ip.includes(q) ||
-            i.title.toLowerCase().includes(q) ||
-            (i.glpi_ticket_id && String(i.glpi_ticket_id).includes(q))
-        );
-      }
-
-      const orgFilter = filters?.organization;
-      if (orgFilter && orgFilter !== "all" && !orgFilter.includes("Todas")) {
-        const targetOrg = orgFilter.toLowerCase();
-        result = result.filter(
-          (i) =>
-            i.organization_name === orgFilter ||
-            i.organization_name.toLowerCase().includes(targetOrg) ||
-            (i.organization_domain && i.organization_domain.toLowerCase().includes(targetOrg))
-        );
-      }
-
-      return result;
+    if (filters?.device_id) {
+      params.append("device_id", filters.device_id);
     }
 
-    const response = await apiClient.get<IncidentListResponse>(`/api/v1/incidents?${params.toString()}`);
-    if (response && Array.isArray(response.items)) {
-      return response.items.map((item: IncidentDTO) => {
-        const match = inMemoryIncidents.find((m) => String(m.id) === String(item.id) || m.code === String(item.id));
-        return {
-          ...(match || inMemoryIncidents[0]),
-          id: String(item.id),
-          title: item.title,
-          severity: item.severity.toLowerCase() as IncidentSeverity,
-          status: item.status as IncidentStatus,
-          glpi_ticket_id: item.glpi_ticket_id ?? match?.glpi_ticket_id ?? null,
-          root_cause: item.root_cause || match?.root_cause,
-        };
-      });
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const response = await apiClient.get<IncidentListResponse | IncidentDTO[]>(
+      `/api/v1/incidents${query}`
+    );
+
+    let items: IncidentDTO[] = [];
+    if (Array.isArray(response)) {
+      items = response;
+    } else if (response && Array.isArray(response.items)) {
+      items = response.items;
     }
-    return [];
+
+    let mapped = items.map(dtoToIncidentItem);
+
+    if (filters?.search && filters.search.trim()) {
+      const q = filters.search.toLowerCase().trim();
+      mapped = mapped.filter(
+        (i) =>
+          i.code.toLowerCase().includes(q) ||
+          i.target_device.name.toLowerCase().includes(q) ||
+          i.target_device.ip.includes(q) ||
+          i.title.toLowerCase().includes(q) ||
+          (i.glpi_ticket_id && String(i.glpi_ticket_id).includes(q))
+      );
+    }
+
+    if (filters?.severity && filters.severity !== "all") {
+      mapped = mapped.filter((i) => i.severity === filters.severity);
+    }
+
+    notifySubscribers(mapped);
+    return mapped;
   },
 
   /**
-   * Obtém detalhes de um incidente por ID ou Código.
+   * Obtém detalhes de um incidente específico.
    */
-  async getIncidentById(id: string): Promise<IncidentItem | null> {
-    const found = inMemoryIncidents.find((i) => i.id === id || i.code === id);
-    return found ? { ...found } : null;
+  async getIncidentById(id: string): Promise<IncidentItem> {
+    const dto = await apiClient.get<IncidentDTO>(`/api/v1/incidents/${id}`);
+    if (!dto || !dto.id) {
+      throw new Error(`Incidente ${id} não encontrado.`);
+    }
+    return dtoToIncidentItem(dto);
   },
 
   /**
    * Reconhece (Acknowledge) a ocorrência pelo operador logado.
-   * Silencia alarmes e atualiza o estado em tempo real (POST /api/v1/incidents/{id}/acknowledge).
    */
   async acknowledgeIncident(
     incidentId: string,
-    operator: { id: string; name: string; initials: string; role?: string } = {
-      id: "usr-dn",
-      name: "Daniel Ndonda",
-      initials: "DN",
-      role: "NOC Lead",
-    }
+    payload?: { acknowledged_at?: string }
   ): Promise<IncidentItem> {
-    if (!ENV.ENABLE_MOCKS) {
-      await apiClient.post(`/api/v1/incidents/${incidentId}/acknowledge`, {});
-    } else {
-      try {
-        await apiClient.post(`/api/v1/incidents/${incidentId}/acknowledge`, {});
-      } catch {
-        // Fallback local em modo mock
+    const dto = await apiClient.post<IncidentDTO>(
+      `/api/v1/incidents/${incidentId}/acknowledge`,
+      {
+        acknowledged_at: payload?.acknowledged_at || new Date().toISOString(),
       }
-    }
-
-    const idx = inMemoryIncidents.findIndex((i) => i.id === incidentId || i.code === incidentId);
-    if (idx === -1) {
-      throw new Error(`Incidente ${incidentId} não encontrado.`);
-    }
-
-    const current = inMemoryIncidents[idx];
-    const updated: IncidentItem = {
-      ...current,
-      status: "ACKNOWLEDGED",
-      assigned_operator: operator,
-      timeline: [
-        ...current.timeline,
-        {
-          id: `evt-ack-${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString("pt-AO", { timeZone: "UTC" }) + " UTC",
-          type: "acknowledged",
-          title: "Atendimento Reconhecido (Ack)",
-          description: `Ocorrência assumida pelo analista ${operator.name}. Alarmes silenciados.`,
-          operator_name: operator.name,
-        },
-      ],
-    };
-
-    inMemoryIncidents[idx] = updated;
-    notifySubscribers();
-    return updated;
+    );
+    return dtoToIncidentItem(dto);
   },
 
   /**
    * Abertura manual de chamado GLPI em 1 clique (POST /api/v1/incidents/{id}/glpi-ticket).
    */
   async createGlpiTicket(incidentId: string): Promise<IncidentItem> {
-    if (!ENV.ENABLE_MOCKS) {
-      await apiClient.post(`/api/v1/incidents/${incidentId}/glpi-ticket`, {});
-    } else {
-      try {
-        await apiClient.post(`/api/v1/incidents/${incidentId}/glpi-ticket`, {});
-      } catch {
-        // Fallback local em modo mock
-      }
-    }
-
-    const idx = inMemoryIncidents.findIndex((i) => i.id === incidentId || i.code === incidentId);
-    if (idx === -1) {
-      throw new Error(`Incidente ${incidentId} não encontrado.`);
-    }
-
-    const current = inMemoryIncidents[idx];
-    const newTicketId = current.glpi_ticket_id || Math.floor(1000 + Math.random() * 9000);
-
-    const updated: IncidentItem = {
-      ...current,
-      glpi_ticket_id: newTicketId,
-      glpi_url: `https://glpi.infrawatch.ao/front/ticket.form.php?id=${newTicketId}`,
-      timeline: [
-        ...current.timeline,
-        {
-          id: `evt-glpi-${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString("pt-AO", { timeZone: "UTC" }) + " UTC",
-          type: "glpi_opened",
-          title: `GLPI Ticket #${newTicketId} Aberto Manualmente`,
-          description: "Chamado formal criado via integração 1-Click com a central Helpdesk.",
-        },
-      ],
-    };
-
-    inMemoryIncidents[idx] = updated;
-    notifySubscribers();
-    return updated;
+    const dto = await apiClient.post<IncidentDTO>(
+      `/api/v1/incidents/${incidentId}/glpi-ticket`,
+      {}
+    );
+    return dtoToIncidentItem(dto);
   },
 
   /**
@@ -264,85 +271,26 @@ export const incidentsApi = {
    */
   async resolveIncident(
     incidentId: string,
-    payload: ResolveIncidentPayload,
-    operator: { id: string; name: string; initials: string } = {
-      id: "usr-dn",
-      name: "Daniel Ndonda",
-      initials: "DN",
-    }
+    payload: ResolveIncidentPayload
   ): Promise<IncidentItem> {
     if (!payload.root_cause || payload.root_cause.trim().length < 20) {
       throw new Error("A Causa Raiz Técnica (RCA) é obrigatória (mínimo de 20 caracteres).");
     }
 
-    if (!ENV.ENABLE_MOCKS) {
-      await apiClient.post(`/api/v1/incidents/${incidentId}/resolve`, {
+    const dto = await apiClient.post<IncidentDTO>(
+      `/api/v1/incidents/${incidentId}/resolve`,
+      {
         root_cause: payload.root_cause,
         resolved_at: payload.resolved_at || new Date().toISOString(),
-      });
-    } else {
-      try {
-        await apiClient.post(`/api/v1/incidents/${incidentId}/resolve`, {
-          root_cause: payload.root_cause,
-          resolved_at: payload.resolved_at || new Date().toISOString(),
-        });
-      } catch {
-        // Fallback local em modo mock
       }
-    }
-
-    const idx = inMemoryIncidents.findIndex((i) => i.id === incidentId || i.code === incidentId);
-    if (idx === -1) {
-      throw new Error(`Incidente ${incidentId} não encontrado.`);
-    }
-
-    const current = inMemoryIncidents[idx];
-    const updated: IncidentItem = {
-      ...current,
-      status: "RESOLVED",
-      severity: "resolved",
-      priority_label: "P3 RESOLVIDO",
-      root_cause: payload.root_cause,
-      corrective_action: payload.corrective_action || current.corrective_action,
-      failure_category: payload.failure_category || current.failure_category || "hardware",
-      is_sla_exempt: payload.is_sla_exempt ?? current.is_sla_exempt ?? false,
-      assigned_operator: current.assigned_operator || operator,
-      timeline: [
-        ...current.timeline,
-        {
-          id: `evt-res-${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString("pt-AO", { timeZone: "UTC" }) + " UTC",
-          type: "resolved",
-          title: "Incidente Técnico Resolvido",
-          description: `RCA: ${payload.root_cause.substring(0, 100)}... Encerramento confirmado no GLPI.`,
-          operator_name: operator.name,
-        },
-      ],
-    };
-
-    inMemoryIncidents[idx] = updated;
-    notifySubscribers();
-    return updated;
+    );
+    return dtoToIncidentItem(dto);
   },
 
   /**
-   * Obtém os indicadores consolidados dos KPIs da página de incidentes.
+   * Obtém indicadores consolidados dos KPIs da página de incidentes a partir dos dados reais.
    */
-  getKpiSummary(): IncidentsKpiSummary {
-    const critical = inMemoryIncidents.filter((i) => i.severity === "critical");
-    const degraded = inMemoryIncidents.filter((i) => i.severity === "degraded");
-    const resolved = inMemoryIncidents.filter((i) => i.severity === "resolved");
-
-    return {
-      p1_critical_count: critical.length,
-      p1_duration_str: critical[0]?.duration_str || "00m 00s",
-      p2_degraded_count: degraded.length,
-      p2_summary_str: degraded.map((d) => d.target_device.name).join(" & ") || "Nenhum ativo degradado",
-      resolved_today_count: resolved.length + 12, // Somando histórico acumulado do dia
-      sla_recovery_pct: 98.2,
-      glpi_sync_pct: 100,
-      mttr_average_str: "6m 45s",
-      mttr_diff_pct: "-12%",
-    };
+  getKpiSummary(incidents?: IncidentItem[]): IncidentsKpiSummary {
+    return calculateIncidentsKpis(incidents || []);
   },
 };
