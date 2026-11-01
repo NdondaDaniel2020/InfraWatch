@@ -1,3 +1,4 @@
+import { apiClient, getInMemoryAccessToken } from "./apiClient";
 import {
   BackupHistoryResponse,
   BackupMetricsSummary,
@@ -6,74 +7,85 @@ import {
   BackupTriggerResponse,
 } from "../types/backup";
 import { resolveApiUrl } from "../utils/env";
-import {
-  mockBackupHistoryItems,
-  mockBackupMetrics,
-  mockSseProgressSequence,
-} from "../mocks/backupMocks";
 
 const BASE_URL = resolveApiUrl("/api/v1/system/backup");
+
+function formatStorage(bytes: number): string {
+  if (bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
+  const value = bytes / Math.pow(1024, exponent);
+  return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}
+
+function buildMetrics(history: BackupHistoryResponse): BackupMetricsSummary {
+  const items = history.items;
+  const latest = items.reduce<BackupHistoryResponse["items"][number] | null>(
+    (current, item) => {
+      if (!current) return item;
+      return new Date(item.created_at).getTime() >
+        new Date(current.created_at).getTime()
+        ? item
+        : current;
+    },
+    null
+  );
+  const totalBytes = items.reduce(
+    (sum, item) => sum + (item.size_bytes ?? 0),
+    0
+  );
+  const elapsedMinutes = latest
+    ? Math.max(
+        0,
+        Math.floor((Date.now() - new Date(latest.created_at).getTime()) / 60000)
+      )
+    : undefined;
+
+  return {
+    ...(latest ? { lastBackupAt: latest.created_at } : {}),
+    totalBackupsCount: history.total,
+    totalStorageUsed: formatStorage(totalBytes),
+    ...(typeof elapsedMinutes === "number"
+      ? { rpoCurrentMinutes: elapsedMinutes }
+      : {}),
+  };
+}
 
 export const backupApi = {
   /**
    * Dispara rotina de backup assíncrona sob demanda no daemon isolado.
    */
   triggerBackup: async (notes?: string): Promise<BackupTriggerResponse> => {
-    try {
-      const payload: BackupTriggerRequest = { notes };
-      const res = await fetch(BASE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Falha ao disparar backup: HTTP ${res.status}`);
-      }
-
-      return await res.json();
-    } catch {
-      // Fallback gracioso com payload aceito se backend estiver offline ou em desenvolvimento
-      return {
-        backup_id: `bck_mock_${Date.now().toString(36)}`,
-        status: "accepted",
-        message: "Rotina de backup manual despachada para o contêiner isolado.",
-        sse_url: `${BASE_URL}/events`,
-        triggered_at: new Date().toISOString(),
-      };
-    }
+    const payload: BackupTriggerRequest = { notes };
+    return apiClient.post<BackupTriggerResponse>(BASE_URL, payload);
   },
 
   /**
    * Consulta a lista consolidada de backups no storage.
    */
   getBackupHistory: async (): Promise<BackupHistoryResponse> => {
-    try {
-      const res = await fetch(`${BASE_URL}/history`, {
-        headers: { Accept: "application/json" },
-      });
-
-      if (!res.ok) {
-        throw new Error(`Falha ao carregar histórico: HTTP ${res.status}`);
-      }
-
-      return await res.json();
-    } catch {
-      return {
-        items: mockBackupHistoryItems,
-        total: mockBackupHistoryItems.length,
-      };
+    const res = await apiClient.get<BackupHistoryResponse>(
+      `${BASE_URL}/history`
+    );
+    if (!res || !Array.isArray(res.items)) {
+      throw new Error("Resposta inválida do backend para o histórico de backups.");
     }
+    return {
+      items: res.items,
+      total: typeof res.total === "number" ? res.total : res.items.length,
+    };
   },
 
   /**
-   * Retorna métricas analíticas e conformidade de Disaster Recovery (RPO / RTO).
+   * Deriva métricas operacionais do histórico real de snapshots.
+   * O backend ainda não expõe metas contratuais de RPO/RTO.
    */
   getBackupMetrics: async (): Promise<BackupMetricsSummary> => {
-    return mockBackupMetrics;
+    const history = await backupApi.getBackupHistory();
+    return buildMetrics(history);
   },
 
   /**
@@ -83,30 +95,18 @@ export const backupApi = {
   subscribeBackupProgress: (
     onProgress: (event: BackupProgressEvent) => void,
     onComplete: (event: BackupProgressEvent) => void,
-    onError: (error: string) => void,
-    useSimulationFallback: boolean = false
+    onError: (error: string) => void
   ): (() => void) => {
-    // Se for solicitado simulação (para testes ou ambiente offline)
-    if (useSimulationFallback || typeof EventSource === "undefined") {
-      let step = 0;
-      const interval = setInterval(() => {
-        if (step < mockSseProgressSequence.length) {
-          const currentEvent = mockSseProgressSequence[step];
-          onProgress(currentEvent);
-          if (currentEvent.stage === "completed") {
-            onComplete(currentEvent);
-            clearInterval(interval);
-          }
-          step++;
-        } else {
-          clearInterval(interval);
-        }
-      }, 350);
-
-      return () => clearInterval(interval);
+    if (typeof EventSource === "undefined") {
+      onError("EventSource não está disponível neste ambiente.");
+      return () => {};
     }
 
-    const eventSource = new EventSource(`${BASE_URL}/events`);
+    const token = getInMemoryAccessToken();
+    const url = token
+      ? `${BASE_URL}/events?token=${encodeURIComponent(token)}`
+      : `${BASE_URL}/events`;
+    const eventSource = new EventSource(url);
 
     eventSource.addEventListener("progress", (e: MessageEvent) => {
       try {
@@ -125,7 +125,6 @@ export const backupApi = {
     });
 
     eventSource.onerror = () => {
-      // Se a conexão for abortada ou falhar
       onError("Conexão com o stream de backup interrompida.");
       eventSource.close();
     };

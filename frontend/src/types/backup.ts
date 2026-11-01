@@ -49,11 +49,11 @@ export interface BackupTriggerResponse {
 
 export interface BackupHistoryItem {
   filename: string;
-  size_bytes: number;
+  size_bytes?: number;
   size_human: string;
   created_at: string;
   sha256?: string;
-  storage_path: string;
+  storage_path?: string;
   targets?: BackupTargets;
   trigger?: "manual" | "scheduled";
   notes?: string;
@@ -65,13 +65,13 @@ export interface BackupHistoryResponse {
 }
 
 export interface BackupMetricsSummary {
-  lastBackupAt: string;
+  lastBackupAt?: string;
   totalBackupsCount: number;
   totalStorageUsed: string;
-  rpoTargetMinutes: number;
-  rpoCurrentMinutes: number;
-  rtoTargetMinutes: number;
-  isCompliant: boolean;
+  rpoTargetMinutes?: number;
+  rpoCurrentMinutes?: number;
+  rtoTargetMinutes?: number;
+  isCompliant?: boolean;
 }
 
 export interface PipelineStageConfig {
