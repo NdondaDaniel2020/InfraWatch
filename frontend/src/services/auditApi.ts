@@ -5,58 +5,24 @@ import {
   AuditListResponse,
   AuditLogEntry,
 } from "../types/audit";
-import {
-  mockAuditLogs,
-  mockCustodyVerificationSuccess,
-} from "../mocks/auditMocks";
 
 export const auditApi = {
   /**
    * Consulta paginada dos registros de auditoria imutáveis.
    */
   getAuditLogs: async (params?: AuditFilterParams): Promise<AuditListResponse> => {
-    try {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set("page", String(params.page));
-      if (params?.page_size) searchParams.set("page_size", String(params.page_size));
-      if (params?.organization_id) searchParams.set("organization_id", params.organization_id);
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.page_size) searchParams.set("page_size", String(params.page_size));
+    if (params?.organization_id) searchParams.set("organization_id", params.organization_id);
 
-      const qs = searchParams.toString();
-      const endpoint = qs ? `/api/v1/audit/logs?${qs}` : "/api/v1/audit/logs";
-      return await apiClient.get<AuditListResponse>(endpoint);
-    } catch {
-      // Fallback para mock resiliente em caso de backend indisponível no ambiente de dev/teste
-      let items = [...mockAuditLogs];
-      if (params?.organization_id) {
-        items = items.filter(
-          (item) =>
-            item.organization_id === params.organization_id ||
-            item.organization_id === `org-${params.organization_id}`
-        );
-      }
-      if (params?.role && params.role !== "ALL") {
-        items = items.filter((item) => item.actor_role === params.role);
-      }
-      if (params?.action && params.action !== "ALL") {
-        items = items.filter((item) => item.action === params.action);
-      }
-      if (params?.search) {
-        const query = params.search.toLowerCase();
-        items = items.filter(
-          (item) =>
-            item.actor_name?.toLowerCase().includes(query) ||
-            item.resource_id.toLowerCase().includes(query) ||
-            item.ip_address?.toLowerCase().includes(query) ||
-            item.action.toLowerCase().includes(query)
-        );
-      }
-      return {
-        items,
-        total: items.length,
-        page: params?.page || 1,
-        page_size: params?.page_size || 20,
-      };
+    const qs = searchParams.toString();
+    const endpoint = qs ? `/api/v1/audit/logs?${qs}` : "/api/v1/audit/logs";
+    const res = await apiClient.get<AuditListResponse>(endpoint);
+    if (!res || !Array.isArray(res.items)) {
+      throw new Error("Resposta inválida do backend para trilha de auditoria.");
     }
+    return res;
   },
 
   /**
@@ -65,18 +31,14 @@ export const auditApi = {
   verifyIntegrity: async (
     organizationId?: string
   ): Promise<AuditIntegrityVerificationResponse> => {
-    try {
-      const url = organizationId
-        ? `/api/v1/audit/verify?organization_id=${encodeURIComponent(organizationId)}`
-        : "/api/v1/audit/verify";
-      const result = await apiClient.post<AuditIntegrityVerificationResponse>(url);
-      return {
-        ...mockCustodyVerificationSuccess,
-        ...result,
-      };
-    } catch {
-      return mockCustodyVerificationSuccess;
+    const url = organizationId
+      ? `/api/v1/audit/verify?organization_id=${encodeURIComponent(organizationId)}`
+      : "/api/v1/audit/verify";
+    const res = await apiClient.post<AuditIntegrityVerificationResponse>(url);
+    if (!res || typeof res.is_valid !== "boolean") {
+      throw new Error("Resposta inválida do serviço de integridade criptográfica.");
     }
+    return res;
   },
 
   /**

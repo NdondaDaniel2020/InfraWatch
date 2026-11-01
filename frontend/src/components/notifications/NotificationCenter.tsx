@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Bell, Check, CheckCheck, Info, Wrench, X } from "lucide-react";
-import type { ClientNotification } from "../../mocks/clientPortalMocks";
+import type { ClientNotification } from "../../types/clientPortal";
 
 export interface NotificationCenterProps {
   notifications: ClientNotification[];

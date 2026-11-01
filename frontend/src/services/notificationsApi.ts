@@ -1,6 +1,5 @@
 import { apiClient } from "./apiClient";
-import type { ClientNotification } from "../mocks/clientPortalMocks";
-import { MOCK_CLIENT_NOTIFICATIONS } from "../mocks/clientPortalMocks";
+import type { ClientNotification } from "../types/clientPortal";
 
 export interface NotificationsResponse {
   unreadCount: number;
@@ -32,10 +31,9 @@ export const notificationsApi = {
   async getUnreadCount(): Promise<number> {
     try {
       const resp = await apiClient.get<{ unread_count: number }>("/api/v1/notifications/unread-count");
-      return resp.unread_count;
+      return typeof resp?.unread_count === "number" ? resp.unread_count : 0;
     } catch {
-      // Fallback resiliente
-      return MOCK_CLIENT_NOTIFICATIONS.filter((n) => !n.isRead).length;
+      return 0;
     }
   },
 
@@ -70,9 +68,9 @@ export const notificationsApi = {
         });
       }
     } catch {
-      // Fallback para os comunicados canônicos em caso de falha na rede
+      // Falha de rede: retorna lista vazia
     }
-    return MOCK_CLIENT_NOTIFICATIONS;
+    return [];
   },
 
   /**
