@@ -22,6 +22,7 @@ from typing import Any
 from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_guard
 from src.core.messaging.resilient_bus import ResilientEventBus
+from src.core.messaging.topics import StreamTopics
 from src.integrations.glpi import GlpiClient, render_glpi_template
 from src.integrations.glpi.schemas import (
     GlpiImpact,
@@ -31,7 +32,7 @@ from src.integrations.glpi.schemas import (
 
 logger = logging.getLogger("infrawatch.alerting.consumers.glpi_ticket")
 
-STREAM_TOPIC = "stream:incidents"
+STREAM_TOPIC = StreamTopics.INCIDENTS
 CONSUMER_GROUP = "cg:glpi_workers"
 
 # Severidades que devem abrir ticket automaticamente
