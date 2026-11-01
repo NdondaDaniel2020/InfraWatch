@@ -74,11 +74,15 @@ class OutboxRelayWorker:
         max_retries: int = 5,
         worker_id: str | None = None,
         poll_interval: float = 30.0,
+        base_delay: float = 10.0,
+        max_delay: float = 300.0,
     ) -> None:
         self.publisher = publisher
         self.session_factory = session_factory or get_session_factory()
         self.batch_size = batch_size
         self.max_retries = max_retries
+        self.base_delay = base_delay
+        self.max_delay = max_delay
         self.worker_id = worker_id or f"outbox-{uuid.uuid4().hex[:8]}"
         self.wake_signal = asyncio.Event()
         self.is_listener_healthy = False
@@ -195,6 +199,8 @@ class OutboxRelayWorker:
                         event_id=event.id,
                         error=str(exc),
                         max_retries=self.max_retries,
+                        base_delay=self.base_delay,
+                        max_delay=self.max_delay,
                     )
 
             return processed_count
