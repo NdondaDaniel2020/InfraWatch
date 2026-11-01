@@ -1,5 +1,12 @@
 """Core messaging and EventBus package for InfraWatch."""
 
+from src.core.messaging.exceptions import (
+    MessageProcessingError,
+    PoisonMessageError,
+    TransientMessageError,
+    is_poison_error,
+    is_transient_error,
+)
 from src.core.messaging.idempotency import (
     DEFAULT_IDEMPOTENCY_TTL,
     IdempotencyGuard,
@@ -50,12 +57,17 @@ __all__ = [
     "IdempotencyGuard",
     "InMemoryEventBus",
     "LegacyEventHandlerCallable",
+    "MessageProcessingError",
+    "PoisonMessageError",
     "RedisStreamsEventBus",
     "ResilientEventBus",
     "SSEBroadcaster",
     "SSEConnection",
+    "TransientMessageError",
     "close_event_bus",
     "get_event_bus",
     "get_idempotency_guard",
     "get_sse_broadcaster",
+    "is_poison_error",
+    "is_transient_error",
 ]

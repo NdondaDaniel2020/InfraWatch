@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.core.database import OutboxRepository
 from src.core.database.session import get_session_factory
+from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.resilient_bus import ResilientEventBus
 
 logger = logging.getLogger(__name__)
@@ -189,19 +190,37 @@ class OutboxRelayWorker:
                     await OutboxRepository.mark_as_published(session, event.id)
                     processed_count += 1
                 except Exception as exc:  # noqa: BLE001
-                    self._log.exception(
-                        "Falha ao despachar evento",
-                        extra={"event_id": str(event.id), "event_type": event.event_type},
-                    )
-                    # 3. Registra erro e incrementa tentativas
-                    await OutboxRepository.mark_as_failed(
-                        session=session,
-                        event_id=event.id,
-                        error=str(exc),
-                        max_retries=self.max_retries,
-                        base_delay=self.base_delay,
-                        max_delay=self.max_delay,
-                    )
+                    if is_poison_error(exc):
+                        self._log.error(
+                            "Poison message detectada no outbox para evento %s. Transicionando imediatamente para FAILED.",
+                            event.id,
+                            extra={
+                                "event_id": str(event.id),
+                                "event_type": event.event_type,
+                                "error": str(exc),
+                            },
+                        )
+                        # max_retries=0 forca transição imediata para OutboxStatus.FAILED sem retentativas inúteis
+                        await OutboxRepository.mark_as_failed(
+                            session=session,
+                            event_id=event.id,
+                            error=f"PoisonMessage: {exc}",
+                            max_retries=0,
+                        )
+                    else:
+                        self._log.exception(
+                            "Falha ao despachar evento",
+                            extra={"event_id": str(event.id), "event_type": event.event_type},
+                        )
+                        # 3. Registra erro e incrementa tentativas com backoff exponencial
+                        await OutboxRepository.mark_as_failed(
+                            session=session,
+                            event_id=event.id,
+                            error=str(exc),
+                            max_retries=self.max_retries,
+                            base_delay=self.base_delay,
+                            max_delay=self.max_delay,
+                        )
 
             return processed_count
 

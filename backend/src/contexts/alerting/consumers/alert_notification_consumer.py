@@ -19,6 +19,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_guard
 from src.core.messaging.interfaces import EventHandler
 from src.core.messaging.resilient_bus import ResilientEventBus
@@ -202,7 +203,24 @@ class AlertNotificationConsumer(EventHandler):
                         event_type = str(payload.get("event_type", "Unknown"))
                         await self.handle(event_type, payload)
                         acked_ids.append(msg_id)
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001
+                        if is_poison_error(exc):
+                            logger.error(
+                                "Poison message detectada na notificação %s: %s. Desviando imediatamente para DLQ com ACK.",
+                                msg_id,
+                                exc,
+                            )
+                            await self._event_bus.publish_dlq(
+                                original_topic=STREAM_TOPIC,
+                                original_msg_id=msg_id,
+                                payload=payload,
+                                reason=f"PoisonMessage: {exc}",
+                                error_details=str(exc),
+                                group=NOTIFICATION_CONSUMER_GROUP,
+                                delivery_count=1,
+                            )
+                            continue
+
                         delivery_count = await self._event_bus.get_delivery_count(
                             STREAM_TOPIC, NOTIFICATION_CONSUMER_GROUP, msg_id
                         )
@@ -221,11 +239,12 @@ class AlertNotificationConsumer(EventHandler):
                                 delivery_count=delivery_count,
                             )
                         else:
-                            logger.exception(
-                                "Falha ao processar notificação da mensagem %s (tentativa %d/%d) — retentará via XAUTOCLAIM",
+                            logger.warning(
+                                "Falha transitória ao processar notificação da mensagem %s (tentativa %d/%d): %s — retentará via XAUTOCLAIM",
                                 msg_id,
                                 delivery_count,
                                 self.max_retries,
+                                exc,
                             )
 
                 if acked_ids:

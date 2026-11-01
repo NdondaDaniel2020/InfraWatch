@@ -324,6 +324,52 @@ class RedisStreamsEventBus(EventBus):
             )
             return True
 
+    async def publish_dlq(
+        self,
+        original_topic: str,
+        original_msg_id: str,
+        payload: dict[str, Any],
+        reason: str,
+        error_details: str | None = None,
+        group: str | None = None,
+        delivery_count: int = 1,
+    ) -> str:
+        """Publica mensagem com falha permanente/poison no stream de Dead Letter ({original_topic}:dlq).
+
+        Enriquece o payload com metadados diagnósticos (failed_at, error_type, error_message, reason, delivery_count).
+        Se 'group' for informado, executa confirmação (ACK) imediata no stream de origem para desobstruir o pipeline.
+        """
+        from datetime import UTC, datetime
+
+        dlq_topic = f"{original_topic}:dlq"
+        enriched_payload = dict(payload)
+        error_msg = error_details or reason
+        enriched_payload.update(
+            {
+                "failed_at": datetime.now(UTC).isoformat(),
+                "error_type": "PoisonMessage" if "poison" in reason.lower() else "DeadLetter",
+                "error_message": error_msg,
+                "reason": reason,
+                "delivery_count": delivery_count,
+                "consumer_group": group,
+                "original_message_id": original_msg_id,
+                "original_topic": original_topic,
+            }
+        )
+
+        await self.publish(dlq_topic, enriched_payload)
+        if group:
+            await self.ack(original_topic, group, original_msg_id)
+
+        logger.warning(
+            "Mensagem %s encaminhada para DLQ '%s' (motivo: %s, tentativas: %d)",
+            original_msg_id,
+            dlq_topic,
+            reason,
+            delivery_count,
+        )
+        return original_msg_id
+
     async def send_to_dlq(
         self,
         topic: str,
@@ -334,32 +380,15 @@ class RedisStreamsEventBus(EventBus):
         delivery_count: int,
     ) -> str:
         """Encaminha mensagem com erro permanente para o stream de Dead Letter ({topic}:dlq) e confirma no stream de origem."""
-        from datetime import UTC, datetime
-
-        dlq_topic = f"{topic}:dlq"
-        enriched_payload = dict(payload)
-        enriched_payload.update(
-            {
-                "failed_at": datetime.now(UTC).isoformat(),
-                "error_message": error,
-                "delivery_count": delivery_count,
-                "consumer_group": group,
-                "original_message_id": message_id,
-                "original_topic": topic,
-            }
+        return await self.publish_dlq(
+            original_topic=topic,
+            original_msg_id=message_id,
+            payload=payload,
+            reason=error,
+            error_details=error,
+            group=group,
+            delivery_count=delivery_count,
         )
-
-        await self.publish(dlq_topic, enriched_payload)
-        await self.ack(topic, group, message_id)
-
-        logger.warning(
-            "Mensagem %s encaminhada para DLQ '%s' após %d tentativas (erro: %s)",
-            message_id,
-            dlq_topic,
-            delivery_count,
-            error,
-        )
-        return message_id
 
     async def _invoke_handler(
         self, handler: HandlerType, topic: str, payload: dict[str, Any]

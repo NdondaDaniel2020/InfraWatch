@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from src.contexts.iam.services.email_service import email_service
+from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_guard
 from src.core.messaging.resilient_bus import ResilientEventBus
 
@@ -99,7 +100,24 @@ class IamEmailConsumer:
                         event_type = str(payload.get("event_type", ""))
                         await self.handle(event_type, payload)
                         acked_ids.append(msg_id)
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001
+                        if is_poison_error(exc):
+                            logger.error(
+                                "Poison message detectada no e-mail da mensagem %s: %s. Desviando imediatamente para DLQ com ACK.",
+                                msg_id,
+                                exc,
+                            )
+                            await self._event_bus.publish_dlq(
+                                original_topic=STREAM_TOPIC,
+                                original_msg_id=msg_id,
+                                payload=payload,
+                                reason=f"PoisonMessage: {exc}",
+                                error_details=str(exc),
+                                group=IAM_EMAIL_CONSUMER_GROUP,
+                                delivery_count=1,
+                            )
+                            continue
+
                         delivery_count = await self._event_bus.get_delivery_count(
                             STREAM_TOPIC, IAM_EMAIL_CONSUMER_GROUP, msg_id
                         )
@@ -118,11 +136,12 @@ class IamEmailConsumer:
                                 delivery_count=delivery_count,
                             )
                         else:
-                            logger.exception(
-                                "Falha ao processar e-mail da mensagem %s (tentativa %d/%d) — retentará no próximo ciclo",
+                            logger.warning(
+                                "Falha transitória ao processar e-mail da mensagem %s (tentativa %d/%d): %s — retentará no próximo ciclo",
                                 msg_id,
                                 delivery_count,
                                 self.max_retries,
+                                exc,
                             )
 
                 if acked_ids:
