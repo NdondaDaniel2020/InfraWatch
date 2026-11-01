@@ -48,6 +48,31 @@ DB_QUERY_LATENCY = Histogram(
     ["query_type"],
 )
 
+# Métricas canônicas de mensageria assíncrona (Redis Streams & Outbox)
+MESSAGING_CONSUMED_TOTAL = Counter(
+    "messaging_messages_consumed_total",
+    "Total acumulado de mensagens consumidas nos streams de mensageria.",
+    ["stream", "group", "status"],
+)
+
+MESSAGING_PROCESSING_DURATION = Histogram(
+    "messaging_message_processing_duration_seconds",
+    "Latência de processamento de mensagens assíncronas em segundos.",
+    ["stream", "group"],
+)
+
+MESSAGING_DLQ_MESSAGES_TOTAL = Counter(
+    "messaging_dlq_messages_total",
+    "Total acumulado de mensagens desviadas para Dead Letter Queues (DLQ).",
+    ["stream", "group", "reason"],
+)
+
+MESSAGING_PEL_PENDING = Gauge(
+    "messaging_pel_pending_count",
+    "Contagem instantânea de mensagens pendentes de confirmação (PEL) por stream e grupo.",
+    ["stream", "group"],
+)
+
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware para coleta de métricas de tráfego, status HTTP e duração para Prometheus."""

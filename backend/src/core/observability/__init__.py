@@ -16,12 +16,20 @@ from src.core.observability.logging import (
 )
 from src.core.observability.metrics_auth import verify_metrics_auth
 from src.core.observability.observability import (
+    MESSAGING_CONSUMED_TOTAL,
+    MESSAGING_DLQ_MESSAGES_TOTAL,
+    MESSAGING_PEL_PENDING,
+    MESSAGING_PROCESSING_DURATION,
     MetricsMiddleware,
     get_health_status,
     metrics_response,
 )
 
 __all__ = [
+    "MESSAGING_CONSUMED_TOTAL",
+    "MESSAGING_DLQ_MESSAGES_TOTAL",
+    "MESSAGING_PEL_PENDING",
+    "MESSAGING_PROCESSING_DURATION",
     "JSONFormatter",
     "MetricsMiddleware",
     "get_health_status",
