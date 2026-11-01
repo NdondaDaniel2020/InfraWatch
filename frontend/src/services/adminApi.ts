@@ -7,7 +7,6 @@ import {
   CreateOrganizationInput,
   UpdateUserRoleInput,
 } from "../types/admin";
-import { mockAdminOrganizations, mockAdminUsers } from "../mocks/auditMocks";
 
 export const adminApi = {
   /**
@@ -18,28 +17,19 @@ export const adminApi = {
     size?: number;
     organization_id?: string;
   }): Promise<AdminUserListResponse> => {
-    try {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set("page", String(params.page));
-      if (params?.size) searchParams.set("size", String(params.size));
-      if (params?.organization_id) {
-        searchParams.set("organization_id", params.organization_id);
-      }
-      const qs = searchParams.toString();
-      const endpoint = qs ? `/api/v1/users?${qs}` : "/api/v1/users";
-      return await apiClient.get<AdminUserListResponse>(endpoint);
-    } catch {
-      let items = [...mockAdminUsers];
-      if (params?.organization_id) {
-        items = items.filter((u) => u.organization_id === params.organization_id);
-      }
-      return {
-        items,
-        total: items.length,
-        page: params?.page || 1,
-        page_size: params?.size || 20,
-      };
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.size) searchParams.set("size", String(params.size));
+    if (params?.organization_id) {
+      searchParams.set("organization_id", params.organization_id);
     }
+    const qs = searchParams.toString();
+    const endpoint = qs ? `/api/v1/users?${qs}` : "/api/v1/users";
+    const res = await apiClient.get<AdminUserListResponse>(endpoint);
+    if (!res || !Array.isArray(res.items)) {
+      throw new Error("Resposta inválida do backend para listagem de usuários.");
+    }
+    return res;
   },
 
   /**
@@ -62,22 +52,44 @@ export const adminApi = {
   listOrganizations: async (params?: {
     page?: number;
     size?: number;
-  }): Promise<AdminOrganizationListResponse> => {
-    try {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set("page", String(params.page));
-      if (params?.size) searchParams.set("size", String(params.size));
-      const qs = searchParams.toString();
-      const endpoint = qs ? `/api/v1/organizations?${qs}` : "/api/v1/organizations";
-      return await apiClient.get<AdminOrganizationListResponse>(endpoint);
-    } catch {
-      return {
-        items: mockAdminOrganizations,
-        total: mockAdminOrganizations.length,
-        page: params?.page || 1,
-        page_size: params?.size || 20,
-      };
+    }): Promise<AdminOrganizationListResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.size) searchParams.set("size", String(params.size));
+    const qs = searchParams.toString();
+    const endpoint = qs ? `/api/v1/organizations?${qs}` : "/api/v1/organizations";
+    const res = await apiClient.get<{
+      items?: Array<Record<string, unknown>>;
+      total?: number;
+      page?: number;
+      size?: number;
+    }>(endpoint);
+
+    if (!res || !Array.isArray(res.items)) {
+      throw new Error("Resposta inválida do backend para a lista de organizações.");
     }
+
+    const items: AdminOrganization[] = res.items.map((org) => ({
+      id: String(org.id ?? ""),
+      name: String(org.name ?? ""),
+      slug: String(org.slug ?? ""),
+      cnpj: typeof org.cnpj === "string" ? org.cnpj : null,
+      is_active: Boolean(org.is_active),
+      created_at: String(org.created_at ?? ""),
+      ...(typeof org.users_count === "number"
+        ? { users_count: org.users_count }
+        : {}),
+    }));
+
+    return {
+      items,
+      total: typeof res.total === "number" ? res.total : items.length,
+      page: typeof res.page === "number" ? res.page : params?.page || 1,
+      page_size:
+        typeof res.size === "number"
+          ? res.size
+          : params?.size || items.length,
+    };
   },
 
   /**

@@ -10,6 +10,7 @@ import {
   createMockDeviceDetail,
   createMockTimescaleMetrics,
   mockManualProbeResult,
+  mockOpticalInterfaces,
 } from "../src/mocks/deviceDetailMocks";
 
 vi.mock("../src/services/deviceDetailApi", () => ({
@@ -17,6 +18,40 @@ vi.mock("../src/services/deviceDetailApi", () => ({
     getDeviceDetail: vi.fn(),
     getTimescaleMetrics: vi.fn(),
     triggerManualProbe: vi.fn(),
+    getDeviceInterfaces: vi.fn(),
+  },
+}));
+
+vi.mock("../src/services/slaApi", () => ({
+  slaApi: {
+    getDeviceSla: vi.fn().mockResolvedValue({
+      uptime_percentage: 99.98,
+      sla_target: 99.5,
+      sla_met: true,
+      mttr_minutes: 8.2333,
+      mtbf_hours: 418,
+    }),
+  },
+}));
+
+vi.mock("../src/services/incidentsApi", () => ({
+  incidentsApi: {
+    listIncidents: vi.fn().mockResolvedValue([
+      {
+        id: "inc-1",
+        title: "Atenuação Óptica Porta 19",
+        status: "TRIGGERED",
+        duration_str: "28m",
+        glpi_ticket_id: 8493,
+      },
+      {
+        id: "inc-2",
+        title: "Manutenção Firmware V200",
+        status: "RESOLVIDO",
+        duration_str: "14h 12m",
+        glpi_ticket_id: 8115,
+      },
+    ]),
   },
 }));
 
@@ -51,6 +86,7 @@ const renderWithProviders = (ui: ReactNode, queryClient?: QueryClient) => {
 describe("DeviceDetailPage — Cockpit 360° do Dispositivo (Issue #244)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (deviceDetailApi.getDeviceInterfaces as Mock).mockResolvedValue(mockOpticalInterfaces);
   });
 
 

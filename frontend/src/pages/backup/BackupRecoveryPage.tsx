@@ -18,7 +18,6 @@ import { BackupTriggerButton } from "../../components/backup/BackupTriggerButton
 import { BackupProgressModal } from "../../components/backup/BackupProgressModal";
 import { BackupHistoryTable } from "../../components/backup/BackupHistoryTable";
 import { BackupMetricsCards } from "../../components/backup/BackupMetricsCards";
-import { mockBackupMetrics } from "../../mocks/backupMocks";
 
 export type BackupPageStateSimulation = "nominal" | "skeleton" | "empty" | "error";
 
@@ -32,7 +31,10 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
   const [stateSimulation, setStateSimulation] =
     useState<BackupPageStateSimulation>(initialViewState);
   const [historyItems, setHistoryItems] = useState<BackupHistoryItem[]>([]);
-  const [metrics, setMetrics] = useState<BackupMetricsSummary>(mockBackupMetrics);
+  const [metrics, setMetrics] = useState<BackupMetricsSummary>({
+    totalBackupsCount: 0,
+    totalStorageUsed: "—",
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   // Estados de Execução de Backup em Tempo Real
@@ -51,8 +53,13 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
       const metricsRes = await backupApi.getBackupMetrics();
       setHistoryItems(historyRes.items);
       setMetrics(metricsRes);
-    } catch {
-      toast.error("Erro ao carregar catálogo de backups do storage.");
+    } catch (err) {
+      setStateSimulation("error");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Erro ao carregar catálogo de backups do storage."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -94,12 +101,9 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
           if (finalEvent.filename) {
             const newItem: BackupHistoryItem = {
               filename: finalEvent.filename,
-              size_bytes: 262144000,
-              size_human: finalEvent.size_human || "250.0 MB",
+              size_human: finalEvent.size_human ?? "N/D",
               created_at: new Date().toISOString(),
               sha256: finalEvent.sha256,
-              storage_path: `/var/backups/infrawatch/${finalEvent.filename}`,
-              targets: { local: "SUCCESS", gdrive: "SUCCESS", r2: "SUCCESS" },
               trigger: "manual",
               notes: notes || "Disparo manual sob demanda",
             };
@@ -110,8 +114,7 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
           setProgressError(err);
           setIsRunning(false);
           toast.error(`Falha no pipeline de backup: ${err}`);
-        },
-        true // Em testes ou desenvolvimento, ativa simulação progressiva se EventSource falhar
+        }
       );
     } catch (err) {
       setProgressError(String(err));
@@ -196,7 +199,10 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
           </p>
           <button
             type="button"
-            onClick={() => setStateSimulation("nominal")}
+            onClick={() => {
+              setStateSimulation("nominal");
+              loadData();
+            }}
             className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-mono text-xs font-bold rounded-xl transition-colors"
           >
             Tentar Reconectar

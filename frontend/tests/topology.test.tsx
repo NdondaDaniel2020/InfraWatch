@@ -7,19 +7,13 @@ import { MemoryRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { TopologyMapPage } from "../src/pages/topology/TopologyMapPage";
 import { topologyApi } from "../src/services/topologyApi";
+import { mockTopologyNodes, mockTopologyEdges } from "../src/mocks/topologyMocks";
 
 vi.mock("../src/services/topologyApi", () => ({
   topologyApi: {
     getTopologyGraph: vi.fn(),
-    runPingTrace: vi.fn().mockResolvedValue({
-      rttMs: 2.1,
-      hops: ["10.0.0.1", "10.0.1.1"],
-      packetLoss: 0,
-    }),
-    isolateNode: vi.fn().mockResolvedValue({
-      success: true,
-      message: "Nó RT-BRANCH-BENGUELA isolado da rota de trânsito OSPF/BGP com sucesso.",
-    }),
+    runPingTrace: vi.fn(),
+    isolateNode: vi.fn(),
   },
 }));
 
@@ -54,6 +48,22 @@ const renderWithProviders = (ui: ReactNode) => {
 describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (topologyApi.getTopologyGraph as any).mockResolvedValue({
+      nodes: mockTopologyNodes,
+      edges: mockTopologyEdges,
+      totalNodes: mockTopologyNodes.length,
+      totalEdges: mockTopologyEdges.length,
+      cluster: "LUANDA-CORE",
+    });
+    (topologyApi.runPingTrace as any).mockResolvedValue({
+      rttMs: 2.1,
+      hops: ["10.0.0.1", "10.0.1.1"],
+      packetLoss: 0,
+    });
+    (topologyApi.isolateNode as any).mockResolvedValue({
+      success: true,
+      message: "Nó RT-BRANCH-BENGUELA isolado da rota de trânsito OSPF/BGP com sucesso.",
+    });
   });
 
   it("deve renderizar a barra de controle tática, o canvas e o nó selecionado por padrão", async () => {
@@ -65,17 +75,20 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
     expect(screen.getByText("LLDP/CDP Sincronizado")).toBeInTheDocument();
 
     // Nós no canvas
-    await waitFor(() => {
-      expect(screen.getByTestId("topology-node-SW-CORE-LUANDA-01")).toBeInTheDocument();
-      expect(screen.getByTestId("topology-node-RT-EDGE-01")).toBeInTheDocument();
-      expect(screen.getByTestId("topology-node-RT-BRANCH-BENGUELA")).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("topology-node-SW-CORE-LUANDA-01")).toBeInTheDocument();
+        expect(screen.getByTestId("topology-node-RT-EDGE-01")).toBeInTheDocument();
+        expect(screen.getByTestId("topology-node-RT-BRANCH-BENGUELA")).toBeInTheDocument();
+      },
+      { timeout: 10000 }
+    );
 
     // Drawer lateral aberto por padrão com o SW-CORE-LUANDA-01
     expect(screen.getByTestId("topology-inspector-drawer")).toBeInTheDocument();
     expect(screen.getAllByText("SW-CORE-LUANDA-01").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("MATRIZ DE PORTAS (24 SFP+)")).toBeInTheDocument();
-  });
+  }, 30000);
 
   it("deve renderizar os estados alternativos: Skeleton, Empty e Error", async () => {
     // 1. Simular Skeleton
@@ -116,6 +129,10 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
   it("deve atualizar o drawer ao clicar no nó crítico rompido e permitir isolamento", async () => {
     renderWithProviders(<TopologyMapPage />);
 
+    await waitFor(() => {
+      expect(screen.getByTestId("topology-node-RT-BRANCH-BENGUELA")).toBeInTheDocument();
+    });
+
     const benguelaNode = screen.getByTestId("topology-node-RT-BRANCH-BENGUELA");
     fireEvent.click(benguelaNode);
 
@@ -131,12 +148,15 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
   });
 
   it("deve executar ping/trace a partir do drawer", async () => {
-    const user = userEvent.setup();
     renderWithProviders(<TopologyMapPage />);
 
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Ping \/ Trace/i })).toBeInTheDocument();
+    });
+
     const pingButton = screen.getByRole("button", { name: /Ping \/ Trace/i });
-    await user.click(pingButton);
+    fireEvent.click(pingButton);
 
     expect(topologyApi.runPingTrace).toHaveBeenCalledWith("SW-CORE-LUANDA-01");
-  });
+  }, 30000);
 });

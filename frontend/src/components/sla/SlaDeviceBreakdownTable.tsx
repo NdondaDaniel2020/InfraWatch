@@ -36,7 +36,7 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
             <tr className="border-b border-white/10 font-mono text-slate-400 uppercase text-[10.5px]">
               <th className="py-2.5 px-3">Ativo / FQDN</th>
               <th className="py-2.5 px-3">Endereço IPv4</th>
-              <th className="py-2.5 px-3">Tier</th>
+              <th className="py-2.5 px-3">Tier / Categoria</th>
               <th className="py-2.5 px-3">Uptime Bruto</th>
               <th className="py-2.5 px-3">Isenção RFC (min)</th>
               <th className="py-2.5 px-3">Uptime Líquido</th>
@@ -44,51 +44,59 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 font-mono">
-            {devices.map((device) => {
-              const isCompliant = (device.netUptimePct ?? 100) >= targetSlaPct;
+            {devices.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-slate-500 font-mono">
+                  Nenhum ativo de rede com métricas de SLA registradas para o período.
+                </td>
+              </tr>
+            ) : (
+              devices.map((device) => {
+                const isCompliant = device.netUptimePct >= targetSlaPct;
 
-              return (
-                <tr
-                  key={device.deviceId}
-                  className="hover:bg-white/5 transition-colors"
-                >
-                  <td className="py-3 px-3 font-semibold text-white">
-                    <Link
-                      to={`/devices/${device.deviceId}`}
-                      className="text-white hover:underline"
-                    >
-                      {device.deviceName}
-                    </Link>
-                  </td>
-                  <td className="py-3 px-3 text-slate-300">
-                    {device.ipAddress}
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10.5px] font-bold text-sky-400">
-                      {device.tier}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-slate-400">
-                    {(device.nominalUptimePct ?? 100).toFixed(2)}%
-                  </td>
-                  <td className="py-3 px-3 text-sky-400">
-                    +{device.exemptedMaintenanceMinutes ?? 0}m (ADR-009)
-                  </td>
-                  <td
-                    className={`py-3 px-3 font-bold ${
-                      isCompliant ? "text-emerald-400" : "text-rose-400"
-                    }`}
+                return (
+                  <tr
+                    key={device.deviceId}
+                    className="hover:bg-white/5 transition-colors"
                   >
-                    {(device.netUptimePct ?? 100).toFixed(2)}%
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    <Badge variant={isCompliant ? "healthy" : "critical"} size="sm">
-                      {isCompliant ? "CONFORME" : "VIOLAÇÃO"}
-                    </Badge>
-                  </td>
-                </tr>
-              );
-            })}
+                    <td className="py-3 px-3 font-semibold text-white">
+                      <Link
+                        to={`/devices/${device.deviceId}`}
+                        className="text-white hover:underline"
+                      >
+                        {device.deviceName}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-3 text-slate-300">
+                      {device.ipAddress ?? "—"}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10.5px] font-bold text-sky-400">
+                        {device.tier ?? device.category ?? "—"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-slate-400">
+                      {device.nominalUptimePct.toFixed(2)}%
+                    </td>
+                    <td className="py-3 px-3 text-sky-400">
+                      +{device.exemptedMaintenanceMinutes}m (ADR-009)
+                    </td>
+                    <td
+                      className={`py-3 px-3 font-bold ${
+                        isCompliant ? "text-emerald-400" : "text-rose-400"
+                      }`}
+                    >
+                      {device.netUptimePct.toFixed(2)}%
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <Badge variant={isCompliant ? "healthy" : "critical"} size="sm">
+                        {isCompliant ? "CONFORME" : "VIOLAÇÃO"}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

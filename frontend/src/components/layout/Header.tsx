@@ -4,7 +4,7 @@ import { LogOut, Menu, Search, Tv } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { notificationsApi } from "../../services/notificationsApi";
-import { MOCK_CLIENT_NOTIFICATIONS, type ClientNotification } from "../../mocks/clientPortalMocks";
+import type { ClientNotification } from "../../types/clientPortal";
 
 import type { StatusTickerData } from "../../types/telemetry";
 
@@ -19,15 +19,13 @@ export interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   onOpenSearch,
-  ticker = { total: 48, up: 45, degraded: 2, down: 1, maintenance: 0 },
+  ticker = { total: 0, up: 0, degraded: 0, down: 0, maintenance: 0 },
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [utcTime, setUtcTime] = useState<string>("");
-  const [notifications, setNotifications] = useState<ClientNotification[]>(MOCK_CLIENT_NOTIFICATIONS);
-  const [unreadCount, setUnreadCount] = useState<number>(() =>
-    MOCK_CLIENT_NOTIFICATIONS.filter((n) => !n.isRead).length
-  );
+  const [notifications, setNotifications] = useState<ClientNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     // Carrega contagem inicial de notificações não lidas
@@ -118,22 +116,22 @@ export const Header: React.FC<HeaderProps> = ({
           className="hidden xl:flex items-center gap-3 px-3 py-1 bg-obsidian-900 rounded-lg border border-obsidian-800 text-xs font-mono tabular-nums"
         >
           <span className="text-slate-400">
-            TOTAL: <strong className="text-white">{ticker.total ?? 48}</strong>
+            TOTAL: <strong className="text-white">{ticker.total ?? 0}</strong>
           </span>
           <span className="h-3 w-px bg-obsidian-800" />
           <span className="flex items-center gap-1.5 text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> UP:{" "}
-            {ticker.up ?? 45}
+            {ticker.up ?? 0}
           </span>
           <span className="h-3 w-px bg-obsidian-800" />
           <span className="flex items-center gap-1.5 text-amber-400">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> DEG:{" "}
-            {ticker.degraded ?? 2}
+            {ticker.degraded ?? 0}
           </span>
           <span className="h-3 w-px bg-obsidian-800" />
           <span className="flex items-center gap-1.5 text-rose-400 font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />{" "}
-            DOWN: {ticker.down ?? 1}
+            DOWN: {ticker.down ?? 0}
           </span>
           <span className="h-3 w-px bg-obsidian-800" />
           <span className="flex items-center gap-1.5 text-sky-400">

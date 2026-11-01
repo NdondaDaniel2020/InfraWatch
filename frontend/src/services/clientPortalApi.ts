@@ -10,73 +10,96 @@ import type {
   CreateSupportTicketInput,
   SupportTicketResponse,
 } from "../types/clientPortal";
-import {
-  MOCK_CLIENT_SLA_SUMMARY,
-  MOCK_CLIENT_SERVICES,
-  MOCK_SANITIZED_ENDPOINTS,
-} from "../mocks/clientPortalMocks";
+
+function requireNumber(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`Resposta inválida do backend para o campo "${field}".`);
+  }
+  return value;
+}
+
+function normalizeStatus(value?: string | null): "UP" | "DEG" | "DOWN" {
+  const normalized = (value || "UP").toUpperCase();
+  if (normalized === "DOWN") return "DOWN";
+  if (normalized === "DEG" || normalized === "DEGRADED") return "DEG";
+  return "UP";
+}
 
 function normalizeSummary(data: any): ClientSlaSummary {
   return {
-    tenantId: data.tenantId || data.tenant_id || "",
-    tenantName: data.tenantName || data.tenant_name || "Organização",
-    uptimeCurrentMonthPct: data.uptimeCurrentMonthPct ?? data.uptime_current_month_pct ?? 99.98,
-    slaTargetPct: data.slaTargetPct ?? data.sla_target_pct ?? 99.50,
-    downtimeBalanceFormatted:
-      data.downtimeBalanceFormatted || data.downtime_balance_formatted || "+2h 00m isentos",
-    mttrMinutesAvg: data.mttrMinutesAvg ?? data.mttr_minutes_avg ?? 4.2,
-    nextMaintenanceWindow:
-      data.nextMaintenanceWindow || data.next_maintenance_window || "Nenhuma parada crítica agendada",
-    cycleMonthLabel: data.cycleMonthLabel || data.cycle_month_label || "Ciclo Mensal Vigente",
+    tenantId: String(data.tenant_id ?? data.tenantId ?? ""),
+    tenantName: String(data.tenant_name ?? data.tenantName ?? "Organização"),
+    uptimeCurrentMonthPct: requireNumber(
+      data.uptime_current_month_pct ?? data.uptimeCurrentMonthPct,
+      "uptime_current_month_pct"
+    ),
+    slaTargetPct: requireNumber(
+      data.sla_target_pct ?? data.slaTargetPct,
+      "sla_target_pct"
+    ),
+    downtimeBalanceFormatted: String(
+      data.downtime_balance_formatted ?? data.downtimeBalanceFormatted ?? "—"
+    ),
+    mttrMinutesAvg: requireNumber(
+      data.mttr_minutes_avg ?? data.mttrMinutesAvg,
+      "mttr_minutes_avg"
+    ),
+    nextMaintenanceWindow: String(
+      data.next_maintenance_window ??
+        data.nextMaintenanceWindow ??
+        "Nenhuma parada agendada"
+    ),
+    cycleMonthLabel: String(
+      data.cycle_month_label ?? data.cycleMonthLabel ?? "Ciclo vigente"
+    ),
+  };
+}
+
+function mapDeviceToService(item: ClientDeviceDTO): ClientServiceItem {
+  const status = normalizeStatus(item.status);
+  return {
+    id: String(item.id),
+    name: item.name,
+    category: item.category || "Sem categoria",
+    status,
+    statusLabel:
+      status === "UP" ? "Nominal" : status === "DEG" ? "Degradação" : "Falha",
+    ...(typeof item.last_latency_ms === "number"
+      ? { responseTimeMs: item.last_latency_ms }
+      : {}),
+    tags: item.protocol ? [item.protocol] : [],
   };
 }
 
 export const clientPortalApi = {
   /**
    * Obtém o resumo de SLA contratual da organização do usuário.
+   * Lança erro quando o backend não responde ou devolve um contrato inválido.
    */
   async getSlaSummary(organizationId?: string | null): Promise<ClientSlaSummary> {
-    try {
-      const url = organizationId
-        ? `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/summary`
-        : "/api/v1/sla/summary";
-      const res = await apiClient.get<any>(url);
-      if (res && (res.uptimeCurrentMonthPct !== undefined || res.uptime_current_month_pct !== undefined)) {
-        return normalizeSummary(res);
-      }
-    } catch {
-      // Fallback gracioso
-    }
-    return MOCK_CLIENT_SLA_SUMMARY;
+    const url = organizationId
+      ? `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/summary`
+      : "/api/v1/sla/summary";
+    const res = await apiClient.get<any>(url);
+    return normalizeSummary(res);
   },
 
   /**
    * Obtém a lista de serviços monitorados e sanitizados para o cliente.
+   * Não inventa métricas ausentes no payload do backend.
    */
   async getClientServices(organizationId?: string | null): Promise<ClientServiceItem[]> {
-    try {
-      const url = organizationId
-        ? `/api/v1/devices?organization_id=${encodeURIComponent(organizationId)}`
-        : "/api/v1/devices";
-      const res = await apiClient.get<ClientDeviceListResponse>(url);
-      if (res && Array.isArray(res.items) && res.items.length > 0) {
-        return res.items.map((item: ClientDeviceDTO) => ({
-          id: String(item.id),
-          name: item.name,
-          category: item.category || "Canal Digital",
-          status: (item.status || "UP") as "UP" | "DEG" | "DOWN",
-          statusLabel: `${item.status || "UP"} • Nominal`,
-          responseTimeMs: item.last_latency_ms || 20,
-          throughputFormatted: "1.200 req/s",
-          successRatePct: item.status === "DOWN" ? 85.0 : 99.9,
-          tags: [item.protocol || "ICMP", item.ip_address || "10.0.0.1"],
-          stability30DaysPct: 99.9,
-        }));
-      }
-    } catch {
-      // Fallback
+    const params = new URLSearchParams();
+    if (organizationId) params.set("org_id", organizationId);
+    const query = params.toString();
+    const url = query ? `/api/v1/devices?${query}` : "/api/v1/devices";
+    const res = await apiClient.get<ClientDeviceListResponse>(url);
+
+    if (!res || !Array.isArray(res.items)) {
+      throw new Error("Resposta inválida do backend para a lista de dispositivos.");
     }
-    return MOCK_CLIENT_SERVICES;
+
+    return res.items.map(mapDeviceToService);
   },
 
   /**
@@ -86,144 +109,135 @@ export const clientPortalApi = {
     organizationId?: string | null,
     months: number = 6
   ): Promise<SlaMonthlyHistoryItem[]> {
-    try {
-      if (organizationId) {
-        const url = `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/history?months=${months}`;
-        const res = await apiClient.get<any>(url);
-        if (res && Array.isArray(res.items) && res.items.length > 0) {
-          return res.items.map((item: any) => ({
-            cycleLabel: item.cycleLabel || item.cycle_label,
-            month: item.month,
-            uptimePct: item.uptimePct ?? item.uptime_pct,
-            targetPct: item.targetPct ?? item.target_pct ?? 99.50,
-            mttrMinutes: item.mttrMinutes ?? item.mttr_minutes,
-            incidentsCount: item.incidentsCount ?? item.incidents_count,
-            unplannedDowntimeMinutes: item.unplannedDowntimeMinutes ?? item.unplanned_downtime_minutes,
-            exemptedDowntimeMinutes: item.exemptedDowntimeMinutes ?? item.exempted_downtime_minutes,
-            status: (item.status === "VIOLADO" ? "VIOLADO" : "CONFORME") as "CONFORME" | "VIOLADO",
-          }));
-        }
-      }
-    } catch {
-      // Fallback
+    if (!organizationId) {
+      throw new Error("Organização não identificada para consultar o histórico de SLA.");
     }
-    return [
-      {
-        cycleLabel: "Outubro 2026",
-        month: "Out/26",
-        uptimePct: 99.98,
-        targetPct: 99.50,
-        mttrMinutes: 4.2,
-        incidentsCount: 1,
-        unplannedDowntimeMinutes: 10.0,
-        exemptedDowntimeMinutes: 120.0,
-        status: "CONFORME",
-      },
-      {
-        cycleLabel: "Setembro 2026",
-        month: "Set/26",
-        uptimePct: 99.95,
-        targetPct: 99.50,
-        mttrMinutes: 6.1,
-        incidentsCount: 2,
-        unplannedDowntimeMinutes: 18.0,
-        exemptedDowntimeMinutes: 90.0,
-        status: "CONFORME",
-      },
-      {
-        cycleLabel: "Agosto 2026",
-        month: "Ago/26",
-        uptimePct: 99.72,
-        targetPct: 99.50,
-        mttrMinutes: 12.0,
-        incidentsCount: 3,
-        unplannedDowntimeMinutes: 120.0,
-        exemptedDowntimeMinutes: 60.0,
-        status: "CONFORME",
-      },
-      {
-        cycleLabel: "Julho 2026",
-        month: "Jul/26",
-        uptimePct: 99.99,
-        targetPct: 99.50,
-        mttrMinutes: 3.5,
-        incidentsCount: 0,
-        unplannedDowntimeMinutes: 0.0,
-        exemptedDowntimeMinutes: 180.0,
-        status: "CONFORME",
-      },
-      {
-        cycleLabel: "Junho 2026",
-        month: "Jun/26",
-        uptimePct: 99.92,
-        targetPct: 99.50,
-        mttrMinutes: 7.8,
-        incidentsCount: 1,
-        unplannedDowntimeMinutes: 34.0,
-        exemptedDowntimeMinutes: 45.0,
-        status: "CONFORME",
-      },
-      {
-        cycleLabel: "Maio 2026",
-        month: "Mai/26",
-        uptimePct: 99.98,
-        targetPct: 99.50,
-        mttrMinutes: 4.0,
-        incidentsCount: 1,
-        unplannedDowntimeMinutes: 8.0,
-        exemptedDowntimeMinutes: 120.0,
-        status: "CONFORME",
-      },
-    ];
+
+    const url = `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/history?months=${months}`;
+    const res = await apiClient.get<any>(url);
+
+    if (!res || !Array.isArray(res.items)) {
+      throw new Error("Resposta inválida do backend para o histórico de SLA.");
+    }
+
+    return res.items.map((item: any): SlaMonthlyHistoryItem => ({
+      cycleLabel: String(item.cycle_label ?? item.cycleLabel ?? ""),
+      month: String(item.month ?? ""),
+      uptimePct: requireNumber(item.uptime_pct ?? item.uptimePct, "uptime_pct"),
+      targetPct: requireNumber(item.target_pct ?? item.targetPct, "target_pct"),
+      mttrMinutes: requireNumber(item.mttr_minutes ?? item.mttrMinutes, "mttr_minutes"),
+      incidentsCount: requireNumber(
+        item.incidents_count ?? item.incidentsCount,
+        "incidents_count"
+      ),
+      unplannedDowntimeMinutes: requireNumber(
+        item.unplanned_downtime_minutes ?? item.unplannedDowntimeMinutes,
+        "unplanned_downtime_minutes"
+      ),
+      exemptedDowntimeMinutes: requireNumber(
+        item.exempted_downtime_minutes ?? item.exemptedDowntimeMinutes,
+        "exempted_downtime_minutes"
+      ),
+      status: item.status === "VIOLADO" ? "VIOLADO" : "CONFORME",
+    }));
   },
 
   /**
    * Obtém os dados detalhados para emissão e assinatura do Relatório Oficial de SLA.
    */
-  async getSlaReport(organizationId?: string | null): Promise<OrganizationSlaReportDetails | null> {
-    try {
-      if (organizationId) {
-        const url = `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/report`;
-        const res = await apiClient.get<any>(url);
-        if (res && (res.organization_id || res.organizationId)) {
-          return {
-            organizationId: res.organization_id || res.organizationId,
-            organizationName: res.organization_name || res.organizationName,
-            periodLabel: res.period_label || res.periodLabel,
-            startPeriod: res.start_period || res.startPeriod,
-            endPeriod: res.end_period || res.endPeriod,
-            uptimeNetPct: res.uptime_net_pct ?? res.uptimeNetPct ?? 99.98,
-            uptimeGrossPct: res.uptime_gross_pct ?? res.uptimeGrossPct ?? 99.85,
-            slaTargetPct: res.sla_target_pct ?? res.slaTargetPct ?? 99.50,
-            slaMet: res.sla_met ?? res.slaMet ?? true,
-            mttrMinutes: res.mttr_minutes ?? res.mttrMinutes ?? 4.2,
-            mtbfHours: res.mtbf_hours ?? res.mtbfHours ?? 418.0,
-            totalDevices: res.total_devices ?? res.totalDevices ?? 0,
-            unplannedDowntimeMinutes:
-              res.unplanned_downtime_minutes ?? res.unplannedDowntimeMinutes ?? 0.0,
-            exemptedDowntimeMinutes:
-              res.exempted_downtime_minutes ?? res.exemptedDowntimeMinutes ?? 0.0,
-            devices: Array.isArray(res.devices)
-              ? res.devices.map((d: any) => ({
-                  deviceId: d.device_id || d.deviceId,
-                  deviceName: d.device_name || d.deviceName,
-                  category: d.category || "Core",
-                  uptimeGrossPct: d.uptime_gross_pct ?? d.uptimeGrossPct ?? 99.9,
-                  uptimeNetPct: d.uptime_net_pct ?? d.uptimeNetPct ?? 99.9,
-                  rfcExemptedMinutes: d.rfc_exempted_minutes ?? d.rfcExemptedMinutes ?? 0.0,
-                  slaTargetPct: d.sla_target_pct ?? d.slaTargetPct ?? 99.50,
-                  mttrMinutes: d.mttr_minutes ?? d.mttrMinutes ?? 0.0,
-                  status: d.status || "CONFORME",
-                }))
-              : [],
-            digitalSignature: res.digital_signature || res.digitalSignature || "SHA256:OFFLINE-STUB",
-          };
-        }
-      }
-    } catch {
-      // Fallback
+  async getSlaReport(
+    organizationId?: string | null,
+    period?: { startPeriod?: string; endPeriod?: string }
+  ): Promise<OrganizationSlaReportDetails> {
+    if (!organizationId) {
+      throw new Error("Organização não identificada para emitir o relatório de SLA.");
     }
-    return null;
+
+    const params = new URLSearchParams();
+    if (period?.startPeriod) params.set("start_period", period.startPeriod);
+    if (period?.endPeriod) params.set("end_period", period.endPeriod);
+    const query = params.toString();
+    const url = `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/report${
+      query ? `?${query}` : ""
+    }`;
+    const res = await apiClient.get<any>(url);
+
+    if (!res || (!res.organization_id && !res.organizationId)) {
+      throw new Error("Resposta inválida do backend para o relatório de SLA.");
+    }
+
+    const digitalSignature = String(
+      res.digital_signature ?? res.digitalSignature ?? ""
+    );
+    if (!digitalSignature) {
+      throw new Error("O relatório devolvido pelo backend não contém assinatura digital.");
+    }
+
+    return {
+      organizationId: String(res.organization_id ?? res.organizationId),
+      organizationName: String(
+        res.organization_name ?? res.organizationName ?? "Organização"
+      ),
+      periodLabel: String(res.period_label ?? res.periodLabel ?? ""),
+      startPeriod: String(res.start_period ?? res.startPeriod ?? ""),
+      endPeriod: String(res.end_period ?? res.endPeriod ?? ""),
+      uptimeNetPct: requireNumber(
+        res.uptime_net_pct ?? res.uptimeNetPct,
+        "uptime_net_pct"
+      ),
+      uptimeGrossPct: requireNumber(
+        res.uptime_gross_pct ?? res.uptimeGrossPct,
+        "uptime_gross_pct"
+      ),
+      slaTargetPct: requireNumber(
+        res.sla_target_pct ?? res.slaTargetPct,
+        "sla_target_pct"
+      ),
+      slaMet: Boolean(res.sla_met ?? res.slaMet),
+      mttrMinutes: requireNumber(res.mttr_minutes ?? res.mttrMinutes, "mttr_minutes"),
+      mtbfHours: requireNumber(res.mtbf_hours ?? res.mtbfHours, "mtbf_hours"),
+      totalDevices: requireNumber(
+        res.total_devices ?? res.totalDevices,
+        "total_devices"
+      ),
+      unplannedDowntimeMinutes: requireNumber(
+        res.unplanned_downtime_minutes ?? res.unplannedDowntimeMinutes,
+        "unplanned_downtime_minutes"
+      ),
+      exemptedDowntimeMinutes: requireNumber(
+        res.exempted_downtime_minutes ?? res.exemptedDowntimeMinutes,
+        "exempted_downtime_minutes"
+      ),
+      devices: Array.isArray(res.devices)
+        ? res.devices.map((d: any) => ({
+            deviceId: String(d.device_id ?? d.deviceId),
+            deviceName: String(d.device_name ?? d.deviceName ?? ""),
+            category: String(d.category ?? "—"),
+            uptimeGrossPct: requireNumber(
+              d.uptime_gross_pct ?? d.uptimeGrossPct,
+              "device.uptime_gross_pct"
+            ),
+            uptimeNetPct: requireNumber(
+              d.uptime_net_pct ?? d.uptimeNetPct,
+              "device.uptime_net_pct"
+            ),
+            rfcExemptedMinutes: requireNumber(
+              d.rfc_exempted_minutes ?? d.rfcExemptedMinutes,
+              "device.rfc_exempted_minutes"
+            ),
+            slaTargetPct: requireNumber(
+              d.sla_target_pct ?? d.slaTargetPct,
+              "device.sla_target_pct"
+            ),
+            mttrMinutes: requireNumber(
+              d.mttr_minutes ?? d.mttrMinutes,
+              "device.mttr_minutes"
+            ),
+            status: String(d.status ?? "INDEFINIDO"),
+          }))
+        : [],
+      digitalSignature,
+    };
   },
 
   /**
@@ -246,27 +260,25 @@ export const clientPortalApi = {
    * Obtém os endpoints sanitizados do cliente.
    */
   async getSanitizedEndpoints(organizationId?: string): Promise<SanitizedEndpoint[]> {
-    try {
-      const url = organizationId
-        ? `/api/v1/devices?organization_id=${encodeURIComponent(organizationId)}`
-        : "/api/v1/devices";
-      const res = await apiClient.get<ClientDeviceListResponse>(url);
-      if (res && Array.isArray(res.items) && res.items.length > 0) {
-        return res.items.map((item: ClientDeviceDTO) => ({
-          id: String(item.id),
-          domainName: item.hostname || item.name,
-          serviceType: item.category || "Core Endpoint",
-          protocol: item.protocol || "HTTPS",
-          status: (item.status || "UP") as "UP" | "DEG" | "DOWN",
-          sla30dPct: 99.9,
-          latencyAvgMs: item.last_latency_ms || 15,
-          datacenterRegion: "Luanda DC-01",
-        }));
-      }
-    } catch {
-      // Fallback
+    const params = new URLSearchParams();
+    if (organizationId) params.set("org_id", organizationId);
+    const query = params.toString();
+    const url = query ? `/api/v1/devices?${query}` : "/api/v1/devices";
+    const res = await apiClient.get<ClientDeviceListResponse>(url);
+
+    if (!res || !Array.isArray(res.items)) {
+      throw new Error("Resposta inválida do backend para a lista de endpoints.");
     }
-    return MOCK_SANITIZED_ENDPOINTS;
+
+    return res.items.map((item: ClientDeviceDTO) => ({
+      id: String(item.id),
+      domainName: item.hostname || item.name,
+      serviceType: item.category || "Sem categoria",
+      protocol: item.protocol || "—",
+      status: normalizeStatus(item.status),
+      ...(typeof item.last_latency_ms === "number"
+        ? { latencyAvgMs: item.last_latency_ms }
+        : {}),
+    }));
   },
 };
-

@@ -86,6 +86,31 @@ describe("Portal do Cliente - SanitizedServicesGrid (Busca e Paginação)", () =
 
 describe("Portal do Cliente - SlaHistoryModal (Histórico de SLA)", () => {
   it("deve abrir o modal de histórico, exibir períodos e tabela cronológica", async () => {
+    vi.spyOn(clientPortalApi, "getSlaHistory").mockResolvedValueOnce([
+      {
+        cycleLabel: "Outubro 2026",
+        month: "Out",
+        uptimePct: 99.95,
+        targetPct: 99.5,
+        mttrMinutes: 4,
+        incidentsCount: 1,
+        unplannedDowntimeMinutes: 10,
+        exemptedDowntimeMinutes: 30,
+        status: "CONFORME",
+      },
+      {
+        cycleLabel: "Setembro 2026",
+        month: "Set",
+        uptimePct: 99.8,
+        targetPct: 99.5,
+        mttrMinutes: 6,
+        incidentsCount: 2,
+        unplannedDowntimeMinutes: 20,
+        exemptedDowntimeMinutes: 15,
+        status: "CONFORME",
+      },
+    ]);
+
     const handleClose = vi.fn();
     render(
       <SlaHistoryModal
@@ -134,10 +159,12 @@ describe("Portal do Cliente - ClientSupportModal (Suporte e Chamados)", () => {
     expect(screen.getByTestId("support-tab-ticket")).toBeInTheDocument();
     expect(screen.getByTestId("support-tab-direct")).toBeInTheDocument();
 
-    // Alternar para canais diretos
+    // Alternar para canais diretos: contatos vêm do contrato, não de dados fictícios
     fireEvent.click(screen.getByTestId("support-tab-direct"));
-    expect(screen.getByTestId("whatsapp-support-link")).toBeInTheDocument();
-    expect(screen.getByText("+244 923 000 000 • Atendimento 24h")).toBeInTheDocument();
+    expect(screen.queryByTestId("whatsapp-support-link")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/contatos diretos de emergência são definidos no contrato/i)
+    ).toBeInTheDocument();
   });
 
   it("deve validar campos e registrar chamado com protocolo no GLPI", async () => {
@@ -157,6 +184,7 @@ describe("Portal do Cliente - ClientSupportModal (Suporte e Chamados)", () => {
       <ClientSupportModal
         isOpen={true}
         onClose={vi.fn()}
+        organizationId="org-123"
         services={mockServices}
         onTicketCreated={handleTicketCreated}
       />

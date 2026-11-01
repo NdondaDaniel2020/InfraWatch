@@ -8,7 +8,7 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
-import type { ClientServiceItem } from "../../mocks/clientPortalMocks";
+import type { ClientServiceItem } from "../../types/clientPortal";
 
 export interface SanitizedServicesGridProps {
   services: ClientServiceItem[];
@@ -96,7 +96,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
             data-testid="services-search-input"
             value={searchTerm}
             onChange={handleSearchChange}
-            placeholder="Buscar por serviço, categoria, IP ou tag..."
+            placeholder="Buscar por serviço, categoria ou tag..."
             className="w-full pl-10 pr-4 py-2 text-xs font-sans rounded-xl bg-[#080c14] border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
           />
           {searchTerm && (
@@ -188,20 +188,26 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                       <span className="text-[11px] font-mono text-slate-400 block">Tempo de Resposta</span>
                       <span
                         className={`text-sm font-mono font-bold tabular-nums mt-0.5 block ${
-                          isDeg
+                          typeof svc.responseTimeMs !== "number"
+                            ? "text-slate-400"
+                            : isDeg
                             ? "text-amber-400"
                             : svc.status === "DOWN"
                             ? "text-rose-400"
                             : "text-emerald-400"
                         }`}
                       >
-                        {svc.responseTimeMs} ms {isDeg ? "(Alerta)" : svc.status === "DOWN" ? "(Falha)" : "(Normal)"}
+                        {typeof svc.responseTimeMs === "number"
+                          ? `${svc.responseTimeMs} ms ${
+                              isDeg ? "(Alerta)" : svc.status === "DOWN" ? "(Falha)" : "(Normal)"
+                            }`
+                          : "N/D"}
                       </span>
                     </div>
                     <div>
                       <span className="text-[11px] font-mono text-slate-400 block">Vazão / Capacidade</span>
                       <span className="text-sm font-mono font-bold text-white tabular-nums mt-0.5 block">
-                        {svc.throughputFormatted}
+                        {svc.throughputFormatted ?? "N/D"}
                       </span>
                     </div>
                   </div>
@@ -232,14 +238,18 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                     <span>Estabilidade 30 dias</span>
                     <span
                       className={`font-semibold tabular-nums ${
-                        isDeg
+                        typeof svc.stability30DaysPct !== "number"
+                          ? "text-slate-400"
+                          : isDeg
                           ? "text-amber-400"
                           : svc.status === "DOWN"
                           ? "text-rose-400"
                           : "text-emerald-400"
                       }`}
                     >
-                      {(svc.stability30DaysPct ?? 100).toFixed(1)}% Nominal
+                      {typeof svc.stability30DaysPct === "number"
+                        ? `${svc.stability30DaysPct.toFixed(1)}%`
+                        : "N/D"}
                     </span>
                   </div>
                   <div className="h-1.5 w-full bg-[#080c14] rounded-full overflow-hidden">
@@ -251,7 +261,12 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                           ? "bg-rose-400"
                           : "bg-emerald-400"
                       }`}
-                      style={{ width: `${Math.min(svc.stability30DaysPct ?? 100, 100)}%` }}
+                      style={{
+                        width:
+                          typeof svc.stability30DaysPct === "number"
+                            ? `${Math.min(svc.stability30DaysPct, 100)}%`
+                            : "0%",
+                      }}
                     />
                   </div>
                 </div>

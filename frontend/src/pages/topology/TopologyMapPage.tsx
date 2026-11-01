@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ReactFlow,
   Background,
@@ -21,7 +22,6 @@ import {
   TopologyStateSimulation,
 } from "../../components/topology/TopologyToolbar";
 import { TopologyInspectorDrawer } from "../../components/topology/TopologyInspectorDrawer";
-import { mockTopologyNodes, mockTopologyEdges } from "../../mocks/topologyMocks";
 import { TopologyDeviceData } from "../../types/topology";
 import { topologyApi } from "../../services/topologyApi";
 
@@ -59,12 +59,39 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   const [zoomLevel, setZoomLevel] = useState(1);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
+  const {
+    data: topologyGraph,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["topologyGraph"],
+    queryFn: () => topologyApi.getTopologyGraph(),
+    retry: false,
+  });
+
+  const rawNodes = topologyGraph?.nodes || [];
+  const rawEdges = topologyGraph?.edges || [];
+
+  const activeViewState: TopologyStateSimulation =
+    initialViewState !== "nominal"
+      ? initialViewState
+      : isLoading
+      ? "skeleton"
+      : isError
+      ? "error"
+      : rawNodes.length === 0
+      ? "empty"
+      : stateSimulation;
+
   // Mapeia os dados dos nós para o formato do React Flow
   const initialNodes: Node[] = useMemo(() => {
-    return mockTopologyNodes.map((dev) => ({
+    return rawNodes.map((dev) => ({
       id: dev.id,
       type: "deviceNode",
-      position: INITIAL_NODE_POSITIONS[dev.id] || { x: 200, y: 200 },
+      position: INITIAL_NODE_POSITIONS[dev.id] || {
+        x: dev.positionX ?? 200,
+        y: dev.positionY ?? 200,
+      },
       data: {
         ...dev,
         onSelect: (id: string) => {
@@ -72,13 +99,13 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           setIsInspectorOpen(true);
         },
       } as any,
-      selected: dev.id === "SW-CORE-LUANDA-01",
+      selected: dev.id === (selectedDeviceId || "SW-CORE-LUANDA-01"),
     }));
-  }, []);
+  }, [rawNodes, selectedDeviceId]);
 
   // Mapeia os enlaces para o formato do React Flow
   const initialEdges: Edge[] = useMemo(() => {
-    return mockTopologyEdges.map((edge) => ({
+    return rawEdges.map((edge) => ({
       id: edge.id,
       source: edge.source,
       target: edge.target,
@@ -86,19 +113,32 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
       data: edge as any,
       animated: edge.status !== "broken",
     }));
-  }, []);
+  }, [rawEdges]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  useEffect(() => {
+    if (initialNodes.length > 0) {
+      setNodes(initialNodes);
+    }
+  }, [initialNodes, setNodes]);
+
+  useEffect(() => {
+    if (initialEdges.length > 0) {
+      setEdges(initialEdges);
+    }
+  }, [initialEdges, setEdges]);
 
   // Filtra nós no canvas conforme a categoria selecionada
   const filteredNodes = useMemo(() => {
-    if (categoryFilter === "all") return nodes;
-    return nodes.filter((n) => {
+    const sourceNodes = nodes.length > 0 ? nodes : initialNodes;
+    if (categoryFilter === "all") return sourceNodes;
+    return sourceNodes.filter((n) => {
       const devData = n.data as unknown as TopologyDeviceData;
       return devData.category === categoryFilter;
     });
-  }, [nodes, categoryFilter]);
+  }, [nodes, initialNodes, categoryFilter]);
 
   // Dispositivo selecionado atualmente para o Drawer
   const selectedDevice = useMemo(() => {
@@ -106,8 +146,8 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
     if (node?.data) {
       return node.data as unknown as TopologyDeviceData;
     }
-    return mockTopologyNodes.find((d) => d.id === selectedDeviceId) || null;
-  }, [nodes, selectedDeviceId]);
+    return rawNodes.find((d) => d.id === selectedDeviceId) || rawNodes[0] || null;
+  }, [nodes, rawNodes, selectedDeviceId]);
 
   // Manipulador de clique no nó
   const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
@@ -146,11 +186,17 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   // Ações de Diagnóstico e Isolamento
   const handleRunPingTrace = async (deviceId: string) => {
     toast.info(`Disparando Ping / Traceroute em ${deviceId}...`);
-    const res = await topologyApi.runPingTrace(deviceId);
-    if (res.packetLoss > 0) {
-      toast.error(`Falha no Ping para ${deviceId}: Perda de 100% dos pacotes (Fibra Rompida).`);
-    } else {
-      toast.success(`Ping bem-sucedido para ${deviceId}: RTT médio ${res.rttMs}ms (0% perda).`);
+    try {
+      const res = await topologyApi.runPingTrace(deviceId);
+      if (typeof res.packetLoss === "number" && res.packetLoss > 0) {
+        toast.error(`Falha no Ping para ${deviceId}: Perda de 100% dos pacotes (Fibra Rompida).`);
+      } else if (typeof res.rttMs === "number") {
+        toast.success(`Ping bem-sucedido para ${deviceId}: RTT médio ${res.rttMs}ms (0% perda).`);
+      } else {
+        toast.success(res.message || `Sonda despachada com sucesso para ${deviceId}.`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Falha no Ping para ${deviceId}`);
     }
   };
 
@@ -183,7 +229,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           className="flex-1 relative overflow-hidden bg-obsidian-950 focus:outline-none"
         >
           {/* ESTADO 1: NOMINAL (AO VIVO COM REACT FLOW) */}
-          {stateSimulation === "nominal" && (
+          {activeViewState === "nominal" && (
             <ReactFlow
               nodes={filteredNodes}
               edges={edges}
@@ -219,7 +265,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           )}
 
           {/* ESTADO 2: SKELETON / CARREGANDO */}
-          {stateSimulation === "skeleton" && (
+          {activeViewState === "skeleton" && (
             <div
               data-testid="topology-skeleton"
               className="absolute inset-0 bg-obsidian-950/95 z-30 p-8 flex flex-col justify-between backdrop-blur-sm pointer-events-auto"
@@ -253,7 +299,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           )}
 
           {/* ESTADO 3: VAZIO (SEM ATIVOS DESCOBERTOS) */}
-          {stateSimulation === "empty" && (
+          {activeViewState === "empty" && (
             <div
               data-testid="topology-empty"
               className="absolute inset-0 bg-obsidian-950/95 z-30 p-8 flex flex-col items-center justify-center backdrop-blur-sm pointer-events-auto"
@@ -286,7 +332,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           )}
 
           {/* ESTADO 4: ERRO DE COLETOR / BOUNDARY */}
-          {stateSimulation === "error" && (
+          {activeViewState === "error" && (
             <div
               data-testid="topology-error"
               className="absolute inset-0 bg-obsidian-950/95 z-30 p-8 flex flex-col items-center justify-center backdrop-blur-sm pointer-events-auto"

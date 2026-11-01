@@ -1,6 +1,6 @@
 import React from "react";
 import { Download, History } from "lucide-react";
-import type { ClientSlaSummary } from "../../mocks/clientPortalMocks";
+import type { ClientSlaSummary } from "../../types/clientPortal";
 
 export interface SlaKpiCardsProps {
   summary: ClientSlaSummary;
@@ -15,9 +15,13 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
   onViewHistory,
   isDownloadingPdf = false,
 }) => {
-  const currentUptime = summary?.uptimeCurrentMonthPct ?? 100;
-  const targetUptime = summary?.slaTargetPct ?? 99.5;
+  const currentUptime = summary.uptimeCurrentMonthPct;
+  const targetUptime = summary.slaTargetPct;
   const excessPct = (currentUptime - targetUptime).toFixed(2);
+  const isTargetMet = currentUptime >= targetUptime;
+  const circumference = 2 * Math.PI * 50;
+  const strokeDashoffset =
+    circumference * (1 - Math.min(Math.max(currentUptime, 0), 100) / 100);
 
   return (
     <section
@@ -52,8 +56,8 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
               fill="transparent"
               r="50"
               className="stroke-emerald-400 transition-all duration-1000"
-              strokeDasharray="314.16"
-              strokeDashoffset="2.5"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
               strokeWidth="8"
             />
@@ -71,8 +75,14 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
         {/* Descrição Executiva */}
         <div className="flex flex-col gap-2 max-w-xl">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-semibold">
-              Meta Contratual Atingida
+            <span
+              className={`px-2.5 py-0.5 rounded-full border text-xs font-mono font-semibold ${
+                isTargetMet
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+              }`}
+            >
+              {isTargetMet ? "Meta Contratual Atingida" : "Meta Contratual Não Atingida"}
             </span>
             <span className="text-xs font-mono text-slate-400">
               Ciclo Mensal: {summary.cycleMonthLabel}
@@ -80,8 +90,13 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight m-0">
             Meta Acordada: {targetUptime.toFixed(2)}%{" "}
-            <span className="text-emerald-400 font-mono tabular-nums text-base font-semibold">
-              (+{excessPct}% excedente)
+            <span
+              className={`font-mono tabular-nums text-base font-semibold ${
+                isTargetMet ? "text-emerald-400" : "text-rose-400"
+              }`}
+            >
+              ({isTargetMet ? "+" : ""}
+              {excessPct}% face à meta)
             </span>
           </h2>
           <p className="text-xs text-slate-300 leading-relaxed m-0">
@@ -100,7 +115,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
             <span className="text-lg font-mono font-bold text-white mt-1 tabular-nums">
               {summary.downtimeBalanceFormatted}
             </span>
-            <span className="text-[11px] text-emerald-400 font-medium">Saldo positivo</span>
+            <span className="text-[11px] text-slate-400 font-medium">Saldo contratual</span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-[#080c14] border border-white/5 flex flex-col">
@@ -108,7 +123,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
             <span className="text-lg font-mono font-bold text-white mt-1 tabular-nums">
               {summary.mttrMinutesAvg} min
             </span>
-            <span className="text-[11px] text-emerald-400 font-medium">Meta &lt; 15 min</span>
+            <span className="text-[11px] text-slate-400 font-medium">MTTR apurado</span>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-[#080c14] border border-white/5 flex flex-col">

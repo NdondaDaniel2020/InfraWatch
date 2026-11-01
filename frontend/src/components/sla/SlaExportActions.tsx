@@ -52,20 +52,29 @@ export const SlaExportActions: React.FC<SlaExportActionsProps> = ({
 
         const rows = deviceBreakdown.map((d) => [
           `"${d.deviceName}"`,
-          `"${d.ipAddress}"`,
-          `"${d.tier}"`,
-          (d.nominalUptimePct ?? 100).toFixed(2),
-          (d.netUptimePct ?? 100).toFixed(2),
+          `"${d.ipAddress ?? "—"}"`,
+          `"${d.tier ?? d.category ?? "—"}"`,
+          d.nominalUptimePct.toFixed(2),
+          d.netUptimePct.toFixed(2),
           d.exemptedMaintenanceMinutes,
-          d.unplannedOutageMinutes,
+          d.unplannedOutageMinutes ?? "N/D",
           `"${d.status}"`,
         ]);
+
+        const targetLabel =
+          typeof overview?.targetSlaPct === "number"
+            ? `${overview.targetSlaPct.toFixed(2)}%`
+            : "N/D";
+        const uptimeLabel =
+          typeof overview?.currentUptimePct === "number"
+            ? `${overview.currentUptimePct.toFixed(2)}%`
+            : "N/D";
 
         const csvContent =
           `# Relatorio de SLA Contratual - ${tenantName}\n` +
           `# Data de Extracao: ${new Date().toISOString()}\n` +
-          `# Meta Contratual: ${overview?.targetSlaPct || 99.50}%\n` +
-          `# Uptime Liquido Acumulado: ${overview?.currentUptimePct || 99.98}%\n\n` +
+          `# Meta Contratual: ${targetLabel}\n` +
+          `# Uptime Liquido Acumulado: ${uptimeLabel}\n\n` +
           headers.join(";") +
           "\n" +
           rows.map((r) => r.join(";")).join("\n");

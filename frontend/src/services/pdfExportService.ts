@@ -15,19 +15,24 @@ export const pdfExportService = {
   buildPdfContent(
     summary: ClientSlaSummary,
     services: ClientServiceItem[],
-    reportDetails?: OrganizationSlaReportDetails | null
+    reportDetails: OrganizationSlaReportDetails
   ): string {
     const dateStr = new Date().toISOString().split("T")[0];
-    const signature = reportDetails?.digitalSignature || "SHA256:CONTRATUAL-VERIFICADO";
-    const netUptime = reportDetails?.uptimeNetPct ?? summary.uptimeCurrentMonthPct;
-    const grossUptime = reportDetails?.uptimeGrossPct ?? 99.85;
+    const signature = reportDetails.digitalSignature;
+    const netUptime = reportDetails.uptimeNetPct;
+    const grossUptime = reportDetails.uptimeGrossPct;
 
     const servicesList = services
       .slice(0, 8)
-      .map(
-        (s, idx) =>
-          `(${idx + 1}. ${s.name} - Status: ${s.status} - SLA: ${s.stability30DaysPct}% - Latencia: ${s.responseTimeMs}ms)`
-      )
+      .map((s, idx) => {
+        const stability =
+          typeof s.stability30DaysPct === "number"
+            ? `${s.stability30DaysPct}%`
+            : "N/D";
+        const latency =
+          typeof s.responseTimeMs === "number" ? `${s.responseTimeMs}ms` : "N/D";
+        return `(${idx + 1}. ${s.name} - Status: ${s.status} - SLA: ${stability} - Latencia: ${latency})`;
+      })
       .join("\n");
 
     // Estrutura sintática minimalista compatível com leitores PDF padrão
@@ -110,7 +115,7 @@ startxref
   async exportSlaPdf(
     summary: ClientSlaSummary,
     services: ClientServiceItem[],
-    reportDetails?: OrganizationSlaReportDetails | null
+    reportDetails: OrganizationSlaReportDetails
   ): Promise<boolean> {
     try {
       const pdfContent = this.buildPdfContent(summary, services, reportDetails);

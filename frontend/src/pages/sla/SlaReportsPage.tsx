@@ -8,6 +8,7 @@ import {
   Lock,
   AlertCircle,
   Printer,
+  Loader2,
 } from "lucide-react";
 import { Button, Skeleton } from "../../components/ui";
 import { SlaKpiCards } from "../../components/sla/SlaKpiCards";
@@ -15,66 +16,153 @@ import { SlaExportActions } from "../../components/sla/SlaExportActions";
 import { SlaDeviceBreakdownTable } from "../../components/sla/SlaDeviceBreakdownTable";
 import { SlaEndpointsTable } from "../../components/sla/SlaEndpointsTable";
 import { slaApi } from "../../services/slaApi";
+import { adminApi } from "../../services/adminApi";
+import { clientPortalApi } from "../../services/clientPortalApi";
+import { pdfExportService } from "../../services/pdfExportService";
 import { useAuth } from "../../context/AuthContext";
-import {
-  mockSlaOverviewBancoSol,
-  mockSlaOverviewUnitel,
-  mockSlaOverviewSonangol,
-  mockSlaDeviceBreakdown,
-} from "../../mocks/slaMocks";
-import { MOCK_SANITIZED_ENDPOINTS } from "../../mocks/clientPortalMocks";
+import type {
+  ClientServiceItem,
+  ClientSlaSummary,
+} from "../../types/clientPortal";
+import type { SlaReportingPeriod } from "../../types/sla";
 import { toast } from "sonner";
 
 export const SlaReportsPage: React.FC = () => {
   const { user } = useAuth();
   const isGlobalOperator = user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR";
 
-  // Se for cliente (ORG_ADMIN ou CLIENT_VIEWER), trava estritamente na organização do usuário
-  const userOrgId = user?.organization_id || "bancosol";
-  const [tenantId, setTenantId] = useState(isGlobalOperator ? "bancosol" : userOrgId);
-  const [selectedPeriod, setSelectedPeriod] = useState<"last_7d" | "last_30d" | "current_month" | "last_90d">("last_30d");
+  const userOrgId = user?.organization_id ?? null;
+  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
+  const [selectedPeriod, setSelectedPeriod] = useState<SlaReportingPeriod>("last_30d");
   const [tableViewMode, setTableViewMode] = useState<"endpoints" | "devices">(
     isGlobalOperator ? "devices" : "endpoints"
   );
-
-  // Garante sincronização caso o usuário mude
-  const effectiveTenantId = isGlobalOperator ? tenantId : userOrgId;
-
-  const tenantOverviews = {
-    bancosol: mockSlaOverviewBancoSol,
-    unitel: mockSlaOverviewUnitel,
-    sonangol: mockSlaOverviewSonangol,
-  };
-
-  const currentOverview =
-    tenantOverviews[effectiveTenantId as keyof typeof tenantOverviews] ||
-    mockSlaOverviewBancoSol;
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const {
-    data: overview = currentOverview,
-    isLoading,
+    data: organizationsData,
+    isLoading: isLoadingOrganizations,
+    isError: isOrganizationsError,
+    error: organizationsError,
+    refetch: refetchOrganizations,
+  } = useQuery({
+    queryKey: ["slaOrganizations"],
+    queryFn: () => adminApi.listOrganizations({ size: 100 }),
+    enabled: isGlobalOperator,
+  });
+
+  const organizations = organizationsData?.items ?? [];
+  const effectiveTenantId = isGlobalOperator
+    ? selectedTenantId ?? organizations[0]?.id ?? null
+    : userOrgId;
+
+  const {
+    data: overview,
+    isLoading: isOverviewLoading,
     isError,
     error,
     refetch,
   } = useQuery({
-    queryKey: ["slaOverview", effectiveTenantId],
-    queryFn: () => slaApi.getSlaOverview(effectiveTenantId),
-    initialData: currentOverview,
+    queryKey: ["slaOverview", effectiveTenantId, selectedPeriod],
+    queryFn: () => slaApi.getSlaOverview(effectiveTenantId!, selectedPeriod),
+    enabled: Boolean(effectiveTenantId),
   });
 
-  const { data: devices = mockSlaDeviceBreakdown } = useQuery({
-    queryKey: ["slaDevices", effectiveTenantId],
-    queryFn: () => slaApi.getSlaDeviceBreakdown(effectiveTenantId),
-    initialData: mockSlaDeviceBreakdown,
+  const {
+    data: devices = [],
+    isLoading: isDevicesLoading,
+    isError: isDevicesError,
+    error: devicesError,
+    refetch: refetchDevices,
+  } = useQuery({
+    queryKey: ["slaDevices", effectiveTenantId, selectedPeriod],
+    queryFn: () => slaApi.getSlaDeviceBreakdown(effectiveTenantId!, selectedPeriod),
+    enabled: Boolean(effectiveTenantId),
   });
 
-  const currentState = isLoading
-    ? "skeleton"
-    : isError
-    ? "error"
-    : !overview
-    ? "empty"
-    : "nominal";
+  const {
+    data: endpoints = [],
+    isLoading: isEndpointsLoading,
+    isError: isEndpointsError,
+    error: endpointsError,
+    refetch: refetchEndpoints,
+  } = useQuery({
+    queryKey: ["slaEndpoints", effectiveTenantId],
+    queryFn: () => clientPortalApi.getSanitizedEndpoints(effectiveTenantId!),
+    enabled:
+      Boolean(effectiveTenantId) &&
+      (!isGlobalOperator || tableViewMode === "endpoints"),
+  });
+
+  const currentState =
+    (isGlobalOperator && isLoadingOrganizations) || isOverviewLoading
+      ? "skeleton"
+      : (isGlobalOperator && isOrganizationsError) || isError
+      ? "error"
+      : !overview
+      ? "empty"
+      : "nominal";
+
+  const errorMessage =
+    error?.message ||
+    (isGlobalOperator ? organizationsError?.message : null) ||
+    "Erro de agregação no backend ao calcular a disponibilidade do contrato.";
+
+  const handleGeneratePdf = async () => {
+    if (!effectiveTenantId || !overview) return;
+
+    try {
+      setIsGeneratingPdf(true);
+      const report = await slaApi.getSlaReportDetails(
+        effectiveTenantId,
+        selectedPeriod
+      );
+      const summary: ClientSlaSummary = {
+        tenantId: overview.tenantId,
+        tenantName: overview.tenantName,
+        uptimeCurrentMonthPct: overview.currentUptimePct,
+        slaTargetPct: overview.targetSlaPct,
+        downtimeBalanceFormatted: overview.downtimeBalanceFormatted ?? "N/D",
+        mttrMinutesAvg: overview.mttrMinutes,
+        nextMaintenanceWindow: overview.nextMaintenanceWindow ?? "N/D",
+        cycleMonthLabel: overview.cycleMonthLabel ?? overview.periodLabel,
+      };
+      const services: ClientServiceItem[] = endpoints.map((endpoint) => ({
+        id: endpoint.id,
+        name: endpoint.domainName,
+        category: endpoint.serviceType,
+        status: endpoint.status,
+        statusLabel:
+          endpoint.status === "UP"
+            ? "Nominal"
+            : endpoint.status === "DEG"
+            ? "Degradação"
+            : "Falha",
+        tags: endpoint.protocol ? [endpoint.protocol] : [],
+        ...(typeof endpoint.latencyAvgMs === "number"
+          ? { responseTimeMs: endpoint.latencyAvgMs }
+          : {}),
+      }));
+
+      const exported = await pdfExportService.exportSlaPdf(
+        summary,
+        services,
+        report
+      );
+      if (!exported) {
+        throw new Error("Não foi possível gerar o PDF.");
+      }
+      toast.success("Relatório executivo de SLA gerado com assinatura digital.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Falha ao gerar o relatório executivo de SLA."
+      );
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   return (
     <main
@@ -148,26 +236,33 @@ export const SlaReportsPage: React.FC = () => {
             gap: "10px",
           }}
         >
-          <SlaExportActions
-            tenantId={tenantId}
-            tenantName={overview.tenantName}
-            overview={overview}
-            deviceBreakdown={devices}
-          />
+          {overview && effectiveTenantId && (
+            <>
+              <SlaExportActions
+                tenantId={effectiveTenantId}
+                tenantName={overview.tenantName}
+                overview={overview}
+                deviceBreakdown={devices}
+              />
 
-          <Button
-            type="button"
-            onClick={() =>
-              toast.info(
-                "Gerando relatório executivo auditado em PDF para o BNA..."
-              )
-            }
-            variant="primary"
-            size="sm"
-            icon={<Printer size={16} />}
-          >
-            Gerar Relatório Executivo PDF
-          </Button>
+              <Button
+                type="button"
+                onClick={handleGeneratePdf}
+                disabled={isGeneratingPdf}
+                variant="primary"
+                size="sm"
+                icon={
+                  isGeneratingPdf ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Printer size={16} />
+                  )
+                }
+              >
+                Gerar Relatório Executivo PDF
+              </Button>
+            </>
+          )}
         </div>
       </section>
 
@@ -194,14 +289,14 @@ export const SlaReportsPage: React.FC = () => {
                 FALHA NO MOTOR DE CÁLCULO DE DISPONIBILIDADE LÍQUIDA
               </strong>
               <span style={{ color: "var(--color-text-muted)" }}>
-                {error?.message ||
-                  "Erro de agregação no TimescaleDB para a série temporal do contrato."}
+                {errorMessage}
               </span>
             </div>
           </div>
           <Button
             type="button"
             onClick={() => {
+              if (isGlobalOperator) refetchOrganizations();
               refetch();
             }}
             variant="destructive"
@@ -255,8 +350,8 @@ export const SlaReportsPage: React.FC = () => {
               <select
                 id="tenant-select"
                 aria-label="Selecionar Contratante Enterprise"
-                value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
+                value={selectedTenantId ?? organizations[0]?.id ?? ""}
+                onChange={(e) => setSelectedTenantId(e.target.value)}
                 style={{
                   backgroundColor: "transparent",
                   border: "none",
@@ -273,15 +368,22 @@ export const SlaReportsPage: React.FC = () => {
                   whiteSpace: "nowrap",
                 }}
               >
-                <option value="bancosol" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
-                  Banco Sol (Internet Banking & Agências)
-                </option>
-                <option value="unitel" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
-                  Unitel Angola (Backbone & Core)
-                </option>
-                <option value="sonangol" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
-                  Sonangol Logistics (Terminal Luanda)
-                </option>
+                {organizations.length === 0 && (
+                  <option value="" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
+                    {isLoadingOrganizations
+                      ? "Carregando organizações..."
+                      : "Nenhuma organização disponível"}
+                  </option>
+                )}
+                {organizations.map((organization) => (
+                  <option
+                    key={organization.id}
+                    value={organization.id}
+                    style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}
+                  >
+                    {organization.name}
+                  </option>
+                ))}
               </select>
             </div>
           ) : (
@@ -305,7 +407,7 @@ export const SlaReportsPage: React.FC = () => {
             >
               <Building2 size={16} className="shrink-0" />
               <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                {user?.organization_name || overview.tenantName || "Sua Organização"}
+                {user?.organization_name || overview?.tenantName || "Organização"}
               </span>
             </div>
           )}
@@ -333,9 +435,7 @@ export const SlaReportsPage: React.FC = () => {
               aria-label="Selecionar Período de Apuração"
               value={selectedPeriod}
               onChange={(e) => {
-                const nextPeriod = e.target.value as typeof selectedPeriod;
-                setSelectedPeriod(nextPeriod);
-                toast.info(`Período de auditoria atualizado para ${e.target.options[e.target.selectedIndex].text}.`);
+                setSelectedPeriod(e.target.value as SlaReportingPeriod);
               }}
               style={{
                 backgroundColor: "transparent",
@@ -361,7 +461,7 @@ export const SlaReportsPage: React.FC = () => {
                 Últimos 30 dias
               </option>
               <option value="current_month" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
-                Mês Vigente ({overview.periodLabel})
+                Mês Vigente{overview?.periodLabel ? ` (${overview.periodLabel})` : ""}
               </option>
               <option value="last_90d" style={{ backgroundColor: "#0d1424", color: "#f8fafc" }}>
                 Último Trimestre (90 dias)
@@ -386,7 +486,12 @@ export const SlaReportsPage: React.FC = () => {
             }}
           >
             <Lock size={14} />
-            <span>Meta Contratual: {(overview?.targetSlaPct ?? 99.5).toFixed(2)}%</span>
+            <span>
+              Meta Contratual:{" "}
+              {typeof overview?.targetSlaPct === "number"
+                ? `${overview.targetSlaPct.toFixed(2)}%`
+                : "N/D"}
+            </span>
           </div>
         </div>
 
@@ -408,7 +513,7 @@ export const SlaReportsPage: React.FC = () => {
               backgroundColor: "var(--color-healthy)",
             }}
           />
-          <span>Ciclo Vigente: Fechamento em {overview.daysRemainingInCycle} dias</span>
+          <span>Período: {overview?.periodLabel ?? "N/D"}</span>
         </div>
       </section>
 
@@ -462,23 +567,26 @@ export const SlaReportsPage: React.FC = () => {
             Nenhum Registro de SLA Encontrado
           </h3>
           <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", maxWidth: "450px" }}>
-            Não existem séries temporais de disponibilidade para o contrato e período selecionados.
+            {effectiveTenantId
+              ? "Não existem séries temporais de disponibilidade para o contrato e período selecionados."
+              : "Não foi possível identificar uma organização para consultar o SLA."}
           </p>
-          <Button
-            type="button"
-            onClick={() => {
-              setTenantId("bancosol");
-              refetch();
-            }}
-            variant="ghost"
-            size="sm"
-          >
-            Restaurar Contratante Principal
-          </Button>
+          {effectiveTenantId && (
+            <Button
+              type="button"
+              onClick={() => {
+                refetch();
+              }}
+              variant="ghost"
+              size="sm"
+            >
+              Tentar novamente
+            </Button>
+          )}
         </section>
       )}
 
-      {currentState === "nominal" && (
+      {currentState === "nominal" && overview && (
         <>
           <SlaKpiCards overview={overview} />
 
@@ -553,10 +661,87 @@ export const SlaReportsPage: React.FC = () => {
 
           {/* Renderização Condicional da Tabela Conforme Modo Selecionado ou Perfil */}
           {!isGlobalOperator || tableViewMode === "endpoints" ? (
-            <SlaEndpointsTable
-              endpoints={MOCK_SANITIZED_ENDPOINTS}
-              targetSlaPct={overview.targetSlaPct}
-            />
+            isEndpointsError ? (
+              <section
+                role="alert"
+                style={{
+                  backgroundColor: "rgba(244, 63, 94, 0.1)",
+                  border: "1px solid var(--color-critical-border)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: "16px 20px",
+                  color: "var(--color-critical)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.75rem",
+                }}
+              >
+                {endpointsError?.message ||
+                  "Falha ao carregar os endpoints contratados."}{" "}
+                <button
+                  type="button"
+                  onClick={() => refetchEndpoints()}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--color-critical)",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  Tentar novamente
+                </button>
+              </section>
+            ) : (
+              <>
+                {isEndpointsLoading && (
+                  <p
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--color-text-muted)",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    Carregando endpoints contratados...
+                  </p>
+                )}
+                <SlaEndpointsTable
+                  endpoints={endpoints}
+                  targetSlaPct={overview.targetSlaPct}
+                />
+              </>
+            )
+          ) : isDevicesError ? (
+            <section
+              role="alert"
+              style={{
+                backgroundColor: "rgba(244, 63, 94, 0.1)",
+                border: "1px solid var(--color-critical-border)",
+                borderRadius: "var(--radius-lg)",
+                padding: "16px 20px",
+                color: "var(--color-critical)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.75rem",
+              }}
+            >
+              {devicesError?.message ||
+                "Falha ao carregar o detalhamento de SLA por ativo."}{" "}
+              <button
+                type="button"
+                onClick={() => refetchDevices()}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--color-critical)",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                Tentar novamente
+              </button>
+            </section>
+          ) : isDevicesLoading ? (
+            <Skeleton height="320px" />
           ) : (
             <SlaDeviceBreakdownTable
               devices={devices}

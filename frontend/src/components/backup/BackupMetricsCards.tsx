@@ -25,15 +25,19 @@ export const BackupMetricsCards: React.FC<BackupMetricsCardsProps> = ({ metrics 
         <div className="mt-2.5">
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-mono tabular-nums font-bold text-white">
-              {metrics.rpoCurrentMinutes}m
+              {typeof metrics.rpoCurrentMinutes === "number"
+                ? `${metrics.rpoCurrentMinutes}m`
+                : "N/D"}
             </span>
-            <span className="text-xs font-mono text-emerald-400 font-semibold">
-              / {metrics.rpoTargetMinutes}m máx
-            </span>
+            {typeof metrics.rpoTargetMinutes === "number" && (
+              <span className="text-xs font-mono text-emerald-400 font-semibold">
+                / {metrics.rpoTargetMinutes}m máx
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Dentro do SLA (Conforme BNA)</span>
+          <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono text-slate-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+            <span>Tempo decorrido desde o último snapshot</span>
           </div>
         </div>
       </div>
@@ -51,12 +55,14 @@ export const BackupMetricsCards: React.FC<BackupMetricsCardsProps> = ({ metrics 
         <div className="mt-2.5">
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-mono tabular-nums font-bold text-white">
-              &lt; {metrics.rtoTargetMinutes}m
+              {typeof metrics.rtoTargetMinutes === "number"
+                ? `< ${metrics.rtoTargetMinutes}m`
+                : "N/D"}
             </span>
             <span className="text-xs font-mono text-slate-400">Alvo de DR</span>
           </div>
           <p className="mt-1 text-[11px] font-mono text-slate-400 truncate">
-            Validação contínua em container isolado
+            Métrica de restauração não exposta pelo backend
           </p>
         </div>
       </div>
@@ -73,15 +79,20 @@ export const BackupMetricsCards: React.FC<BackupMetricsCardsProps> = ({ metrics 
         </div>
         <div className="mt-2.5">
           <span className="text-base font-mono tabular-nums font-bold text-white block truncate">
-            {new Date(metrics.lastBackupAt).toLocaleString("pt-BR", {
-              timeZone: "UTC",
-              dateStyle: "short",
-              timeStyle: "short",
-            })}{" "}
-            UTC
+            {metrics.lastBackupAt
+              ? `${new Date(metrics.lastBackupAt).toLocaleString("pt-BR", {
+                  timeZone: "UTC",
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })} UTC`
+              : "N/D"}
           </span>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono text-slate-400">
-            <span className="text-emerald-400 font-semibold">Hash SHA-256 Validado</span>
+            <span>
+              {metrics.lastBackupAt
+                ? "Snapshot mais recente no storage"
+                : "Nenhum snapshot registrado"}
+            </span>
           </div>
         </div>
       </div>
@@ -106,9 +117,9 @@ export const BackupMetricsCards: React.FC<BackupMetricsCardsProps> = ({ metrics 
             </span>
           </div>
           <div className="flex items-center gap-2 mt-1 text-[10px] font-mono">
-            <span className="text-sky-400 font-semibold">Google Drive: OK</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-amber-400 font-semibold">Cloudflare R2: OK</span>
+            <span className="text-slate-400">
+              Volume e contagem derivados do histórico local
+            </span>
           </div>
         </div>
       </div>

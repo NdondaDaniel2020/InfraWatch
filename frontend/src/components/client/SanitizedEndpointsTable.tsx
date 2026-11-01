@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, Search, ShieldCheck } from "lucide-react";
-import type { SanitizedEndpoint } from "../../mocks/clientPortalMocks";
+import type { SanitizedEndpoint } from "../../types/clientPortal";
 
 export interface SanitizedEndpointsTableProps {
   endpoints: SanitizedEndpoint[];
@@ -16,7 +16,7 @@ export const SanitizedEndpointsTable: React.FC<SanitizedEndpointsTableProps> = (
       (ep) =>
         ep.domainName.toLowerCase().includes(term) ||
         ep.serviceType.toLowerCase().includes(term) ||
-        ep.datacenterRegion.toLowerCase().includes(term)
+        (ep.datacenterRegion ?? "").toLowerCase().includes(term)
     );
   }, [endpoints, searchTerm]);
 
@@ -92,12 +92,18 @@ export const SanitizedEndpointsTable: React.FC<SanitizedEndpointsTableProps> = (
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums font-bold text-emerald-400">
-                      {(ep.sla30dPct ?? 100).toFixed(2)}%
+                      {typeof ep.sla30dPct === "number"
+                        ? `${ep.sla30dPct.toFixed(2)}%`
+                        : "N/D"}
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-slate-200">
-                      {(ep.latencyAvgMs ?? 0).toFixed(1)} ms
+                      {typeof ep.latencyAvgMs === "number"
+                        ? `${ep.latencyAvgMs.toFixed(1)} ms`
+                        : "N/D"}
                     </td>
-                    <td className="py-3 px-3 text-slate-400 font-sans">{ep.datacenterRegion}</td>
+                    <td className="py-3 px-3 text-slate-400 font-sans">
+                      {ep.datacenterRegion ?? "N/D"}
+                    </td>
                   </tr>
                 );
               })

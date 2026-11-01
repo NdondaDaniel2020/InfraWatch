@@ -90,15 +90,20 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
   describe("2. Controle de Acesso Baseado em Papéis (RBAC)", () => {
     it("deve redirecionar CLIENT_VIEWER para /portal ao tentar acessar rota operacional do NOC", () => {
       const authMock = createAuthMock({}, "CLIENT_VIEWER", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
 
       render(
-        <MemoryRouter initialEntries={["/noc"]}>
-          <AuthContext.Provider value={authMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/noc"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
       );
 
       // Deve ser redirecionado para o Portal do Cliente
@@ -433,15 +438,20 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
     it("deve filtrar itens de menu da Sidebar conforme os papéis permitidos", () => {
       // Para CLIENT_VIEWER: apenas SLA e Portal do Cliente devem estar visíveis
       const authMock = createAuthMock({}, "CLIENT_VIEWER", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
 
       render(
-        <MemoryRouter initialEntries={["/portal"]}>
-          <AuthContext.Provider value={authMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/portal"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
       );
 
       expect(screen.getByText("Portal do Cliente")).toBeInTheDocument();
@@ -454,14 +464,19 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
     it("deve ocultar relógio UTC, badge SSE LIVE, Modo TV e status-ticker para CLIENT_VIEWER e ORG_ADMIN", () => {
       // 1. Validar para CLIENT_VIEWER
       const clientAuthMock = createAuthMock({}, "CLIENT_VIEWER", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
       const { unmount: unmountClient } = render(
-        <MemoryRouter initialEntries={["/portal"]}>
-          <AuthContext.Provider value={clientAuthMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/portal"]}>
+            <AuthContext.Provider value={clientAuthMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
       );
 
       expect(screen.queryByTestId("utc-clock")).not.toBeInTheDocument();
@@ -473,13 +488,15 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
       // 2. Validar para ORG_ADMIN
       const orgAuthMock = createAuthMock({}, "ORG_ADMIN", true);
       render(
-        <MemoryRouter initialEntries={["/portal"]}>
-          <AuthContext.Provider value={orgAuthMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/portal"]}>
+            <AuthContext.Provider value={orgAuthMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
       );
 
       expect(screen.queryByTestId("utc-clock")).not.toBeInTheDocument();

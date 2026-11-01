@@ -14,13 +14,13 @@ import {
   AuditFilterParams,
   AuditIntegrityVerificationResponse,
   AuditLogEntry,
+  INITIAL_CUSTODY_STATUS,
 } from "../../types/audit";
 import { CustodyIntegrityBanner } from "../../components/audit/CustodyIntegrityBanner";
 import { AuditFilterBar } from "../../components/audit/AuditFilterBar";
 import { useAuth } from "../../context/AuthContext";
 import { AuditLogTable } from "../../components/audit/AuditLogTable";
 import { AuditPayloadInspector } from "../../components/audit/AuditPayloadInspector";
-import { mockCustodyVerificationSuccess } from "../../mocks/auditMocks";
 
 export const AuditLogsPage: React.FC = () => {
   const { user } = useAuth();
@@ -40,7 +40,7 @@ export const AuditLogsPage: React.FC = () => {
   const [isLiveStream, setIsLiveStream] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
   const [custodyStatus, setCustodyStatus] =
-    useState<AuditIntegrityVerificationResponse>(mockCustodyVerificationSuccess);
+    useState<AuditIntegrityVerificationResponse>(INITIAL_CUSTODY_STATUS);
 
   // Filtros efetivos garantem isolamento multi-tenant compulsório para clientes
   const effectiveFilters = React.useMemo(() => {

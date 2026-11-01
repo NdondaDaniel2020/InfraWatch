@@ -8,6 +8,8 @@ import { Toaster } from "sonner";
 import { MaintenanceWindowsPage } from "../src/pages/sla/MaintenanceWindowsPage";
 import { SlaReportsPage } from "../src/pages/sla/SlaReportsPage";
 import { slaApi } from "../src/services/slaApi";
+import { adminApi } from "../src/services/adminApi";
+import { clientPortalApi } from "../src/services/clientPortalApi";
 import {
   mockMaintenanceWindows,
   mockMaintenanceKpiSummary,
@@ -15,6 +17,8 @@ import {
   mockSlaOverviewUnitel,
   mockSlaDeviceBreakdown,
 } from "../src/mocks/slaMocks";
+import { mockAdminOrganizations } from "../src/mocks/auditMocks";
+import { MOCK_SANITIZED_ENDPOINTS } from "../src/mocks/clientPortalMocks";
 
 vi.mock("../src/services/slaApi", () => ({
   slaApi: {
@@ -24,7 +28,20 @@ vi.mock("../src/services/slaApi", () => ({
     approveMaintenanceWindow: vi.fn(),
     getSlaOverview: vi.fn(),
     getSlaDeviceBreakdown: vi.fn(),
+    getSlaReportDetails: vi.fn(),
     exportSlaReport: vi.fn(),
+  },
+}));
+
+vi.mock("../src/services/adminApi", () => ({
+  adminApi: {
+    listOrganizations: vi.fn(),
+  },
+}));
+
+vi.mock("../src/services/clientPortalApi", () => ({
+  clientPortalApi: {
+    getSanitizedEndpoints: vi.fn(),
   },
 }));
 
@@ -179,6 +196,18 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
   });
 
   describe("Painel de Relatórios Analíticos de SLA (/sla)", () => {
+    beforeEach(() => {
+      (adminApi.listOrganizations as Mock).mockResolvedValue({
+        items: mockAdminOrganizations,
+        total: mockAdminOrganizations.length,
+        page: 1,
+        page_size: mockAdminOrganizations.length,
+      });
+      (clientPortalApi.getSanitizedEndpoints as Mock).mockResolvedValue(
+        MOCK_SANITIZED_ENDPOINTS
+      );
+    });
+
     it("deve renderizar indicadores analíticos de SLA, MTTR e MTBF", async () => {
       (slaApi.getSlaOverview as Mock).mockResolvedValue(mockSlaOverviewBancoSol);
       (slaApi.getSlaDeviceBreakdown as Mock).mockResolvedValue(mockSlaDeviceBreakdown);
@@ -205,10 +234,13 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
       (slaApi.getSlaOverview as Mock).mockResolvedValue(mockSlaOverviewUnitel);
 
       const selectTenant = screen.getByLabelText(/selecionar contratante enterprise/i);
-      await user.selectOptions(selectTenant, "unitel");
+      await user.selectOptions(selectTenant, "org-unitel");
 
       await waitFor(() => {
-        expect(slaApi.getSlaOverview).toHaveBeenCalledWith("unitel");
+        expect(slaApi.getSlaOverview).toHaveBeenCalledWith(
+          "org-unitel",
+          "last_30d"
+        );
       });
     });
 
@@ -251,9 +283,11 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
       const endpointsTab = screen.getByTestId("tab-view-endpoints");
       await user.click(endpointsTab);
 
-      expect(screen.getByTestId("sla-endpoints-table")).toBeInTheDocument();
-      expect(screen.getByText("api.bancosol.ao")).toBeInTheDocument();
-      expect(screen.getByText("ibanking.bancosol.ao")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("sla-endpoints-table")).toBeInTheDocument();
+        expect(screen.getByText("api.bancosol.ao")).toBeInTheDocument();
+        expect(screen.getByText("ibanking.bancosol.ao")).toBeInTheDocument();
+      });
 
       // Testar busca de endpoints
       const searchInput = screen.getByTestId("sla-endpoint-search-input");

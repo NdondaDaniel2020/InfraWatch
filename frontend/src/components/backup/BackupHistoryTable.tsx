@@ -200,17 +200,17 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {renderTargetBadge(
                           "Local",
-                          item.targets?.local || "SUCCESS",
+                          item.targets?.local,
                           <HardDrive className="w-3 h-3" />
                         )}
                         {renderTargetBadge(
                           "GDrive",
-                          item.targets?.gdrive || "SUCCESS",
+                          item.targets?.gdrive,
                           <Cloud className="w-3 h-3" />
                         )}
                         {renderTargetBadge(
                           "R2",
-                          item.targets?.r2 || "SUCCESS",
+                          item.targets?.r2,
                           <Cloud className="w-3 h-3" />
                         )}
                       </div>
@@ -222,10 +222,16 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
                         className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
                           item.trigger === "manual"
                             ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                            : "bg-obsidian-800 text-slate-300 border border-obsidian-700"
+                            : item.trigger === "scheduled"
+                            ? "bg-obsidian-800 text-slate-300 border border-obsidian-700"
+                            : "bg-obsidian-850 text-slate-500 border border-obsidian-800"
                         }`}
                       >
-                        {item.trigger === "manual" ? "MANUAL" : "AUTO (CRON)"}
+                        {item.trigger === "manual"
+                          ? "MANUAL"
+                          : item.trigger === "scheduled"
+                          ? "AUTO (CRON)"
+                          : "N/D"}
                       </span>
                     </td>
                   </tr>
