@@ -6,13 +6,12 @@ import type {
   TimescalePeriod,
   OpticalInterfaceItem,
 } from "../types/deviceDetail";
-import { mockOpticalInterfaces } from "../mocks/deviceDetailMocks";
 
 const BASE_PATH = "/api/v1/devices";
 
 export const deviceDetailApi = {
   async getDeviceDetail(id: string): Promise<DeviceDetail> {
-    return apiClient.get<DeviceDetail>(`${BASE_PATH}/${id}/detail`);
+    return apiClient.get<DeviceDetail>(`${BASE_PATH}/${id}`);
   },
 
   async getTimescaleMetrics(
@@ -29,14 +28,6 @@ export const deviceDetailApi = {
   },
 
   async getDeviceInterfaces(id: string): Promise<OpticalInterfaceItem[]> {
-    try {
-      const res = await apiClient.get<OpticalInterfaceItem[]>(`${BASE_PATH}/${id}/interfaces`);
-      if (Array.isArray(res) && res.length > 0) {
-        return res;
-      }
-    } catch {
-      // Fallback resiliente
-    }
-    return mockOpticalInterfaces;
+    return apiClient.get<OpticalInterfaceItem[]>(`${BASE_PATH}/${id}/interfaces`);
   },
 };

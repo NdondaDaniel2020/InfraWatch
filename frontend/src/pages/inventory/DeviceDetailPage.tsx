@@ -18,8 +18,9 @@ import { DeviceHeroHeader } from "../../components/device/DeviceHeroHeader";
 import { DeviceMetricsTimescaleChart } from "../../components/device/DeviceMetricsTimescaleChart";
 import { DeviceInterfacesTable } from "../../components/device/DeviceInterfacesTable";
 import { deviceDetailApi } from "../../services/deviceDetailApi";
-import { mockOpticalInterfaces } from "../../mocks/deviceDetailMocks";
-import type { TimescalePeriod, DeviceSlaMetrics, DeviceIncidentSummary } from "../../types/deviceDetail";
+import { slaApi } from "../../services/slaApi";
+import { incidentsApi } from "../../services/incidentsApi";
+import type { TimescalePeriod } from "../../types/deviceDetail";
 import { toast } from "sonner";
 
 const EmptyState: React.FC<{ onDiscover: () => void }> = ({ onDiscover }) => (
@@ -122,9 +123,31 @@ const ErrorState: React.FC<{ onRetry: () => void; message: string }> = ({ onRetr
   </div>
 );
 
-const SlaGauge: React.FC<{ percentage?: number; target?: number }> = ({ percentage = 99.98, target = 99.50 }) => {
-  const safePercentage = percentage ?? 99.98;
-  const safeTarget = target ?? 99.50;
+const SlaGauge: React.FC<{ percentage?: number; target?: number }> = ({ percentage, target }) => {
+  if (percentage === undefined || target === undefined) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "var(--color-surface-card)",
+          border: "var(--border-subtle)",
+          borderRadius: "var(--radius-lg)",
+          padding: "24px 16px",
+          fontFamily: "var(--font-mono)",
+          color: "var(--color-text-muted)",
+          fontSize: "0.75rem",
+          textAlign: "center",
+        }}
+      >
+        <span>Métricas contratuais de SLA em apuração para este ativo (N/D)</span>
+      </div>
+    );
+  }
+
+  const safePercentage = percentage;
+  const safeTarget = target;
   const circumference = 2 * Math.PI * 40;
   const offset = circumference - (safePercentage / 100) * circumference;
   const isHealthy = safePercentage >= safeTarget;
@@ -220,74 +243,6 @@ const CheckCircle = ({ size = 14 }: { size?: number }) => (
   </svg>
 );
 
-const IncidentCard: React.FC<{ incident: DeviceIncidentSummary }> = ({ incident }) => {
-  const statusConfig = {
-    EM_ANALISE: { color: "var(--color-degraded)", bg: "var(--color-degraded-bg)", border: "var(--color-degraded-border)" },
-    RESOLVIDO: { color: "var(--color-healthy)", bg: "var(--color-healthy-bg)", border: "var(--color-healthy-border)" },
-    EM_ANDAMENTO: { color: "var(--color-primary)", bg: "rgba(59, 130, 246, 0.1)", border: "rgba(59, 130, 246, 0.3)" },
-  }[incident.status];
-
-  const formatDuration = (minutes: number) => {
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  return (
-    <div
-      style={{
-        backgroundColor: "var(--color-surface-card)",
-        border: "var(--border-subtle)",
-        borderRadius: "var(--radius-lg)",
-        padding: "12px 16px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)" }}>
-          {incident.title}
-        </span>
-        <span
-          style={{
-            fontSize: "0.625rem",
-            color: statusConfig.color,
-            padding: "2px 6px",
-            borderRadius: "var(--radius-sm)",
-            backgroundColor: statusConfig.bg,
-            border: `1px solid ${statusConfig.border}`,
-            fontWeight: 600,
-          }}
-        >
-          {incident.status === "EM_ANALISE" ? "Em Análise" : incident.status === "RESOLVIDO" ? "Resolvido" : "Em Andamento"}
-        </span>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          fontSize: "0.625rem",
-          color: "var(--color-text-muted)",
-          paddingTop: "4px",
-          borderTop: "var(--border-subtle)",
-          marginTop: "4px",
-        }}
-      >
-        <span>Duração: {formatDuration(incident.durationMinutes)}</span>
-        <a
-          href={`/incidents/${incident.glpiTicketId}`}
-          style={{ color: "var(--color-primary)", textDecoration: "none" }}
-        >
-          GLPI #{incident.glpiTicketId} <span aria-hidden="true">↗</span>
-        </a>
-      </div>
-    </div>
-  );
-};
-
 const MttfCard: React.FC<{ label: string; value: string; subLabel: string; color?: string }> = ({
   label,
   value,
@@ -348,11 +303,24 @@ export const DeviceDetailPage: React.FC = () => {
     enabled: !!id,
   });
 
-  const { data: interfaces = mockOpticalInterfaces } = useQuery({
+  const { data: interfaces = [] } = useQuery({
     queryKey: ["deviceInterfaces", id],
     queryFn: () => deviceDetailApi.getDeviceInterfaces(id!),
     enabled: !!id,
-    initialData: mockOpticalInterfaces,
+  });
+
+  const { data: deviceSla } = useQuery({
+    queryKey: ["deviceSla", id],
+    queryFn: () => slaApi.getDeviceSla(id!),
+    enabled: !!id,
+    retry: false,
+  });
+
+  const { data: deviceIncidents = [] } = useQuery({
+    queryKey: ["deviceIncidents", id],
+    queryFn: () => incidentsApi.listIncidents({ device_id: id }),
+    enabled: !!id,
+    retry: false,
   });
 
   const probeMutation = useMutation({
@@ -451,20 +419,16 @@ export const DeviceDetailPage: React.FC = () => {
     );
   }
 
-  const mockSlaMetrics: DeviceSlaMetrics = {
-    availabilityPct: 99.98,
-    targetAvailabilityPct: 99.5,
-    marginPct: 0.48,
-    mttrSeconds: 494,
-    mttrTargetSeconds: 900,
-    mtbfHours: 418,
-    tier: "TIER-1",
-  };
-
-  const mockIncidents: DeviceIncidentSummary[] = [
-    { id: "inc-1", title: "Atenuação Óptica Porta 19", status: "EM_ANALISE", durationMinutes: 28, glpiTicketId: "8493", createdAt: "2024-01-15T15:14:00Z" },
-    { id: "inc-2", title: "Manutenção Firmware V200", status: "RESOLVIDO", durationMinutes: 852, glpiTicketId: "8115", createdAt: "2024-01-10T08:00:00Z" },
-  ];
+  const slaMetrics = deviceSla
+    ? {
+        availabilityPct: deviceSla.uptime_percentage,
+        targetAvailabilityPct: deviceSla.sla_target,
+        marginPct: deviceSla.uptime_percentage - deviceSla.sla_target,
+        mttrMinutes: deviceSla.mttr_minutes,
+        mtbfHours: deviceSla.mtbf_hours,
+        tier: deviceSla.sla_met ? "TIER-1 CONFORME" : "ALERTA SLA",
+      }
+    : null;
 
   return (
     <>
@@ -621,16 +585,30 @@ export const DeviceDetailPage: React.FC = () => {
                   Desempenho de SLA
                 </h3>
               </div>
-              <Badge variant="healthy" size="sm" dot={false}>
-                {mockSlaMetrics.tier}
+              <Badge variant={slaMetrics?.tier?.includes("CONFORME") ? "healthy" : "degraded"} size="sm" dot={false}>
+                {slaMetrics?.tier || "N/D"}
               </Badge>
             </div>
 
-            <SlaGauge percentage={mockSlaMetrics.availabilityPct} target={mockSlaMetrics.targetAvailabilityPct} />
+            <SlaGauge percentage={slaMetrics?.availabilityPct} target={slaMetrics?.targetAvailabilityPct} />
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }}>
-              <MttfCard label="MTTR" value={`${Math.floor(mockSlaMetrics.mttrSeconds / 60)}m ${mockSlaMetrics.mttrSeconds % 60}s`} subLabel={`Meta: < ${Math.floor(mockSlaMetrics.mttrTargetSeconds / 60)}m`} color="var(--color-text-primary)" />
-              <MttfCard label="MTBF" value={`${mockSlaMetrics.mtbfHours} horas`} subLabel="Alta Resiliência" color="var(--color-healthy)" />
+              <MttfCard
+                label="MTTR"
+                value={
+                  slaMetrics?.mttrMinutes !== undefined
+                    ? `${Math.floor(slaMetrics.mttrMinutes)}m ${Math.round((slaMetrics.mttrMinutes % 1) * 60)}s`
+                    : "N/D"
+                }
+                subLabel={slaMetrics?.mttrMinutes !== undefined ? "Tempo Médio de Resolução" : "Sem dados"}
+                color="var(--color-text-primary)"
+              />
+              <MttfCard
+                label="MTBF"
+                value={slaMetrics?.mtbfHours !== undefined ? `${slaMetrics.mtbfHours.toFixed(0)} horas` : "N/D"}
+                subLabel={slaMetrics?.mtbfHours !== undefined ? "Tempo Entre Falhas" : "Sem dados"}
+                color="var(--color-healthy)"
+              />
             </div>
           </section>
 
@@ -663,15 +641,75 @@ export const DeviceDetailPage: React.FC = () => {
                   Histórico GLPI / NOC
                 </h3>
               </div>
-              <Badge variant="degraded" size="sm" dot={false}>
-                {mockIncidents.length} Chamados
+              <Badge variant={deviceIncidents.length > 0 ? "degraded" : "healthy"} size="sm" dot={false}>
+                {deviceIncidents.length} {deviceIncidents.length === 1 ? "Chamado" : "Chamados"}
               </Badge>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {mockIncidents.map((incident) => (
-                <IncidentCard key={incident.id} incident={incident} />
-              ))}
+              {deviceIncidents.length === 0 ? (
+                <div style={{ padding: "16px", textAlign: "center", color: "var(--color-text-muted)", fontSize: "0.75rem", fontFamily: "var(--font-mono)" }}>
+                  Nenhum chamado de incidente registrado para este ativo.
+                </div>
+              ) : (
+                deviceIncidents.slice(0, 5).map((incident) => (
+                  <div
+                    key={incident.id}
+                    style={{
+                      backgroundColor: "var(--color-surface-card)",
+                      border: "var(--border-subtle)",
+                      borderRadius: "var(--radius-lg)",
+                      padding: "12px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)", fontFamily: "var(--font-mono)" }}>
+                        {incident.title}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "0.625rem",
+                          color: incident.status === "RESOLVED" ? "var(--color-healthy)" : "var(--color-degraded)",
+                          padding: "2px 6px",
+                          borderRadius: "var(--radius-sm)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {incident.status}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        fontSize: "0.625rem",
+                        color: "var(--color-text-muted)",
+                        paddingTop: "4px",
+                        borderTop: "var(--border-subtle)",
+                        marginTop: "4px",
+                      }}
+                    >
+                      <span>Duração: {incident.duration_str}</span>
+                      {incident.glpi_ticket_id ? (
+                        <a
+                          href={incident.glpi_url || `https://glpi.infrawatch.ao/front/ticket.form.php?id=${incident.glpi_ticket_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "var(--color-primary)", textDecoration: "none" }}
+                        >
+                          GLPI #{incident.glpi_ticket_id} <span aria-hidden="true">↗</span>
+                        </a>
+                      ) : (
+                        <span>Sem chamado GLPI</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             <Link
