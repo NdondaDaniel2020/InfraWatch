@@ -86,6 +86,24 @@ class EventBus(ABC):
         ...
 
     @abstractmethod
+    async def publish_dlq(
+        self,
+        original_topic: str,
+        original_msg_id: str,
+        payload: dict[str, Any],
+        reason: str,
+        error_details: str | None = None,
+        group: str | None = None,
+        delivery_count: int = 1,
+    ) -> str:
+        """Publica mensagem com falha permanente/poison no stream de Dead Letter ({original_topic}:dlq).
+
+        Enriquece o payload com metadados diagnósticos (failed_at, error_type, error_message, reason, delivery_count).
+        Se 'group' for informado, executa confirmação (ACK) imediata no stream de origem para desobstruir o pipeline.
+        """
+        ...
+
+    @abstractmethod
     async def send_to_dlq(
         self,
         topic: str,

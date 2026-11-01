@@ -216,6 +216,43 @@ class ResilientEventBus(EventBus):
 
         return await self.fallback_bus.should_process_retry(topic, group, message_id)
 
+    async def publish_dlq(
+        self,
+        original_topic: str,
+        original_msg_id: str,
+        payload: dict[str, Any],
+        reason: str,
+        error_details: str | None = None,
+        group: str | None = None,
+        delivery_count: int = 1,
+    ) -> str:
+        """Publica mensagem com falha permanente/poison no stream de Dead Letter no barramento ativo."""
+        if self._is_primary_healthy:
+            try:
+                return await self.primary_bus.publish_dlq(
+                    original_topic=original_topic,
+                    original_msg_id=original_msg_id,
+                    payload=payload,
+                    reason=reason,
+                    error_details=error_details,
+                    group=group,
+                    delivery_count=delivery_count,
+                )
+            except (RedisConnectionError, ConnectionRefusedError, OSError):
+                async with self._lock:
+                    self._is_primary_healthy = False
+                    await self._start_health_checker_if_needed()
+
+        return await self.fallback_bus.publish_dlq(
+            original_topic=original_topic,
+            original_msg_id=original_msg_id,
+            payload=payload,
+            reason=reason,
+            error_details=error_details,
+            group=group,
+            delivery_count=delivery_count,
+        )
+
     async def send_to_dlq(
         self,
         topic: str,
