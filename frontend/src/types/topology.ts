@@ -8,9 +8,18 @@ export type TopologyDeviceCategory =
   | "workload"
   | "server"
   | "database"
-  | "container";
+  | "container"
+  | "device"
+  | "service"
+  | "external"
+  | "cluster";
 
-export type TopologyHealthStatus = "UP" | "DEGRADED" | "CRITICAL_DOWN" | "MAINTENANCE";
+export type TopologyHealthStatus =
+  | "UP"
+  | "DEGRADED"
+  | "CRITICAL_DOWN"
+  | "MAINTENANCE"
+  | "UNKNOWN";
 
 export interface TopologyPort {
   id: number;
@@ -31,15 +40,16 @@ export interface TopologyDeviceData {
   category: TopologyDeviceCategory;
   status: TopologyHealthStatus;
   statusText?: string;
-  ip: string;
-  model: string;
+  deviceId?: string;
+  ip?: string;
+  model?: string;
   serialNumber?: string;
   firmware?: string;
   temperature?: string;
   uptime?: string;
-  latencyMs: number;
-  cpuUsage: number;
-  memUsage: number;
+  latencyMs?: number;
+  cpuUsage?: number;
+  memUsage?: number;
   traffic?: string;
   portsTitle?: string;
   portsActiveCount?: number;
@@ -48,6 +58,8 @@ export interface TopologyDeviceData {
   ingressGbps?: string;
   egressGbps?: string;
   lldpNeighbors?: TopologyLldpNeighbor[];
+  positionX?: number;
+  positionY?: number;
   selected?: boolean;
 }
 
@@ -55,9 +67,9 @@ export interface TopologyEdgeData {
   id: string;
   source: string;
   target: string;
-  latencyMs: number;
-  bandwidth: string;
-  status: "healthy" | "degraded" | "broken";
+  latencyMs?: number;
+  bandwidth?: string;
+  status?: "healthy" | "degraded" | "broken" | "unknown";
   statusText?: string;
   trafficLabel?: string;
 }
@@ -67,5 +79,5 @@ export interface TopologyGraphResponse {
   edges: TopologyEdgeData[];
   totalNodes: number;
   totalEdges: number;
-  cluster: string;
+  cluster: string | null;
 }

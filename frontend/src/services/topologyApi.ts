@@ -6,7 +6,6 @@ import {
   TopologyGraphResponse,
   TopologyHealthStatus,
 } from "../types/topology";
-import { mockTopologyNodes, mockTopologyEdges } from "../mocks/topologyMocks";
 
 export interface BackendTopologyNode {
   id: string;
@@ -48,95 +47,97 @@ export interface ProbeDispatchResponse {
   message: string;
 }
 
+export interface PingTraceDispatch {
+  probeId: string;
+  nodeId: string;
+  ipAddress: string;
+  sseChannel: string;
+  message: string;
+  rttMs?: number;
+  packetLoss?: number;
+}
+
+const mapHealthStatus = (status: string | null | undefined): TopologyHealthStatus => {
+  switch (status) {
+    case "UP":
+      return "UP";
+    case "DEGRADED":
+      return "DEGRADED";
+    case "DOWN":
+      return "CRITICAL_DOWN";
+    case "MAINTENANCE":
+    case "PAUSED":
+      return "MAINTENANCE";
+    default:
+      return "UNKNOWN";
+  }
+};
+
 export const topologyApi = {
   /**
    * Obtém a estrutura em grafo de nós e enlaces da topologia.
-   * Conecta ao backend FastAPI (/api/v1/topology/graph) com fallback gracioso para mock.
+   * Conecta ao backend FastAPI (/api/v1/topology/graph).
    */
   getTopologyGraph: async (): Promise<TopologyGraphResponse> => {
-    try {
-      const data = await apiClient.get<BackendTopologyGraphResponse>(
-        "/api/v1/topology/graph"
-      );
-      if (data && data.nodes && data.nodes.length > 0) {
-        const mappedNodes: TopologyDeviceData[] = data.nodes.map((n) => ({
-          id: n.id,
-          label: n.label,
-          category: (n.node_type || "switch") as TopologyDeviceCategory,
-          status: (n.device_status || "UP") as TopologyHealthStatus,
-          ip: n.ip_address || "10.0.0.1",
-          model: n.label,
-          latencyMs: 1.5,
-          cpuUsage: 25,
-          memUsage: 35,
-        }));
+    const data = await apiClient.get<BackendTopologyGraphResponse>("/api/v1/topology/graph");
 
-        const mappedEdges: TopologyEdgeData[] = data.edges.map((e) => ({
-          id: e.id,
-          source: e.source_node_id,
-          target: e.target_node_id,
-          latencyMs: 1.2,
-          bandwidth: e.bandwidth_gbps ? `${e.bandwidth_gbps} Gbps` : "10 Gbps",
-          status: "healthy",
-        }));
+    const mappedNodes: TopologyDeviceData[] = data.nodes.map((n) => ({
+      id: n.id,
+      label: n.label,
+      category: (n.node_type || "device") as TopologyDeviceCategory,
+      status: mapHealthStatus(n.device_status),
+      statusText: n.device_status ?? undefined,
+      deviceId: n.device_id ?? undefined,
+      ip: n.ip_address ?? undefined,
+      positionX: n.position_x ?? undefined,
+      positionY: n.position_y ?? undefined,
+    }));
 
-        return {
-          nodes: mappedNodes,
-          edges: mappedEdges,
-          totalNodes: data.total_nodes || mappedNodes.length,
-          totalEdges: data.total_edges || mappedEdges.length,
-          cluster: data.cluster || "CLUSTER LUANDA-01",
-        };
-      }
-    } catch {
-      // Fallback para dados canônicos em caso de backend em desenvolvimento ou desconectado
-    }
+    const mappedEdges: TopologyEdgeData[] = data.edges.map((e) => {
+      const bandwidth =
+        e.bandwidth_gbps !== null && e.bandwidth_gbps !== undefined
+          ? `${e.bandwidth_gbps} Gbps`
+          : undefined;
+
+      return {
+        id: e.id,
+        source: e.source_node_id,
+        target: e.target_node_id,
+        bandwidth,
+        status: "unknown",
+        statusText: [e.link_type, bandwidth].filter(Boolean).join(" • ") || undefined,
+      };
+    });
 
     return {
-      nodes: mockTopologyNodes,
-      edges: mockTopologyEdges,
-      totalNodes: mockTopologyNodes.length,
-      totalEdges: mockTopologyEdges.length,
-      cluster: "CLUSTER LUANDA-01",
+      nodes: mappedNodes,
+      edges: mappedEdges,
+      totalNodes: data.total_nodes ?? mappedNodes.length,
+      totalEdges: data.total_edges ?? mappedEdges.length,
+      cluster: data.cluster ?? null,
     };
   },
 
   /**
-   * Dispara teste tático de diagnóstico (Ping / Traceroute) em nó específico.
-   * Dispara comando real no backend (/api/v1/topology/nodes/{id}/probe) via ProbeWorker.
+   * Despacha teste tático de diagnóstico (Ping / Traceroute) em nó específico.
+   * O resultado é entregue de forma assíncrona pelo ProbeWorker via SSE.
    */
-  runPingTrace: async (
-    nodeId: string
-  ): Promise<{ rttMs: number; hops: string[]; packetLoss: number; probeId?: string }> => {
-    try {
-      const res = await apiClient.post<ProbeDispatchResponse>(
-        `/api/v1/topology/nodes/${nodeId}/probe`,
-        {}
-      );
-      if (res && res.probe_id) {
-        return {
-          probeId: res.probe_id,
-          rttMs: 1.8,
-          hops: ["10.0.0.1 (RT-EDGE-01)", `${res.ip_address || nodeId}`],
-          packetLoss: 0,
-        };
-      }
-    } catch {
-      // Fallback
+  runPingTrace: async (nodeId: string): Promise<PingTraceDispatch> => {
+    const res = await apiClient.post<ProbeDispatchResponse>(
+      `/api/v1/topology/nodes/${nodeId}/probe`,
+      {}
+    );
+
+    if (!res.probe_id) {
+      throw new Error("O coletor não confirmou o despacho da sonda.");
     }
 
-    const isBenguela = nodeId === "RT-BRANCH-BENGUELA";
-    if (isBenguela) {
-      return {
-        rttMs: 0,
-        hops: ["10.0.0.1 (RT-EDGE-01)", "* * * (Fibra Rompida)"],
-        packetLoss: 100,
-      };
-    }
     return {
-      rttMs: 2.1,
-      hops: ["10.0.0.1 (RT-EDGE-01)", "10.0.1.1 (SW-CORE-LUANDA-01)"],
-      packetLoss: 0,
+      probeId: res.probe_id,
+      nodeId: res.node_id,
+      ipAddress: res.ip_address,
+      sseChannel: res.sse_channel,
+      message: res.message,
     };
   },
 
