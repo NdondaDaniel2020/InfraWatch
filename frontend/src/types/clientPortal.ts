@@ -20,11 +20,11 @@ export interface ClientServiceItem {
   category: string;
   status: "UP" | "DEG" | "DOWN";
   statusLabel: string;
-  responseTimeMs: number;
-  throughputFormatted: string;
-  successRatePct: number;
+  responseTimeMs?: number;
+  throughputFormatted?: string;
+  successRatePct?: number;
   tags: string[];
-  stability30DaysPct: number;
+  stability30DaysPct?: number;
   advisoryAlert?: string;
   activeEndpointsCount?: string;
 }
@@ -35,9 +35,9 @@ export interface SanitizedEndpoint {
   serviceType: string;
   protocol: string;
   status: "UP" | "DEG" | "DOWN";
-  sla30dPct: number;
-  latencyAvgMs: number;
-  datacenterRegion: string;
+  sla30dPct?: number;
+  latencyAvgMs?: number;
+  datacenterRegion?: string;
 }
 
 export interface ClientNotification {

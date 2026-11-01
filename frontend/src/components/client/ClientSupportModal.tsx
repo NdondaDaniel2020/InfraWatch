@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Headphones,
   LifeBuoy,
-  MessageSquare,
   PhoneCall,
   Send,
   ShieldAlert,
@@ -73,6 +72,13 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
       return;
     }
 
+    if (!organizationId) {
+      setErrorMessage(
+        "Organização não identificada. Não é possível abrir um chamado no GLPI."
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
 
@@ -84,26 +90,16 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
     };
 
     try {
-      const ticket = await clientPortalApi.openSupportTicket(
-        organizationId || "00000000-0000-0000-0000-000000000000",
-        input
-      );
+      const ticket = await clientPortalApi.openSupportTicket(organizationId, input);
       setCreatedTicket(ticket);
       onTicketCreated?.(ticket);
-    } catch {
-      // Fallback gracioso com ticket gerado
-      const fallbackTicket: SupportTicketResponse = {
-        ticketId: "tkt-" + Math.random().toString(36).slice(2, 9),
-        protocol: `INFRA-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-TKT${Math.floor(Math.random() * 9000 + 1000)}`,
-        title: input.title,
-        severity: input.severity,
-        status: "OPEN",
-        createdAt: new Date().toISOString(),
-        glpiTicketId: 8501,
-        message: "Chamado registrado no GLPI e despachado para a equipe de plantão do NOC.",
-      };
-      setCreatedTicket(fallbackTicket);
-      onTicketCreated?.(fallbackTicket);
+    } catch (err) {
+      setCreatedTicket(null);
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : "Falha ao registrar o chamado no GLPI. Tente novamente."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -219,11 +215,13 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Ticket GLPI:</span>
-                    <span className="text-sky-400 font-bold">#{createdTicket.glpiTicketId || "8501"}</span>
+                    <span className="text-sky-400 font-bold">
+                      {createdTicket.glpiTicketId ? `#${createdTicket.glpiTicketId}` : "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Status Inicial:</span>
-                    <span className="text-emerald-400 font-bold">ABERTO • NA FILA DO NOC</span>
+                    <span className="text-emerald-400 font-bold">{createdTicket.status}</span>
                   </div>
                 </div>
 
@@ -368,38 +366,9 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* WhatsApp NOC */}
-              <a
-                href="https://wa.me/244923000000?text=Emergência%20InfraWatch%20NOC%20-%20Cliente%20Corporativo"
-                target="_blank"
-                rel="noopener noreferrer"
-                data-testid="whatsapp-support-link"
-                className="p-4 rounded-2xl bg-[#080c14] hover:bg-[#0c1220] border border-white/10 hover:border-emerald-500/40 flex items-center gap-3 transition-colors no-underline text-white group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
-                  <MessageSquare size={20} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white m-0">WhatsApp Oficial NOC</h4>
-                  <span className="text-[11px] font-mono text-emerald-400">
-                    +244 923 000 000 • Atendimento 24h
-                  </span>
-                </div>
-              </a>
-
-              {/* Linha Telefônica */}
-              <div className="p-4 rounded-2xl bg-[#080c14] border border-white/10 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-                  <PhoneCall size={20} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white m-0">Central Telefônica NOC</h4>
-                  <span className="text-[11px] font-mono text-sky-400">
-                    +244 222 000 111 (Ramal 800)
-                  </span>
-                </div>
-              </div>
+            <div className="p-4 rounded-2xl bg-[#080c14] border border-white/10 text-xs font-mono text-slate-300 leading-relaxed">
+              Os contatos diretos de emergência são definidos no contrato da sua organização.
+              Consulte o gestor de conta ou abra um chamado P1 para acionar o plantão do NOC.
             </div>
 
             {/* Tabela de Prazos Contratuais de Atendimento */}

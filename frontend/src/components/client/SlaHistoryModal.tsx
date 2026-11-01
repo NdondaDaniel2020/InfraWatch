@@ -30,12 +30,14 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
   const [selectedMonths, setSelectedMonths] = useState<number>(6);
   const [historyItems, setHistoryItems] = useState<SlaMonthlyHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
 
     let isMounted = true;
     setIsLoading(true);
+    setErrorMessage(null);
 
     clientPortalApi
       .getSlaHistory(organizationId, selectedMonths)
@@ -45,8 +47,16 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
           setIsLoading(false);
         }
       })
-      .catch(() => {
-        if (isMounted) setIsLoading(false);
+      .catch((err) => {
+        if (isMounted) {
+          setHistoryItems([]);
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : "Não foi possível carregar o histórico de SLA."
+          );
+          setIsLoading(false);
+        }
       });
 
     return () => {
@@ -68,18 +78,24 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
   if (!isOpen) return null;
 
   // Cálculos consolidados do período selecionado
-  const count = historyItems.length || 1;
-  const avgUptime = (
-    historyItems.reduce((acc, it) => acc + it.uptimePct, 0) / count
-  ).toFixed(2);
+  const hasHistory = historyItems.length > 0;
+  const count = historyItems.length;
+  const avgUptime = hasHistory
+    ? (historyItems.reduce((acc, it) => acc + it.uptimePct, 0) / count).toFixed(2)
+    : null;
   const totalIncidents = historyItems.reduce(
     (acc, it) => acc + it.incidentsCount,
     0
   );
-  const avgMttr = (
-    historyItems.reduce((acc, it) => acc + it.mttrMinutes, 0) / count
-  ).toFixed(1);
-  const isFullyCompliant = historyItems.every((it) => it.status === "CONFORME");
+  const avgMttr = hasHistory
+    ? (historyItems.reduce((acc, it) => acc + it.mttrMinutes, 0) / count).toFixed(1)
+    : null;
+  const compliantCycles = historyItems.filter((it) => it.status === "CONFORME").length;
+  const compliancePct = hasHistory
+    ? ((compliantCycles / count) * 100).toFixed(1)
+    : null;
+  const isFullyCompliant = hasHistory && compliantCycles === count;
+  const targetPct = historyItems[0]?.targetPct;
 
   return (
     <div
@@ -164,19 +180,19 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
 
         {/* Cards Resumo do Período */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 flex-shrink-0">
-          <div className="p-3 sm:p-3.5 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
             <span className="text-[10px] font-mono text-slate-400 block mb-0.5">
               Disponibilidade Média
             </span>
             <span className="text-lg sm:text-xl font-bold font-mono text-emerald-400">
-              {avgUptime}%
+              {avgUptime !== null ? `${avgUptime}%` : "—"}
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">
-              Meta: 99.50%
+              {targetPct !== undefined ? `Meta: ${targetPct.toFixed(2)}%` : "Meta indisponível"}
             </span>
           </div>
 
-          <div className="p-3 sm:p-3.5 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
             <span className="text-[10px] font-mono text-slate-400 block mb-0.5">
               Total de Ocorrências
             </span>
@@ -188,19 +204,19 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
             </span>
           </div>
 
-          <div className="p-3 sm:p-3.5 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
             <span className="text-[10px] font-mono text-slate-400 block mb-0.5">
               MTTR Médio
             </span>
             <span className="text-lg sm:text-xl font-bold font-mono text-sky-400">
-              {avgMttr}m
+              {avgMttr !== null ? `${avgMttr}m` : "—"}
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">
               Tempo Médio de Resolução
             </span>
           </div>
 
-          <div className="p-3 sm:p-3.5 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
             <span className="text-[10px] font-mono text-slate-400 block mb-0.5">
               Conformidade Geral
             </span>
@@ -210,28 +226,44 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
               }`}
             >
               <ShieldCheck size={18} />
-              <span>{isFullyCompliant ? "100%" : "98.5%"}</span>
+              <span>{compliancePct !== null ? `${compliancePct}%` : "—"}</span>
             </span>
             <span className="text-[10px] text-slate-500 block mt-0.5">
-              Sem multas contratuais
+              {hasHistory
+                ? `${compliantCycles}/${count} ciclos conformes`
+                : "Sem ciclos apurados"}
             </span>
           </div>
         </div>
 
         {/* Gráfico de Barras de Tendência Mensal */}
-        <div className="p-4 rounded-xl bg-[#080c14] border border-white/5 flex flex-col gap-2 flex-shrink-0">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-[#080c14] border border-white/5 flex flex-col gap-2 flex-shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-bold text-slate-300 flex items-center gap-1.5">
               <TrendingUp size={13} className="text-emerald-400" />
               <span>Tendência Mensal de Disponibilidade Líquida vs Meta</span>
             </span>
             <span className="text-[10px] font-mono text-slate-500">
-              Linha de meta: 99.50%
+              {targetPct !== undefined
+                ? `Linha de meta: ${targetPct.toFixed(2)}%`
+                : "Linha de meta indisponível"}
             </span>
           </div>
 
-          <div className="flex items-end justify-between gap-2.5 sm:gap-4 h-24 sm:h-28 pt-2 px-2">
-            {historyItems.map((it) => {
+          <div className="flex items-end justify-between gap-2.5 sm:gap-4 h-20 sm:h-24 pt-2 px-2">
+            {isLoading ? (
+              <span className="w-full text-center text-xs font-mono text-slate-500">
+                Carregando série histórica...
+              </span>
+            ) : errorMessage ? (
+              <span className="w-full text-center text-xs font-mono text-rose-400">
+                {errorMessage}
+              </span>
+            ) : !hasHistory ? (
+              <span className="w-full text-center text-xs font-mono text-slate-500">
+                Nenhum ciclo de SLA disponível para o período.
+              </span>
+            ) : historyItems.map((it) => {
               const heightPct = Math.max(
                 15,
                 Math.min(100, (it.uptimePct - 99.0) * 100)
@@ -265,8 +297,8 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
           </div>
         </div>
 
-        {/* Tabela Cronológica de SLA - Ciclos Mensais (Ampla, Alta e com Scroll Suave) */}
-        <div className="flex flex-col gap-2 flex-1 min-h-[220px]">
+        {/* Tabela Cronológica de SLA - Ciclos Mensais (Ampla, Alta e Blindada contra compressão) */}
+        <div className="flex flex-col gap-2 flex-shrink-0 min-h-[250px]">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-mono font-bold text-slate-300">
               Detalhamento dos Ciclos Mensais
@@ -276,7 +308,7 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
             </span>
           </div>
 
-          <div className="w-full overflow-x-auto overflow-y-auto max-h-[300px] rounded-xl border border-white/10 bg-[#080c14] custom-scrollbar shadow-inner">
+          <div className="w-full overflow-x-auto overflow-y-auto h-[230px] sm:h-[260px] rounded-xl border border-white/10 bg-[#080c14] custom-scrollbar shadow-inner">
             <table className="w-full text-left text-xs font-mono border-collapse min-w-[680px]">
               <thead className="sticky top-0 bg-[#080c14] z-10 shadow-sm border-b border-white/10">
                 <tr className="text-slate-400 text-[11px]">
@@ -294,6 +326,18 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-slate-500">
                       Carregando série histórica de SLA...
+                    </td>
+                  </tr>
+                ) : errorMessage ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-rose-400">
+                      {errorMessage}
+                    </td>
+                  </tr>
+                ) : !hasHistory ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-slate-500">
+                      Nenhum ciclo de SLA disponível para o período selecionado.
                     </td>
                   </tr>
                 ) : historyItems.map((it) => {

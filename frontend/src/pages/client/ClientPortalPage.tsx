@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
   CloudOff,
@@ -6,12 +7,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-import {
-  MOCK_CLIENT_SERVICES,
-  MOCK_CLIENT_SLA_SUMMARY,
-  type ClientServiceItem,
-  type ClientSlaSummary,
-} from "../../mocks/clientPortalMocks";
 import { SlaKpiCards } from "../../components/client/SlaKpiCards";
 import { SanitizedServicesGrid } from "../../components/client/SanitizedServicesGrid";
 import { SlaHistoryModal } from "../../components/client/SlaHistoryModal";
@@ -19,112 +14,100 @@ import { ClientSupportModal } from "../../components/client/ClientSupportModal";
 import { pdfExportService } from "../../services/pdfExportService";
 import { clientPortalApi } from "../../services/clientPortalApi";
 import { useAuth } from "../../context/AuthContext";
+import type { ClientServiceItem } from "../../types/clientPortal";
 
-export type PortalViewState = "nominal" | "skeleton" | "empty" | "error";
+export type PortalViewState = "loading" | "nominal" | "empty" | "error";
 
-export interface ClientPortalPageProps {
-  initialViewState?: PortalViewState;
-}
-
-export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
-  initialViewState = "nominal",
-}) => {
+export const ClientPortalPage: React.FC = () => {
   const { user } = useAuth();
-  const [viewState, setViewState] = useState<PortalViewState>(initialViewState);
-  const [slaSummary, setSlaSummary] = useState<ClientSlaSummary>(() => ({
-    ...MOCK_CLIENT_SLA_SUMMARY,
-    tenantName: user?.organization_name || MOCK_CLIENT_SLA_SUMMARY.tenantName,
-  }));
-  const [services, setServices] = useState<ClientServiceItem[]>(MOCK_CLIENT_SERVICES);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
-  React.useEffect(() => {
-    let isMounted = true;
-    const fetchPortalData = async () => {
-      try {
-        const [remoteSummary, remoteServices] = await Promise.all([
-          clientPortalApi.getSlaSummary(user?.organization_id),
-          clientPortalApi.getClientServices(user?.organization_id),
-        ]);
-        if (isMounted) {
-          if (remoteSummary) {
-            setSlaSummary({
-              ...remoteSummary,
-              tenantName: user?.organization_name || remoteSummary.tenantName,
-            });
-          }
-          if (remoteServices && remoteServices.length > 0) {
-            setServices(remoteServices);
-          }
-        }
-      } catch {
-        // Mantém fallback resiliente
-      }
-    };
-    fetchPortalData();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.organization_id, user?.organization_name]);
+  const summaryQuery = useQuery({
+    queryKey: ["clientPortal", "slaSummary", user?.organization_id],
+    queryFn: () => clientPortalApi.getSlaSummary(user?.organization_id),
+    enabled: Boolean(user),
+    staleTime: 30_000,
+  });
 
-  React.useEffect(() => {
-    let isMounted = true;
-    const fetchPortalData = async () => {
-      try {
-        const [remoteSummary, remoteServices] = await Promise.all([
-          clientPortalApi.getSlaSummary(user?.organization_id),
-          clientPortalApi.getClientServices(user?.organization_id),
-        ]);
-        if (isMounted) {
-          if (remoteSummary) {
-            setSlaSummary({
-              ...remoteSummary,
-              tenantName: user?.organization_name || remoteSummary.tenantName,
-            });
-          }
-          if (remoteServices && remoteServices.length > 0) {
-            setServices(remoteServices);
-          }
-        }
-      } catch {
-        // Mantém fallback resiliente
-      }
-    };
-    fetchPortalData();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.organization_id, user?.organization_name]);
+  const servicesQuery = useQuery({
+    queryKey: ["clientPortal", "services", user?.organization_id],
+    queryFn: () => clientPortalApi.getClientServices(user?.organization_id),
+    enabled: Boolean(user),
+    staleTime: 30_000,
+  });
 
-  const displayTenantName = user?.organization_name || slaSummary.tenantName;
+  const slaSummary = summaryQuery.data;
+  const services: ClientServiceItem[] = servicesQuery.data ?? [];
+
+  const viewState: PortalViewState =
+    summaryQuery.isPending || servicesQuery.isPending
+      ? "loading"
+      : summaryQuery.isError || servicesQuery.isError
+      ? "error"
+      : !slaSummary || services.length === 0
+      ? "empty"
+      : "nominal";
+
+  const displayTenantName =
+    user?.organization_name || slaSummary?.tenantName || "Organização";
   const tenantInitials = displayTenantName
     .split(" ")
+    .filter(Boolean)
     .map((word) => word[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
 
-  // Exibe toast temporário
+  const downCount = services.filter((svc) => svc.status === "DOWN").length;
+  const degradedCount = services.filter((svc) => svc.status === "DEG").length;
+  const allServicesNominal =
+    services.length > 0 && downCount === 0 && degradedCount === 0;
+  const telemetryLabel = allServicesNominal
+    ? "100% Nominal"
+    : downCount > 0
+    ? `${downCount} serviço(s) em falha`
+    : `${degradedCount} serviço(s) degradado(s)`;
+  const telemetryColor = allServicesNominal
+    ? "text-emerald-400"
+    : downCount > 0
+    ? "text-rose-400"
+    : "text-amber-400";
+
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
 
-  // Download do Relatório de SLA em PDF integrando dados reais do backend
+  const refetchAll = useCallback(async () => {
+    await Promise.all([summaryQuery.refetch(), servicesQuery.refetch()]);
+  }, [summaryQuery, servicesQuery]);
+
   const handleDownloadPdf = async () => {
+    if (!slaSummary || services.length === 0) {
+      showToast("Dados insuficientes para gerar o relatório oficial de SLA.");
+      return;
+    }
+
     setIsDownloadingPdf(true);
     showToast("Consultando dados oficiais de telemetria e compilando laudo de SLA...");
     try {
       const reportData = await clientPortalApi.getSlaReport(user?.organization_id);
-      const success = await pdfExportService.exportSlaPdf(slaSummary, services, reportData);
-      if (success) {
-        showToast("Download do relatório oficial de SLA concluído com assinatura digital.");
+      const success = await pdfExportService.exportSlaPdf(
+        slaSummary,
+        services,
+        reportData
+      );
+      if (!success) {
+        throw new Error("Falha ao gerar o documento PDF.");
       }
+      showToast("Download do relatório oficial de SLA concluído com assinatura digital.");
     } catch {
-      showToast("Download concluído via contingência de dados locais.");
+      showToast(
+        "Não foi possível obter o relatório oficial de SLA. Nenhum documento foi gerado."
+      );
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -136,7 +119,6 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
       role="main"
       className="flex flex-col gap-6 w-full p-6 min-h-full relative text-slate-100"
     >
-      {/* Toast Feedback */}
       {toastMessage && (
         <aside
           data-testid="toast-notification"
@@ -156,10 +138,9 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
         aria-label="Barra de Ações do Portal do Cliente"
         className="w-full p-4 bg-[#0d1424]/80 border border-white/10 rounded-2xl flex items-center justify-between flex-wrap gap-4 backdrop-blur-md relative z-30"
       >
-        {/* Identificação do Cliente & Escopo */}
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center font-mono font-bold text-sm text-emerald-400 shadow-sm">
-            {tenantInitials}
+            {tenantInitials || "—"}
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -182,16 +163,15 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
           </div>
         </div>
 
-        {/* Central de Notificações, Simulador de Estados & Ações */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Status Geral em Tempo Real */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#080c14] border border-white/5 text-xs font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-300">Telemetria Ativa</span>
-            <span className="text-white font-bold">100% Nominal</span>
-          </div>
+          {viewState === "nominal" && (
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#080c14] border border-white/5 text-xs font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-slate-300">Telemetria Ativa</span>
+              <span className={`font-bold ${telemetryColor}`}>{telemetryLabel}</span>
+            </div>
+          )}
 
-          {/* Botão Suporte Prioritário 24/7 */}
           <button
             type="button"
             data-testid="priority-support-btn"
@@ -208,8 +188,7 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
       {/* 2. CONTEÚDO PRINCIPAL COM OVERLAYS DE ESTADO                           */}
       {/* ===================================================================== */}
       <div className="relative flex flex-col gap-6 min-h-[500px]">
-        {/* ESTADO 1: SKELETON LOADING OVERLAY */}
-        {viewState === "skeleton" && (
+        {viewState === "loading" && (
           <div
             data-testid="state-skeleton-overlay"
             className="absolute inset-0 bg-[#070a12]/95 backdrop-blur-sm z-40 p-6 flex flex-col gap-6 rounded-3xl animate-pulse"
@@ -224,7 +203,6 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
           </div>
         )}
 
-        {/* ESTADO 2: EMPTY STATE OVERLAY */}
         {viewState === "empty" && (
           <div
             data-testid="state-empty-overlay"
@@ -241,15 +219,14 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
             </p>
             <button
               type="button"
-              onClick={() => setViewState("nominal")}
+              onClick={refetchAll}
               className="px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer shadow-md"
             >
-              Voltar ao Modo Nominal
+              Atualizar Dados
             </button>
           </div>
         )}
 
-        {/* ESTADO 3: ERROR BOUNDARY OVERLAY */}
         {viewState === "error" && (
           <div
             data-testid="state-error-overlay"
@@ -262,35 +239,32 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
               Falha na Sincronização de Telemetria
             </h2>
             <p className="text-sm text-slate-400 text-center max-w-md mb-5">
-              Não foi possível estabelecer contato com a infraestrutura de telemetria do cluster.
+              Não foi possível obter os dados oficiais do backend. Nenhum dado de demonstração
+              está a ser apresentado.
             </p>
             <button
               type="button"
-              onClick={() => {
-                setViewState("nominal");
-                showToast("Conexão com os serviços de telemetria restabelecida.");
-              }}
+              onClick={refetchAll}
               className="px-5 py-2.5 rounded-full bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs cursor-pointer shadow-md flex items-center gap-2"
             >
               <RefreshCw size={14} />
-              <span>Reconectar Telemetria</span>
+              <span>Tentar Novamente</span>
             </button>
           </div>
         )}
 
-        {/* BANNER EXECUTIVO DE SLA & KPIs */}
-        <SlaKpiCards
-          summary={slaSummary}
-          onDownloadPdf={handleDownloadPdf}
-          onViewHistory={() => setIsHistoryModalOpen(true)}
-          isDownloadingPdf={isDownloadingPdf}
-        />
+        {slaSummary && (
+          <SlaKpiCards
+            summary={slaSummary}
+            onDownloadPdf={handleDownloadPdf}
+            onViewHistory={() => setIsHistoryModalOpen(true)}
+            isDownloadingPdf={isDownloadingPdf}
+          />
+        )}
 
-        {/* GRID DE SERVIÇOS CRÍTICOS CONTRATADOS (Com busca, filtros e paginação) */}
         <SanitizedServicesGrid services={services} />
       </div>
 
-      {/* Modal Interativo de Histórico de SLA */}
       <SlaHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
@@ -299,7 +273,6 @@ export const ClientPortalPage: React.FC<ClientPortalPageProps> = ({
         onExportPdf={handleDownloadPdf}
       />
 
-      {/* Modal de Suporte Técnico 24/7 e Abertura de Chamados */}
       <ClientSupportModal
         isOpen={isSupportModalOpen}
         onClose={() => setIsSupportModalOpen(false)}
