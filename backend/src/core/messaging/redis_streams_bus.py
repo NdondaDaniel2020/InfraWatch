@@ -482,3 +482,53 @@ class RedisStreamsEventBus(EventBus):
             await self._redis.aclose()
             self._redis = None
         logger.info("RedisStreamsEventBus encerrado.")
+
+    async def collect_stream_metrics(self, topic: str, group: str) -> dict[str, Any]:
+        """Inspeciona o stream e o consumer group via XINFO para telemetria de PEL e lag.
+
+        Atualiza o gauge MESSAGING_PEL_PENDING e retorna estatísticas operacionais dos workers.
+        """
+        from src.core.observability import MESSAGING_PEL_PENDING
+
+        client = await self._get_client()
+        result: dict[str, Any] = {
+            "topic": topic,
+            "group": group,
+            "pending_count": 0,
+            "consumer_count": 0,
+            "lag": 0,
+            "last_delivered_id": None,
+            "consumers": [],
+        }
+
+        try:
+            groups_info = await client.xinfo_groups(topic)
+            group_data = next((g for g in groups_info if g.get("name") == group), None)
+            if group_data:
+                pending_count = int(group_data.get("pending", 0))
+                result["pending_count"] = pending_count
+                result["consumer_count"] = int(group_data.get("consumers", 0))
+                result["lag"] = group_data.get("lag", 0)
+                result["last_delivered_id"] = str(group_data.get("last-delivered-id", ""))
+                MESSAGING_PEL_PENDING.labels(stream=topic, group=group).set(pending_count)
+
+            consumers_info = await client.xinfo_consumers(topic, group)
+            consumers_list = []
+            for c in consumers_info:
+                consumers_list.append(
+                    {
+                        "name": str(c.get("name", "")),
+                        "pending": int(c.get("pending", 0)),
+                        "idle_ms": int(c.get("idle", 0)),
+                    }
+                )
+            result["consumers"] = consumers_list
+        except (RedisError, ResponseError) as exc:
+            logger.debug(
+                "Não foi possível obter métricas via XINFO para stream '%s' grupo '%s': %s",
+                topic,
+                group,
+                exc,
+            )
+
+        return result

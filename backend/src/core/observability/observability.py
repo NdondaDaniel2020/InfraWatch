@@ -48,6 +48,31 @@ DB_QUERY_LATENCY = Histogram(
     ["query_type"],
 )
 
+# Métricas canônicas de mensageria assíncrona (Redis Streams & Outbox)
+MESSAGING_CONSUMED_TOTAL = Counter(
+    "messaging_messages_consumed_total",
+    "Total acumulado de mensagens consumidas nos streams de mensageria.",
+    ["stream", "group", "status"],
+)
+
+MESSAGING_PROCESSING_DURATION = Histogram(
+    "messaging_message_processing_duration_seconds",
+    "Latência de processamento de mensagens assíncronas em segundos.",
+    ["stream", "group"],
+)
+
+MESSAGING_DLQ_MESSAGES_TOTAL = Counter(
+    "messaging_dlq_messages_total",
+    "Total acumulado de mensagens desviadas para Dead Letter Queues (DLQ).",
+    ["stream", "group", "reason"],
+)
+
+MESSAGING_PEL_PENDING = Gauge(
+    "messaging_pel_pending_count",
+    "Contagem instantânea de mensagens pendentes de confirmação (PEL) por stream e grupo.",
+    ["stream", "group"],
+)
+
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware para coleta de métricas de tráfego, status HTTP e duração para Prometheus."""
@@ -72,25 +97,84 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             REQUEST_LATENCY.labels(method=method, endpoint=path).observe(elapsed)
 
 
-async def get_health_status() -> dict[str, Any]:
-    """Executa checagem de integridade profunda, incluindo conectividade com o PostgreSQL."""
+async def get_health_status(
+    *,
+    session_factory: Any = None,
+    redis_client: Any = None,
+) -> dict[str, Any]:
+    """Executa checagem de integridade profunda, incluindo conectividade e latência com PostgreSQL e Redis."""
     health: dict[str, Any] = {
         "status": "healthy",
         "service": "infrawatch-api",
         "checks": {},
     }
 
+    db_ok = False
     try:
-        session_factory = get_session_factory()
-        async with session_factory() as session:
+        sf = session_factory or get_session_factory()
+        t0 = time.perf_counter()
+        async with sf() as session:
             await session.execute(text("SELECT 1"))
-        health["checks"]["database"] = {"status": "ok"}
+        db_latency_ms = round((time.perf_counter() - t0) * 1000, 2)
+        health["checks"]["database"] = {
+            "status": "ok",
+            "latency_ms": db_latency_ms,
+        }
+        db_ok = True
     except Exception as exc:  # noqa: BLE001
         health["checks"]["database"] = {
             "status": "fail",
             "error": str(exc),
         }
+
+    redis_ok = False
+    try:
+        if redis_client is not None:
+            t0 = time.perf_counter()
+            await redis_client.ping()
+            redis_latency_ms = round((time.perf_counter() - t0) * 1000, 2)
+            health["checks"]["redis"] = {
+                "status": "ok",
+                "latency_ms": redis_latency_ms,
+            }
+            redis_ok = True
+        else:
+            from src.core.config import get_settings
+
+            redis_url = get_settings().REDIS_URL
+            if redis_url:
+                import redis.asyncio as aioredis
+
+                client = aioredis.from_url(redis_url, decode_responses=True)
+                try:
+                    t0 = time.perf_counter()
+                    await client.ping()
+                    redis_latency_ms = round((time.perf_counter() - t0) * 1000, 2)
+                    health["checks"]["redis"] = {
+                        "status": "ok",
+                        "latency_ms": redis_latency_ms,
+                    }
+                    redis_ok = True
+                finally:
+                    await client.aclose()
+            else:
+                health["checks"]["redis"] = {
+                    "status": "skipped",
+                    "message": "REDIS_URL not configured",
+                }
+                redis_ok = True
+    except Exception as exc:  # noqa: BLE001
+        health["checks"]["redis"] = {
+            "status": "fail",
+            "error": str(exc),
+        }
+
+    if db_ok and redis_ok:
+        health["status"] = "healthy"
+    elif db_ok or redis_ok:
         health["status"] = "degraded"
+    else:
+        health["status"] = "unhealthy"
 
     return health
 
