@@ -10,6 +10,7 @@ Valida:
 import asyncio
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -158,6 +159,13 @@ async def test_relay_worker_handles_failure_and_dead_letter(
     # Executa 3 vezes o batch: deve acumular retries e no 3º virar FAILED
     for _ in range(3):
         await worker.process_batch()
+        # Simula expiração do backoff para permitir retentativa imediata no teste
+        async with test_session_factory() as session:
+            stmt = select(OutboxEventModel).where(OutboxEventModel.id == event.event_id)
+            entry = (await session.execute(stmt)).scalar_one()
+            if entry.next_retry_at is not None:
+                entry.next_retry_at = datetime.now(UTC) - timedelta(seconds=1)
+                await session.commit()
 
     async with test_session_factory() as session:
         result = await session.execute(

@@ -4,11 +4,12 @@ Implementa operações atômicas de persistência, leitura com concorrência seg
 (FOR UPDATE SKIP LOCKED) e atualização de status de entrega.
 """
 
+import random
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database.models.outbox import OutboxEventModel, OutboxStatus
@@ -47,10 +48,18 @@ class OutboxRepository:
 
         Em PostgreSQL, utiliza 'FOR UPDATE SKIP LOCKED' para evitar contenção e duplo processamento
         entre múltiplos workers concorrentes. Em SQLite, executa query ordenada direta.
+        Filtra apenas eventos prontos para envio (next_retry_at nulo ou vencido).
         """
+        now_utc = datetime.now(UTC)
         stmt = (
             select(OutboxEventModel)
             .where(OutboxEventModel.status == OutboxStatus.PENDING)
+            .where(
+                or_(
+                    OutboxEventModel.next_retry_at.is_(None),
+                    OutboxEventModel.next_retry_at <= now_utc,
+                )
+            )
             .order_by(OutboxEventModel.created_at.asc())
             .limit(limit)
         )
@@ -65,6 +74,21 @@ class OutboxRepository:
         return result.scalars().all()
 
     @staticmethod
+    def calculate_backoff_delay(
+        retry_count: int,
+        base_delay: float = 10.0,
+        max_delay: float = 300.0,
+        jitter_pct: float = 0.2,
+    ) -> float:
+        """Calcula atraso exponencial com jitter simétrico: base * 2^(retry-1) ± jitter."""
+        exponent = max(0, retry_count - 1)
+        raw_delay = base_delay * (2 ** exponent)
+        jitter_range = raw_delay * jitter_pct
+        jitter = random.uniform(-jitter_range, jitter_range)
+        delay = raw_delay + jitter
+        return max(1.0, min(delay, max_delay))
+
+    @staticmethod
     async def mark_as_published(
         session: AsyncSession,
         event_id: UUID,
@@ -76,6 +100,7 @@ class OutboxRepository:
         if entry is not None:
             entry.status = OutboxStatus.PUBLISHED
             entry.processed_at = datetime.now(UTC)
+            entry.next_retry_at = None
 
     @staticmethod
     async def mark_as_failed(
@@ -83,8 +108,10 @@ class OutboxRepository:
         event_id: UUID,
         error: str,
         max_retries: int = 5,
+        base_delay: float = 10.0,
+        max_delay: float = 300.0,
     ) -> None:
-        """Registra falha transitória ou permanente (Dead-Letter) com incremento de retry_count."""
+        """Registra falha transitória ou permanente (Dead-Letter) com backoff exponencial e jitter."""
         stmt = select(OutboxEventModel).where(OutboxEventModel.id == event_id)
         result = await session.execute(stmt)
         entry = result.scalar_one_or_none()
@@ -94,3 +121,11 @@ class OutboxRepository:
             if entry.retry_count >= max_retries:
                 entry.status = OutboxStatus.FAILED
                 entry.processed_at = datetime.now(UTC)
+                entry.next_retry_at = None
+            else:
+                delay = OutboxRepository.calculate_backoff_delay(
+                    retry_count=entry.retry_count,
+                    base_delay=base_delay,
+                    max_delay=max_delay,
+                )
+                entry.next_retry_at = datetime.now(UTC) + timedelta(seconds=delay)

@@ -204,6 +204,18 @@ class ResilientEventBus(EventBus):
 
         return await self.fallback_bus.get_delivery_count(topic, group, message_id)
 
+    async def should_process_retry(self, topic: str, group: str, message_id: str) -> bool:
+        """Avalia se a mensagem atingiu o recuo progressivo no barramento ativo."""
+        if self._is_primary_healthy:
+            try:
+                return await self.primary_bus.should_process_retry(topic, group, message_id)
+            except (RedisConnectionError, ConnectionRefusedError, OSError):
+                async with self._lock:
+                    self._is_primary_healthy = False
+                    await self._start_health_checker_if_needed()
+
+        return await self.fallback_bus.should_process_retry(topic, group, message_id)
+
     async def send_to_dlq(
         self,
         topic: str,

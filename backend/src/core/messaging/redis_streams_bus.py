@@ -278,6 +278,52 @@ class RedisStreamsEventBus(EventBus):
             )
             return 1
 
+    async def should_process_retry(self, topic: str, group: str, message_id: str) -> bool:
+        """Avalia se uma mensagem pendente/reentregue atingiu o tempo mínimo de espera (backoff progressivo)."""
+        client = await self._get_client()
+        try:
+            pending_entries = await client.xpending_range(
+                name=topic,
+                groupname=group,
+                min=message_id,
+                max=message_id,
+                count=1,
+            )
+            if not pending_entries:
+                return True
+            entry = pending_entries[0]
+            if isinstance(entry, dict):
+                delivery_count = int(entry.get("times_delivered", 1))
+                idle_ms = int(entry.get("idle", 0))
+            elif isinstance(entry, (list, tuple)) and len(entry) >= 4:
+                delivery_count = int(entry[3])
+                idle_ms = int(entry[2])
+            else:
+                return True
+
+            if delivery_count <= 1:
+                return True
+
+            required_ms = (
+                30_000
+                if delivery_count == 2
+                else 60_000
+                if delivery_count == 3
+                else 180_000
+                if delivery_count == 4
+                else 300_000
+            )
+            return idle_ms >= required_ms
+        except (RedisError, TimeoutError) as exc:
+            logger.warning(
+                "Falha ao consultar backoff no XPENDING em '%s' (grupo=%s, msg_id=%s): %s",
+                topic,
+                group,
+                message_id,
+                exc,
+            )
+            return True
+
     async def send_to_dlq(
         self,
         topic: str,

@@ -56,8 +56,13 @@ class OutboxEventModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    next_retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index("idx_outbox_pending_created", "status", "created_at"),
         Index("idx_outbox_aggregate", "aggregate_type", "aggregate_id"),
+        Index("ix_outbox_status_next_retry", "status", "next_retry_at"),
     )

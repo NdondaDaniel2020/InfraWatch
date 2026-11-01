@@ -188,6 +188,16 @@ class AlertNotificationConsumer(EventHandler):
 
                 acked_ids: list[str] = []
                 for msg_id, payload in messages:
+                    if not await self._event_bus.should_process_retry(
+                        STREAM_TOPIC, NOTIFICATION_CONSUMER_GROUP, msg_id
+                    ):
+                        logger.debug(
+                            "Mensagem %s em período de backoff no grupo '%s'. Adiando processamento.",
+                            msg_id,
+                            NOTIFICATION_CONSUMER_GROUP,
+                        )
+                        continue
+
                     try:
                         event_type = str(payload.get("event_type", "Unknown"))
                         await self.handle(event_type, payload)
