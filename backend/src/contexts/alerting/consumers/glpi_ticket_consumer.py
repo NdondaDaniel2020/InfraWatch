@@ -178,6 +178,16 @@ class GlpiTicketConsumer:
 
                 acked_ids: list[str] = []
                 for msg_id, payload in messages:
+                    if not await self._event_bus.should_process_retry(
+                        STREAM_TOPIC, CONSUMER_GROUP, msg_id
+                    ):
+                        logger.debug(
+                            "Mensagem %s em período de backoff no grupo '%s'. Adiando processamento.",
+                            msg_id,
+                            CONSUMER_GROUP,
+                        )
+                        continue
+
                     try:
                         event_type = payload.get("event_type", "Unknown")
                         await self._handle_event(event_type, payload)
