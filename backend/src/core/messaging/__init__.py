@@ -27,6 +27,10 @@ from src.core.messaging.sse_broadcaster import (
     SSEConnection,
     get_sse_broadcaster,
 )
+from src.core.messaging.topics import (
+    EVENT_STREAM_MAPPING,
+    StreamTopics,
+)
 
 # Singleton do Event Bus
 _event_bus: ResilientEventBus | None = None
@@ -50,6 +54,7 @@ async def close_event_bus() -> None:
 
 __all__ = [
     "DEFAULT_IDEMPOTENCY_TTL",
+    "EVENT_STREAM_MAPPING",
     "EventBus",
     "EventHandler",
     "EventHandlerCallable",
@@ -63,6 +68,7 @@ __all__ = [
     "ResilientEventBus",
     "SSEBroadcaster",
     "SSEConnection",
+    "StreamTopics",
     "TransientMessageError",
     "close_event_bus",
     "get_event_bus",
