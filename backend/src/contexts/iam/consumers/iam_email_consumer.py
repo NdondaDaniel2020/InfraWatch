@@ -16,10 +16,11 @@ from src.contexts.iam.services.email_service import email_service
 from src.core.messaging.exceptions import is_poison_error
 from src.core.messaging.idempotency import IdempotencyGuard, get_idempotency_guard
 from src.core.messaging.resilient_bus import ResilientEventBus
+from src.core.messaging.topics import StreamTopics
 
 logger = logging.getLogger("infrawatch.iam.consumer.email")
 
-STREAM_TOPIC = "stream:iam:events"
+STREAM_TOPIC = StreamTopics.IAM_EVENTS
 IAM_EMAIL_CONSUMER_GROUP = "cg:iam_email_workers"
 
 # Mapeamento event_type -> handler method name
