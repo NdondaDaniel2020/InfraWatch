@@ -114,7 +114,12 @@ class ResilientEventBus(EventBus):
                 logger.warning("Falha ao drenar buffer para broker primário. Abortando ciclo.")
                 break
 
-    async def publish(self, topic: str, event: DomainEvent | dict[str, Any]) -> bool:
+    async def publish(
+        self,
+        topic: str,
+        event: DomainEvent | dict[str, Any],
+        maxlen: int | None = None,
+    ) -> bool:
         """Publica mensagem com chaveamento transparente para fallback em caso de falha de conexão."""
         if self._is_closed:
             logger.warning("Tentativa de publicação em ResilientEventBus já encerrado.")
@@ -125,7 +130,7 @@ class ResilientEventBus(EventBus):
         if self._is_primary_healthy:
             try:
                 # Tenta publicar no broker primário (Redis Streams)
-                published = await self.primary_bus.publish(topic, payload_dict)
+                published = await self.primary_bus.publish(topic, payload_dict, maxlen=maxlen)
                 if published:
                     return True
             except (RedisConnectionError, ConnectionRefusedError, OSError) as exc:

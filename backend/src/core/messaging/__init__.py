@@ -29,7 +29,9 @@ from src.core.messaging.sse_broadcaster import (
 )
 from src.core.messaging.topics import (
     EVENT_STREAM_MAPPING,
+    TOPIC_MAXLEN_MAPPING,
     StreamTopics,
+    get_topic_maxlen,
 )
 
 # Singleton do Event Bus
@@ -69,11 +71,13 @@ __all__ = [
     "SSEBroadcaster",
     "SSEConnection",
     "StreamTopics",
+    "TOPIC_MAXLEN_MAPPING",
     "TransientMessageError",
     "close_event_bus",
     "get_event_bus",
     "get_idempotency_guard",
     "get_sse_broadcaster",
+    "get_topic_maxlen",
     "is_poison_error",
     "is_transient_error",
 ]

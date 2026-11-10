@@ -104,6 +104,10 @@
 - **Origem:** Análise factual de viabilidade vs. `subject/InfraWatch.md` (RF01) e referências de `subject/github.md` (Uptime Kuma).
 - **Decisão:**
   - **Sondas de Uptime e Latência (Nativo):** Criadas do zero no `infrawatch-probe-worker` (ICMP Ping, HTTP, TCP, SSL, Heartbeat). Autônomas e com cálculo instantâneo de SLA.
+  - **Estratégia Híbrida para Ativos SNMP (Liveness via ICMP vs. Telemetria via Zabbix):**
+    - O protocolo SNMP opera historicamente sobre UDP (portas 161/162). Tentar handshakes de transporte TCP contra portas de agentes SNMP resulta invariavelmente em falhas de timeout ou conexão recusada, gerando falsos alarmes de indisponibilidade (`DOWN`).
+    - Para ativos com protocolo `SNMP`, o `ProbeWorker` despacha sondagens de **liveness puramente via ICMP (Ping)**, validando conectividade, latência e perda de pacotes em tempo real sem onerar o worker com drivers UDP/SNMP raw.
+    - A telemetria profunda de hardware (uso de CPU, tráfego e descarte em interfaces de rede, consumo de memória, traps e MIBs específicas de fabricantes como Cisco/Mikrotik) é delegada inteiramente ao conector corporativo Zabbix (`zabbix_sync_worker.py` - ADR-028).
   - **Monitoramento Nativo de Containers Docker (`DockerProber` - ADR-026):** Conexão via socket Unix `/var/run/docker.sock` ou TCP para coletar estado de saúde, uso de CPU cgroups, consumo real de memória, throttling e reinicializações em tempo de execução.
   - **Telemetria de Hardware e Ingestão Zabbix (Híbrido - ADR-028):**
     - Sincronização periódica (pull) via JSON-RPC (`zabbix_sync_worker.py`) para CPU, RAM, Disco e interfaces.
@@ -273,10 +277,18 @@
 
 ---
 
-### ADR-019: Trilha de Auditoria Imutável (Audit Trail) para Compliance
-- **Status:** Aprovado
-- **Origem:** Sessão `/grill-me` (rastreabilidade de ações em infraestrutura corporativa).
-- **Decisão:** Criação da tabela `audit_logs` no PostgreSQL com inserção estritamente append-only (sem UPDATE/DELETE). Registra todas as ações humanas críticas: quem cadastrou/removeu ativos, quem colocou servidor em manutenção, quem fez *Acknowledge* de incidentes e quem alterou regras ou canais de notificação, acompanhado de `ip_address` e `timestamp`.
+### ADR-019: Trilha de Auditoria Imutável (Audit Trail) e Ciclo de Vida Não-Destrutivo de Ativos
+- **Status:** Aprovado e Expandido
+- **Origem:** Sessão `/grill-me` (rastreabilidade de ações em infraestrutura corporativa), RF-SEC-03 e alinhamento de integridade com TimescaleDB (ADR-031).
+- **Decisão:**
+  1. **Tabela `audit_logs` Append-Only:**
+     - Criação da tabela `audit_logs` no PostgreSQL com inserção estritamente append-only (sem permissões de UPDATE/DELETE). Registra todas as ações humanas críticas: quem cadastrou/desativou ativos, quem colocou servidor em manutenção, quem fez *Acknowledge* de incidentes e quem alterou regras ou canais de notificação, acompanhado de `ip_address` e `timestamp`.
+  2. **Ciclo de Vida Não-Destrutivo de Ativos (Ausência Deliberada de Hard Delete):**
+     - A API REST do InfraWatch deliberadamente **não expõe endpoint de exclusão física** (`DELETE /api/v1/devices/{id}`). Em vez disso, o gerenciamento de inventário apoia-se estritamente em **transições de estado de ciclo de vida** (`is_active=False`, `status=PAUSED`, `status=MAINTENANCE`).
+     - **Justificativas Arquiteturais:**
+       * *Preservação de Séries Temporais no TimescaleDB (ADR-031):* A exclusão física de um dispositivo quebraria a integridade referencial ou orfanaria milhões de amostras de telemetria na Hypertable `metrics`. Operações de exclusão em cascata (`CASCADE DELETE`) provocariam contenção severa de I/O e locks de tabela inaceitáveis em ambiente de produção.
+       * *Conformidade e Rastreabilidade Forense:* A apuração retrospectiva de incidentes requer que o inventário histórico reflita fielmente o estado do ativo no instante da falha, inviabilizando deleções físicas.
+       * *Cálculo Retroativo de SLA Contratual (ADR-017):* A geração de relatórios mensais e auditorias de SLA exige a persistência de todos os ativos participantes dos períodos faturados, mesmo que tenham sido descomissionados posteriormente.
 
 ---
 
@@ -536,14 +548,19 @@
   3. **Thundering Retries por Falta de Backoff Exponencial:** Consumidores reprocessam mensagens a cada 60s em frequência fixa linear, sobrecarregando ainda mais serviços downstream em degradação. No Outbox Relay, mensagens com erro são varridas imediatamente no polling sem retardo progressivo ($2^n$).
   4. **Head-of-Line Blocking por Poison Messages:** Mensagens sintaticamente inválidas (payload corrompido, `ValueError`, schema inválido, 400 Bad Request) continuam sendo tentadas eternamente, bloqueando vagas no lote de leitura e inundando logs com stack traces repetidos.
 - **Decisão:**
-  1. **Poda Aproximada Obrigatória (`MAXLEN ~ 10000`):**
-     - Todas as chamadas de publicação (`xadd`) no `RedisStreamsEventBus` utilizam obrigatoriamente `maxlen=settings.REDIS_STREAM_MAXLEN` e `approximate=True`. A poda aproximada no Redis opera em $O(1)$ amortizado desalocando macro-blocos da radix tree sem travar a thread de processamento.
+  1. **Poda Aproximada Obrigatória com Retenção Granular por Categoria de Tópico (`MAXLEN`):**
+     - Todas as chamadas de publicação (`xadd`) no `RedisStreamsEventBus` utilizam obrigatoriamente `approximate=True` e `maxlen` proporcional à criticidade e volatilidade do stream, com fallback para `settings.REDIS_STREAM_MAXLEN` (padrão base: 10.000). A poda aproximada no Redis opera em $O(1)$ amortizado desalocando macro-blocos da radix tree sem travar a thread de processamento.
+     - **Tabela de Retenção Canônica (`DEFAULT_TOPIC_MAXLEN` em `topics.py`):**
+       * Streams de alta rotatividade e valor transitório (`stream:probes:ondemand`, `stream:sse:broadcast`): retenção restrita de **5.000** mensagens para poupar RAM.
+       * Streams canônicos de eventos de domínio e incidentes (`stream:incidents`, `stream:inventory:changes`, `stream:iam:events`): retenção operacional padrão de **10.000** a **20.000** mensagens.
+       * Streams de auditoria de falhas e Dead Letter Queues (`stream:*:dlq`): retenção ampliada de **50.000** mensagens para garantir que eventos anômalos não sejam expurgados antes da análise humana/forense pelo NOC.
   2. **Teto de Tentativas (`max_retries = 5`) e Desvio para DLQ:**
      - Consumidores inspecionam o número de entregas (`times_delivered` via `XPENDING`).
      - Ao atingir 5 tentativas, a mensagem é publicada no stream secundário `{topic}:dlq` enriquecida com metadados diagnósticos (`failed_at`, `error_message`, `delivery_count`, `consumer_group`) e a mensagem original recebe `XACK` imediato no stream principal.
-  3. **Estratégia de Backoff Exponencial com Jitter:**
+  3. **Estratégia de Backoff Exponencial com Jitter Diferenciada por Perfil de I/O:**
      - No Outbox Relay: inclusão da coluna `next_retry_at TIMESTAMPTZ` em `outbox_events` com recuo geométrico ($2^{\text{retry\_count}} \times \text{base\_delay} \pm \text{jitter}$) e consulta filtrada por `next_retry_at <= NOW()`.
-     - Nos Consumidores: adiamento do reprocessamento de mensagens do PEL que ainda não atingiram o tempo de maturação progressiva para o seu respectivo `delivery_count`.
+     - Nos Consumidores de I/O Externo (`AlertNotificationConsumer`, `GlpiTicketConsumer`, `IamEmailConsumer`): adiamento progressivo (30s $\rightarrow$ 60s $\rightarrow$ 180s $\rightarrow$ 300s) via `should_process_retry(delivery_count, idle_ms)` para amortecer impactos contra downstream degradados (*thundering retry*).
+     - No Consumidor de Estado Interno (`InventoryChangesConsumer`): deliberadamente isento do backoff prolongado do PEL (mantendo a cadência de 60s do `min_idle_ms` do `XAUTOCLAIM`), assegurando que a reconciliação e o cache de inventário local recuperem a prontidão imediatamente após o restabelecimento do banco de dados, mantendo a proteção contra *poison messages* e teto de 5 tentativas.
   4. **Classificação Semântica de Falhas (Poison Messages vs. Falhas Transitórias):**
      - Falhas irrecuperáveis (`PoisonMessageError`, `ValidationError`, `ValueError`, `KeyError`, HTTP 400/422) não passam por retentativas: são desviadas imediatamente para a DLQ com `XACK` instantâneo no stream principal.
      - Falhas transitórias (`TransientMessageError`, timeout, HTTP 502/503/429) seguem o fluxo de retentativa com backoff até o teto de 5 tentativas.
@@ -582,3 +599,50 @@
   - Visibilidade total em tempo real sobre a saúde, throughput e latência do pipeline assíncrono.
   - Alertas precisos antes que atrasos em integrações externas saturem o sistema.
   - Health check enterprise confiável para roteadores de tráfego e orquestradores de contêineres.
+
+---
+
+### ADR-038: Isolamento Multi-Tenant Declarativo e Prevenção de BOLA via Param Dependencies (`ScopedEntityDep`)
+- **Status:** Aprovado e Implementado
+- **Origem:** Resolução da Issue #302, Refatoração PR #304, expansão dos ADR-009 e ADR-029.
+- **Problema:**
+  1. **BOLA (Broken Object Level Authorization) e Verificações Procedimentais:** A validação de escopo de tenant (`organization_id`) realizada manualmente no corpo de funções ou endpoints (ex.: chamadas procedimentais a rotinas como `_enforce_incident_tenant_access`) introduz duplicação de lógica, viola o princípio de *Thin Controllers* (ADR-029) e acarreta elevado risco de falha humana (*fail-open* caso o desenvolvedor esqueça de invocar a rotina em novos endpoints de consulta ou mutação).
+  2. **Oracle / Timing Attacks e Ordem de Avaliação no Framework:** Quando uma dependência de injeção resolve entidades no banco de dados antes da avaliação das restrições de papéis de acesso (RBAC), requisições não autorizadas disparam consultas SQL desnecessárias e podem sofrer variações sutis no código HTTP ou no tempo de resposta (ex.: 404 Not Found vs. 403 Forbidden), permitindo a atacantes inferir a existência ou ausência de recursos de outras organizações.
+- **Decisão:**
+  1. **Dependências Declarativas de Escopo (`Scoped<Entity>Dep`):**
+     - Criação do padrão de dependências de escopo (ex.: `ScopedIncidentDep` em `backend/src/contexts/alerting/api/dependencies/incidents.py`).
+     - A dependência extrai diretamente o identificador do path parameter da rota (`incident_id` / `id`), busca o agregado no repositório de domínio e valida se o recurso pertence à `organization_id` do usuário autenticado.
+     - Usuários com papéis de NOC global (`ADMIN`, `OPERATOR`) recebem autorização automática de bypass multi-tenant.
+     - Requisições que tentem acessar recursos de outras organizações sem privilégios globais disparam imediatamente exceção `IncidentTenantAccessDeniedError`, mapeada para HTTP 403 Forbidden pelo handler de exceções web.
+  2. **Guards RBAC no Decorador de Rota (`fail-secure by default`):**
+     - Restrições de papel por perfil (`require_roles(*ROLES)`) são obrigatoriamente declaradas no decorador da rota (`dependencies=[Depends(require_roles(...))]`), garantindo que o FastAPI valide a permissão antes de executar qualquer dependência de parâmetro ou efetuar consultas no banco de dados.
+- **Alternativas Descartadas:**
+  - *Verificação manual no corpo dos endpoints:* Descartada pelo alto risco de falha humana e quebra de padronização arquitetural.
+  - *Filtros cegos em middlewares HTTP:* Descartada por não possuírem contexto semântico e tipagem estrita das entidades de domínio de cada bounded context.
+- **Benefício:**
+  - Mitigação completa de vulnerabilidades BOLA / IDOR (OWASP API Security Top 10).
+  - Rotas puramente declarativas (*Thin Controllers*), delegando autenticação, autorização e resolução de escopo integralmente à árvore de dependências do framework.
+  - Imunidade a ataques de timing e oráculo na enumeração de identificadores entre tenants.
+
+---
+
+### ADR-039: Resiliência de Processos de Background — Ciclo de Vida POSIX e Gestão de Subprocessos Assíncronos
+- **Status:** Aprovado e Implementado
+- **Origem:** Hardening de Daemons (Issue #302 / PR #303), expansão do ADR-003 e conformidade com a skill `async-daemon-resilience`.
+- **Problema:**
+  1. **Interrupção Abrupta e Descarte Inseguro de Batches:** Em contêineres Docker independentes (`infrawatch-probe-worker`, `infrawatch-outbox-worker`), a parada padrão via `docker stop` envia o sinal POSIX `SIGTERM`. Daemons que executavam laços infinitos sem manipuladores explícitos de sinais ignoravam o encerramento gracioso, sendo terminados à força após 10 segundos pelo sinal fatal `SIGKILL`, abandonando buffers de telemetria pendentes em memória (`batch_writer.flush()`).
+  2. **Processos Zumbis e Esgotamento de File Descriptors em Sondas de Rede:** Sondas ICMP executadas assincronamente através de processos do sistema operacional (`asyncio.create_subprocess_exec("ping", ...)`) sob controle de timeout (`asyncio.wait_for`) continuavam em execução no kernel Linux caso a rotina expirasse sem o encerramento explícito do processo filho, acumulando processos zumbis (`<defunct>`) e causando vazamento progressivo de descritores de arquivos (FDs).
+- **Decisão:**
+  1. **Manipuladores Nativos de Sinais POSIX (`SIGINT`, `SIGTERM`):**
+     - Todos os pontos de entrada standalone de daemons (`run_standalone()`) registram tratadores nativos para os sinais `SIGINT` e `SIGTERM` utilizando o event loop do asyncio.
+     - Os tratadores acionam um `asyncio.Event` de parada que interrompe suavemente a recepção de novas tarefas, aguarda a conclusão das tarefas em voo e invoca o descarte síncrono/assíncrono dos buffers pendentes (`batch_writer.flush()`, `close()`), finalizando o processo com código de saída 0.
+  2. **Terminação Determinística de Subprocessos Assíncronos:**
+     - Em `IcmpProber`, a execução de subprocessos de rede é encapsulada em blocos defensivos `try/finally`.
+     - Caso o tempo limite expire (`TimeoutError`) ou ocorra cancelamento de tarefa, o worker invoca obrigatoriamente `proc.kill()` seguido de `await proc.wait()`, garantindo a remoção imediata do processo da tabela do kernel e a devolução de descritores de arquivo ao sistema operacional.
+- **Alternativas Descartadas:**
+  - *Depender unicamente do encerramento forçado do Docker (`SIGKILL`):* Descartada por provocar corrupção de estado transitório e perda de amostras de telemetria em buffers de escrita.
+  - *Permitir que o SO recolha subprocessos órfãos:* Descartada porque processos filhos continuam rodando enquanto o container pai não reiniciar, degradando a performance do host.
+- **Benefício:**
+  - Parada graciosa determinística e zero perda de telemetria em atualizações contínuas de contêineres.
+  - Imunidade total a processos zumbis e vazamento de FDs sob estresse de rede ou destinos inalcançáveis.
+  - Conformidade estrita com as melhores práticas de orquestração em contêineres Linux (Docker, Podman, Kubernetes).

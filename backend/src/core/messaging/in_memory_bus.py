@@ -57,7 +57,12 @@ class InMemoryEventBus(EventBus):
             return normalized
         raise TypeError(f"Evento inválido: {type(event)}. Esperado DomainEvent ou dict.")
 
-    async def publish(self, topic: str, event: DomainEvent | dict[str, Any]) -> bool:
+    async def publish(
+        self,
+        topic: str,
+        event: DomainEvent | dict[str, Any],
+        maxlen: int | None = None,
+    ) -> bool:
         """Publica um evento no tópico em memória e distribui para as filas dos grupos."""
         if self._is_closed:
             logger.warning("Tentativa de publicação em InMemoryEventBus já encerrado.")
