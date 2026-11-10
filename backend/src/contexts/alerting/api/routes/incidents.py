@@ -97,6 +97,21 @@ async def create_incident(
     return IncidentResponse.from_domain(incident)
 
 
+def _enforce_incident_tenant_access(incident: object, user: CurrentUserDep) -> None:
+    """Valida se o usuário autenticado possui permissão de acesso ao incidente segundo seu tenant."""
+    if not user.is_global_operator:
+        incident_org = getattr(incident, "organization_id", None)
+        if (
+            not user.organization_id
+            or not incident_org
+            or str(incident_org) != str(user.organization_id)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso não autorizado ao incidente deste tenant.",
+            )
+
+
 @router.get(
     "/{incident_id}", response_model=IncidentResponse, summary="Obter detalhes de incidente"
 )
@@ -115,17 +130,7 @@ async def get_incident(
             detail=str(err),
         ) from err
 
-    # Validação de escopo multitenant
-    if (
-        user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN}
-        and user.organization_id
-        and incident.organization_id
-        and UUID(user.organization_id) != incident.organization_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso não autorizado ao incidente deste tenant.",
-        )
+    _enforce_incident_tenant_access(incident, user)
 
     return IncidentResponse.from_domain(incident)
 
@@ -142,6 +147,9 @@ async def acknowledge_incident(
 ) -> IncidentResponse:
     """Atribui o operador logado ao incidente, silencia alertas e emite broadcast SSE."""
     try:
+        target = await service.get_incident(incident_id)
+        _enforce_incident_tenant_access(target, user)
+
         operator_id = UUID(user.id)
         acknowledged_at = payload.acknowledged_at if payload else None
         incident = await service.acknowledge_incident(
@@ -174,6 +182,9 @@ async def resolve_incident(
 ) -> IncidentResponse:
     """Encerra o incidente com causa raiz, computa o downtime e emite broadcast SSE."""
     try:
+        target = await service.get_incident(incident_id)
+        _enforce_incident_tenant_access(target, user)
+
         operator_id = UUID(user.id)
         incident = await service.resolve_incident(
             incident_id=incident_id,
@@ -212,6 +223,9 @@ async def create_glpi_ticket_for_incident(
 ) -> IncidentResponse:
     """Abre manualmente um chamado no GLPI em 1 clique para o incidente e vincula o ticket_id."""
     try:
+        target = await service.get_incident(incident_id)
+        _enforce_incident_tenant_access(target, user)
+
         operator_id = UUID(user.id)
         incident = await service.create_glpi_ticket(
             incident_id=incident_id,
