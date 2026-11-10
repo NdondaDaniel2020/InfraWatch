@@ -48,14 +48,28 @@ async def create_device(
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Cadastra um novo dispositivo no inventário."""
-    # Garante que o usuário logado só cria na sua org, ou o org global se for NOC/SUPER_ADMIN
-    # Como não recebemos a org_id no payload, usamos a do usuário
-    org_id = UUID(user.organization_id) if user.organization_id else None
-    if not org_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="O usuário não está vinculado a uma organização para cadastrar dispositivos.",
-        )
+    # Resolução de escopo multi-tenant:
+    # Operadores globais (SUPER_ADMIN, NOC_OPERATOR) podem cadastrar dispositivos para qualquer tenant via payload.
+    # Usuários vinculados a um tenant específico só podem cadastrar para a sua própria organização.
+    if user.is_global_operator:
+        org_id = payload.organization_id or (UUID(user.organization_id) if user.organization_id else None)
+        if not org_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="É necessário informar a organização para cadastrar o dispositivo.",
+            )
+    else:
+        if payload.organization_id and user.organization_id and str(payload.organization_id) != user.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: você não tem permissão para cadastrar dispositivos em outra organização.",
+            )
+        org_id = UUID(user.organization_id) if user.organization_id else None
+        if not org_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="O usuário não está vinculado a uma organização para cadastrar dispositivos.",
+            )
 
     device = await command_service.create_device(
         cmd=payload,
