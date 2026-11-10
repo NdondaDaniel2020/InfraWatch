@@ -392,6 +392,21 @@ async def test_multitenant_access_isolation(
         )
         assert res_forbidden.status_code == status.HTTP_403_FORBIDDEN
 
+        # Org Admin do Tenant B tenta mutar incidente da Org A -> 403 Forbidden
+        token_admin_b = generate_token(uuid4(), UserRole.ORG_ADMIN, org_b.id)
+        res_ack_forbidden = await client.post(
+            f"/api/v1/incidents/{incident_id}/acknowledge",
+            headers={"Authorization": f"Bearer {token_admin_b}"},
+        )
+        assert res_ack_forbidden.status_code == status.HTTP_403_FORBIDDEN
+
+        res_res_forbidden = await client.post(
+            f"/api/v1/incidents/{incident_id}/resolve",
+            json={"root_cause": "Tentativa indevida"},
+            headers={"Authorization": f"Bearer {token_admin_b}"},
+        )
+        assert res_res_forbidden.status_code == status.HTTP_403_FORBIDDEN
+
 
 @pytest.mark.asyncio
 async def test_rbac_restrictions_on_viewer_role(
