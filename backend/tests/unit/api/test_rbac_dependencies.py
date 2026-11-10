@@ -285,3 +285,38 @@ async def test_authentication_errors(rbac_app: FastAPI) -> None:
             headers={"Authorization": "Bearer invalid.token.payload"},
         )
         assert r3.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_tenant_isolation_bola_cross_tenant_access() -> None:
+    """Valida rejeição de acesso a recursos entre tenants distintos (prevenção BOLA)."""
+    from fastapi import HTTPException
+    from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
+
+    user_org_a = AuthenticatedUser(
+        id=str(uuid4()),
+        email="admin@orga.ao",
+        role=UserRole.ORG_ADMIN.value,
+        organization_id=str(uuid4()),
+    )
+    user_org_b = AuthenticatedUser(
+        id=str(uuid4()),
+        email="admin@orgb.ao",
+        role=UserRole.ORG_ADMIN.value,
+        organization_id=str(uuid4()),
+    )
+    super_admin = AuthenticatedUser(
+        id=str(uuid4()),
+        email="superadmin@infrawatch.ao",
+        role=UserRole.SUPER_ADMIN.value,
+        organization_id=None,
+    )
+
+    # Org A tentando acessar recurso da Org B
+    with pytest.raises(HTTPException) as exc:
+        enforce_tenant_scope(user_org_b.organization_id, user_org_a)
+    assert exc.value.status_code == 403
+
+    # Super Admin acessando recurso da Org B sem restrição
+    scoped = enforce_tenant_scope(user_org_b.organization_id, super_admin)
+    assert scoped == user_org_b.organization_id

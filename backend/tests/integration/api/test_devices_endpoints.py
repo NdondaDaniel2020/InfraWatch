@@ -194,3 +194,34 @@ async def test_test_probe_endpoint(override_get_db):
         assert "success" in data
         assert "latencyMs" in data
         assert "message" in data
+
+
+@pytest.mark.asyncio
+async def test_create_device_super_admin_with_payload_org(override_get_db):
+    """Valida que SUPER_ADMIN sem organization_id pode cadastrar ativo informando a organização no payload."""
+    target_org_id = str(uuid4())
+    payload_jwt = {
+        "sub": str(uuid4()),
+        "email": "superadmin@infrawatch.ao",
+        "role": "SUPER_ADMIN",
+        "organization_id": None,
+    }
+    token = create_access_token(payload_jwt)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        device_payload = {
+            "name": "NOC Global Switch",
+            "ipAddress": "10.50.0.1",
+            "protocol": "ICMP",
+            "category": "SWITCH",
+            "intervalSeconds": 60,
+            "organizationId": target_org_id,
+        }
+        resp = await client.post("/api/v1/devices/", json=device_payload, headers=headers)
+        assert resp.status_code == status.HTTP_201_CREATED
+        data = resp.json()
+        assert data["name"] == "NOC Global Switch"
+        assert data["organization_id"] == target_org_id
