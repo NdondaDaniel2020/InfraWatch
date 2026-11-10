@@ -102,6 +102,24 @@ async def test_http_prober_success(dummy_target):
 
 
 @pytest.mark.asyncio
+async def test_http_prober_port_zero_fallback(dummy_target):
+    prober = HttpProber()
+    dummy_target.protocol = "http"
+    dummy_target.port = 0
+
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+
+    with patch("httpx.AsyncClient.get", return_value=mock_response) as mock_get:
+        result = await prober.probe(dummy_target)
+        assert result.status == "UP"
+        mock_get.assert_called_once_with(
+            f"http://{dummy_target.ip_address}",
+            headers={"User-Agent": "InfraWatch-Probe/1.0"},
+        )
+
+
+@pytest.mark.asyncio
 async def test_http_prober_degraded_on_error_code(dummy_target):
     prober = HttpProber()
 
