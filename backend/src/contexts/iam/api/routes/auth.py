@@ -18,6 +18,7 @@ from src.contexts.iam.api.dependencies import (
     UserCommandServiceDep,
     UserQueryServiceDep,
 )
+from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.schemas.auth import (
     EmailVerificationConfirm,
     LoginRequest,
@@ -67,7 +68,7 @@ async def register(
             password=body.password,
             full_name=body.full_name,
             organization_id=body.organization_id,
-            role=body.role,
+            role=UserRole.CLIENT_VIEWER,
         )
     except EmailAlreadyExistsError:
         raise HTTPException(
