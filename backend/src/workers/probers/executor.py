@@ -33,6 +33,7 @@ class ProbeExecutor:
     async def execute(self, target: ProbeTarget, timeout_ms: int = 2000) -> ProbeResult:
         """Executa a sonda apropriada respeitando o semáforo de concorrência."""
         protocol = target.protocol.lower()
+        prober: BaseProber | None = None
         if protocol == "snmp":
             # Conforme ADR-004, telemetria aprofundada SNMP é coletada pelo Zabbix.
             # O ProbeWorker realiza verificação rápida de liveness via ICMP (ping).

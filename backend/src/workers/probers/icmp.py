@@ -46,9 +46,7 @@ class IcmpProber(BaseProber):
         except TimeoutError:
             if proc is not None:
                 try:
-                    res = proc.kill()
-                    if inspect.isawaitable(res):
-                        await res
+                    proc.kill()
                     wait_res = proc.wait()
                     if inspect.isawaitable(wait_res):
                         await wait_res
