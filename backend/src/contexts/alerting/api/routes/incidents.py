@@ -7,11 +7,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from src.contexts.alerting.api.dependencies import IncidentServiceDep
-from src.contexts.alerting.domain.exceptions import (
-    IncidentAlreadyResolvedError,
-    IncidentNotFoundError,
-)
+from src.contexts.alerting.api.dependencies import IncidentServiceDep, ScopedIncidentDep
+from src.contexts.alerting.domain.exceptions import IncidentAlreadyResolvedError
 from src.contexts.alerting.schemas.requests import (
     AcknowledgeIncidentRequest,
     CreateIncidentRequest,
@@ -97,72 +94,41 @@ async def create_incident(
     return IncidentResponse.from_domain(incident)
 
 
-def _enforce_incident_tenant_access(incident: object, user: CurrentUserDep) -> None:
-    """Valida se o usuário autenticado possui permissão de acesso ao incidente segundo seu tenant."""
-    if not user.is_global_operator:
-        incident_org = getattr(incident, "organization_id", None)
-        if (
-            not user.organization_id
-            or not incident_org
-            or str(incident_org) != str(user.organization_id)
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acesso não autorizado ao incidente deste tenant.",
-            )
-
-
 @router.get(
-    "/{incident_id}", response_model=IncidentResponse, summary="Obter detalhes de incidente"
+    "/{incident_id}",
+    response_model=IncidentResponse,
+    summary="Obter detalhes de incidente",
+    dependencies=[Depends(require_roles(*READ_ROLES))],
 )
 async def get_incident(
-    incident_id: UUID,
-    user: CurrentUserDep,
-    service: IncidentServiceDep,
-    _: object = Depends(require_roles(*READ_ROLES)),
+    incident: ScopedIncidentDep,
 ) -> IncidentResponse:
     """Recupera detalhes técnicos de um incidente por ID."""
-    try:
-        incident = await service.get_incident(incident_id)
-    except IncidentNotFoundError as err:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(err),
-        ) from err
-
-    _enforce_incident_tenant_access(incident, user)
-
     return IncidentResponse.from_domain(incident)
 
 
 @router.post(
-    "/{incident_id}/acknowledge", response_model=IncidentResponse, summary="Reconhecer incidente"
+    "/{incident_id}/acknowledge",
+    response_model=IncidentResponse,
+    summary="Reconhecer incidente",
+    dependencies=[Depends(require_roles(*OPERATOR_ROLES))],
 )
 async def acknowledge_incident(
-    incident_id: UUID,
+    incident: ScopedIncidentDep,
     user: CurrentUserDep,
     service: IncidentServiceDep,
     payload: AcknowledgeIncidentRequest | None = None,
-    _: object = Depends(require_roles(*OPERATOR_ROLES)),
 ) -> IncidentResponse:
     """Atribui o operador logado ao incidente, silencia alertas e emite broadcast SSE."""
     try:
-        target = await service.get_incident(incident_id)
-        _enforce_incident_tenant_access(target, user)
-
         operator_id = UUID(user.id)
         acknowledged_at = payload.acknowledged_at if payload else None
-        incident = await service.acknowledge_incident(
-            incident_id=incident_id,
+        updated = await service.acknowledge_incident(
+            incident_id=incident.id,
             operator_id=operator_id,
             acknowledged_at=acknowledged_at,
         )
-        return IncidentResponse.from_domain(incident)
-    except IncidentNotFoundError as err:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(err),
-        ) from err
+        return IncidentResponse.from_domain(updated)
     except IncidentAlreadyResolvedError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -171,33 +137,27 @@ async def acknowledge_incident(
 
 
 @router.post(
-    "/{incident_id}/resolve", response_model=IncidentResponse, summary="Resolver incidente"
+    "/{incident_id}/resolve",
+    response_model=IncidentResponse,
+    summary="Resolver incidente",
+    dependencies=[Depends(require_roles(*OPERATOR_ROLES))],
 )
 async def resolve_incident(
-    incident_id: UUID,
+    incident: ScopedIncidentDep,
     payload: ResolveIncidentRequest,
     user: CurrentUserDep,
     service: IncidentServiceDep,
-    _: object = Depends(require_roles(*OPERATOR_ROLES)),
 ) -> IncidentResponse:
     """Encerra o incidente com causa raiz, computa o downtime e emite broadcast SSE."""
     try:
-        target = await service.get_incident(incident_id)
-        _enforce_incident_tenant_access(target, user)
-
         operator_id = UUID(user.id)
-        incident = await service.resolve_incident(
-            incident_id=incident_id,
+        updated = await service.resolve_incident(
+            incident_id=incident.id,
             root_cause=payload.root_cause,
             operator_id=operator_id,
             resolved_at=payload.resolved_at,
         )
-        return IncidentResponse.from_domain(incident)
-    except IncidentNotFoundError as err:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(err),
-        ) from err
+        return IncidentResponse.from_domain(updated)
     except IncidentAlreadyResolvedError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -214,29 +174,21 @@ async def resolve_incident(
     "/{incident_id}/glpi-ticket",
     response_model=IncidentResponse,
     summary="Abrir chamado manual no GLPI",
+    dependencies=[Depends(require_roles(*OPERATOR_ROLES))],
 )
 async def create_glpi_ticket_for_incident(
-    incident_id: UUID,
+    incident: ScopedIncidentDep,
     user: CurrentUserDep,
     service: IncidentServiceDep,
-    _: object = Depends(require_roles(*OPERATOR_ROLES)),
 ) -> IncidentResponse:
     """Abre manualmente um chamado no GLPI em 1 clique para o incidente e vincula o ticket_id."""
     try:
-        target = await service.get_incident(incident_id)
-        _enforce_incident_tenant_access(target, user)
-
         operator_id = UUID(user.id)
-        incident = await service.create_glpi_ticket(
-            incident_id=incident_id,
+        updated = await service.create_glpi_ticket(
+            incident_id=incident.id,
             operator_id=operator_id,
         )
-        return IncidentResponse.from_domain(incident)
-    except IncidentNotFoundError as err:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(err),
-        ) from err
+        return IncidentResponse.from_domain(updated)
     except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
