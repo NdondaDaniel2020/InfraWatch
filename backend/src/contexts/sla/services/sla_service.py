@@ -295,11 +295,14 @@ class SlaService:
             limit=1,
             offset=0,
         )
-        next_mw = (
-            f"RFC-{str(windows[0].id)[:8].upper()} • {_ensure_utc(windows[0].start_time).strftime('%d/%m %H:%M')}"
-            if windows
-            else "Nenhuma parada crítica agendada"
-        )
+        if windows and windows[0].start_time:
+            utc_start = _ensure_utc(windows[0].start_time)
+            formatted_date = utc_start.strftime("%d/%m %H:%M") if utc_start else "Data indefinida"
+            next_mw = f"RFC-{str(windows[0].id)[:8].upper()} • {formatted_date}"
+        elif windows:
+            next_mw = f"RFC-{str(windows[0].id)[:8].upper()} • Data indefinida"
+        else:
+            next_mw = "Nenhuma parada crítica agendada"
 
         # Rótulo do ciclo
         meses = [
