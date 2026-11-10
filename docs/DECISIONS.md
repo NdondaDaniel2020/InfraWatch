@@ -68,8 +68,9 @@
 - **Problema:** Ao atualizar um status ou incidente no banco e disparar uma notificação/Redis em operações separadas, se uma falhar, o sistema entra em inconsistência (ex: banco comita mas o Redis não recebe, ou a mensagem é enviada mas a transação do banco dá rollback).
 - **Decisão:** Toda mutação de negócio salva o registro da entidade e o evento na tabela `outbox_events` na **mesma transação ACID do PostgreSQL** através do `UnitOfWork` e do `OutboxRepository` centralizado em `src/core/database/outbox_repository.py`.
   - **Otimização de Latência Reativa (LISTEN/NOTIFY via asyncpg):** Em vez de polling contínuo no banco, o `OutboxRelayWorker` mantém conexão dedicada escutando notificações assíncronas instantâneas emitidas pela trigger `outbox_events_wake` no PostgreSQL no exato momento do commit. O tempo de despacho caiu para **menos de 5ms**.
+  - **Concorrência Segura entre Múltiplas Réplicas (`FOR UPDATE SKIP LOCKED`):** Na consulta de eventos pendentes (`get_pending_events` em `outbox_repository.py`), a query em PostgreSQL utiliza cláusula `.with_for_update(skip_locked=True)`. Quando múltiplos workers operam concorrentemente, cada instância adquire exclusivamente registros distintos sem bloquear leituras alheias e sem contenção de lock, eliminando duplicações e condições de corrida na extração da fila.
   - **Auto-Reconciliação com Polling de Fallback:** Mantém polling periódico secundário (`poll_interval=15s`) e reconexão automática caso o listener caia ou se o ambiente utilizar banco alternativo (ex.: SQLite em testes locais).
-  - **Retentativas com Backoff Exponencial e Jitter:** Falhas de publicação no barramento sofrem retentativas com jitter antes de suspender o lote, preservando a semântica de entrega *at-least-once*.
+  - **Retentativas com Backoff Exponencial e Jitter Simétrico:** Falhas de publicação no barramento sofrem retentativas com recuo exponencial ($base \times 2^{retry-1}$) acrescido de dispersão estocástica (jitter simétrico de $\pm 20\%$) antes de suspender o lote, prevenindo tempestades de reconexão (*thundering herd*) contra o barramento.
 - **Benefício:** Garantia estrita de entrega *at-least-once*, eliminação de transações distribuídas frágeis, latência em tempo real e desacoplamento total da API Web.
 
 ---
@@ -281,9 +282,14 @@
 - **Status:** Aprovado e Expandido
 - **Origem:** Sessão `/grill-me` (rastreabilidade de ações em infraestrutura corporativa), RF-SEC-03 e alinhamento de integridade com TimescaleDB (ADR-031).
 - **Decisão:**
-  1. **Tabela `audit_logs` Append-Only:**
-     - Criação da tabela `audit_logs` no PostgreSQL com inserção estritamente append-only (sem permissões de UPDATE/DELETE). Registra todas as ações humanas críticas: quem cadastrou/desativou ativos, quem colocou servidor em manutenção, quem fez *Acknowledge* de incidentes e quem alterou regras ou canais de notificação, acompanhado de `ip_address` e `timestamp`.
-  2. **Ciclo de Vida Não-Destrutivo de Ativos (Ausência Deliberada de Hard Delete):**
+  1. **Tabela `audit_logs` Append-Only e Proteção por Triggers de Banco:**
+     - Criação da tabela `audit_logs` no PostgreSQL com inserção estritamente append-only.
+     - **Bloqueio Inviolável no Nível de Banco de Dados:** A migração Alembic `002_create_identity_schema.py` instala a trigger `prevent_audit_log_mutation` (`BEFORE UPDATE OR DELETE ON audit_logs`), que aborta sumariamente qualquer tentativa de modificação ou expurgo via DML com exceção de banco (`RAISE EXCEPTION`), mesmo diante de comandos SQL manuais.
+  2. **Encadeamento Criptográfico Tamper-Evident (SHA-256 Hash Chain):**
+     - O módulo `backend/src/core/security/audit.py` implementa uma cadeia criptográfica sequencial onde cada registro de auditoria calcula o campo `hash = SHA256(id | actor_user_id | action | resource_type | resource_id | result | details | created_at | previous_hash)`.
+     - O primeiro registro da cadeia ancora-se no `GENESIS_HASH` (`"0" * 64`).
+     - A integridade de toda a trilha pode ser atestada a qualquer momento através do serviço `verify_audit_chain` (`audit_service.py`), tornando qualquer adulteração, injeção retroativa ou deleção de linha imediatamente detectável por quebra matemática da cadeia.
+  3. **Ciclo de Vida Não-Destrutivo de Ativos (Ausência Deliberada de Hard Delete):**
      - A API REST do InfraWatch deliberadamente **não expõe endpoint de exclusão física** (`DELETE /api/v1/devices/{id}`). Em vez disso, o gerenciamento de inventário apoia-se estritamente em **transições de estado de ciclo de vida** (`is_active=False`, `status=PAUSED`, `status=MAINTENANCE`).
      - **Justificativas Arquiteturais:**
        * *Preservação de Séries Temporais no TimescaleDB (ADR-031):* A exclusão física de um dispositivo quebraria a integridade referencial ou orfanaria milhões de amostras de telemetria na Hypertable `metrics`. Operações de exclusão em cascata (`CASCADE DELETE`) provocariam contenção severa de I/O e locks de tabela inaceitáveis em ambiente de produção.
@@ -516,26 +522,30 @@
 
 ---
 
-### ADR-035: Idempotência Estrita e Deduplicação Persistente em Integrações Externas
-- **Status:** Aprovado e Planejado
+### ADR-035: Idempotência Estrita e Deduplicação Persistente em Duas Camadas
+- **Status:** Aprovado e Otimizado
 - **Origem:** Issue #233, Seção 1 de `falhas_encontra_das.md`, Milestone: *Fase 4: Integrações Corporativas (GLPI, Webhooks & Outbox)*.
 - **Problema:**
   1. **Semântica At-Least-Once e Reentrega no Redis Streams:** Os consumidores de eventos operam sob o modelo de entrega de pelo menos uma vez (*at-least-once delivery*). Caso um consumidor processe com êxito um evento disparando uma chamada externa (ex.: criação de ticket via REST no GLPI ou disparo de mensagem via Evolution API / SMTP) mas sofra um crash (falha de processo, reinicialização de contêiner ou timeout de rede) antes de emitir o comando `XACK`, a mensagem permanece na Pending Entries List (PEL).
   2. **Efeitos Colaterais Duplos em Terceiros:** Após o timeout de 60 segundos (`min_idle_ms = 60000`), o comando `XAUTOCLAIM` reatribui a mensagem pendente a um consumidor saudável. Embora o modelo de domínio interno do InfraWatch possua transições de estado idempotentes por natureza (ex.: resolver incidente já resolvido é no-op inofensivo), serviços externos de terceiros (GLPI, provedores de email e gateways WhatsApp) não possuem esse conhecimento e criam tickets duplicados ou reenviam notificações aos mesmos destinatários, gerando ruído e descontentamento operacional.
 - **Decisão:**
-  1. **Tabela de Deduplicação Relacional (`processed_events` / `idempotency_keys`):**
-     - Criação da tabela persistente com chave primária composta `(consumer_name, idempotency_key)` e carimbo temporal `processed_at TIMESTAMPTZ`.
-     - Antes de invocar a API de um serviço externo com efeitos colaterais, o consumidor verifica e registra transacionalmente a execução prévia da mensagem (`event_id` ou combinação determinística de evento + ativo + estado).
-  2. **Idempotency Key nos Cabeçalhos / Payloads de Integração:**
+  1. **Arquitetura de Deduplicação em Duas Camadas (Two-Tier Idempotency Guard):**
+     - Implementação centralizada no `IdempotencyGuard` (`backend/src/core/messaging/idempotency.py`) operando em camadas cooperativas:
+       * **Camada L1 (Cache em Memória Redis - TTL de 24h):** Toda mensagem consultada ou concluída é verificada no Redis sob a chave `idempotency:{consumer_name}:{event_id}` com expiração de 24 horas (`DEFAULT_IDEMPOTENCY_TTL = 86400`). Entrega resposta com latência sub-milissegundo para absorver o throughput massivo do barramento sem sobrecarregar o banco.
+       * **Camada L2 (Persistência Relacional ACID PostgreSQL):** Gravação permanente na tabela `processed_events` com chave primária composta `(consumer_name, event_id)` e timestamp `processed_at`. Caso o Redis sofra expurgo ou reinicialização, o PostgreSQL atua como fonte da verdade definitiva.
+  2. **Tabela de Deduplicação Relacional (`processed_events`):**
+     - Uso de `merge()` / `INSERT ... ON CONFLICT DO NOTHING` para garantir que a inserção concorrente entre réplicas seja inerentemente idempotente.
+  3. **Idempotency Key nos Cabeçalhos / Payloads de Integração:**
      - Sempre que a API externa suportar chave de idempotência nativa (cabeçalhos HTTP como `Idempotency-Key` ou busca prévia de tickets abertos no GLPI pelo `device_id` e status ativo), o consumidor obrigatoriamente a propaga para delegar a deduplicação na borda remota.
-  3. **Janela de Retenção e Limpeza Automática:**
-     - As chaves de idempotência na tabela de deduplicação possuem TTL de retenção de 7 dias, purgadas periodicamente pelo daemon `infrawatch-cleanup-worker`.
+  4. **Janela de Retenção e Limpeza Automática:**
+     - As chaves de idempotência na tabela de deduplicação relacional possuem retenção de 7 dias, purgadas periodicamente pelo daemon `infrawatch-cleanup-worker`.
 - **Alternativas Descartadas:**
   - *Confiar apenas no XACK imediato antes de chamar o serviço externo:* Quebraria a garantia de entrega, pois se o worker falhasse durante a requisição externa, a mensagem seria perdida sem retry.
   - *Deduplicação puramente em memória no consumidor:* Inútil diante de reinicializações de workers ou múltiplos nós/réplicas consumindo concorrentemente.
 - **Benefício:**
   - Garantia de que serviços externos recebem exatamente uma ação lógica por evento (*effectively-once processing*).
   - Prevenção total de duplicação de tickets no GLPI e disparos em massa repetidos no WhatsApp/E-mail.
+  - Latência ultrabaixa via L1 Cache Redis com resiliência durável garantida pelo L2 ACID PostgreSQL.
 
 ---
 
@@ -646,3 +656,146 @@
   - Parada graciosa determinística e zero perda de telemetria em atualizações contínuas de contêineres.
   - Imunidade total a processos zumbis e vazamento de FDs sob estresse de rede ou destinos inalcançáveis.
   - Conformidade estrita com as melhores práticas de orquestração em contêineres Linux (Docker, Podman, Kubernetes).
+
+---
+
+### ADR-040: Ingestão de Telemetria em Lote Assíncrono com Buffer e Pipelining (`MetricsBatchWriter`)
+- **Status:** Aprovado e Implementado
+- **Origem:** Análise de performance da ingestão massiva de métricas (`backend/src/contexts/telemetry/services/batch_writer.py`, `probe_worker.py:164,245`).
+- **Problema:**
+  - Sondas contínuas de rede disparam centenas a milhares de amostras de latência, perda de pacotes e status por segundo.
+  - Gravar cada amostra individualmente via comandos `INSERT` unitários provocaria contenção severa no pool de conexões do PostgreSQL, sobrecarga de transações ACID e degradação prematura de I/O na Hypertable do TimescaleDB (ADR-031).
+- **Decisão:**
+  1. **Buffer Assíncrono com Disparo Duplo (Volume ou Tempo):**
+     - Criação da classe `MetricsBatchWriter` que acumula amostras de telemetria em fila circular thread-safe (`deque`).
+     - A descarga (*flush*) ocorre automaticamente ao atingir **1.000 amostras** ou a cada **5,0 segundos** via timer em background (`run_flush_loop`).
+  2. **Inserção em Lote via Pipelining Nativo (`asyncpg`):**
+     - O flush executa comando SQL parametrizado único (`INSERT INTO metrics ...`) repassando a lista completa de tuplas (`session.execute(insert_sql, batch)`), aproveitando o suporte nativo a pipelining do driver assíncrono `asyncpg`.
+  3. **Resiliência e Re-enfileiramento Atômico em Falhas:**
+     - Em caso de falha transitória (timeout, reinicialização momentânea do banco), o bloco `except` re-enfileira atomicamente o lote de volta ao topo do buffer (`self._buffer.extendleft(reversed(batch))`), garantindo zero perda de métricas durante quedas de conectividade.
+- **Alternativas Descartadas:**
+  - *INSERT individual por sonda:* Descartado pelo overhead proibitivo de rede e conexões com o banco.
+  - *Filas persistentes intermediárias (RabbitMQ) exclusivas para métricas:* Descartado para evitar mais um componente de infraestrutura; o buffer local atende com latência e consumo mínimo de memória.
+- **Benefício:**
+  - Capacidade de ingerir milhares de métricas por segundo com número reduzido de conexões físicas ao TimescaleDB.
+  - Redução drástica do overhead de commits e total tolerância a falhas transitórias.
+
+---
+
+### ADR-041: Diagnóstico de Sondas On-Demand Desacoplado via Redis Stream e SSE
+- **Status:** Aprovado e Implementado
+- **Origem:** Requisito de diagnóstico interativo no mapa de topologia (`stream:probes:ondemand`, `topology_service.py:249-277`, `probe_worker.py:286-324`).
+- **Problema:**
+  - Operadores do NOC na tela de topologia de rede necessitam disparar comandos instantâneos de diagnóstico (ping ICMP imediato) contra nós específicos sob suspeita.
+  - Executar a sondagem de forma síncrona dentro da requisição HTTP da API travaria a thread da Web por até 5 segundos (timeout do ping). Além disso, exigiria que o contêiner da API possuísse recursos de baixo nível de rede (raw sockets), violando o isolamento de privilégios.
+- **Decisão:**
+  1. **Comando Desacoplado via Redis Stream Dedicado:**
+     - A API recebe a intenção do operador (`POST /topology/nodes/{id}/probe`), publica o comando `OnDemandProbeCommand` no stream dedicado `stream:probes:ondemand` e responde imediatamente HTTP 202 (*Accepted*) contendo `probe_id` e canal de escuta.
+  2. **Loop de Consumo Prioritário no ProbeWorker:**
+     - O `ProbeWorkerDaemon` consome `stream:probes:ondemand` em laço concorrente dedicado (`_ondemand_probe_loop`) com lote pequeno (`batch_size=5`) e timeout reduzido (`timeout_ms=500`), garantindo despacho quase instantâneo (< 50ms).
+  3. **Devolução do Resultado via SSE Broadcaster:**
+     - Ao concluir o ping ICMP no ambiente do worker, o resultado é publicado no canal SSE do usuário/organização, atualizando instantaneamente a cor e a latência do nó no mapa mental do frontend sem necessidade de polling.
+- **Alternativas Descartadas:**
+  - *Requisição síncrona bloqueante:* Descartada por degradar o throughput da API e arriscar timeouts em balanceadores.
+  - *Adicionar comando à fila periódica geral de inventário:* Descartada pelo atraso operacional (o operador teria que aguardar a vez do ativo na rodada de agendamento).
+- **Benefício:**
+  - Resposta sub-segundo na experiência do operador do NOC sem bloquear threads HTTP.
+  - Preservação do isolamento estrito de permissões de rede no contêiner do `ProbeWorker`.
+
+---
+
+### ADR-042: Observabilidade com Logs Estruturados em JSON e Correlação de Contexto Assíncrono
+- **Status:** Aprovado e Implementado
+- **Origem:** Padronização de observabilidade corporativa (`logging.py:43-86`, `correlation_id.py:15-37`, `request_logging.py:17-40`).
+- **Problema:**
+  - Em ambientes distribuídos com múltiplos processos e contêineres independentes (API, 5 daemons), logs em texto puro com quebras de linha irregulares e códigos de cores ANSI poluem ferramentas de agregação centralizada (Elasticsearch, Loki, CloudWatch).
+  - A ausência de um identificador comum de rastreamento impossibilita reconstituir o ciclo de vida completo de uma requisição que entra pela API, dispara eventos no Outbox e é processada assincronamente por workers.
+- **Decisão:**
+  1. **Formatador JSON Nativo Padronizado (`JSONFormatter`):**
+     - Emissão de logs em JSON estruturado de linha única contendo campos padronizados: `timestamp` (ISO-8601 em UTC), `level`, `logger`, `service` e `message`.
+     - Sanitização ativa de caracteres de controle de cor ANSI via regex (`_ANSI_ESCAPE_RE`).
+  2. **Correlação de Contexto Assíncrono (`CorrelationIdMiddleware`):**
+     - O middleware inspeciona o cabeçalho HTTP `X-Request-ID` ou gera um identificador UUIDv4 único, injetando-o no contexto assíncrono via `contextvars`.
+     - O `JSONFormatter` extrai automaticamente `request_id` e `user_id` (quando autenticado) de cada linha emitida, propagando a rastreabilidade ponta a ponta.
+  3. **Extração Inteligente de Acesso HTTP:**
+     - Interceptação de eventos de acesso do Uvicorn para enriquecer payloads de log com `client_host` e `status_code`.
+- **Alternativas Descartadas:**
+  - *Logs em formato texto com cores em produção:* Dificulta parsing automatizado e gera estouro de linhas em coletores de telemetria.
+- **Benefício:**
+  - Rastreabilidade forense imediata de requisições por `request_id` e `user_id`.
+  - Ingestão simplificada e indexação de alta velocidade em qualquer coletor de logs corporativo.
+
+---
+
+### ADR-043: Validação de Segurança Fail-Fast em Produção e Postura Fail-Closed no Rate Limiting
+- **Status:** Aprovado e Implementado
+- **Origem:** Hardening de segurança corporativa (`backend/src/core/config.py:249-290`, `backend/src/core/infrastructure/redis.py:172-204`).
+- **Problema:**
+  1. Subir a stack em ambiente de produção com segredos default de desenvolvimento, chaves com entropia fraca (< 32 caracteres) ou reaproveitadas entre access token e refresh token compromete a confidencialidade de tokens JWT e sessões.
+  2. Caso o Redis enfrente instabilidade ou partição de rede, uma estratégia tolerante (*fail-open*) no rate limiting desativaria as proteções, expondo o endpoint de autenticação a ataques volumétricos de força bruta justamente durante janelas de estresse de infraestrutura.
+- **Decisão:**
+  1. **Validação Fail-Fast Estrita no Startup:**
+     - O método `_validate_production_security` em `Settings` interrompe imediatamente a inicialização do contêiner com `ValueError` quando `ENVIRONMENT == "production"` e qualquer uma das seguintes violações ocorrer:
+       * `DEBUG == True`;
+       * `SECRET_KEY`, `REFRESH_SECRET_KEY`, `OAUTH_STATE_SECRET` ou `MFA_PENDING_SECRET` utilizarem valores de catálogo inseguro/default;
+       * Qualquer secret possuir comprimento inferior a 32 caracteres;
+       * `SECRET_KEY` for idêntica à `REFRESH_SECRET_KEY`.
+  2. **Postura Defensiva Fail-Closed no Rate Limiter sob Falha do Redis:**
+     - Na rotina `rate_limit_check` (`redis.py`), em ambiente de produção, qualquer indisponibilidade de conexão com o Redis opera em **fail-closed**, retornando penalidade de tempo (`retry_after = window_seconds`) e bloqueando novas tentativas não autenticadas.
+     - Em ambientes de desenvolvimento e testes locais (`dev`/`test`), mantém *fail-open* para permitir fluidez no desenvolvimento sem obrigar a inicialização contínua do Redis.
+- **Alternativas Descartadas:**
+  - *Apenas emitir warnings de log no startup:* Ignorados frequentemente em deploys automatizados, deixando brechas críticas abertas em produção.
+  - *Fail-open universal no rate limiting:* Permitiria bypass intencional de limites via saturação induzida do Redis.
+- **Benefício:**
+  - Impossibilidade de execução inadvertida com credenciais fracas em produção.
+  - Blindagem incondicional de endpoints de autenticação contra força bruta mesmo sob pane de infraestrutura de cache.
+
+---
+
+### ADR-044: Hardening de Contêineres, Princípio do Menor Privilégio e Isolamento de Rede
+- **Status:** Aprovado e Implementado
+- **Origem:** Auditoria de infraestrutura Docker (`backend/Dockerfile.api`, `backend/Dockerfile.worker`, `docker-compose.yml:52-54`).
+- **Problema:**
+  - Executar processos em contêineres Docker como `root` amplia substancialmente a superfície de ataque em caso de vulnerabilidades de execução remota de código (RCE) ou falhas de escape de contêiner para o kernel hospedeiro.
+  - No entanto, sondas de rede ICMP tradicionalmente requerem sockets raw (que exigem privilégios elevados), e expor a porta da API FastAPI diretamente no host contorna controles perimetrais de TLS e inspeção de cabeçalhos.
+- **Decisão:**
+  1. **Usuário Não-Root Dedicado (`USER appuser`):**
+     - Todas as imagens Docker (`Dockerfile.api`, `Dockerfile.worker`) são construídas em multi-stage (builder/runner) e executam sob usuário e grupo de baixos privilégios `appuser:appgroup` (UID/GID 1000).
+  2. **Capacidades Linux Cirúrgicas (`cap_net_raw+ep`):**
+     - Em vez de rodar o contêiner do worker como root ou com a flag perigosa `--privileged`, o binário do Python no worker recebe a capacidade Linux pontual `setcap cap_net_raw+ep /opt/venv/bin/python3.12`. Isso autoriza sockets ICMP raw nativos para o `IcmpProber` mantendo o processo como usuário comum não privilegiado.
+  3. **Isolamento Perimetral de Portas no Host:**
+     - A porta `8000:8000` da API FastAPI é expressamente omitida do mapeamento público no `docker-compose.yml`. A API comunica-se estritamente através da rede interna `infrawatch-net`, aceitando requisições exclusivamente despachadas pelo gateway Nginx.
+- **Alternativas Descartadas:**
+  - *Rodar worker em modo privileged:* Concede acesso irrestrito aos dispositivos de hardware do host, representando risco inaceitável.
+  - *Publicar porta 8000 no host:* Permite que atacantes contornem certificados TLS, cabeçalhos de segurança e rate limits do Nginx.
+- **Benefício:**
+  - Conformidade estrita com o princípio do menor privilégio (PoLP) e benchmarks CIS Docker.
+  - Contenção do raio de explosão (*blast radius*) de qualquer comprometimento em tempo de execução.
+
+---
+
+### ADR-045: Gateway Reverso Nginx Unificado com Entrega de SPA Estática via Volume Compartilhado
+- **Status:** Aprovado e Implementado
+- **Origem:** Arquitetura perimetral de rede (`nginx/nginx.conf:81-177`, `docker-compose.yml:414-424`, `docs/infra/certificates.md`).
+- **Problema:**
+  - A execução de servidores web dedicados para o frontend SPA em produção (como instâncias Node.js com Vite em runtime) consome memória excessiva (~150-250 MB por réplica), introduz atrasos no carregamento de bundles e exige configurações complexas de CORS.
+  - Além disso, balanceadores genéricos frequentemente ativam buffering em conexões HTTP, quebrando a entrega de mensagens em tempo real via Server-Sent Events (SSE).
+- **Decisão:**
+  1. **Gateway Unificado como Ponto Único de Entrada:**
+     - O contêiner `infrawatch-gateway` (Nginx Alpine) é o único componente da stack com portas públicas mapeadas no host (`80:80` e `443:443`).
+     - Realiza terminação TLS/HTTPS com protocolos seguros (TLS 1.2 e 1.3), suites de cifras ECDHE-GCM, HSTS de longa duração (`max-age=63072000`) e cabeçalhos de defesa em profundidade (`X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`).
+  2. **Entrega de Alta Performance da SPA React via Volume Compartilhado:**
+     - O contêiner `infrawatch-frontend` compila os assets estáticos via `npm run build` durante a inicialização e os disponibiliza através do volume compartilhado `frontend_dist:/usr/share/nginx/html:ro`.
+     - O Nginx serve os arquivos estáticos diretamente da memória/disco:
+       * Assets compilados (`.js`, `.css`, fontes, imagens com hashes de conteúdo): cabeçalho imutável `Cache-Control: public, immutable` com validade de 1 ano (`expires 1y`).
+       * Arquivo `index.html`: servido com `Cache-Control: no-cache, no-store, must-revalidate` para garantir que novas versões do frontend sejam carregadas instantaneamente pelos navegadores após deploys.
+       * Suporte a rotas client-side do React Router via `try_files $uri $uri/ /index.html`.
+  3. **Roteamento Especializado de Streaming SSE:**
+     - Nas rotas `/api/v1/events/stream` e `/api/v1/system/backup/events`, o Nginx desativa explicitamente o buffer de resposta (`proxy_buffering off`, `proxy_cache off`, `chunked_transfer_encoding off`), assegurando que amostras de telemetria e notificações de incidentes cheguem imediatamente aos dashboards sem retenção em buffers locais.
+- **Alternativas Descartadas:**
+  - *Servidor Node.js em produção para servir a SPA:* Alto consumo de CPU e RAM sem benefícios técnicos em relação à entrega estática nativa do Nginx.
+  - *Servir frontend diretamente pela API FastAPI:* Misturaria tráfego estático com I/O de dados, onerando o loop assíncrono do backend.
+- **Benefício:**
+  - Economia de recursos de hardware e latência mínima na entrega de páginas web.
+  - Streaming SSE confiável sem retenção em buffers intermediários.
+  - Gestão centralizada e transparente de certificados SSL e políticas de segurança HTTPS.
