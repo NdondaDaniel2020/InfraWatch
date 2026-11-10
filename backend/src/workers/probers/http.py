@@ -28,7 +28,15 @@ class HttpProber(BaseProber):
 
     async def probe(self, target: ProbeTarget, timeout_ms: int = 2000) -> ProbeResult:
         """Executa a sondagem HTTP."""
-        url = f"{target.protocol}://{target.ip_address}:{target.port}"
+        protocol = target.protocol.lower()
+        if target.port and target.port > 0:
+            port_part = f":{target.port}"
+            port = target.port
+        else:
+            port_part = ""
+            port = 443 if protocol == "https" else 80
+
+        url = f"{protocol}://{target.ip_address}{port_part}"
         timeout_s = timeout_ms / 1000.0
 
         start_time = time.perf_counter()
@@ -41,10 +49,10 @@ class HttpProber(BaseProber):
 
             # Se for HTTPS, extrai a validade do TLS se possível, independente do httpx
             tls_days_left = None
-            if target.protocol.lower() == "https":
+            if protocol == "https":
                 try:
                     tls_days_left = await self._get_cert_validity_days(
-                        target.ip_address, target.port, timeout_s
+                        target.ip_address, port, timeout_s
                     )
                 except (TimeoutError, ssl.SSLError, OSError) as err:
                     logger.debug("Falha na coleta de certificado TLS para %s: %s", target.name, err)

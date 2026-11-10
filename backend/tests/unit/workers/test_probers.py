@@ -6,6 +6,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from src.workers.probers.base import ProbeResult
 from src.workers.probers.http import HttpProber
 from src.workers.probers.icmp import IcmpProber
 from src.workers.probers.tcp import TcpProber
@@ -101,6 +102,24 @@ async def test_http_prober_success(dummy_target):
 
 
 @pytest.mark.asyncio
+async def test_http_prober_port_zero_fallback(dummy_target):
+    prober = HttpProber()
+    dummy_target.protocol = "http"
+    dummy_target.port = 0
+
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+
+    with patch("httpx.AsyncClient.get", return_value=mock_response) as mock_get:
+        result = await prober.probe(dummy_target)
+        assert result.status == "UP"
+        mock_get.assert_called_once_with(
+            f"http://{dummy_target.ip_address}",
+            headers={"User-Agent": "InfraWatch-Probe/1.0"},
+        )
+
+
+@pytest.mark.asyncio
 async def test_http_prober_degraded_on_error_code(dummy_target):
     prober = HttpProber()
 
@@ -164,3 +183,29 @@ async def test_tcp_prober_timeout(dummy_target):
     with patch("asyncio.wait_for", side_effect=_mock_wait_for):
         result = await prober.probe(dummy_target)
         assert result.status == "TIMEOUT"
+
+
+# ---------------- PROBE EXECUTOR ROUTING TESTS ----------------
+
+
+@pytest.mark.asyncio
+async def test_probe_executor_routes_snmp_to_icmp(dummy_target):
+    from src.workers.probers.executor import ProbeExecutor
+
+    dummy_target.protocol = "snmp"
+    dummy_target.port = 161
+
+    executor = ProbeExecutor()
+    mock_icmp_result = ProbeResult(
+        device_id=dummy_target.device_id,
+        target_name=dummy_target.name,
+        status="UP",
+        latency_ms=2.5,
+        packet_loss_pct=0.0,
+    )
+
+    with patch.object(executor.probers["icmp"], "probe", return_value=mock_icmp_result) as mock_probe:
+        result = await executor.execute(dummy_target)
+        mock_probe.assert_called_once()
+        assert result.status == "UP"
+        assert result.latency_ms == 2.5

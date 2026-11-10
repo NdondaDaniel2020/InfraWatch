@@ -359,3 +359,31 @@ async def test_organizations_management_flow_and_rbac(
         assert viewer_list.status_code == status.HTTP_200_OK
         assert viewer_list.json()["total"] == 1
         assert viewer_list.json()["items"][0]["id"] == str(org.id)
+
+
+@pytest.mark.asyncio
+async def test_register_forces_client_viewer_role(
+    override_db: None,
+    integration_db: async_sessionmaker[AsyncSession],
+) -> None:
+    """Valida que auto-cadastro público não permite escalação de privilégios para SUPER_ADMIN."""
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client,
+    ):
+        res = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "attacker@infrawatch.ao",
+                "password": "StrongPassword123!@",
+                "full_name": "Attacker Role Escalation",
+                "role": "SUPER_ADMIN",
+            },
+        )
+        assert res.status_code == status.HTTP_201_CREATED
+        data = res.json()
+        assert data["role"] == UserRole.CLIENT_VIEWER.value
+        assert data["role"] != "SUPER_ADMIN"
+

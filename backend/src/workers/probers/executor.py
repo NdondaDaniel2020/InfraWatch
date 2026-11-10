@@ -33,7 +33,13 @@ class ProbeExecutor:
     async def execute(self, target: ProbeTarget, timeout_ms: int = 2000) -> ProbeResult:
         """Executa a sonda apropriada respeitando o semáforo de concorrência."""
         protocol = target.protocol.lower()
-        prober = self.probers.get(protocol)
+        prober: BaseProber | None = None
+        if protocol == "snmp":
+            # Conforme ADR-004, telemetria aprofundada SNMP é coletada pelo Zabbix.
+            # O ProbeWorker realiza verificação rápida de liveness via ICMP (ping).
+            prober = self.probers["icmp"]
+        else:
+            prober = self.probers.get(protocol)
 
         # Fallback para ping (ICMP) se o protocolo não for específico (ou tcp genérico)
         if not prober:

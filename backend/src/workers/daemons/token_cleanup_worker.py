@@ -7,6 +7,7 @@ evitando contenção de escrita e locks destrutivos nas tabelas de identidade.
 
 import asyncio
 import logging
+import signal
 from datetime import UTC, datetime, timedelta
 
 import redis.asyncio as aioredis
@@ -61,6 +62,7 @@ class TokenCleanupWorker:
         self.lock_timeout = lock_timeout
         self.retention_days = retention_days
         self._running = False
+        self._stop_event = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
 
     async def cleanup_expired_tokens(self, session: AsyncSession) -> int:
@@ -126,19 +128,27 @@ class TokenCleanupWorker:
     async def run_forever(self) -> None:
         """Loop principal do worker executado em segundo plano."""
         self._running = True
+        self._stop_event.clear()
         logger.info(
             "Worker de limpeza periódica de tokens iniciado (intervalo: %ds, TTL lock: %ds)",
             self.interval_seconds,
             self.lock_timeout,
         )
         try:
-            while self._running:
+            while self._running and not self._stop_event.is_set():
                 try:
                     await self.run_once()
                 except Exception:
                     logger.exception("Erro durante a execução do expurgo de tokens")
 
-                await asyncio.sleep(self.interval_seconds)
+                try:
+                    await asyncio.wait_for(
+                        self._stop_event.wait(), timeout=self.interval_seconds
+                    )
+                    if self._stop_event.is_set():
+                        break
+                except TimeoutError:
+                    pass
         except asyncio.CancelledError:
             logger.info("Worker de limpeza periódica de tokens cancelado.")
         finally:
@@ -153,6 +163,7 @@ class TokenCleanupWorker:
     async def stop(self) -> None:
         """Para a execução do worker de forma graciosa."""
         self._running = False
+        self._stop_event.set()
         if self._task and not self._task.done():
             self._task.cancel()
             try:
@@ -180,6 +191,14 @@ async def run_standalone() -> None:
         lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
         retention_days=settings.TOKEN_CLEANUP_RETENTION_DAYS,
     )
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, worker._stop_event.set)
+        except NotImplementedError:
+            pass
+
     try:
         await worker.run_forever()
     finally:

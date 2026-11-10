@@ -993,7 +993,7 @@ async def seed_topology(
     unitel_org_id = orgs_map.get("unitel-angola", default_org)
     banco_org_id = orgs_map.get("banco-sol", default_org)
 
-    nodes_data = [
+    nodes_data: list[dict[str, Any]] = [
         {
             "label": "RT-EDGE-01",
             "node_type": "router",
@@ -1038,38 +1038,39 @@ async def seed_topology(
 
     nodes_map: dict[str, TopologyNodeModel] = {}
     for item in nodes_data:
-        dev = devices.get(item["device_name"])
-        stmt = select(TopologyNodeModel).where(
+        dev = devices.get(str(item["device_name"]))
+        label_str = str(item["label"])
+        node_stmt = select(TopologyNodeModel).where(
             TopologyNodeModel.organization_id == item["org_id"],
-            TopologyNodeModel.label == item["label"],
+            TopologyNodeModel.label == label_str,
         )
-        existing = (await session.execute(stmt)).scalars().first()
+        existing = (await session.execute(node_stmt)).scalars().first()
         if existing:
-            existing.ip_address = item["ip_address"]
-            existing.cluster = item["cluster"]
-            existing.position_x = item["position_x"]
-            existing.position_y = item["position_y"]
+            existing.ip_address = str(item["ip_address"]) if item["ip_address"] else None
+            existing.cluster = str(item["cluster"]) if item["cluster"] else None
+            existing.position_x = float(item["position_x"]) if item["position_x"] is not None else None
+            existing.position_y = float(item["position_y"]) if item["position_y"] is not None else None
             if dev:
                 existing.device_id = dev.id
-            nodes_map[item["label"]] = existing
+            nodes_map[label_str] = existing
         else:
             node = TopologyNodeModel(
                 id=generate_uuid7(),
                 organization_id=item["org_id"],
-                label=item["label"],
-                node_type=item["node_type"],
+                label=label_str,
+                node_type=str(item["node_type"]),
                 device_id=dev.id if dev else None,
-                ip_address=item["ip_address"],
-                cluster=item["cluster"],
-                position_x=item["position_x"],
-                position_y=item["position_y"],
+                ip_address=str(item["ip_address"]) if item["ip_address"] else None,
+                cluster=str(item["cluster"]) if item["cluster"] else None,
+                position_x=float(item["position_x"]) if item["position_x"] is not None else None,
+                position_y=float(item["position_y"]) if item["position_y"] is not None else None,
             )
             session.add(node)
-            nodes_map[item["label"]] = node
+            nodes_map[label_str] = node
 
     await session.flush()
 
-    edges_data = [
+    edges_data: list[dict[str, Any]] = [
         {
             "src": "RT-EDGE-01",
             "dst": "SW-CORE-LUANDA-01",
@@ -1100,32 +1101,32 @@ async def seed_topology(
     ]
 
     for item in edges_data:
-        src_node = nodes_map.get(item["src"])
-        dst_node = nodes_map.get(item["dst"])
+        src_node = nodes_map.get(str(item["src"]))
+        dst_node = nodes_map.get(str(item["dst"]))
         if not src_node or not dst_node:
             continue
 
-        stmt = select(TopologyEdgeModel).where(
+        edge_stmt = select(TopologyEdgeModel).where(
             TopologyEdgeModel.organization_id == item["org_id"],
             TopologyEdgeModel.source_node_id == src_node.id,
             TopologyEdgeModel.target_node_id == dst_node.id,
         )
-        existing = (await session.execute(stmt)).scalars().first()
-        if existing:
-            existing.link_type = item["link_type"]
-            existing.bandwidth_gbps = item["bandwidth_gbps"]
-            existing.port_src = item["port_src"]
-            existing.port_dst = item["port_dst"]
+        existing_edge = (await session.execute(edge_stmt)).scalars().first()
+        if existing_edge:
+            existing_edge.link_type = str(item["link_type"])
+            existing_edge.bandwidth_gbps = float(item["bandwidth_gbps"])
+            existing_edge.port_src = str(item["port_src"]) if item["port_src"] else None
+            existing_edge.port_dst = str(item["port_dst"]) if item["port_dst"] else None
         else:
             edge = TopologyEdgeModel(
                 id=generate_uuid7(),
                 organization_id=item["org_id"],
                 source_node_id=src_node.id,
                 target_node_id=dst_node.id,
-                link_type=item["link_type"],
-                bandwidth_gbps=item["bandwidth_gbps"],
-                port_src=item["port_src"],
-                port_dst=item["port_dst"],
+                link_type=str(item["link_type"]),
+                bandwidth_gbps=float(item["bandwidth_gbps"]),
+                port_src=str(item["port_src"]) if item["port_src"] else None,
+                port_dst=str(item["port_dst"]) if item["port_dst"] else None,
             )
             session.add(edge)
 

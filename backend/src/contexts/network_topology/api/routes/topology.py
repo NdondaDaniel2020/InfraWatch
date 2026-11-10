@@ -63,10 +63,19 @@ PROBE_ROLES = [
 ]
 
 
-def _resolve_tenant_org(user: CurrentUserDep, org_id: UUID | None) -> UUID:
+async def _resolve_tenant_org(
+    user: CurrentUserDep,
+    org_id: UUID | None,
+    service: TopologyServiceDep,
+) -> UUID:
     """Valida e extrai o UUID da organização aplicando as regras de isolamento multi-tenant."""
     target_str = enforce_tenant_scope(org_id, user)
     if not target_str:
+        if user.is_global_operator:
+            fallback_org = await service.get_default_organization_id()
+            if fallback_org is not None:
+                return fallback_org
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="organization_id é obrigatório para acessar os dados de topologia.",
@@ -91,7 +100,7 @@ async def get_topology_graph(
     organization_id: Annotated[UUID | None, Query(description="Filtrar por organização")] = None,
 ) -> TopologyGraphResponse:
     """Retorna todos os nós, enlaces e clusters da organização para renderização visual."""
-    org_id = _resolve_tenant_org(user, organization_id)
+    org_id = await _resolve_tenant_org(user, organization_id, service)
     graph, device_statuses = await service.get_graph(org_id)
     return TopologyGraphResponse.from_domain(graph, device_statuses=device_statuses)
 
@@ -115,7 +124,7 @@ async def create_node(
     organization_id: Annotated[UUID | None, Query(description="Organização do nó")] = None,
 ) -> TopologyNodeResponse:
     """Cadastra um novo elemento no grafo de topologia da infraestrutura."""
-    org_id = _resolve_tenant_org(user, organization_id)
+    org_id = await _resolve_tenant_org(user, organization_id, service)
     try:
         node = await service.create_node(
             organization_id=org_id,
@@ -146,7 +155,7 @@ async def update_node_position(
     organization_id: Annotated[UUID | None, Query(description="Organização do nó")] = None,
 ) -> TopologyNodeResponse:
     """Persiste a nova posição de um nó no canvas interativo."""
-    org_id = _resolve_tenant_org(user, organization_id)
+    org_id = await _resolve_tenant_org(user, organization_id, service)
     try:
         node = await service.update_node_position(
             node_id=node_id,
@@ -172,7 +181,7 @@ async def delete_node(
     organization_id: Annotated[UUID | None, Query(description="Organização do nó")] = None,
 ) -> None:
     """Remove um nó do grafo e todos os enlaces incidentes a ele."""
-    org_id = _resolve_tenant_org(user, organization_id)
+    org_id = await _resolve_tenant_org(user, organization_id, service)
     try:
         await service.delete_node(node_id, org_id)
     except NodeNotFoundError as err:
@@ -198,7 +207,7 @@ async def create_edge(
     organization_id: Annotated[UUID | None, Query(description="Organização do enlace")] = None,
 ) -> TopologyEdgeResponse:
     """Cadastra uma conexão física ou lógica entre dois nós validados."""
-    org_id = _resolve_tenant_org(user, organization_id)
+    org_id = await _resolve_tenant_org(user, organization_id, service)
     try:
         edge = await service.create_edge(
             organization_id=org_id,
@@ -231,7 +240,7 @@ async def delete_edge(
     organization_id: Annotated[UUID | None, Query(description="Organização do enlace")] = None,
 ) -> None:
     """Remove um enlace entre nós."""
-    org_id = _resolve_tenant_org(user, organization_id)
+    org_id = await _resolve_tenant_org(user, organization_id, service)
     try:
         await service.delete_edge(edge_id, org_id)
     except EdgeNotFoundError as err:
@@ -260,7 +269,7 @@ async def trigger_ondemand_probe(
 
     Retorna imediatamente probe_id e canal SSE para recepção do resultado em tempo real.
     """
-    org_id = _resolve_tenant_org(user, organization_id)
+    org_id = await _resolve_tenant_org(user, organization_id, service)
     timeout_ms = payload.timeout_ms if payload else 5000
 
     try:

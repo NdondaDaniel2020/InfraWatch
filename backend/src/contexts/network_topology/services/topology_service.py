@@ -57,6 +57,28 @@ class TopologyService:
         else:
             await self._session.commit()
 
+    async def get_default_organization_id(self) -> UUID | None:
+        """Retorna o ID da primeira organização disponível para fallback de operadores globais."""
+        from src.contexts.iam.database.models import OrganizationModel
+        from src.contexts.network_topology.database.models import TopologyNodeModel
+
+        try:
+            stmt = select(OrganizationModel.id).where(OrganizationModel.is_active == True).limit(1)  # noqa: E712
+            result = await self._session.execute(stmt)
+            org_id = result.scalar_one_or_none()
+            if org_id:
+                return org_id
+        except Exception:
+            # Fallback seguro caso a tabela de organizações não esteja acessível
+            pass
+
+        try:
+            node_stmt = select(TopologyNodeModel.organization_id).limit(1)
+            node_result = await self._session.execute(node_stmt)
+            return node_result.scalar_one_or_none()
+        except Exception:
+            return None
+
     # ------------------------------------------------------------------
     # Consultas do Grafo
     # ------------------------------------------------------------------

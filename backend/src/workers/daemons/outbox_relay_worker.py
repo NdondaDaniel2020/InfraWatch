@@ -9,6 +9,7 @@ import asyncio
 import contextlib
 import logging
 import random
+import signal
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -304,14 +305,26 @@ async def run_standalone() -> None:
 
     settings = get_settings()
     event_bus = ResilientEventBus()
+    stop_event = asyncio.Event()
     worker = OutboxRelayWorker(
         publisher=event_bus,
         session_factory=get_session_factory(),
         batch_size=settings.OUTBOX_RELAY_BATCH_SIZE,
     )
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, stop_event.set)
+        except NotImplementedError:
+            pass
+
     try:
         # Usamos o interval como max_idle no fallback do listen/notify
-        await worker.run_forever(max_idle=settings.OUTBOX_RELAY_POLL_INTERVAL_SECONDS)
+        await worker.run_forever(
+            max_idle=settings.OUTBOX_RELAY_POLL_INTERVAL_SECONDS,
+            stop_event=stop_event,
+        )
     finally:
         await event_bus.close()
 

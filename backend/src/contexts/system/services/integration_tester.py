@@ -31,6 +31,7 @@ from src.integrations.glpi.schemas import (
 from src.integrations.notifications import (
     AlertMessage,
     AlertSeverity,
+    NotificationChannel,
     SmtpNotificationChannel,
     TelegramChannel,
     WebhookChannel,
@@ -243,7 +244,7 @@ class IntegrationTesterService:
             device_ip="10.200.0.1",
         )
 
-        channel_map = {
+        channel_map: dict[str, NotificationChannel] = {
             "telegram": TelegramChannel(),
             "whatsapp": WhatsAppChannel(),
             "smtp": SmtpNotificationChannel(),

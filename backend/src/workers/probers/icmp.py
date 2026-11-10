@@ -6,6 +6,7 @@ ou privilégios root.
 """
 
 import asyncio
+import inspect
 import re
 
 from src.workers.probers.base import BaseProber, ProbeResult
@@ -25,6 +26,7 @@ class IcmpProber(BaseProber):
 
         args = ["-c", str(self.packets), "-W", str(timeout_s), target.ip_address]
 
+        proc: asyncio.subprocess.Process | None = None
         try:
             # Em Mac/Linux `ping` funciona de forma semelhante
             proc = await asyncio.create_subprocess_exec(
@@ -42,6 +44,14 @@ class IcmpProber(BaseProber):
             return self._parse_ping_output(target, output, proc.returncode)
 
         except TimeoutError:
+            if proc is not None:
+                try:
+                    proc.kill()
+                    wait_res = proc.wait()
+                    if inspect.isawaitable(wait_res):
+                        await wait_res
+                except (ProcessLookupError, OSError):
+                    pass
             return ProbeResult(
                 device_id=target.device_id,
                 target_name=target.name,

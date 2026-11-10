@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import signal
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -427,6 +428,13 @@ async def run_standalone() -> None:
         event_bus=event_bus,
         session_factory=get_session_factory(),
     )
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, worker.stop)
+        except NotImplementedError:
+            pass
 
     try:
         await worker.run()
