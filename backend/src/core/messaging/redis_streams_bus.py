@@ -91,13 +91,25 @@ class RedisStreamsEventBus(EventBus):
                 logger.error("Erro ao criar consumer group '%s' em '%s': %s", group, topic, exc)
                 raise
 
-    async def publish(self, topic: str, event: DomainEvent | dict[str, Any]) -> bool:
-        """Publica um evento no Redis Stream usando XADD com ID automático (*)."""
+    async def publish(
+        self,
+        topic: str,
+        event: DomainEvent | dict[str, Any],
+        maxlen: int | None = None,
+    ) -> bool:
+        """Publica um evento no Redis Stream usando XADD com ID automático (*) e poda aproximada.
+
+        Permite sobrescrever maxlen pontualmente ou consulta o catálogo granular de tópicos.
+        """
         if self._is_closed:
             logger.warning("Tentativa de publicação em RedisStreamsEventBus já encerrado.")
             return False
 
         try:
+            from src.core.messaging.topics import get_topic_maxlen
+
+            effective_maxlen = maxlen or get_topic_maxlen(topic, default_maxlen=self._maxlen)
+
             payload_dict = self._normalize_event(event)
             event_type = str(payload_dict.get("event_type", "UnknownEvent"))
             event_id = str(payload_dict.get("event_id", ""))
@@ -113,7 +125,7 @@ class RedisStreamsEventBus(EventBus):
                 name=topic,
                 fields=fields,
                 id="*",
-                maxlen=self._maxlen,
+                maxlen=effective_maxlen,
                 approximate=True,
             )
             logger.debug(

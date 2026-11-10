@@ -34,8 +34,13 @@ class EventBus(ABC):
     """Contrato abstrato para implementações de barramento de eventos assíncrono."""
 
     @abstractmethod
-    async def publish(self, topic: str, event: DomainEvent | dict[str, Any]) -> bool:
-        """Publica um evento em um tópico/stream específico.
+    async def publish(
+        self,
+        topic: str,
+        event: DomainEvent | dict[str, Any],
+        maxlen: int | None = None,
+    ) -> bool:
+        """Publica um evento em um tópico/stream específico com suporte a retenção configurável.
 
         Aceita instâncias de DomainEvent ou dicionários serializáveis.
         Retorna True se publicado com sucesso, ou False em caso de falha.

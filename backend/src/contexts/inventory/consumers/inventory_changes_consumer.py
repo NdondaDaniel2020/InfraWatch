@@ -34,6 +34,14 @@ class InventoryChangesConsumer:
 
     Processa eventos publicados pelo Outbox Relay Worker e aplica
     as mutações correspondentes no cache em memória do Probe Worker.
+
+    Nota de Arquitetura (ADR-036):
+    Diferente dos consumidores de I/O externo (GLPI, Alertas, E-mail), este consumidor
+    opera exclusivamente sobre o estado e memória interna local do nó. Por isso,
+    está deliberadamente isento do recuo progressivo artificial no PEL (mantendo a cadência
+    padrão de 60s do XAUTOCLAIM) para que o cache de alvos seja restabelecido o mais rápido
+    possível após a recuperação de conectividade local, mantendo a proteção contra poison
+    messages e teto de 5 tentativas.
     """
 
     def __init__(
