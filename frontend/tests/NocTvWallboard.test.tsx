@@ -8,9 +8,13 @@ import { useAutoRotate } from "../src/hooks/useAutoRotate";
 import { CriticalAlarmBanner } from "../src/components/tv/CriticalAlarmBanner";
 import { TvWallboardPage } from "../src/pages/wallboard/TvWallboardPage";
 import { NocTvWallboard } from "../src/pages/NocTvWallboard";
+import { TV_DEVICES } from "../src/mocks/tvMocks";
 
 const renderWithRouter = (ui: React.ReactElement) => {
-  return render(<BrowserRouter>{ui}</BrowserRouter>);
+  const enrichedUi = React.cloneElement(ui as React.ReactElement<any>, {
+    initialDevices: (ui as any).props?.initialDevices ?? TV_DEVICES,
+  });
+  return render(<BrowserRouter>{enrichedUi}</BrowserRouter>);
 };
 
 describe("NOC TV Wallboard Fullscreen com Auto-Rotação (Issue #30)", () => {

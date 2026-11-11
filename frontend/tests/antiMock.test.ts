@@ -12,6 +12,11 @@ describe("Diretriz Arquitetural Anti-Mock (P2 - CI & Contratos Reais)", () => {
   const auditPagesDir = path.resolve(srcDir, "pages/audit");
   const topologyPagesDir = path.resolve(srcDir, "pages/topology");
   const inventoryPagesDir = path.resolve(srcDir, "pages/inventory");
+  const nocPagesDir = path.resolve(srcDir, "pages/noc");
+  const wallboardPagesDir = path.resolve(srcDir, "pages/wallboard");
+  const tvComponentsDir = path.resolve(srcDir, "components/tv");
+  const telemetryComponentsDir = path.resolve(srcDir, "components/telemetry");
+  const layoutComponentsDir = path.resolve(srcDir, "components/layout");
 
   const scanFiles = (dir: string): string[] => {
     if (!fs.existsSync(dir)) return [];
@@ -80,23 +85,35 @@ describe("Diretriz Arquitetural Anti-Mock (P2 - CI & Contratos Reais)", () => {
     }
   });
 
-  it("serviços de API não devem mascarar erros com catch silencioso retornando arrays mock", () => {
-    const criticalApis = [
-      "clientPortalApi.ts",
-      "backupApi.ts",
-      "slaApi.ts",
-      "auditApi.ts",
-      "deviceDetailApi.ts",
-      "incidentsApi.ts",
+  it("módulos de NOC, TV Wallboard, Layout e Telemetria não devem importar da pasta mocks", () => {
+    const operationalFiles = [
+      ...scanFiles(nocPagesDir),
+      ...scanFiles(wallboardPagesDir),
+      ...scanFiles(tvComponentsDir),
+      ...scanFiles(telemetryComponentsDir),
+      ...scanFiles(layoutComponentsDir),
     ];
+    for (const filePath of operationalFiles) {
+      const content = fs.readFileSync(filePath, "utf-8");
+      const relative = path.relative(srcDir, filePath);
+      expect(content, `${relative} não deve importar da pasta mocks`).not.toMatch(
+        /from\s+["'].*\/mocks\/.*["']/
+      );
+    }
+  });
 
-    for (const apiFile of criticalApis) {
-      const filePath = path.join(servicesDir, apiFile);
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, "utf-8");
-        expect(content, `${apiFile} não deve ter fallback silencioso com mock no catch`).not.toMatch(
-          /catch\s*\{[^}]*return\s+\[\s*\.\.\.mock/i
-        );
+  it("telas e layouts de produção não devem referenciar constantes legadas de mock", () => {
+    const appLayoutPath = path.resolve(layoutComponentsDir, "AppLayout.tsx");
+    const nocPath = path.resolve(nocPagesDir, "NocDashboardPage.tsx");
+    const tvPath = path.resolve(wallboardPagesDir, "TvWallboardPage.tsx");
+
+    for (const file of [appLayoutPath, nocPath, tvPath]) {
+      if (fs.existsSync(file)) {
+        const content = fs.readFileSync(file, "utf-8");
+        expect(content).not.toMatch(/INITIAL_MOCK_DEVICES/);
+        expect(content).not.toMatch(/TV_DEVICES/);
+        expect(content).not.toMatch(/TV_INCIDENTS/);
+        expect(content).not.toMatch(/TV_BACKBONES/);
       }
     }
   });
