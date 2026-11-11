@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database.models.outbox import OutboxEventModel, OutboxStatus
@@ -129,3 +129,21 @@ class OutboxRepository:
                     max_delay=max_delay,
                 )
                 entry.next_retry_at = datetime.now(UTC) + timedelta(seconds=delay)
+
+    @staticmethod
+    async def purge_processed_events(
+        session: AsyncSession,
+        retention_days: int = 30,
+    ) -> int:
+        """Remove eventos do outbox já finalizados (PUBLISHED ou FAILED) anteriores ao período de retenção.
+
+        Retorna a quantidade de registros expurgados.
+        """
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+        stmt = delete(OutboxEventModel).where(
+            OutboxEventModel.status.in_([OutboxStatus.PUBLISHED, OutboxStatus.FAILED]),
+            OutboxEventModel.processed_at < cutoff,
+        )
+        result = await session.execute(stmt)
+        return getattr(result, "rowcount", 0) or 0
+
