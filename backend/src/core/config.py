@@ -168,6 +168,12 @@ class Settings(BaseSettings):
         default=300, alias="TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS"
     )
     TOKEN_CLEANUP_RETENTION_DAYS: int = Field(default=7, alias="TOKEN_CLEANUP_RETENTION_DAYS")
+    PROCESSED_EVENTS_RETENTION_DAYS: int = Field(
+        default=30, alias="PROCESSED_EVENTS_RETENTION_DAYS"
+    )
+    OUTBOX_EVENTS_RETENTION_DAYS: int = Field(
+        default=30, alias="OUTBOX_EVENTS_RETENTION_DAYS"
+    )
 
     # Carga Inicial de Dados de Demonstração / Seed
     RUN_SEED_ON_STARTUP: bool = Field(default=False, alias="RUN_SEED_ON_STARTUP")
