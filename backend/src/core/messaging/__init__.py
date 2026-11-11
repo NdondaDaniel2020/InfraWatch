@@ -57,6 +57,7 @@ async def close_event_bus() -> None:
 __all__ = [
     "DEFAULT_IDEMPOTENCY_TTL",
     "EVENT_STREAM_MAPPING",
+    "TOPIC_MAXLEN_MAPPING",
     "EventBus",
     "EventHandler",
     "EventHandlerCallable",
@@ -71,7 +72,6 @@ __all__ = [
     "SSEBroadcaster",
     "SSEConnection",
     "StreamTopics",
-    "TOPIC_MAXLEN_MAPPING",
     "TransientMessageError",
     "close_event_bus",
     "get_event_bus",
