@@ -229,3 +229,68 @@ async def test_fetch_pending_events_filters_by_next_retry_at(
         assert e3.id in pending_ids
         assert e2.id not in pending_ids
         assert e4.id not in pending_ids
+
+
+@pytest.mark.asyncio
+async def test_purge_processed_events_outbox(
+    test_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Valida o expurgo de eventos do outbox com status PUBLISHED ou FAILED anteriores à retenção."""
+    async with test_session_factory() as session:
+        now = datetime.now(UTC)
+
+        # Evento 1: PUBLISHED antigo (> 30 dias) -> DEVE ser expurgado
+        e_pub_old = OutboxEventModel(
+            id=uuid4(),
+            event_type="OldPublished",
+            aggregate_type="Device",
+            payload={},
+            status=OutboxStatus.PUBLISHED,
+            processed_at=now - timedelta(days=35),
+            created_at=now - timedelta(days=35),
+        )
+        # Evento 2: FAILED antigo (> 30 dias) -> DEVE ser expurgado
+        e_fail_old = OutboxEventModel(
+            id=uuid4(),
+            event_type="OldFailed",
+            aggregate_type="Device",
+            payload={},
+            status=OutboxStatus.FAILED,
+            processed_at=now - timedelta(days=40),
+            created_at=now - timedelta(days=40),
+        )
+        # Evento 3: PUBLISHED recente (< 30 dias) -> DEVE ser mantido
+        e_pub_recent = OutboxEventModel(
+            id=uuid4(),
+            event_type="RecentPublished",
+            aggregate_type="Device",
+            payload={},
+            status=OutboxStatus.PUBLISHED,
+            processed_at=now - timedelta(days=5),
+            created_at=now - timedelta(days=5),
+        )
+        # Evento 4: PENDING antigo -> NUNCA deve ser expurgado mesmo se for antigo
+        e_pending_old = OutboxEventModel(
+            id=uuid4(),
+            event_type="OldPending",
+            aggregate_type="Device",
+            payload={},
+            status=OutboxStatus.PENDING,
+            processed_at=None,
+            created_at=now - timedelta(days=50),
+        )
+
+        session.add_all([e_pub_old, e_fail_old, e_pub_recent, e_pending_old])
+        await session.commit()
+
+        # Executa expurgo com retenção de 30 dias
+        purged_count = await OutboxRepository.purge_processed_events(session, retention_days=30)
+        await session.commit()
+
+        assert purged_count == 2
+
+        # Valida quais eventos permaneceram no banco
+        remaining = await OutboxRepository.fetch_pending_events(session, limit=10)
+        assert len(remaining) == 1
+        assert remaining[0].id == e_pending_old.id
+
