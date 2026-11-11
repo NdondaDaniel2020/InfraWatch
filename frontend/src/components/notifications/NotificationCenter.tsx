@@ -135,8 +135,16 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   <div
                     key={notif.id}
                     data-testid={`notification-item-${notif.id}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelectNotification?.(notif)}
-                    className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-colors cursor-pointer ${
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectNotification?.(notif);
+                      }
+                    }}
+                    className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500/50 ${
                       notif.isRead
                         ? "bg-obsidian-900/60 border-obsidian-800/60 opacity-75 hover:opacity-100"
                         : "bg-obsidian-900 border-obsidian-800 hover:border-emerald-500/40"
