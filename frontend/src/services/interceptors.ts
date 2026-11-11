@@ -29,27 +29,23 @@ export function getStoredRefreshToken(): string | null {
 export function setStoredRefreshToken(token: string | null): void {
   const currentAccess = useAuthStore.getState().accessToken;
   useAuthStore.getState().setTokens(currentAccess, token);
-  try {
-    if (token) {
-      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
-    } else {
+  if (!token) {
+    try {
       localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    } catch {
+      // Silencioso
     }
-  } catch {
-    // Falha silenciosa em ambientes sem acesso a storage
   }
 }
 
 export function setTokens(accessToken: string | null, refreshToken: string | null): void {
   useAuthStore.getState().setTokens(accessToken, refreshToken);
-  try {
-    if (refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
-    } else {
+  if (!refreshToken) {
+    try {
       localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    } catch {
+      // Silencioso
     }
-  } catch {
-    // Silencioso
   }
 }
 

@@ -31,7 +31,9 @@ export const GoogleCallbackPage: React.FC = () => {
       }
 
       const savedState = sessionStorage.getItem("google_oauth_state");
-      if (savedState && savedState !== state) {
+      if (!savedState || savedState !== state) {
+        sessionStorage.removeItem("google_oauth_state");
+        sessionStorage.removeItem("google_oauth_from");
         setStatus("error");
         setErrorMessage("Falha de validação CSRF no retorno da autenticação Google.");
         return;

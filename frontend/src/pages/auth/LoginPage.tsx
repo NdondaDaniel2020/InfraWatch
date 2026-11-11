@@ -648,7 +648,8 @@ export const LoginPage: React.FC = () => {
         {/* ======================================================================= */}
         <div
           id="sliding-art-panel"
-          className={`hidden md:flex absolute top-0 bottom-0 left-0 w-1/2 p-3.5 sm:p-5 md:p-6 z-20 pointer-events-none transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+          style={{ transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)" }}
+          className={`hidden md:flex absolute top-0 bottom-0 left-0 w-1/2 p-3.5 sm:p-5 md:p-6 z-20 pointer-events-none transition-transform duration-700 will-change-transform ${
             mode === "login" ? "translate-x-full" : "translate-x-0"
           }`}
         >
