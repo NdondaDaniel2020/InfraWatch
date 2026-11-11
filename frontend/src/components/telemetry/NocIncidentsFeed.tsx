@@ -2,7 +2,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import type { IncidentItem } from "../../types/telemetry";
-import { INITIAL_NOC_INCIDENTS } from "../../mocks/nocMocks";
 import { IncidentCard } from "./IncidentCard";
 
 export interface NocIncidentsFeedProps {
@@ -15,7 +14,7 @@ export interface NocIncidentsFeedProps {
  * Orquestra a listagem e delega cada incidente para o componente individual IncidentCard.
  */
 export const NocIncidentsFeed: React.FC<NocIncidentsFeedProps> = ({
-  incidents = INITIAL_NOC_INCIDENTS,
+  incidents = [],
   onShowToast,
 }) => {
   const p1Count = incidents.filter((i) => i.severity === "critical").length;
@@ -41,13 +40,19 @@ export const NocIncidentsFeed: React.FC<NocIncidentsFeedProps> = ({
 
       {/* Lista de Incidentes delegando para o componente que recebe o dado */}
       <div className="space-y-3 font-mono">
-        {incidents.map((incident) => (
-          <IncidentCard
-            key={incident.id}
-            incident={incident}
-            onShowToast={onShowToast}
-          />
-        ))}
+        {incidents.length > 0 ? (
+          incidents.map((incident) => (
+            <IncidentCard
+              key={incident.id}
+              incident={incident}
+              onShowToast={onShowToast}
+            />
+          ))
+        ) : (
+          <div className="py-8 text-center text-slate-500 text-xs font-mono border border-dashed border-obsidian-800 rounded-lg">
+            Nenhum incidente crítico ativo no momento.
+          </div>
+        )}
       </div>
 
       <Link

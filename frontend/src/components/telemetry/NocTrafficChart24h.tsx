@@ -11,7 +11,6 @@ import {
 } from "recharts";
 
 import type { TrafficChartPoint } from "../../types/telemetry";
-import { CANONICAL_TRAFFIC_CHART_24H } from "../../mocks/nocMocks";
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -56,8 +55,9 @@ export interface NocTrafficChart24hProps {
 }
 
 export const NocTrafficChart24h: React.FC<NocTrafficChart24hProps> = ({
-  data = CANONICAL_TRAFFIC_CHART_24H,
+  data = [],
 }) => {
+  const hasData = data && data.length > 0;
   return (
     <section
       data-testid="traffic-histogram-card"
@@ -99,65 +99,71 @@ export const NocTrafficChart24h: React.FC<NocTrafficChart24hProps> = ({
           </span>
         </div>
 
-        <div className="w-full h-44 select-none">
-          <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={160}>
-            <AreaChart
-              data={data}
-              margin={{ top: 12, right: 12, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="emeraldTraffic" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="time"
-                stroke="#475569"
-                fontSize={10}
-                tickLine={false}
-                fontFamily="monospace"
-              />
-              <YAxis
-                stroke="#475569"
-                fontSize={10}
-                domain={[0, 110]}
-                tickLine={false}
-                fontFamily="monospace"
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <ReferenceLine
-                y={100}
-                stroke="#f43f5e"
-                strokeDasharray="4 4"
-                label={{
-                  value: "100 Gbps CAPACIDADE MÁXIMA",
-                  fill: "#f43f5e",
-                  fontSize: 9,
-                  position: "top",
-                  fontFamily: "monospace",
-                  fontWeight: "bold",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="throughput"
-                stroke="#10b981"
-                strokeWidth={2.5}
-                fillOpacity={1}
-                fill="url(#emeraldTraffic)"
-              />
-              <Area
-                type="monotone"
-                dataKey="baseline"
-                stroke="#38bdf8"
-                strokeWidth={1.5}
-                strokeDasharray="3 3"
-                fill="none"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        {hasData ? (
+          <div className="w-full h-44 select-none">
+            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={160}>
+              <AreaChart
+                data={data}
+                margin={{ top: 12, right: 12, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="emeraldTraffic" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="time"
+                  stroke="#475569"
+                  fontSize={10}
+                  tickLine={false}
+                  fontFamily="monospace"
+                />
+                <YAxis
+                  stroke="#475569"
+                  fontSize={10}
+                  domain={[0, 110]}
+                  tickLine={false}
+                  fontFamily="monospace"
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <ReferenceLine
+                  y={100}
+                  stroke="#f43f5e"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: "100 Gbps CAPACIDADE MÁXIMA",
+                    fill: "#f43f5e",
+                    fontSize: 9,
+                    position: "top",
+                    fontFamily: "monospace",
+                    fontWeight: "bold",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="throughput"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  fillOpacity={1}
+                  fill="url(#emeraldTraffic)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="baseline"
+                  stroke="#38bdf8"
+                  strokeWidth={1.5}
+                  strokeDasharray="3 3"
+                  fill="none"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="w-full h-44 flex items-center justify-center border border-dashed border-obsidian-800 rounded-lg text-slate-500 font-mono text-xs">
+            Aguardando consolidação de telemetria das últimas 24 horas.
+          </div>
+        )}
 
         <div className="flex justify-between items-center text-xs font-mono text-slate-500 mt-2 pt-2 border-t border-obsidian-800">
           <span>00:00 WAT</span>

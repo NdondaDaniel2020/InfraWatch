@@ -19,11 +19,13 @@ import type {
   DashboardViewMode,
   DeviceSeverity,
   DeviceStatus,
+  IncidentItem,
   MonitoredDevice,
   SeverityFilterType,
   TelemetryApiResponse,
   TelemetryDeviceDTO,
   TelemetryMetricPointDTO,
+  TrafficChartPoint,
 } from "../../types/telemetry";
 import { DeviceCard } from "../../components/telemetry/DeviceCard";
 import { DeviceDetailDrawer } from "../../components/telemetry/DeviceDetailDrawer";
@@ -34,7 +36,6 @@ import { NocIncidentsFeed } from "../../components/telemetry/NocIncidentsFeed";
 import { EmergencyDrainModal } from "../../components/telemetry/EmergencyDrainModal";
 import { NocStateOverlay } from "../../components/telemetry/NocStateOverlay";
 import { ToastNotification, type ToastMessage } from "../../components/common";
-import { INITIAL_MOCK_DEVICES } from "../../mocks/nocMocks";
 
 // Singleton resiliente para TanStack Query sem context provider
 const fallbackQueryClient = new QueryClient({
@@ -48,10 +49,16 @@ const fallbackQueryClient = new QueryClient({
 
 export interface NocDashboardPageProps {
   initialViewState?: DashboardViewMode;
+  initialDevices?: MonitoredDevice[];
+  initialIncidents?: IncidentItem[];
+  initialTrafficData?: TrafficChartPoint[];
 }
 
 export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
   initialViewState = "nominal",
+  initialDevices,
+  initialIncidents,
+  initialTrafficData,
 }) => {
   const { reconnect: sseReconnect } = useTelemetry();
 
@@ -104,21 +111,21 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
               model_description: item.model_description || `${item.category || "Device"} • Cluster`,
               last_latency_ms: item.last_latency_ms,
               last_packet_loss: item.last_packet_loss,
-              recent_latency: item.recent_metrics?.map((m: TelemetryMetricPointDTO) => m.latency_ms) || [2.1, 2.3, 2.0, 2.2],
+              recent_latency: item.recent_metrics?.map((m: TelemetryMetricPointDTO) => m.latency_ms) || [],
             }));
           }
         } catch {
-          // Fallback resiliente para os dados canônicos
+          // Em caso de falha de rede, retorna vazio para não exibir telemetria falsa
         }
-        return INITIAL_MOCK_DEVICES;
+        return [];
       },
-      initialData: INITIAL_MOCK_DEVICES,
+      initialData: initialDevices,
       staleTime: 10000,
     },
     activeQueryClient
   );
 
-  const devices: MonitoredDevice[] = telemetryData || INITIAL_MOCK_DEVICES;
+  const devices: MonitoredDevice[] = telemetryData || [];
 
   // Filtro dinâmico de dispositivos
   const filteredDevices = useMemo(() => {
@@ -160,9 +167,10 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
   };
 
   const handlePingDevice = (device: MonitoredDevice) => {
+    refetchTelemetry();
     showToast(
-      `Sonda ICMP executada para ${device.name}: RTT ${device.last_latency_ms || 2.1}ms (0% loss)`,
-      "success"
+      `Sonda ICMP executada para ${device.name}: RTT ${device.last_latency_ms != null ? `${device.last_latency_ms}ms` : "sondando..."}`,
+      "info"
     );
   };
 
@@ -343,7 +351,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
             {/* =============================================================== */}
             <div className="lg:col-span-8 flex flex-col gap-6">
               {/* CARD: HISTOGRAMA DE LATÊNCIA E TRÁFEGO 24H (PRIMEIRO NO MOCKUP) */}
-              <NocTrafficChart24h />
+              <NocTrafficChart24h data={initialTrafficData} />
 
               {/* CARD: MATRIZ DE ATIVOS EM DESTAQUE (SEGUNDO NO MOCKUP) */}
               <section className="space-y-3" aria-label="Ativos de Infraestrutura">
@@ -367,14 +375,20 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
                   aria-label="Dispositivos Monitorados"
                   className="grid grid-cols-1 md:grid-cols-2 gap-4"
                 >
-                  {filteredDevices.map((device) => (
-                    <DeviceCard
-                      key={device.device_id}
-                      device={device}
-                      onSelect={handleSelectDevice}
-                      onPing={handlePingDevice}
-                    />
-                  ))}
+                  {filteredDevices.length > 0 ? (
+                    filteredDevices.map((device) => (
+                      <DeviceCard
+                        key={device.device_id}
+                        device={device}
+                        onSelect={handleSelectDevice}
+                        onPing={handlePingDevice}
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-full py-12 text-center text-slate-500 font-mono text-xs border border-dashed border-obsidian-800 rounded-xl">
+                      Nenhum ativo monitorado encontrado para os filtros selecionados.
+                    </div>
+                  )}
                 </div>
               </section>
             </div>
@@ -384,7 +398,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
             {/* =============================================================== */}
             <div className="lg:col-span-4 flex flex-col gap-6">
               {/* CARD: INCIDENT FEED EM TEMPO REAL COM SLA COUNTDOWN */}
-              <NocIncidentsFeed onShowToast={showToast} />
+              <NocIncidentsFeed incidents={initialIncidents} onShowToast={showToast} />
 
               {/* CARD: VISÃO RÁPIDA DA TOPOLOGIA DE REDE */}
               <section

@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { AlertOctagon, Activity, Clock, ShieldAlert } from "lucide-react";
-import { TV_INCIDENTS } from "../../mocks/tvMocks";
 import type { TvIncidentItem } from "../../types/telemetry";
 
 export interface TvIncidentsPanelProps {
@@ -68,7 +67,7 @@ const TvKpiCard: React.FC<TvKpiCardProps> = ({
 );
 
 export const TvIncidentsPanel: React.FC<TvIncidentsPanelProps> = ({
-  incidents = TV_INCIDENTS,
+  incidents = [],
   mttrFormatted = "18m",
   slaMonthlyPct = 99.88,
 }) => {

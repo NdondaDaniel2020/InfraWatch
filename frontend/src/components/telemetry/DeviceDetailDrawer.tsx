@@ -115,7 +115,9 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
             <div className="p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
               <div className="text-[10px] font-mono text-slate-400">DISPONIBILIDADE</div>
               <div className="text-lg font-mono font-bold mt-1 text-emerald-400">
-                99.98%
+                {device.availability_90d && device.availability_90d.length > 0
+                  ? `${(device.availability_90d.reduce((acc, curr) => acc + curr.uptime_pct, 0) / device.availability_90d.length).toFixed(2)}%`
+                  : "--"}
               </div>
             </div>
           </div>
@@ -127,7 +129,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
               <span className="text-emerald-400 font-semibold">TimescaleDB Sincronizado</span>
             </div>
             <Sparkline
-              data={device.recent_latency || [2.1, 2.3, 2.0, 2.4, 2.2, 2.1, 2.5, 2.1, 2.0, 2.2]}
+              data={device.recent_latency || []}
               width={520}
               height={50}
               severity={device.severity}
@@ -142,7 +144,11 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
             <UptimeHistory90d
               days={device.availability_90d}
               barCount={30}
-              overallUptime={99.98}
+              overallUptime={
+                device.availability_90d && device.availability_90d.length > 0
+                  ? Number((device.availability_90d.reduce((acc, curr) => acc + curr.uptime_pct, 0) / device.availability_90d.length).toFixed(2))
+                  : undefined
+              }
             />
           </div>
 
@@ -155,7 +161,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
             <div className="flex justify-between">
               <span className="text-slate-400">Porta / Protocolo:</span>
               <span className="text-white font-semibold">
-                {device.port || 443} / {device.protocol || "ICMP"}
+                {device.port != null ? device.port : "--"} / {device.protocol || "--"}
               </span>
             </div>
             <div className="flex justify-between">

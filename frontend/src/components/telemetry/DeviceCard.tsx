@@ -53,20 +53,20 @@ export const STATUS_VISUALS: Record<NormalizedStatus, StatusVisualConfig> = {
     footerBorder: "border-rose-500/30",
     ipLabel: "WAN IP: ",
     metric2Label: "Perda: ",
-    getMetric2Value: () => "100% PACOTES",
+    getMetric2Value: (device) => `${device.last_packet_loss ?? 100}% PACOTES`,
     metric3Label: "Causa: ",
     metric3Color: "text-rose-300 font-bold truncate",
-    getMetric3Value: (device) => device.root_cause || "Fibra Rompida",
+    getMetric3Value: (device) => device.root_cause ?? "Não identificada",
     metric4Label: "Downtime: ",
     metric4Color: "text-rose-400",
-    getMetric4Value: (device) => device.downtime_duration || "00:14:32",
+    getMetric4Value: (device) => device.downtime_duration ?? "--:--:--",
     renderFooterStatus: (device, onSelect) => (
       <button
         type="button"
         onClick={() => onSelect?.(device)}
         className="text-rose-400 font-bold hover:underline cursor-pointer"
       >
-        {device.ticket_id ? `Ticket #${device.ticket_id} ↗` : "Ticket #8492 ↗"}
+        {device.ticket_id ? `Ticket #${device.ticket_id} ↗` : "Sem ticket"}
       </button>
     ),
   },
@@ -83,13 +83,13 @@ export const STATUS_VISUALS: Record<NormalizedStatus, StatusVisualConfig> = {
     footerBorder: "border-amber-500/30",
     ipLabel: "Host IP: ",
     metric2Label: "RTT Spike: ",
-    getMetric2Value: (device) => `${device.last_latency_ms || 142}ms ⚠️`,
+    getMetric2Value: (device) => `${device.last_latency_ms != null ? device.last_latency_ms : "--"}ms ⚠️`,
     metric3Label: "CPU / RAM: ",
     metric3Color: "text-amber-400 font-bold",
-    getMetric3Value: (device) => `${device.cpu_usage_pct || 89}% / ${device.ram_usage_pct || 78}%`,
+    getMetric3Value: (device) => `${device.cpu_usage_pct != null ? `${device.cpu_usage_pct}%` : "--%"} / ${device.ram_usage_pct != null ? `${device.ram_usage_pct}%` : "--%"}`,
     metric4Label: "Pool: ",
     metric4Color: "text-slate-200",
-    getMetric4Value: () => "4.8k Sockets",
+    getMetric4Value: () => "--",
     renderFooterStatus: () => (
       <span className="text-amber-400 font-semibold">Alerta de Latência</span>
     ),
@@ -107,14 +107,14 @@ export const STATUS_VISUALS: Record<NormalizedStatus, StatusVisualConfig> = {
     footerBorder: "border-obsidian-800/60",
     ipLabel: "IP: ",
     metric2Label: "RTT: ",
-    getMetric2Value: (device) => `${device.last_latency_ms != null && !isNaN(Number(device.last_latency_ms)) ? Number(device.last_latency_ms).toFixed(1) : "2.1"}ms`,
+    getMetric2Value: (device) => `${device.last_latency_ms != null && !isNaN(Number(device.last_latency_ms)) ? Number(device.last_latency_ms).toFixed(1) : "--"}ms`,
     metric3Label: "CPU / RAM: ",
     metric3Color: "text-slate-200",
-    getMetric3Value: (device) => `${device.cpu_usage_pct || 58}% / ${device.ram_usage_pct || 61}%`,
+    getMetric3Value: (device) => `${device.cpu_usage_pct != null ? `${device.cpu_usage_pct}%` : "--%"} / ${device.ram_usage_pct != null ? `${device.ram_usage_pct}%` : "--%"}`,
     metric4Label: "SFP+: ",
     metric4Color: "text-sky-400",
-    getMetric4Value: (device) => device.ports_summary || "18/24 UP",
-    renderFooterStatus: (device) => `Uptime: ${device.uptime_duration || "184d 12h"}`,
+    getMetric4Value: (device) => device.ports_summary ?? "--",
+    renderFooterStatus: (device) => device.uptime_duration ? `Uptime: ${device.uptime_duration}` : "Uptime: --",
   },
   MAINT: {
     cardBorder: "border border-sky-500/50 hover:border-sky-400",
@@ -132,7 +132,7 @@ export const STATUS_VISUALS: Record<NormalizedStatus, StatusVisualConfig> = {
     getMetric2Value: (device) => `${device.last_latency_ms != null && !isNaN(Number(device.last_latency_ms)) ? Number(device.last_latency_ms).toFixed(1) : "--"}ms`,
     metric3Label: "CPU / RAM: ",
     metric3Color: "text-slate-200",
-    getMetric3Value: (device) => `${device.cpu_usage_pct || 10}% / ${device.ram_usage_pct || 20}%`,
+    getMetric3Value: (device) => `${device.cpu_usage_pct != null ? `${device.cpu_usage_pct}%` : "--%"} / ${device.ram_usage_pct != null ? `${device.ram_usage_pct}%` : "--%"}`,
     metric4Label: "Janela: ",
     metric4Color: "text-sky-400",
     getMetric4Value: () => "Programada",
