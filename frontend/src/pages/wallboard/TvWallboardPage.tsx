@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useContext } from "react";
 import { Link } from "react-router-dom";
+import { useQuery, QueryClientContext } from "@tanstack/react-query";
+import { queryClient as defaultQueryClient } from "../../services/queryClient";
 import {
   Tv,
   ArrowLeft,
@@ -12,37 +14,90 @@ import {
   Clock,
 } from "lucide-react";
 import { useAutoRotate } from "../../hooks/useAutoRotate";
+import { useTelemetry } from "../../context/TelemetryContext";
+import { apiClient } from "../../services/apiClient";
 import { CriticalAlarmBanner } from "../../components/tv/CriticalAlarmBanner";
-import type { CriticalAlarmData } from "../../types/telemetry";
+import type { CriticalAlarmData, TvDeviceItem } from "../../types/telemetry";
 import { LiveIndicator } from "../../components/common/LiveIndicator";
-import { TV_DEVICES } from "../../mocks/tvMocks";
 import { TvOverviewPanel } from "../../components/tv/TvOverviewPanel";
 import { TvIncidentsPanel } from "../../components/tv/TvIncidentsPanel";
 import { TvBackbonesPanel } from "../../components/tv/TvBackbonesPanel";
 
-export const TvWallboardPage: React.FC = () => {
+export interface TvWallboardPageProps {
+  initialDevices?: TvDeviceItem[];
+}
+
+export const TvWallboardPage: React.FC<TvWallboardPageProps> = ({ initialDevices }) => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [currentTimeWat, setCurrentTimeWat] = useState<string>("");
   const [currentTimeUtc, setCurrentTimeUtc] = useState<string>("");
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(true);
   const [criticalAlarmDismissed, setCriticalAlarmDismissed] = useState<boolean>(false);
+  const { isConnected, status: sseStatus } = useTelemetry();
 
-  // Alerta crítico ativo
+  const queryContext = useContext(QueryClientContext);
+  const activeQueryClient = queryContext || defaultQueryClient;
+
+  // Busca dados reais de telemetria
+  const { data: telemetryOverview } = useQuery<{
+    devices?: TvDeviceItem[];
+    kpis?: {
+      total_devices?: number;
+      devices_up?: number;
+      devices_degraded?: number;
+      devices_down?: number;
+      devices_maintenance?: number;
+    };
+  }>({
+    queryKey: ["telemetry-overview"],
+    queryFn: async () => {
+      try {
+        return await apiClient.get<any>("/api/v1/telemetry/overview");
+      } catch {
+        return { devices: [] };
+      }
+    },
+    initialData: initialDevices ? { devices: initialDevices } : undefined,
+    staleTime: 10000,
+  }, activeQueryClient);
+
+  const liveDevices: TvDeviceItem[] = telemetryOverview?.devices || [];
+
+  // Ticker derivado dos dados reais
+  const stats = useMemo(() => {
+    const kpis = telemetryOverview?.kpis;
+    if (kpis && kpis.total_devices != null) {
+      return {
+        total: kpis.total_devices ?? 0,
+        up: kpis.devices_up ?? 0,
+        deg: kpis.devices_degraded ?? 0,
+        down: kpis.devices_down ?? 0,
+        maint: kpis.devices_maintenance ?? 0,
+      };
+    }
+    const total = liveDevices.length;
+    const up = liveDevices.filter((d) => d.status === "UP").length;
+    const deg = liveDevices.filter((d) => d.status === "DEGRADADO").length;
+    const down = liveDevices.filter((d) => d.status === "DOWN").length;
+    const maint = liveDevices.filter((d) => d.status === "MANUTENÇÃO").length;
+    return { total, up, deg, down, maint };
+  }, [telemetryOverview, liveDevices]);
+
+  // Alerta crítico ativo (somente se houver ativo DOWN real nos dados)
   const criticalAlarm: CriticalAlarmData | null = useMemo(() => {
     if (criticalAlarmDismissed) return null;
-    const downDevice = TV_DEVICES.find((d) => d.status === "DOWN");
+    const downDevice = liveDevices.find((d) => d.status === "DOWN");
     if (!downDevice) return null;
     return {
-      id: downDevice.id,
-      hostname: downDevice.hostname,
-      ip: downDevice.ip,
-      location: "Cluster LUANDA-01 • Unitel Backbone",
-      downDuration: "Há 3m 42s",
+      id: downDevice.id || "",
+      hostname: downDevice.hostname || "Ativo Indisponível",
+      ip: downDevice.ip || "N/A",
+      location: "Cluster Principal",
+      downDuration: downDevice.heroSub || "Detectado recentemente",
       packetLoss: "100% TIMEOUT TOTAL",
-      glpiTicketId: "#8492",
-      impactedClients: "Unitel Corporate Backbone",
+      impactedClients: downDevice.bottomLeft || "Serviço Crítico",
     };
-  }, [criticalAlarmDismissed]);
+  }, [criticalAlarmDismissed, liveDevices]);
 
   // Hook de Auto-Rotação (30s)
   const {
@@ -158,23 +213,23 @@ export const TvWallboardPage: React.FC = () => {
         {/* Centro: Ticker Global de Ativos em Tempo Real */}
         <div className="hidden xl:flex items-center gap-3.5 px-4 py-1.5 bg-[#0e1524] rounded-lg border border-[#1b2640] text-xs font-mono tabular-nums shadow-inner">
           <span className="text-slate-400">
-            TOTAL: <strong className="text-white">48</strong>
+            TOTAL: <strong className="text-white">{stats.total}</strong>
           </span>
           <span className="h-3 w-px bg-[#1b2640]" />
           <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" /> UP: 45
+            <span className="w-2 h-2 rounded-full bg-emerald-400" /> UP: {stats.up}
           </span>
           <span className="h-3 w-px bg-[#1b2640]" />
           <span className="flex items-center gap-1.5 text-amber-400 font-semibold">
-            <span className="w-2 h-2 rounded-full bg-amber-400" /> DEG: 2
+            <span className="w-2 h-2 rounded-full bg-amber-400" /> DEG: {stats.deg}
           </span>
           <span className="h-3 w-px bg-[#1b2640]" />
           <span className="flex items-center gap-1.5 text-rose-400 font-bold">
-            <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" /> DOWN: 1
+            <span className={`w-2 h-2 rounded-full bg-rose-400 ${stats.down > 0 ? "animate-pulse" : ""}`} /> DOWN: {stats.down}
           </span>
           <span className="h-3 w-px bg-[#1b2640]" />
           <span className="flex items-center gap-1.5 text-sky-400 font-semibold">
-            <span className="w-2 h-2 rounded-full bg-sky-400" /> MAINT: 0
+            <span className="w-2 h-2 rounded-full bg-sky-400" /> MAINT: {stats.maint}
           </span>
         </div>
 
@@ -193,10 +248,24 @@ export const TvWallboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* SSE Live Indicator */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono font-bold">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="hidden md:inline">SSE LIVE</span>
+          {/* SSE Live Indicator com status real de conexão */}
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border ${
+              isConnected || sseStatus === "connected"
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isConnected || sseStatus === "connected"
+                  ? "bg-emerald-400 animate-pulse"
+                  : "bg-amber-400"
+              }`}
+            />
+            <span className="hidden md:inline">
+              {isConnected || sseStatus === "connected" ? "SSE LIVE" : "SSE STANDBY"}
+            </span>
           </div>
 
           {/* Botão Tela Cheia */}
@@ -311,7 +380,7 @@ export const TvWallboardPage: React.FC = () => {
         id="main-wallboard-content"
         className="flex-1 p-4 md:p-6 overflow-hidden flex flex-col justify-between"
       >
-        {currentPanel === 0 && <TvOverviewPanel />}
+        {currentPanel === 0 && <TvOverviewPanel devices={liveDevices} />}
         {currentPanel === 1 && <TvIncidentsPanel />}
         {currentPanel === 2 && <TvBackbonesPanel />}
       </main>

@@ -168,20 +168,22 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         logout: async (): Promise<void> => {
-          // Limpeza imediata do estado da store para segurança contra acessos residuais
-          set(getInitialState());
+          const { refreshToken } = get();
           try {
-            localStorage.removeItem("infrawatch_auth");
-            localStorage.removeItem("infrawatch_refresh_token");
-            sessionStorage.clear();
+            if (refreshToken) {
+              await authApi.logout(refreshToken);
+            }
           } catch {
-            // Silencioso em ambientes restritos
-          }
-
-          try {
-            await authApi.logout();
-          } catch {
-            // Logout resiliente: se o backend falhar, o cliente já está limpo
+            // Logout resiliente: falha de rede ou backend não impede a higienização do cliente
+          } finally {
+            set(getInitialState());
+            try {
+              localStorage.removeItem("infrawatch_auth");
+              localStorage.removeItem("infrawatch_refresh_token");
+              sessionStorage.clear();
+            } catch {
+              // Silencioso em ambientes restritos
+            }
           }
         },
 
@@ -207,9 +209,7 @@ export const useAuthStore = create<AuthStore>()(
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
           user: state.user,
-          accessToken: state.accessToken,
           refreshToken: state.refreshToken,
-          isAuthenticated: state.isAuthenticated,
         }),
       }
     ),

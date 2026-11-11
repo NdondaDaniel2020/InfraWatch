@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 export interface ModalProps {
@@ -20,6 +20,9 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   maxWidth = "520px",
 }) => {
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -27,12 +30,16 @@ export const Modal: React.FC<ModalProps> = ({
       }
     };
     if (isOpen) {
+      previousActiveElementRef.current = document.activeElement as HTMLElement | null;
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
     }
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
+      if (previousActiveElementRef.current?.focus) {
+        previousActiveElementRef.current.focus();
+      }
     };
   }, [isOpen, onClose]);
 
@@ -128,6 +135,8 @@ export const Modal: React.FC<ModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}
+        aria-describedby={description ? "modal-description" : undefined}
+        tabIndex={-1}
         style={modalStyle}
         data-testid="modal-container"
       >
@@ -139,9 +148,14 @@ export const Modal: React.FC<ModalProps> = ({
                   {title}
                 </h2>
               )}
-              {description && <p style={descStyle}>{description}</p>}
+              {description && (
+                <p id="modal-description" style={descStyle}>
+                  {description}
+                </p>
+              )}
             </div>
             <button
+              ref={closeBtnRef}
               onClick={onClose}
               style={closeBtnStyle}
               aria-label="Fechar"

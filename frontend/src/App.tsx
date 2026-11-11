@@ -1,32 +1,25 @@
 import React from "react";
 import { BrowserRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./context/AuthContext";
 import { TelemetryProvider } from "./context/TelemetryContext";
 import { AppRoutes } from "./routes/AppRoutes";
 import { Toaster } from "./components/ui/sonner";
+import { useAuthStore } from "./stores/authStore";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 10000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+const AuthenticatedTelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  return <TelemetryProvider enabled={isAuthenticated}>{children}</TelemetryProvider>;
+};
 
 export const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <TelemetryProvider>
-            <AppRoutes />
-            <Toaster position="top-right" />
-          </TelemetryProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AuthenticatedTelemetryProvider>
+          <AppRoutes />
+          <Toaster position="top-right" />
+        </AuthenticatedTelemetryProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 };

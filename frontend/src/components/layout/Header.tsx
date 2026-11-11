@@ -29,18 +29,27 @@ export const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     // Carrega contagem inicial de notificações não lidas
-    notificationsApi.listNotifications().then((items) => {
-      if (items && items.length > 0) {
-        setNotifications(items);
-        setUnreadCount(items.filter((n) => !n.isRead).length);
-      }
-    });
+    notificationsApi
+      .listNotifications()
+      .then((items) => {
+        if (items && items.length > 0) {
+          setNotifications(items);
+          setUnreadCount(items.filter((n) => !n.isRead).length);
+        }
+      })
+      .catch((err) => {
+        console.error("Falha ao consultar notificações:", err);
+      });
   }, []);
 
   const handleMarkAllNotificationsRead = async () => {
-    await notificationsApi.markAllAsRead();
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    setUnreadCount(0);
+    try {
+      await notificationsApi.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Falha ao marcar notificações como lidas:", err);
+    }
   };
 
   useEffect(() => {
@@ -57,9 +66,12 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate("/login");
+    }
   };
 
   const getInitials = (name?: string) => {

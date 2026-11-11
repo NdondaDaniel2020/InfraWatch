@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { Network } from "lucide-react";
-import { TV_BACKBONES } from "../../mocks/tvMocks";
 import type { TvBackboneLink } from "../../types/telemetry";
 import { getNormalizedStatus, STATUS_TOKENS } from "../telemetry/statusConfig";
 import { StatusBadge } from "../common/StatusBadge";
@@ -10,7 +9,7 @@ export interface TvBackbonesPanelProps {
 }
 
 export const TvBackbonesPanel: React.FC<TvBackbonesPanelProps> = ({
-  backbones = TV_BACKBONES,
+  backbones = [],
 }) => {
   const { nominalCount, degradedCount, downCount } = useMemo(() => {
     let nominal = 0;

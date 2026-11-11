@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { GlobalSearchModal } from "../common/GlobalSearchModal";
-import { INITIAL_MOCK_DEVICES } from "../../mocks/nocMocks";
+import { useQuery, QueryClientContext } from "@tanstack/react-query";
+import { queryClient as defaultQueryClient } from "../../services/queryClient";
+import { apiClient } from "../../services/apiClient";
 import type { MonitoredDevice } from "../../types/telemetry";
 
 export interface AppLayoutProps {
@@ -19,6 +21,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const queryContext = useContext(QueryClientContext);
+  const activeQueryClient = queryContext || defaultQueryClient;
+
+  const { data: searchDevices = [] } = useQuery<MonitoredDevice[]>({
+    queryKey: ["devices"],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get<{ devices?: MonitoredDevice[] }>("/api/v1/telemetry/overview");
+        return res?.devices || [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 30000,
+  }, activeQueryClient);
 
   // Escuta atalho global Ctrl + K / Cmd + K
   useEffect(() => {
@@ -93,7 +111,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <GlobalSearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        devices={INITIAL_MOCK_DEVICES}
+        devices={searchDevices}
         onSelectDevice={handleSelectDevice}
       />
     </div>

@@ -1,6 +1,5 @@
 import React from "react";
 import { Radio, Activity, Layers } from "lucide-react";
-import { TV_DEVICES } from "../../mocks/tvMocks";
 import type { TvDeviceItem } from "../../types/telemetry";
 import { getNormalizedStatus, STATUS_TOKENS } from "../telemetry/statusConfig";
 import { StatusBadge } from "../common/StatusBadge";
@@ -47,7 +46,7 @@ const TvTopMetricCard: React.FC<TvTopMetricCardProps> = ({
 );
 
 export const TvOverviewPanel: React.FC<TvOverviewPanelProps> = ({
-  devices = TV_DEVICES,
+  devices = [],
   totalTransitGbps = 100.3,
   opticalNominalPct = 61,
   dailySlaPct = 99.98,

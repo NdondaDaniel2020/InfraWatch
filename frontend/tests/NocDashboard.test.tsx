@@ -6,8 +6,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { NocDashboardPage } from "../src/pages/noc/NocDashboardPage";
 import { TelemetryProvider } from "../src/context/TelemetryContext";
+import {
+  INITIAL_MOCK_DEVICES,
+  INITIAL_NOC_INCIDENTS,
+  CANONICAL_TRAFFIC_CHART_24H,
+} from "../src/mocks/nocMocks";
 
-// Helper para renderizar com todos os providers necessários
+// Helper para renderizar com todos os providers necessários e mocks locais de teste
 const renderWithProviders = (ui: React.ReactElement) => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -17,10 +22,16 @@ const renderWithProviders = (ui: React.ReactElement) => {
     },
   });
 
+  const enrichedUi = React.cloneElement(ui as React.ReactElement<any>, {
+    initialDevices: (ui as any).props.initialDevices ?? INITIAL_MOCK_DEVICES,
+    initialIncidents: (ui as any).props.initialIncidents ?? INITIAL_NOC_INCIDENTS,
+    initialTrafficData: (ui as any).props.initialTrafficData ?? CANONICAL_TRAFFIC_CHART_24H,
+  });
+
   return render(
     <QueryClientProvider client={queryClient}>
       <TelemetryProvider enabled={false}>
-        <BrowserRouter>{ui}</BrowserRouter>
+        <BrowserRouter>{enrichedUi}</BrowserRouter>
       </TelemetryProvider>
     </QueryClientProvider>
   );

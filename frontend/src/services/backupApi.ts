@@ -81,56 +81,134 @@ export const backupApi = {
 
   /**
    * Deriva métricas operacionais do histórico real de snapshots.
-   * O backend ainda não expõe metas contratuais de RPO/RTO.
+   * Evita requisições duplicadas caso o histórico já tenha sido carregado.
    */
-  getBackupMetrics: async (): Promise<BackupMetricsSummary> => {
-    const history = await backupApi.getBackupHistory();
+  getBackupMetrics: async (cachedHistory?: BackupHistoryResponse): Promise<BackupMetricsSummary> => {
+    const history = cachedHistory ?? (await backupApi.getBackupHistory());
     return buildMetrics(history);
   },
 
   /**
    * Conecta ao stream de eventos SSE para acompanhar as 7 etapas em tempo real.
-   * Retorna uma função de cancelamento para fechar a conexão.
+   * Alinhado ao ADR-033: utiliza Fetch API com ReadableStream e cabeçalho Authorization
+   * para não expor tokens em query strings. Retorna função de cleanup.
    */
   subscribeBackupProgress: (
     onProgress: (event: BackupProgressEvent) => void,
     onComplete: (event: BackupProgressEvent) => void,
     onError: (error: string) => void
   ): (() => void) => {
-    if (typeof EventSource === "undefined") {
-      onError("EventSource não está disponível neste ambiente.");
-      return () => {};
+    const controller = new AbortController();
+    const token = getInMemoryAccessToken();
+
+    const headers: Record<string, string> = {
+      Accept: "text/event-stream",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const token = getInMemoryAccessToken();
-    const url = token
-      ? `${BASE_URL}/events?token=${encodeURIComponent(token)}`
-      : `${BASE_URL}/events`;
-    const eventSource = new EventSource(url);
+    let isClosed = false;
 
-    eventSource.addEventListener("progress", (e: MessageEvent) => {
-      try {
-        const data: BackupProgressEvent = JSON.parse(e.data);
-        onProgress(data);
-        if (data.stage === "completed") {
-          onComplete(data);
-          eventSource.close();
-        } else if (data.stage === "error") {
-          onError(data.message || "Erro desconhecido durante o pipeline de backup.");
-          eventSource.close();
+    // Transporte primário: Fetch ReadableStream (ADR-033)
+    if (typeof fetch === "function") {
+      (async () => {
+        try {
+          const response = await fetch(`${BASE_URL}/events`, {
+            headers,
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: Falha ao conectar ao stream de eventos.`);
+          }
+
+          if (!response.body) {
+            throw new Error("Stream de resposta indisponível.");
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (!isClosed) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const blocks = buffer.split("\n\n");
+            buffer = blocks.pop() ?? "";
+
+            for (const block of blocks) {
+              const dataMatch = block.match(/^data:\s*(.*)$/m);
+              if (dataMatch) {
+                try {
+                  const data: BackupProgressEvent = JSON.parse(dataMatch[1]);
+                  onProgress(data);
+                  if (data.stage === "completed") {
+                    onComplete(data);
+                    isClosed = true;
+                    controller.abort();
+                    return;
+                  } else if (data.stage === "error") {
+                    onError(data.message || "Erro desconhecido durante o pipeline de backup.");
+                    isClosed = true;
+                    controller.abort();
+                    return;
+                  }
+                } catch {
+                  // Linha não-JSON ou ping ignorados
+                }
+              }
+            }
+          }
+        } catch (err) {
+          if (!controller.signal.aborted && !isClosed) {
+            onError(err instanceof Error ? err.message : String(err));
+          }
         }
-      } catch (err) {
-        onError(`Falha ao decodificar evento SSE: ${String(err)}`);
-      }
-    });
+      })();
 
-    eventSource.onerror = () => {
-      onError("Conexão com o stream de backup interrompida.");
-      eventSource.close();
-    };
+      return () => {
+        isClosed = true;
+        controller.abort();
+      };
+    }
 
-    return () => {
-      eventSource.close();
-    };
+    // Fallback: EventSource
+    if (typeof EventSource !== "undefined") {
+      const eventSource = new EventSource(`${BASE_URL}/events`, { withCredentials: true });
+
+      eventSource.addEventListener("progress", (e: MessageEvent) => {
+        try {
+          const data: BackupProgressEvent = JSON.parse(e.data);
+          onProgress(data);
+          if (data.stage === "completed") {
+            onComplete(data);
+            eventSource.close();
+          } else if (data.stage === "error") {
+            onError(data.message || "Erro desconhecido durante o pipeline de backup.");
+            eventSource.close();
+          }
+        } catch (err) {
+          onError(`Falha ao decodificar evento SSE: ${String(err)}`);
+        }
+      });
+
+      eventSource.onerror = () => {
+        if (!isClosed) {
+          onError("Conexão com o stream de backup interrompida.");
+        }
+        eventSource.close();
+      };
+
+      return () => {
+        isClosed = true;
+        eventSource.close();
+      };
+    }
+
+    onError("Ambiente não suporta SSE nem Fetch Streaming.");
+    return () => {};
   },
 };
