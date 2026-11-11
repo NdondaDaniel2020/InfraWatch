@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   HardDriveDownload,
@@ -35,7 +35,7 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
     totalBackupsCount: 0,
     totalStorageUsed: "—",
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(initialViewState === "skeleton");
 
   // Estados de Execução de Backup em Tempo Real
   const [isRunning, setIsRunning] = useState(false);
@@ -44,13 +44,27 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
     useState<BackupProgressEvent | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [progressError, setProgressError] = useState<string | null>(null);
+  const cleanupStreamRef = useRef<(() => void) | null>(null);
+
+  const handleCloseModal = useCallback(() => {
+    cleanupStreamRef.current?.();
+    cleanupStreamRef.current = null;
+    setIsModalOpen(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cleanupStreamRef.current?.();
+      cleanupStreamRef.current = null;
+    };
+  }, []);
 
   // Carrega histórico e métricas
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const historyRes = await backupApi.getBackupHistory();
-      const metricsRes = await backupApi.getBackupMetrics();
+      const metricsRes = await backupApi.getBackupMetrics(historyRes);
       setHistoryItems(historyRes.items);
       setMetrics(metricsRes);
     } catch (err) {
@@ -85,14 +99,17 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
       const response = await backupApi.triggerBackup(notes);
       toast.info(response.message);
 
-      // Conecta ao stream SSE
-      backupApi.subscribeBackupProgress(
+      // Conecta ao stream SSE com rastreamento de cancelamento
+      cleanupStreamRef.current?.();
+      cleanupStreamRef.current = backupApi.subscribeBackupProgress(
         (event) => {
           setCurrentProgressEvent(event);
         },
         (finalEvent) => {
           setIsCompleted(true);
           setIsRunning(false);
+          cleanupStreamRef.current?.();
+          cleanupStreamRef.current = null;
           toast.success(
             `Backup finalizado com sucesso! Snapshot: ${finalEvent.filename || "novo snapshot"}`
           );
@@ -113,12 +130,16 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
         (err) => {
           setProgressError(err);
           setIsRunning(false);
+          cleanupStreamRef.current?.();
+          cleanupStreamRef.current = null;
           toast.error(`Falha no pipeline de backup: ${err}`);
         }
       );
     } catch (err) {
       setProgressError(String(err));
       setIsRunning(false);
+      cleanupStreamRef.current?.();
+      cleanupStreamRef.current = null;
       toast.error("Falha ao comunicar com a API de backup.");
     }
   };
@@ -288,7 +309,7 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
         currentEvent={currentProgressEvent}
         isCompleted={isCompleted}
         error={progressError}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
       />
     </div>
   );

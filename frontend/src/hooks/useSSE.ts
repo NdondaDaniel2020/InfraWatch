@@ -27,14 +27,17 @@ function updateTanStackCache(queryClient: QueryClient, payload: SSEEventPayload)
 
   // Atualização granular por dispositivo
   if (device_id) {
-    queryClient.setQueryData<Record<string, unknown>>(["device", device_id], (old) => {
+    const updateDeviceRecord = (old: Record<string, unknown> | undefined) => {
       if (!old) return { ...payload, updatedAt: new Date().toISOString() };
       return {
         ...old,
         ...payload,
         updatedAt: new Date().toISOString(),
       };
-    });
+    };
+
+    queryClient.setQueryData<Record<string, unknown>>(["deviceDetail", device_id], updateDeviceRecord);
+    queryClient.setQueryData<Record<string, unknown>>(["device", device_id], updateDeviceRecord);
 
     queryClient.setQueryData<Array<Record<string, unknown>>>(["devices"], (oldList) => {
       if (!Array.isArray(oldList)) return oldList;
@@ -49,6 +52,9 @@ function updateTanStackCache(queryClient: QueryClient, payload: SSEEventPayload)
         return dev;
       });
     });
+
+    queryClient.invalidateQueries({ queryKey: ["devices"], exact: false });
+    queryClient.invalidateQueries({ queryKey: ["telemetry-overview"], exact: false });
   }
 
   // Atualização granular de incidentes/alarmes
@@ -67,6 +73,8 @@ function updateTanStackCache(queryClient: QueryClient, payload: SSEEventPayload)
       if (exists) return oldAlerts;
       return [payload as unknown as Record<string, unknown>, ...oldAlerts];
     });
+    queryClient.invalidateQueries({ queryKey: ["incidents"], exact: false });
+    queryClient.invalidateQueries({ queryKey: ["alerts"], exact: false });
   } else if (event_type === "AlarmResolved" || event_type === "AlertResolved") {
     queryClient.setQueryData<Array<Record<string, unknown>>>(["alerts"], (oldAlerts) => {
       if (!Array.isArray(oldAlerts)) return oldAlerts;
@@ -78,6 +86,8 @@ function updateTanStackCache(queryClient: QueryClient, payload: SSEEventPayload)
           )
       );
     });
+    queryClient.invalidateQueries({ queryKey: ["incidents"], exact: false });
+    queryClient.invalidateQueries({ queryKey: ["alerts"], exact: false });
   }
 }
 
@@ -116,6 +126,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   const lastActivityTimeRef = useRef<number>(Date.now());
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const connectRef = useRef<() => void>(() => {});
 
   // Atualização segura de status notificando callback externo
   const updateStatus = useCallback(
@@ -261,7 +272,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     const totalDelay = calculatedDelay + jitter;
 
     reconnectTimeoutRef.current = setTimeout(() => {
-      connect();
+      connectRef.current();
     }, totalDelay);
   }, [
     cleanupConnection,
@@ -457,6 +468,8 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     url,
     transport,
   ]);
+
+  connectRef.current = connect;
 
   // Força reconexão imediata
   const reconnect = useCallback(() => {

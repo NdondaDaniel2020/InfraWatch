@@ -239,15 +239,34 @@ export const TelemetryProvider: React.FC<TelemetryProviderProps> = ({
   );
 };
 
+const defaultTelemetryFallback: TelemetryContextValue = {
+  status: "disconnected",
+  isConnected: false,
+  isReconnecting: false,
+  isConnecting: false,
+  isDisconnected: true,
+  lastEvent: null,
+  recentEvents: [],
+  lastHeartbeatAt: null,
+  retryCount: 0,
+  deviceMetrics: {},
+  activeAlerts: [],
+  activeAlertsCount: 0,
+  subscribeToEvent: () => () => {},
+  reconnect: () => {},
+  disconnect: () => {},
+  clearBuffer: () => {},
+};
+
 /**
  * Hook de conveniência para acessar o contexto de telemetria em tempo real.
+ * Em caso de renderização fora do provedor (ex: testes unitários isolados),
+ * retorna fallback seguro sem quebrar a árvore de renderização.
  */
 export function useTelemetry(): TelemetryContextValue {
   const context = useContext(TelemetryContext);
   if (!context) {
-    throw new Error(
-      "useTelemetry deve ser utilizado dentro de um <TelemetryProvider>."
-    );
+    return defaultTelemetryFallback;
   }
   return context;
 }
