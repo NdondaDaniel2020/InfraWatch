@@ -291,6 +291,7 @@ async def test_authentication_errors(rbac_app: FastAPI) -> None:
 async def test_tenant_isolation_bola_cross_tenant_access() -> None:
     """Valida rejeição de acesso a recursos entre tenants distintos (prevenção BOLA)."""
     from fastapi import HTTPException
+
     from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
 
     user_org_a = AuthenticatedUser(

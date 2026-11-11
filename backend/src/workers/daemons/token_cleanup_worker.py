@@ -15,6 +15,8 @@ from sqlalchemy import and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.contexts.iam.database.models import RefreshTokenModel
+from src.core.database.models.processed_event import ProcessedEventModel
+from src.core.database.outbox_repository import OutboxRepository
 from src.core.database.session import get_session_factory
 from src.core.redis.distributed_lock import redis_distributed_lock
 from src.workers.maintenance.partition_manager import PartitionManager
@@ -33,6 +35,8 @@ class TokenCleanupWorker:
         interval_seconds: int = 3600,
         lock_timeout: int = 300,
         retention_days: int = 7,
+        processed_events_retention_days: int = 30,
+        outbox_retention_days: int = 30,
     ) -> None:
         """Inicializa o worker de limpeza de tokens e manutenção de partições.
 
@@ -43,6 +47,8 @@ class TokenCleanupWorker:
             interval_seconds: Intervalo entre execuções sucessivas do worker.
             lock_timeout: Tempo de vida (TTL) do lock distribuído em segundos.
             retention_days: Quantidade de dias para manter tokens revogados para auditoria.
+            processed_events_retention_days: Quantidade de dias para reter eventos deduplicados de consumers.
+            outbox_retention_days: Quantidade de dias para reter eventos publicados/falhados no outbox.
         """
         if redis_client is not None:
             self.redis_client = redis_client
@@ -61,6 +67,8 @@ class TokenCleanupWorker:
         self.interval_seconds = interval_seconds
         self.lock_timeout = lock_timeout
         self.retention_days = retention_days
+        self.processed_events_retention_days = processed_events_retention_days
+        self.outbox_retention_days = outbox_retention_days
         self._running = False
         self._stop_event = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
@@ -86,6 +94,20 @@ class TokenCleanupWorker:
         deleted_count = getattr(result, "rowcount", 0) or 0
         return deleted_count
 
+    async def cleanup_processed_events(self, session: AsyncSession) -> int:
+        """Executa o expurgo de eventos deduplicados obsoletos da tabela processed_events."""
+        cutoff = datetime.now(UTC) - timedelta(days=self.processed_events_retention_days)
+        stmt = delete(ProcessedEventModel).where(ProcessedEventModel.processed_at < cutoff)
+        result = await session.execute(stmt)
+        return getattr(result, "rowcount", 0) or 0
+
+    async def cleanup_outbox_events(self, session: AsyncSession) -> int:
+        """Executa o expurgo de eventos de outbox já concluídos (PUBLISHED ou FAILED) obsoletos."""
+        return await OutboxRepository.purge_processed_events(
+            session=session,
+            retention_days=self.outbox_retention_days,
+        )
+
     async def run_once(self) -> int | None:
         """Tenta adquirir o lock distribuído e executar um ciclo de limpeza e manutenção.
 
@@ -105,12 +127,22 @@ class TokenCleanupWorker:
                 )
                 return None
 
-            logger.info("Lock distribuído adquirido. Iniciando expurgo de tokens obsoletos...")
+            logger.info("Lock distribuído adquirido. Iniciando expurgo de registros obsoletos...")
             deleted = 0
+            processed_events_deleted = 0
+            outbox_deleted = 0
+
             async with self.session_factory() as session, session.begin():
                 deleted = await self.cleanup_expired_tokens(session)
+                processed_events_deleted = await self.cleanup_processed_events(session)
+                outbox_deleted = await self.cleanup_outbox_events(session)
 
-            logger.info("Expurgo de tokens concluído com sucesso: %d registros removidos.", deleted)
+            logger.info(
+                "Expurgo concluído: %d tokens, %d processed_events, %d outbox_events removidos.",
+                deleted,
+                processed_events_deleted,
+                outbox_deleted,
+            )
 
             if self.partition_manager is not None:
                 try:
@@ -190,6 +222,8 @@ async def run_standalone() -> None:
         interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
         lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
         retention_days=settings.TOKEN_CLEANUP_RETENTION_DAYS,
+        processed_events_retention_days=settings.PROCESSED_EVENTS_RETENTION_DAYS,
+        outbox_retention_days=settings.OUTBOX_EVENTS_RETENTION_DAYS,
     )
 
     loop = asyncio.get_running_loop()

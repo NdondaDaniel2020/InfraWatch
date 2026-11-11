@@ -8,11 +8,11 @@ Combina cache rápido no Redis (TTL 24h) com persistência definitiva ACID no Po
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
 from src.core.database.models.processed_event import ProcessedEventModel
@@ -157,6 +157,28 @@ class IdempotencyGuard:
                 await self._redis.set(cache_key, "1", ex=self._ttl_seconds)
             except Exception:  # noqa: BLE001 - Falha de cache não anula a gravação no banco
                 logger.warning("Falha ao registrar idempotência no cache Redis para chave %s", cache_key)
+
+    async def purge_processed_events(
+        self,
+        retention_days: int = 30,
+        session: AsyncSession | None = None,
+    ) -> int:
+        """Remove eventos deduplicados processados há mais de `retention_days`.
+
+        Retorna a quantidade de registros expurgados.
+        """
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
+        stmt = delete(ProcessedEventModel).where(ProcessedEventModel.processed_at < cutoff)
+
+        if session is not None:
+            result = await session.execute(stmt)
+            return getattr(result, "rowcount", 0) or 0
+
+        session_factory = self._get_session_factory()
+        async with session_factory() as db_session, db_session.begin():
+            result = await db_session.execute(stmt)
+            return getattr(result, "rowcount", 0) or 0
+
 
 
 _default_guard: IdempotencyGuard | None = None

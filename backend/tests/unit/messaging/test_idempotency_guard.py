@@ -115,3 +115,38 @@ async def test_idempotency_guard_invalid_event_id_handled_safely(db_session_fact
     # Não deve lançar exceção
     assert await guard.is_processed("not-a-valid-uuid", "InvalidIdConsumer") is False
     await guard.mark_processed("not-a-valid-uuid", "InvalidIdConsumer")
+
+
+@pytest.mark.asyncio
+async def test_idempotency_guard_purge_processed_events(db_session_factory) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from src.core.database.models.processed_event import ProcessedEventModel
+
+    guard = IdempotencyGuard(session_factory=db_session_factory)
+    old_event_id = uuid4()
+    recent_event_id = uuid4()
+    consumer = "PurgeTestConsumer"
+
+    # Inserir um evento antigo (> 30 dias) e um recente (< 30 dias)
+    async with db_session_factory() as session, session.begin():
+        old_record = ProcessedEventModel(
+            event_id=old_event_id,
+            consumer_name=consumer,
+            processed_at=datetime.now(UTC) - timedelta(days=35),
+        )
+        recent_record = ProcessedEventModel(
+            event_id=recent_event_id,
+            consumer_name=consumer,
+            processed_at=datetime.now(UTC) - timedelta(days=5),
+        )
+        session.add_all([old_record, recent_record])
+
+    # Executar purge com retenção de 30 dias
+    deleted_count = await guard.purge_processed_events(retention_days=30)
+    assert deleted_count == 1
+
+    # Verificar que apenas o evento recente sobreviveu
+    assert await guard.is_processed(old_event_id, consumer) is False
+    assert await guard.is_processed(recent_event_id, consumer) is True
+

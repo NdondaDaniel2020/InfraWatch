@@ -63,20 +63,20 @@ class TopologyService:
         from src.contexts.network_topology.database.models import TopologyNodeModel
 
         try:
-            stmt = select(OrganizationModel.id).where(OrganizationModel.is_active == True).limit(1)  # noqa: E712
+            stmt = select(OrganizationModel.id).where(OrganizationModel.is_active.is_(True)).limit(1)
             result = await self._session.execute(stmt)
             org_id = result.scalar_one_or_none()
             if org_id:
                 return org_id
-        except Exception:
-            # Fallback seguro caso a tabela de organizações não esteja acessível
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Tabela de organizações não acessível para fallback: %s", exc)
 
         try:
             node_stmt = select(TopologyNodeModel.organization_id).limit(1)
             node_result = await self._session.execute(node_stmt)
             return node_result.scalar_one_or_none()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Tabela de nós topológicos não acessível para fallback: %s", exc)
             return None
 
     # ------------------------------------------------------------------

@@ -212,12 +212,13 @@ async def get_user_by_id(
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    if not current_user.is_global_operator:
-        if user.organization_id is None or str(user.organization_id) != current_user.organization_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acesso negado: você não tem permissão para visualizar dados deste usuário.",
-            )
+    if not current_user.is_global_operator and (
+        user.organization_id is None or str(user.organization_id) != current_user.organization_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: você não tem permissão para visualizar dados deste usuário.",
+        )
 
     return UserPublicResponse.model_validate(user)
 
@@ -267,12 +268,13 @@ async def activate_user(
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    if not current_user.is_global_operator:
-        if target_user.organization_id is None or str(target_user.organization_id) != current_user.organization_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acesso negado: você não tem permissão para ativar usuários de outra organização.",
-            )
+    if not current_user.is_global_operator and (
+        target_user.organization_id is None or str(target_user.organization_id) != current_user.organization_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: você não tem permissão para ativar usuários de outra organização.",
+        )
 
     user = await command_service.activate_user(user_id)
     return UserPublicResponse.model_validate(user)
@@ -309,12 +311,13 @@ async def deactivate_user(
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
-    if not current_user.is_global_operator:
-        if target_user.organization_id is None or str(target_user.organization_id) != current_user.organization_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acesso negado: você não tem permissão para desativar usuários de outra organização.",
-            )
+    if not current_user.is_global_operator and (
+        target_user.organization_id is None or str(target_user.organization_id) != current_user.organization_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: você não tem permissão para desativar usuários de outra organização.",
+        )
 
     user = await command_service.deactivate_user(user_id)
     return UserPublicResponse.model_validate(user)

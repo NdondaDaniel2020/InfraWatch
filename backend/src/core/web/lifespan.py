@@ -101,6 +101,8 @@ async def lifespan(app: FastAPI) -> Any:
                     interval_seconds=settings.TOKEN_CLEANUP_INTERVAL_SECONDS,
                     lock_timeout=settings.TOKEN_CLEANUP_LOCK_TIMEOUT_SECONDS,
                     retention_days=settings.TOKEN_CLEANUP_RETENTION_DAYS,
+                    processed_events_retention_days=settings.PROCESSED_EVENTS_RETENTION_DAYS,
+                    outbox_retention_days=settings.OUTBOX_EVENTS_RETENTION_DAYS,
                 )
                 # start() é síncrono - retorna Task
                 token_cleanup_worker.start()
