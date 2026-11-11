@@ -73,6 +73,8 @@ def get_token_cleanup_worker(
     interval_seconds: int = 3600,
     lock_timeout: int = 300,
     retention_days: int = 7,
+    processed_events_retention_days: int = 30,
+    outbox_retention_days: int = 30,
 ) -> Any:
     """Retorna instância singleton do TokenCleanupWorker."""
     global _token_cleanup_worker
@@ -87,6 +89,8 @@ def get_token_cleanup_worker(
             interval_seconds=interval_seconds,
             lock_timeout=lock_timeout,
             retention_days=retention_days,
+            processed_events_retention_days=processed_events_retention_days,
+            outbox_retention_days=outbox_retention_days,
         )
 
     return _token_cleanup_worker
