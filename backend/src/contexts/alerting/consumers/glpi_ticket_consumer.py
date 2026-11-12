@@ -75,6 +75,13 @@ class GlpiTicketConsumer:
         self._idempotency_guard = idempotency_guard or get_idempotency_guard()
         self.max_retries = max_retries
 
+    def update_credentials(self, base_url: str, app_token: str, user_token: str) -> None:
+        """Atualiza dinamicamente as credenciais da API REST do GLPI."""
+        self._glpi_base_url = base_url
+        self._glpi_app_token = app_token
+        self._glpi_user_token = user_token
+        logger.info("Credenciais do GLPI atualizadas dinamicamente: endpoint=%s", base_url)
+
     def _build_ticket_payload(self, payload: dict[str, Any]) -> GlpiTicketCreate:
         """Constrói o payload do chamado a partir do evento de incidente."""
         device_name = payload.get("device_name", "Dispositivo desconhecido")

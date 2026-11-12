@@ -142,8 +142,12 @@ export const SystemSettingsPage: React.FC = () => {
         </div>
       ) : (
         <div>
-          {activeTab === "glpi" && <GlpiSettingsTab statusItem={getIntegration("glpi")} />}
-          {activeTab === "zabbix" && <ZabbixSettingsTab statusItem={getIntegration("zabbix")} />}
+          {activeTab === "glpi" && (
+            <GlpiSettingsTab statusItem={getIntegration("glpi")} onRefresh={fetchStatus} />
+          )}
+          {activeTab === "zabbix" && (
+            <ZabbixSettingsTab statusItem={getIntegration("zabbix")} onRefresh={fetchStatus} />
+          )}
           {activeTab === "notifications" && (
             <NotificationSettingsTab integrations={statusData?.integrations || []} />
           )}
