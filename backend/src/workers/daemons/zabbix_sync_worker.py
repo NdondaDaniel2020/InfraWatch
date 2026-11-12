@@ -12,6 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.system.services.dynamic_settings_provider import (
+    DynamicSettingsProvider,
+    get_dynamic_settings_provider,
+)
 from src.contexts.telemetry.database.models import MetricModel
 from src.core.config import get_settings
 from src.core.database.session import get_session_factory
@@ -181,6 +185,7 @@ class ZabbixSyncWorker:
         event_bus: ResilientEventBus | None = None,
         max_concurrent: int = 50,
         reconciliation_interval: float = _DEFAULT_RECONCILIATION_INTERVAL,
+        dynamic_provider: DynamicSettingsProvider | None = None,
     ) -> None:
         self._session_factory = session_factory or get_session_factory()
         self._sync_interval = sync_interval
@@ -189,9 +194,24 @@ class ZabbixSyncWorker:
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._reconciliation_interval = reconciliation_interval
         self._monitored_hosts: dict[UUID, ZabbixTarget] = {}
+        self._dynamic_provider = dynamic_provider or get_dynamic_settings_provider()
+
+    async def get_zabbix_client(self) -> ZabbixClient:
+        """Instancia o cliente Zabbix com base nas configurações ativas (banco de dados ou .env)."""
+        if self._custom_client:
+            return self._custom_client
+
+        cfg = await self._dynamic_provider.get_zabbix_config()
+        return ZabbixClient(
+            api_url=cfg["api_url"],
+            api_token=cfg["api_token"],
+            username=cfg["user"],
+            password=cfg["password"],
+            timeout=cfg["timeout_seconds"],
+        )
 
     def _get_zabbix_client(self) -> ZabbixClient:
-        """Instancia o cliente Zabbix com base nas configurações da aplicação."""
+        """Instancia o cliente Zabbix com base nas configurações da aplicação (fallback síncrono)."""
         if self._custom_client:
             return self._custom_client
 
@@ -461,9 +481,9 @@ class ZabbixSyncWorker:
 
     async def sync_once(self) -> int:
         """Executa um ciclo único de sincronização sobre os alvos em memória."""
-        settings = get_settings()
-        if not getattr(settings, "ZABBIX_ENABLED", False):
-            logger.debug("Integração Zabbix desativada (ZABBIX_ENABLED=False). Ciclo ignorado.")
+        zabbix_cfg = await self._dynamic_provider.get_zabbix_config()
+        if not zabbix_cfg.get("enabled", False):
+            logger.debug("Integração Zabbix desativada via configurações ativas. Ciclo ignorado.")
             return 0
 
         # Auto-inicialização defensiva caso o catálogo em memória ainda não tenha sido carregado
@@ -474,7 +494,7 @@ class ZabbixSyncWorker:
             return 0
 
         synced_count = 0
-        client = self._get_zabbix_client()
+        client = await self.get_zabbix_client()
 
         async def _sync_single(target: ZabbixTarget) -> bool:
             async with self._semaphore, self._session_factory() as session:
@@ -523,7 +543,7 @@ class ZabbixSyncWorker:
             HostID do Zabbix criado/atualizado ou None em caso de falha
         """
         try:
-            client = self._get_zabbix_client()
+            client = await self.get_zabbix_client()
             resolved_snmp = snmp_config or (thresholds or {}).get("snmp_config") or (thresholds or {}).get("snmp")
             interface_details = build_zabbix_snmp_interface_details(
                 snmp_config=resolved_snmp,
