@@ -25,7 +25,7 @@ export const MaintenanceGanttTimeline: React.FC<MaintenanceGanttTimelineProps> =
     <section
       data-testid="maint-gantt-container"
       style={{
-        backgroundColor: "var(--color-surface-elevated)",
+        backgroundColor: "var(--color-surface-card, #0d1424)",
         border: "var(--border-subtle)",
         borderRadius: "var(--radius-lg)",
         padding: "20px",
@@ -122,7 +122,7 @@ export const MaintenanceGanttTimeline: React.FC<MaintenanceGanttTimelineProps> =
                 <div
                   style={{
                     height: "32px",
-                    backgroundColor: "var(--color-surface-card)",
+                    backgroundColor: "var(--color-bg-deep, #070a12)",
                     borderRadius: "var(--radius-sm)",
                     border: "var(--border-subtle)",
                     position: "relative",

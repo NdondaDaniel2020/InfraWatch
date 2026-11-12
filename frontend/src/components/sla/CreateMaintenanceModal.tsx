@@ -101,7 +101,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
     >
       <div
         style={{
-          backgroundColor: "var(--color-surface-elevated)",
+          backgroundColor: "var(--color-surface-card, #0d1424)",
           border: "var(--border-subtle)",
           borderRadius: "var(--radius-lg)",
           maxWidth: "600px",
@@ -210,7 +210,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               placeholder="Ex: Atualização Crítica de Firmware Cisco IOS-XE"
               aria-invalid={!!errors.title}
               style={{
-                backgroundColor: "var(--color-surface-card)",
+                backgroundColor: "var(--color-bg-deep, #070a12)",
                 border: errors.title ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                 borderRadius: "var(--radius-sm)",
                 padding: "8px 12px",
@@ -237,7 +237,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                 placeholder="Ex: SW-CORE-LUANDA-01, SW-CORE-LUANDA-02"
                 aria-invalid={!!errors.targetDeviceInput}
                 style={{
-                  backgroundColor: "var(--color-surface-card)",
+                  backgroundColor: "var(--color-bg-deep, #070a12)",
                   border: errors.targetDeviceInput ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 12px",
@@ -263,7 +263,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                 {...register("clientName")}
                 aria-invalid={!!errors.clientName}
                 style={{
-                  backgroundColor: "var(--color-surface-card)",
+                  backgroundColor: "var(--color-bg-deep, #070a12)",
                   border: errors.clientName ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 12px",
@@ -290,7 +290,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                 {...register("startTime")}
                 aria-invalid={!!errors.startTime}
                 style={{
-                  backgroundColor: "var(--color-surface-card)",
+                  backgroundColor: "var(--color-bg-deep, #070a12)",
                   border: errors.startTime ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 12px",
@@ -316,7 +316,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
                 {...register("endTime")}
                 aria-invalid={!!errors.endTime}
                 style={{
-                  backgroundColor: "var(--color-surface-card)",
+                  backgroundColor: "var(--color-bg-deep, #070a12)",
                   border: errors.endTime ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                   borderRadius: "var(--radius-sm)",
                   padding: "8px 12px",
@@ -344,7 +344,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               placeholder="Descreva o escopo da parada e impacto previsto na topologia..."
               aria-invalid={!!errors.description}
               style={{
-                backgroundColor: "var(--color-surface-card)",
+                backgroundColor: "var(--color-bg-deep, #070a12)",
                 border: errors.description ? "1px solid var(--color-critical)" : "var(--border-subtle)",
                 borderRadius: "var(--radius-sm)",
                 padding: "8px 12px",
@@ -370,7 +370,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               {...register("rollbackPlan")}
               placeholder="Ex: Rollback de firmware para versão anterior em até 15 minutos"
               style={{
-                backgroundColor: "var(--color-surface-card)",
+                backgroundColor: "var(--color-bg-deep, #070a12)",
                 border: "var(--border-subtle)",
                 borderRadius: "var(--radius-sm)",
                 padding: "8px 12px",
@@ -386,7 +386,7 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
             style={{
               padding: "12px",
               borderRadius: "var(--radius-sm)",
-              backgroundColor: "var(--color-surface-card)",
+              backgroundColor: "var(--color-bg-deep, #070a12)",
               border: "var(--border-subtle)",
               display: "flex",
               flexDirection: "column",
