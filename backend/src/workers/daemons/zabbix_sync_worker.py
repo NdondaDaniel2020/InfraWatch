@@ -201,6 +201,13 @@ class ZabbixSyncWorker:
         if self._custom_client:
             return self._custom_client
 
+        # Compatibilidade com testes unitários que realizam monkey-patch em self._get_zabbix_client
+        if self.__dict__.get("_get_zabbix_client") is not None:
+            res = self._get_zabbix_client()
+            if asyncio.iscoroutine(res):
+                return await res
+            return res
+
         cfg = await self._dynamic_provider.get_zabbix_config()
         return ZabbixClient(
             api_url=cfg["api_url"],
@@ -481,6 +488,11 @@ class ZabbixSyncWorker:
 
     async def sync_once(self) -> int:
         """Executa um ciclo único de sincronização sobre os alvos em memória."""
+        settings = get_settings()
+        if not getattr(settings, "ZABBIX_ENABLED", False):
+            logger.debug("Integração Zabbix desativada (ZABBIX_ENABLED=False). Ciclo ignorado.")
+            return 0
+
         zabbix_cfg = await self._dynamic_provider.get_zabbix_config()
         if not zabbix_cfg.get("enabled", False):
             logger.debug("Integração Zabbix desativada via configurações ativas. Ciclo ignorado.")

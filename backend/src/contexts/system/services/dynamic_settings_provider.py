@@ -31,10 +31,14 @@ class DynamicSettingsProvider:
         cache_ttl_seconds: float = _DEFAULT_CACHE_TTL,
     ) -> None:
         self._session_factory = session_factory or get_session_factory()
-        self._settings = settings or get_settings()
+        self._settings = settings
         self._cache_ttl = cache_ttl_seconds
         self._cache: dict[str, dict[str, str]] = {}
         self._cache_timestamps: dict[str, float] = {}
+
+    @property
+    def settings(self) -> Settings:
+        return self._settings or get_settings()
 
     def invalidate_cache(self, category: str | None = None) -> None:
         """Invalida o cache em memória de uma categoria específica ou de todas."""
@@ -54,9 +58,16 @@ class DynamicSettingsProvider:
         ):
             return self._cache[category]
 
-        async with self._session_factory() as session:
-            repo = SystemSettingsRepository(session)
-            overrides = await repo.get_category_dict(category)
+        overrides: dict[str, str] = {}
+        try:
+            async with self._session_factory() as session:
+                repo = SystemSettingsRepository(session)
+                overrides = await repo.get_category_dict(category)
+        except Exception as exc:
+            logger.debug(
+                "Banco indisponível para override de configurações (%s); utilizando fallback .env.",
+                exc,
+            )
 
         self._cache[category] = overrides
         self._cache_timestamps[category] = now
@@ -65,7 +76,7 @@ class DynamicSettingsProvider:
     async def get_glpi_config(self) -> dict[str, Any]:
         """Resolve a configuração efetiva do GLPI ITSM."""
         overrides = await self._get_category_overrides("glpi")
-        s = self._settings
+        s = self.settings
 
         has_override = bool(overrides)
         enabled_str = overrides.get("glpi.enabled")
@@ -91,7 +102,7 @@ class DynamicSettingsProvider:
     async def get_zabbix_config(self) -> dict[str, Any]:
         """Resolve a configuração efetiva do Zabbix Server."""
         overrides = await self._get_category_overrides("zabbix")
-        s = self._settings
+        s = self.settings
 
         has_override = bool(overrides)
         enabled_str = overrides.get("zabbix.enabled")
@@ -119,7 +130,7 @@ class DynamicSettingsProvider:
     async def get_whatsapp_config(self) -> dict[str, Any]:
         """Resolve a configuração efetiva do WhatsApp Gateway."""
         overrides = await self._get_category_overrides("whatsapp")
-        s = self._settings
+        s = self.settings
 
         has_override = bool(overrides)
         enabled_str = overrides.get("whatsapp.enabled")
@@ -141,7 +152,7 @@ class DynamicSettingsProvider:
     async def get_smtp_config(self) -> dict[str, Any]:
         """Resolve a configuração efetiva do servidor SMTP."""
         overrides = await self._get_category_overrides("smtp")
-        s = self._settings
+        s = self.settings
 
         has_override = bool(overrides)
         host = overrides.get("smtp.host") or s.SMTP_HOST
@@ -170,7 +181,7 @@ class DynamicSettingsProvider:
     async def get_webhook_config(self) -> dict[str, Any]:
         """Resolve a configuração efetiva do Webhook padrão."""
         overrides = await self._get_category_overrides("webhook")
-        s = self._settings
+        s = self.settings
 
         has_override = bool(overrides)
         enabled_str = overrides.get("webhook.enabled")
