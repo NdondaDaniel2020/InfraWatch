@@ -1,22 +1,33 @@
-"""Rotas administrativas de Configurações do Sistema e Testes de Integração (ADR-032 / Issue #268)."""
+"""Rotas administrativas de Configurações do Sistema e Testes de Integração (ADR-032 / Issue #268 / Issue #312)."""
 
 from __future__ import annotations
 
+import inspect
 import logging
+from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from src.contexts.system.api.dependencies import (
+    AdminUserDep,
     IntegrationTesterDep,
+    SystemSettingsServiceDep,
     require_admin,
 )
 from src.contexts.system.schemas.settings import (
+    GlpiSettingsUpdateRequest,
     GlpiTestRequest,
     GlpiTestResponse,
     InfraTestResponse,
     IntegrationStatusResponse,
+    IntegrationUpdateResponse,
     NotificationTestRequest,
     NotificationTestResponse,
+    SmtpSettingsUpdateRequest,
+    WebhookSettingsUpdateRequest,
+    WhatsappSettingsUpdateRequest,
+    ZabbixSettingsUpdateRequest,
     ZabbixTestRequest,
     ZabbixTestResponse,
 )
@@ -43,7 +54,84 @@ async def get_system_settings_status(
     service: IntegrationTesterDep,
 ) -> IntegrationStatusResponse:
     """Retorna o status e os parâmetros operacionais mascarados de todas as integrações."""
-    return service.get_status()
+    res = service.get_status()
+    if inspect.isawaitable(res):
+        return await res
+    return res
+
+
+@router.patch(
+    "/integrations/{name}",
+    response_model=IntegrationUpdateResponse,
+    summary="Atualizar e persistir parâmetros de integração no banco de dados",
+)
+async def update_integration_settings(
+    name: str,
+    payload: dict[str, Any],
+    service: SystemSettingsServiceDep,
+    current_user: AdminUserDep,
+    request: Request,
+) -> IntegrationUpdateResponse:
+    """Valida, testa previamente e salva parâmetros de conexão de forma permanente."""
+    cat = name.lower().strip()
+    user_uuid = UUID(current_user.id) if current_user.id else None
+    client_ip = request.client.host if request.client else None
+
+    try:
+        if cat == "glpi":
+            glpi_req = GlpiSettingsUpdateRequest(**payload)
+            return await service.update_glpi_settings(glpi_req, updated_by=user_uuid, ip_address=client_ip)
+        elif cat == "zabbix":
+            zabbix_req = ZabbixSettingsUpdateRequest(**payload)
+            return await service.update_zabbix_settings(zabbix_req, updated_by=user_uuid, ip_address=client_ip)
+        elif cat == "whatsapp":
+            wa_req = WhatsappSettingsUpdateRequest(**payload)
+            return await service.update_whatsapp_settings(wa_req, updated_by=user_uuid, ip_address=client_ip)
+        elif cat == "smtp":
+            smtp_req = SmtpSettingsUpdateRequest(**payload)
+            return await service.update_smtp_settings(smtp_req, updated_by=user_uuid, ip_address=client_ip)
+        elif cat == "webhook":
+            webhook_req = WebhookSettingsUpdateRequest(**payload)
+            return await service.update_webhook_settings(webhook_req, updated_by=user_uuid, ip_address=client_ip)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Integração '{name}' não é suportada. Opções: glpi, zabbix, whatsapp, smtp, webhook.",
+            )
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    except Exception as err:
+        if isinstance(err, HTTPException):
+            raise
+        logger.exception("Erro ao processar atualização de integração %s: %s", name, err)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Payload inválido para a integração '{name}': {err}",
+        )
+
+
+@router.delete(
+    "/integrations/{name}",
+    response_model=IntegrationUpdateResponse,
+    summary="Restaurar parâmetros da integração para o padrão do ambiente (.env)",
+)
+async def reset_integration_settings(
+    name: str,
+    service: SystemSettingsServiceDep,
+    current_user: AdminUserDep,
+    request: Request,
+) -> IntegrationUpdateResponse:
+    """Remove overrides no banco de dados e restaura parâmetros padrão de fábrica."""
+    user_uuid = UUID(current_user.id) if current_user.id else None
+    client_ip = request.client.host if request.client else None
+    try:
+        return await service.reset_category_settings(
+            category=name,
+            updated_by=user_uuid,
+            ip_address=client_ip,
+        )
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
 
 
 @router.post(
