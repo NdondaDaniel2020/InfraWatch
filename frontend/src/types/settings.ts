@@ -7,6 +7,9 @@ export interface IntegrationStatusItem {
   enabled: boolean;
   endpoint: string | null;
   configured: boolean;
+  source?: "database" | "environment";
+  updated_at?: string | null;
+  updated_by_email?: string | null;
   details: Record<string, unknown>;
 }
 
@@ -66,4 +69,31 @@ export interface InfraTestResponse {
   redis_ok: boolean;
   redis_latency_ms: number;
   message: string;
+}
+
+export interface GlpiSettingsUpdateRequest {
+  endpoint: string;
+  enabled?: boolean;
+  app_token?: string;
+  user_token?: string;
+  timeout_seconds?: number;
+  validate_connectivity?: boolean;
+}
+
+export interface ZabbixSettingsUpdateRequest {
+  endpoint: string;
+  enabled?: boolean;
+  api_token?: string;
+  username?: string;
+  password?: string;
+  timeout_seconds?: number;
+  validate_connectivity?: boolean;
+}
+
+export interface IntegrationUpdateResponse {
+  success: boolean;
+  name: string;
+  message: string;
+  source: "database" | "environment";
+  details?: Record<string, unknown>;
 }

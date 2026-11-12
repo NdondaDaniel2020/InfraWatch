@@ -59,6 +59,8 @@ vi.mock("../src/services/settingsApi", () => ({
     testZabbix: vi.fn(),
     testNotification: vi.fn(),
     testInfra: vi.fn(),
+    updateIntegration: vi.fn(),
+    resetIntegration: vi.fn(),
   },
 }));
 
@@ -232,5 +234,114 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
     });
 
     expect(settingsApi.testInfra).toHaveBeenCalled();
+  });
+
+  it("permite salvar e persistir configurações do GLPI com updateIntegration", async () => {
+    vi.mocked(settingsApi.updateIntegration).mockResolvedValue({
+      success: true,
+      name: "glpi",
+      message: "Configuração do GLPI salva e ativada com sucesso!",
+      source: "database",
+    });
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Configurar Parâmetros de Integração")).toBeInTheDocument();
+    });
+
+    const saveBtn = screen.getByRole("button", { name: /Salvar e Aplicar/i });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(settingsApi.updateIntegration).toHaveBeenCalledWith(
+        "glpi",
+        expect.objectContaining({
+          endpoint: "https://glpi.rcsangola.co.ao/apirest.php",
+          enabled: true,
+          validate_connectivity: true,
+        })
+      );
+    });
+  });
+
+  it("permite restaurar parâmetros de fábrica do GLPI com resetIntegration", async () => {
+    vi.mocked(settingsApi.resetIntegration).mockResolvedValue({
+      success: true,
+      name: "glpi",
+      message: "Configuração restaurada",
+      source: "environment",
+    });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const dbStatus: IntegrationStatusResponse = {
+      ...mockStatus,
+      integrations: mockStatus.integrations.map((i) =>
+        i.name === "glpi" ? { ...i, source: "database" as const } : i
+      ),
+    };
+    vi.mocked(settingsApi.getStatus).mockResolvedValue(dbStatus);
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Restaurar Padrão de Fábrica (.env)")).toBeInTheDocument();
+    });
+
+    const resetBtn = screen.getByText("Restaurar Padrão de Fábrica (.env)");
+    fireEvent.click(resetBtn);
+
+    await waitFor(() => {
+      expect(settingsApi.resetIntegration).toHaveBeenCalledWith("glpi");
+    });
+  });
+
+  it("permite salvar e persistir configurações do Zabbix com updateIntegration", async () => {
+    vi.mocked(settingsApi.updateIntegration).mockResolvedValue({
+      success: true,
+      name: "zabbix",
+      message: "Configuração do Zabbix salva com sucesso!",
+      source: "database",
+    });
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Zabbix Server")).toBeInTheDocument();
+    });
+
+    const zabbixTab = screen.getByRole("button", { name: /Zabbix Server/i });
+    fireEvent.click(zabbixTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Configurar Parâmetros de Integração")).toBeInTheDocument();
+    });
+
+    const saveBtn = screen.getByRole("button", { name: /Salvar e Aplicar/i });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(settingsApi.updateIntegration).toHaveBeenCalledWith(
+        "zabbix",
+        expect.objectContaining({
+          endpoint: "http://zabbix:8080/api_jsonrpc.php",
+          enabled: true,
+          validate_connectivity: true,
+        })
+      );
+    });
   });
 });
