@@ -14,6 +14,7 @@ class StreamTopics(StrEnum):
     IAM_EVENTS_DLQ = "stream:iam:events:dlq"
     PROBES_ONDEMAND = "stream:probes:ondemand"
     SSE_BROADCAST = "stream:sse:broadcast"
+    SYSTEM_SETTINGS_CHANGED = "stream:system:settings_changed"
 
 
 EVENT_STREAM_MAPPING: dict[str, str] = {
@@ -43,6 +44,9 @@ EVENT_STREAM_MAPPING: dict[str, str] = {
     "ProfileUpdatedEvent": StreamTopics.IAM_EVENTS,
     "RolesChangedEvent": StreamTopics.IAM_EVENTS,
     "AccountDeactivatedEvent": StreamTopics.IAM_EVENTS,
+    # Bounded Context: System
+    "SystemSettingUpdatedEvent": StreamTopics.SYSTEM_SETTINGS_CHANGED,
+    "SystemSettingResetEvent": StreamTopics.SYSTEM_SETTINGS_CHANGED,
 }
 
 # Mapeamento de retenção granular de mensagens (MAXLEN) por tópico do Redis Streams.
@@ -55,6 +59,7 @@ TOPIC_MAXLEN_MAPPING: dict[str, int] = {
     StreamTopics.INCIDENTS: 20_000,
     StreamTopics.INVENTORY_CHANGES: 10_000,
     StreamTopics.IAM_EVENTS: 10_000,
+    StreamTopics.SYSTEM_SETTINGS_CHANGED: 10_000,
     # Dead Letter Queues (DLQ): 50.000 mensagens para garantir retenção forense prolongada
     StreamTopics.INCIDENTS_DLQ: 50_000,
     StreamTopics.INVENTORY_CHANGES_DLQ: 50_000,

@@ -81,8 +81,10 @@ class SystemSettingsRepository:
         value: str,
         is_secret: bool = False,
         user_id: UUID | None = None,
+        updated_by: UUID | None = None,
     ) -> SystemSetting:
         """Salva ou atualiza uma configuração (upsert), cifrando valores confidenciais."""
+        effective_user_id = updated_by if updated_by is not None else user_id
         stored_value = encrypt_secret(value) if is_secret else value
 
         stmt = select(SystemSettingModel).where(SystemSettingModel.key == key)
@@ -95,7 +97,7 @@ class SystemSettingsRepository:
             existing.value = stored_value
             existing.is_secret = is_secret
             existing.updated_at = now
-            existing.updated_by = user_id
+            existing.updated_by = effective_user_id
             target = existing
         else:
             target = SystemSettingModel(
@@ -104,7 +106,7 @@ class SystemSettingsRepository:
                 value=stored_value,
                 is_secret=is_secret,
                 updated_at=now,
-                updated_by=user_id,
+                updated_by=effective_user_id,
             )
             self.session.add(target)
 
@@ -116,7 +118,7 @@ class SystemSettingsRepository:
             value=value,
             is_secret=is_secret,
             updated_at=now,
-            updated_by=user_id,
+            updated_by=effective_user_id,
         )
 
     async def delete_by_key(self, key: str) -> bool:
@@ -124,14 +126,15 @@ class SystemSettingsRepository:
         stmt = delete(SystemSettingModel).where(SystemSettingModel.key == key)
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return bool(result.rowcount and result.rowcount > 0)
+        rowcount = int(getattr(result, "rowcount", 0) or 0)
+        return rowcount > 0
 
     async def delete_by_category(self, category: str) -> int:
         """Remove todas as configurações de uma categoria."""
         stmt = delete(SystemSettingModel).where(SystemSettingModel.category == category)
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return int(result.rowcount or 0)
+        return int(getattr(result, "rowcount", 0) or 0)
 
 
 __all__ = ["SystemSettingsRepository"]
