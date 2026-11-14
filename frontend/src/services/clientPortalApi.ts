@@ -57,15 +57,16 @@ function normalizeSummary(data: any): ClientSlaSummary {
 
 function mapDeviceToService(item: ClientDeviceDTO): ClientServiceItem {
   const status = normalizeStatus(item.status);
+  const deviceId = String(item.id ?? item.device_id ?? "");
   return {
-    id: String(item.id),
+    id: deviceId,
     name: item.name,
     category: item.category || "Sem categoria",
     status,
     statusLabel:
       status === "UP" ? "Nominal" : status === "DEG" ? "Degradação" : "Falha",
     ...(typeof item.last_latency_ms === "number"
-      ? { responseTimeMs: item.last_latency_ms }
+      ? { responseTimeMs: Math.round(item.last_latency_ms * 10) / 10 }
       : {}),
     tags: item.protocol ? [item.protocol] : [],
   };
@@ -86,20 +87,61 @@ export const clientPortalApi = {
 
   /**
    * Obtém a lista de serviços monitorados e sanitizados para o cliente.
-   * Não inventa métricas ausentes no payload do backend.
+   * Consulta preferencialmente o endpoint de telemetria em tempo real (/api/v1/events/telemetry),
+   * que inclui métricas de latência sob o escopo multitenant estrito do usuário.
+   * Enriquece os itens com a estabilidade de 30 dias obtida do laudo consolidado de SLA.
    */
   async getClientServices(organizationId?: string | null): Promise<ClientServiceItem[]> {
-    const params = new URLSearchParams();
-    if (organizationId) params.set("org_id", organizationId);
-    const query = params.toString();
-    const url = query ? `/api/v1/devices?${query}` : "/api/v1/devices";
-    const res = await apiClient.get<ClientDeviceListResponse>(url);
+    let rawItems: ClientDeviceDTO[] = [];
 
-    if (!res || !Array.isArray(res.items)) {
-      throw new Error("Resposta inválida do backend para a lista de dispositivos.");
+    // 1. Tenta obter do endpoint de telemetria consolidada em tempo real (inclui latência e multitenancy)
+    try {
+      const telemetryRes = await apiClient.get<ClientDeviceListResponse>("/api/v1/events/telemetry");
+      if (telemetryRes && Array.isArray(telemetryRes.items) && telemetryRes.items.length > 0) {
+        rawItems = telemetryRes.items;
+      }
+    } catch {
+      // Continua para o endpoint cadastral caso /events/telemetry não responda
     }
 
-    return res.items.map(mapDeviceToService);
+    // 2. Fallback para /api/v1/devices caso telemetria retorne vazio ou falhe
+    if (rawItems.length === 0) {
+      const params = new URLSearchParams();
+      if (organizationId) params.set("org_id", organizationId);
+      const query = params.toString();
+      const url = query ? `/api/v1/devices?${query}` : "/api/v1/devices";
+      const res = await apiClient.get<ClientDeviceListResponse>(url);
+
+      if (!res || !Array.isArray(res.items)) {
+        throw new Error("Resposta inválida do backend para a lista de dispositivos.");
+      }
+      rawItems = res.items;
+    }
+
+    // 3. Consulta a conformidade/estabilidade de 30 dias dos dispositivos via relatório oficial
+    const stabilityByDeviceId: Record<string, number> = {};
+    if (organizationId) {
+      try {
+        const report = await this.getSlaReport(organizationId);
+        if (report && Array.isArray(report.devices)) {
+          for (const dev of report.devices) {
+            if (dev.deviceId && typeof dev.uptimeNetPct === "number") {
+              stabilityByDeviceId[dev.deviceId] = dev.uptimeNetPct;
+            }
+          }
+        }
+      } catch {
+        // Silencioso se o relatório detalhado ainda não estiver computado
+      }
+    }
+
+    return rawItems.map((item) => {
+      const service = mapDeviceToService(item);
+      if (stabilityByDeviceId[service.id] !== undefined) {
+        service.stability30DaysPct = stabilityByDeviceId[service.id];
+      }
+      return service;
+    });
   },
 
   /**
@@ -271,7 +313,7 @@ export const clientPortalApi = {
     }
 
     return res.items.map((item: ClientDeviceDTO) => ({
-      id: String(item.id),
+      id: String(item.id ?? item.device_id ?? ""),
       domainName: item.hostname || item.name,
       serviceType: item.category || "Sem categoria",
       protocol: item.protocol || "—",

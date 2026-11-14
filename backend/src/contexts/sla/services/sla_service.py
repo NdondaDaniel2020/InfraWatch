@@ -280,9 +280,9 @@ class SlaService:
             mttr_avg = round(mttr_sum / services_count, 1)
             exempted_mins = sum(rep.exempted_downtime_minutes for _, rep in reports)
         else:
-            uptime_avg = 99.98
-            mttr_avg = 4.2
-            exempted_mins = 120.0
+            uptime_avg = 100.0
+            mttr_avg = 0.0
+            exempted_mins = 0.0
 
         hours = int(exempted_mins // 60)
         mins = int(exempted_mins % 60)
@@ -374,12 +374,12 @@ class SlaService:
                 unpl_mins = round(sum(r.unplanned_downtime_minutes for _, r in reports), 1)
                 ex_mins = round(sum(r.exempted_downtime_minutes for _, r in reports), 1)
             else:
-                # Baseline nominal para meses anteriores sem incidentes
-                upt_avg = 99.98 if i != 2 else 99.72
-                mttr_avg = 4.5
-                inc_cnt = 0 if i != 2 else 1
-                unpl_mins = 0.0 if i != 2 else 12.0
-                ex_mins = 60.0
+                # Período sem registros de indisponibilidade ou incidentes
+                upt_avg = 100.0
+                mttr_avg = 0.0
+                inc_cnt = 0
+                unpl_mins = 0.0
+                ex_mins = 0.0
 
             items.append(
                 OrganizationSlaHistoryItem(

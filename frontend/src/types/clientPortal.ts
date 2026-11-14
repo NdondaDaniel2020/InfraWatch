@@ -52,7 +52,8 @@ export interface ClientNotification {
 }
 
 export interface ClientDeviceDTO {
-  id: string | number;
+  id?: string | number;
+  device_id?: string | number;
   name: string;
   hostname?: string;
   category?: string;
@@ -60,6 +61,7 @@ export interface ClientDeviceDTO {
   protocol?: string;
   ip_address?: string;
   last_latency_ms?: number;
+  last_packet_loss?: number;
 }
 
 export interface ClientDeviceListResponse {
