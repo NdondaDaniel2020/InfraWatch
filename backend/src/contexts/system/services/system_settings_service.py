@@ -26,6 +26,7 @@ from src.contexts.system.schemas.settings import (
     GlpiTestRequest,
     IntegrationUpdateResponse,
     SmtpSettingsUpdateRequest,
+    TelegramSettingsUpdateRequest,
     WebhookSettingsUpdateRequest,
     WhatsappSettingsUpdateRequest,
     ZabbixSettingsUpdateRequest,
@@ -276,6 +277,76 @@ class SystemSettingsService:
             details={"endpoint": payload.endpoint, "enabled": payload.enabled},
         )
 
+    async def update_telegram_settings(
+        self,
+        payload: TelegramSettingsUpdateRequest,
+        updated_by: UUID | None = None,
+        ip_address: str | None = None,
+    ) -> IntegrationUpdateResponse:
+        """Persiste parâmetros do Telegram Bot no banco de dados."""
+        existing = await self.repository.get_category_dict("telegram")
+        effective_bot_token = (
+            payload.bot_token if payload.bot_token is not None else existing.get("telegram.bot_token", "")
+        )
+
+        await self.repository.save_setting(
+            key="telegram.enabled",
+            category="telegram",
+            value="true" if payload.enabled else "false",
+            is_secret=False,
+            updated_by=updated_by,
+        )
+        if effective_bot_token:
+            await self.repository.save_setting(
+                key="telegram.bot_token",
+                category="telegram",
+                value=effective_bot_token.strip(),
+                is_secret=True,
+                updated_by=updated_by,
+            )
+        if payload.default_chat_id is not None:
+            await self.repository.save_setting(
+                key="telegram.default_chat_id",
+                category="telegram",
+                value=payload.default_chat_id.strip(),
+                is_secret=False,
+                updated_by=updated_by,
+            )
+
+        event = SystemSettingUpdatedEvent(
+            category="telegram",
+            key="telegram.*",
+            is_secret=False,
+            updated_by=updated_by,
+        )
+        OutboxRepository.add_event(self.session, event, aggregate_type="system_settings")
+
+        await self.audit_service.record_action(
+            action="system.settings.update",
+            resource_type="system_settings",
+            resource_id="telegram",
+            actor_user_id=updated_by,
+            details={
+                "category": "telegram",
+                "default_chat_id": payload.default_chat_id,
+                "enabled": payload.enabled,
+            },
+            ip_address=ip_address,
+        )
+
+        self.dynamic_provider.invalidate_cache("telegram")
+
+        return IntegrationUpdateResponse(
+            success=True,
+            name="telegram",
+            message="Configurações do Telegram atualizadas com sucesso.",
+            source="database",
+            details={
+                "default_chat_id": payload.default_chat_id,
+                "enabled": payload.enabled,
+            },
+        )
+
     async def update_whatsapp_settings(
         self,
         payload: WhatsappSettingsUpdateRequest,
@@ -360,6 +431,13 @@ class SystemSettingsService:
             payload.password if payload.password is not None else existing.get("smtp.password", "")
         )
 
+        await self.repository.save_setting(
+            key="smtp.enabled",
+            category="smtp",
+            value="true" if payload.enabled else "false",
+            is_secret=False,
+            updated_by=updated_by,
+        )
         await self.repository.save_setting(
             key="smtp.host", category="smtp", value=payload.host.strip(), is_secret=False, updated_by=updated_by
         )
@@ -474,7 +552,7 @@ class SystemSettingsService:
         ip_address: str | None = None,
     ) -> IntegrationUpdateResponse:
         """Remove overrides de uma categoria no banco de dados, restaurando o padrão .env."""
-        valid_categories = {"glpi", "zabbix", "whatsapp", "smtp", "webhook"}
+        valid_categories = {"glpi", "zabbix", "whatsapp", "smtp", "webhook", "telegram"}
         cat_lower = category.lower().strip()
         if cat_lower not in valid_categories:
             raise ValueError(

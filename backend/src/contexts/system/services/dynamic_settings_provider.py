@@ -127,6 +127,29 @@ class DynamicSettingsProvider:
             "source": "database" if has_override else "environment",
         }
 
+    async def get_telegram_config(self) -> dict[str, Any]:
+        """Resolve a configuração efetiva do Telegram Bot."""
+        overrides = await self._get_category_overrides("telegram")
+        s = self.settings
+
+        has_override = bool(overrides)
+        bot_token = overrides.get("telegram.bot_token") or s.TELEGRAM_BOT_TOKEN
+        default_chat_id = overrides.get("telegram.default_chat_id") or s.TELEGRAM_DEFAULT_CHAT_ID
+        enabled_str = overrides.get("telegram.enabled")
+        enabled = (
+            (enabled_str.lower() in ("true", "1", "yes"))
+            if enabled_str is not None
+            else bool(bot_token)
+        )
+
+        return {
+            "enabled": enabled,
+            "bot_token": bot_token,
+            "default_chat_id": default_chat_id,
+            "configured": bool(bot_token and default_chat_id),
+            "source": "database" if has_override else "environment",
+        }
+
     async def get_whatsapp_config(self) -> dict[str, Any]:
         """Resolve a configuração efetiva do WhatsApp Gateway."""
         overrides = await self._get_category_overrides("whatsapp")
@@ -166,7 +189,15 @@ class DynamicSettingsProvider:
         password = overrides.get("smtp.password") or s.SMTP_PASSWORD
         default_recipient = overrides.get("smtp.default_recipient") or s.SMTP_DEFAULT_RECIPIENT
 
+        enabled_str = overrides.get("smtp.enabled")
+        enabled = (
+            (enabled_str.lower() in ("true", "1", "yes"))
+            if enabled_str is not None
+            else bool(host and from_address)
+        )
+
         return {
+            "enabled": enabled,
             "host": host,
             "port": port,
             "tls": tls,

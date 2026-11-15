@@ -170,6 +170,16 @@ class SmtpSettingsUpdateRequest(BaseModel):
     user: str | None = Field(default=None, description="Usuário SMTP")
     password: str | None = Field(default=None, description="Senha SMTP (omitir para preservar atual)")
     default_recipient: str | None = Field(default=None, description="Destinatário de alerta padrão")
+    enabled: bool = Field(default=True, description="Habilitar envio via SMTP")
+    validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
+
+
+class TelegramSettingsUpdateRequest(BaseModel):
+    """Payload para atualização persistente de parâmetros do Telegram Bot."""
+
+    bot_token: str | None = Field(default=None, description="Token do Telegram Bot (omitir para preservar atual)")
+    default_chat_id: str | None = Field(default=None, description="Chat ID padrão de alertas")
+    enabled: bool = Field(default=True, description="Habilitar envio via Telegram")
     validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
 
 

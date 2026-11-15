@@ -67,6 +67,7 @@ class IntegrationTesterService:
 
         glpi_cfg = await dp.get_glpi_config()
         zabbix_cfg = await dp.get_zabbix_config()
+        telegram_cfg = await dp.get_telegram_config()
         whatsapp_cfg = await dp.get_whatsapp_config()
         smtp_cfg = await dp.get_smtp_config()
         webhook_cfg = await dp.get_webhook_config()
@@ -99,13 +100,14 @@ class IntegrationTesterService:
             ),
             IntegrationStatusItem(
                 name="telegram",
-                enabled=bool(s.TELEGRAM_BOT_TOKEN),
+                enabled=bool(telegram_cfg["enabled"]),
                 endpoint="api.telegram.org",
-                configured=bool(s.TELEGRAM_BOT_TOKEN and s.TELEGRAM_DEFAULT_CHAT_ID),
-                source="environment",
+                configured=bool(telegram_cfg["configured"]),
+                source=telegram_cfg["source"],
                 details={
-                    "default_chat_id": s.TELEGRAM_DEFAULT_CHAT_ID or None,
-                    "bot_token_configured": bool(s.TELEGRAM_BOT_TOKEN),
+                    "default_chat_id": telegram_cfg["default_chat_id"] or None,
+                    "bot_token_configured": bool(telegram_cfg["bot_token"]),
+                    "enabled": bool(telegram_cfg["enabled"]),
                 },
             ),
             IntegrationStatusItem(
@@ -118,11 +120,12 @@ class IntegrationTesterService:
                     "gateway_url": whatsapp_cfg["gateway_url"] or None,
                     "api_token_configured": bool(whatsapp_cfg["api_token"]),
                     "default_recipient": whatsapp_cfg["default_recipient"] or None,
+                    "enabled": bool(whatsapp_cfg["enabled"]),
                 },
             ),
             IntegrationStatusItem(
                 name="smtp",
-                enabled=bool(smtp_cfg["configured"]),
+                enabled=bool(smtp_cfg["enabled"]),
                 endpoint=f"{smtp_cfg['host']}:{smtp_cfg['port']}" if smtp_cfg["host"] else None,
                 configured=bool(smtp_cfg["configured"]),
                 source=smtp_cfg["source"],
@@ -130,9 +133,12 @@ class IntegrationTesterService:
                     "host": smtp_cfg["host"] or None,
                     "port": smtp_cfg["port"],
                     "tls": bool(smtp_cfg["tls"]),
-                    "from_address": smtp_cfg["from_address"],
+                    "from_address": smtp_cfg["from_address"] or None,
+                    "user": smtp_cfg["user"] or None,
                     "user_configured": bool(smtp_cfg["user"]),
+                    "password_configured": bool(smtp_cfg["password"]),
                     "default_recipient": smtp_cfg["default_recipient"] or None,
+                    "enabled": bool(smtp_cfg["enabled"]),
                 },
             ),
             IntegrationStatusItem(
@@ -141,7 +147,11 @@ class IntegrationTesterService:
                 endpoint=webhook_cfg["url"] if webhook_cfg["url"] else None,
                 configured=bool(webhook_cfg["configured"]),
                 source=webhook_cfg["source"],
-                details={"default_webhook_configured": bool(webhook_cfg["configured"])},
+                details={
+                    "url": webhook_cfg["url"] or None,
+                    "default_webhook_configured": bool(webhook_cfg["configured"]),
+                    "enabled": bool(webhook_cfg["enabled"]),
+                },
             ),
             IntegrationStatusItem(
                 name="postgres",
@@ -294,14 +304,41 @@ class IntegrationTesterService:
             device_ip="10.200.0.1",
         )
 
-        channel_map: dict[str, NotificationChannel] = {
-            "telegram": TelegramChannel(),
-            "whatsapp": WhatsAppChannel(),
-            "smtp": SmtpNotificationChannel(),
-            "webhook": WebhookChannel(),
-        }
+        dp = self.dynamic_provider
+        channel: NotificationChannel | None = None
 
-        channel = channel_map.get(channel_name)
+        if channel_name == "telegram":
+            t_cfg = await dp.get_telegram_config()
+            channel = TelegramChannel(
+                bot_token=t_cfg.get("bot_token") or None,
+                default_chat_id=req.recipient or t_cfg.get("default_chat_id") or None,
+            )
+        elif channel_name == "whatsapp":
+            w_cfg = await dp.get_whatsapp_config()
+            channel = WhatsAppChannel(
+                gateway_url=w_cfg.get("gateway_url") or None,
+                api_token=w_cfg.get("api_token") or None,
+                default_recipient=req.recipient or w_cfg.get("default_recipient") or None,
+                enabled=w_cfg.get("enabled"),
+            )
+        elif channel_name == "smtp":
+            s_cfg = await dp.get_smtp_config()
+            channel = SmtpNotificationChannel(
+                host=s_cfg.get("host") or "",
+                port=s_cfg.get("port") or 587,
+                tls=bool(s_cfg.get("tls", True)),
+                from_address=s_cfg.get("from_address") or "",
+                user=s_cfg.get("user") or None,
+                password=s_cfg.get("password") or None,
+                default_recipient=req.recipient or s_cfg.get("default_recipient") or None,
+            )
+        elif channel_name == "webhook":
+            wh_cfg = await dp.get_webhook_config()
+            channel = WebhookChannel(
+                url=req.recipient or wh_cfg.get("url") or "",
+                enabled=wh_cfg.get("enabled"),
+            )
+
         if not channel:
             return NotificationTestResponse(
                 success=False,

@@ -149,7 +149,10 @@ export const SystemSettingsPage: React.FC = () => {
             <ZabbixSettingsTab statusItem={getIntegration("zabbix")} onRefresh={fetchStatus} />
           )}
           {activeTab === "notifications" && (
-            <NotificationSettingsTab integrations={statusData?.integrations || []} />
+            <NotificationSettingsTab
+              integrations={statusData?.integrations || []}
+              onRefresh={fetchStatus}
+            />
           )}
           {activeTab === "cluster" && (
             <InfraClusterSettingsTab

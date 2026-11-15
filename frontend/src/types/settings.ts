@@ -92,6 +92,39 @@ export interface ZabbixSettingsUpdateRequest {
   validate_connectivity?: boolean;
 }
 
+export interface TelegramSettingsUpdateRequest {
+  bot_token?: string;
+  default_chat_id?: string;
+  enabled?: boolean;
+  validate_connectivity?: boolean;
+}
+
+export interface WhatsappSettingsUpdateRequest {
+  gateway_url: string;
+  enabled?: boolean;
+  api_token?: string;
+  default_recipient?: string;
+  validate_connectivity?: boolean;
+}
+
+export interface SmtpSettingsUpdateRequest {
+  host: string;
+  port?: number;
+  tls?: boolean;
+  from_address: string;
+  user?: string;
+  password?: string;
+  default_recipient?: string;
+  enabled?: boolean;
+  validate_connectivity?: boolean;
+}
+
+export interface WebhookSettingsUpdateRequest {
+  url: string;
+  enabled?: boolean;
+  validate_connectivity?: boolean;
+}
+
 export interface IntegrationUpdateResponse {
   success: boolean;
   name: string;

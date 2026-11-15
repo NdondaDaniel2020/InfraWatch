@@ -30,15 +30,41 @@ class WebhookChannel:
         webhook_url: str | None = None,
         timeout_seconds: float = 10.0,
         client: httpx.AsyncClient | None = None,
+        *,
+        url: str | None = None,
+        enabled: bool | None = None,
     ) -> None:
+        effective_url = webhook_url if webhook_url is not None else url
+        self._explicit_url = effective_url
+        self._explicit_enabled = enabled
         settings = get_settings()
-        self.webhook_url = webhook_url if webhook_url is not None else settings.DEFAULT_WEBHOOK_URL
+        self.webhook_url = effective_url if effective_url is not None else settings.DEFAULT_WEBHOOK_URL
+        self.enabled = (
+            enabled
+            if enabled is not None
+            else (bool(effective_url and effective_url.strip()) if effective_url is not None else bool(self.webhook_url and self.webhook_url.strip()))
+        )
         self.timeout = timeout_seconds
         self._custom_client = client
 
+    async def _resolve_config(self) -> tuple[bool, str]:
+        """Resolve credenciais ativas via DynamicSettingsProvider ou fallback local."""
+        if self._explicit_url is not None or self._explicit_enabled is not None:
+            return (self.enabled, self.webhook_url or "")
+        try:
+            from src.contexts.system.services.dynamic_settings_provider import (
+                get_dynamic_settings_provider,
+            )
+
+            cfg = await get_dynamic_settings_provider().get_webhook_config()
+            return (bool(cfg.get("enabled", True)), cfg.get("url") or "")
+        except Exception:
+            return (self.enabled, self.webhook_url or "")
+
     async def is_available(self) -> bool:
-        """Verifica se uma URL de webhook padrão está configurada."""
-        return bool(self.webhook_url and self.webhook_url.strip())
+        """Verifica se uma URL de webhook padrão está configurada e habilitada."""
+        enabled, url = await self._resolve_config()
+        return bool(enabled and url and url.strip())
 
     def _build_discord_payload(self, alert: AlertMessage) -> dict[str, Any]:
         """Gera payload com Embed rico para webhooks do Discord."""
@@ -146,7 +172,12 @@ class WebhookChannel:
 
     async def send(self, alert: AlertMessage, recipient: str | None = None) -> bool:
         """Envia o alerta para o webhook configurado ou recipient especificado."""
-        target_url = recipient or self.webhook_url
+        enabled, default_url = await self._resolve_config()
+        if not enabled:
+            logger.info("Canal Webhook desabilitado. Envio ignorado.")
+            return False
+
+        target_url = recipient or default_url
         if not target_url:
             logger.debug("Webhook não configurado. Envio ignorado.")
             return False

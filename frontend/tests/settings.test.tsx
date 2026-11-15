@@ -32,7 +32,28 @@ const mockStatus: IntegrationStatusResponse = {
       enabled: true,
       endpoint: "api.telegram.org",
       configured: true,
-      details: {},
+      details: { default_chat_id: "-10012345" },
+    },
+    {
+      name: "whatsapp",
+      enabled: true,
+      endpoint: "http://whatsapp-gw:8085",
+      configured: true,
+      details: { gateway_url: "http://whatsapp-gw:8085", default_recipient: "+244923000111" },
+    },
+    {
+      name: "smtp",
+      enabled: true,
+      endpoint: "smtp.gmail.com:587",
+      configured: true,
+      details: { host: "smtp.gmail.com", port: 587, tls: true, from_address: "noc@infrawatch.ao" },
+    },
+    {
+      name: "webhook",
+      enabled: true,
+      endpoint: "https://discord.com/api/webhooks/test",
+      configured: true,
+      details: { url: "https://discord.com/api/webhooks/test" },
     },
     {
       name: "postgres",
@@ -396,6 +417,91 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
           endpoint: "http://zabbix:8080/api_jsonrpc.php",
           enabled: true,
           validate_connectivity: true,
+        })
+      );
+    });
+  });
+
+  it("permite salvar e persistir configurações de canal de Notificação no banco com updateIntegration", async () => {
+    vi.mocked(settingsApi.updateIntegration).mockResolvedValue({
+      success: true,
+      name: "telegram",
+      message: "Configuração de TELEGRAM salva no banco com sucesso!",
+      source: "database",
+    });
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Notificações")).toBeInTheDocument();
+    });
+
+    const notifTab = screen.getByRole("button", { name: /Notificações/i });
+    fireEvent.click(notifTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Gerenciamento do Canal:/i)).toBeInTheDocument();
+      expect(screen.getByText("Salvar Configuração")).toBeInTheDocument();
+    });
+
+    const saveBtn = screen.getByText("Salvar Configuração");
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(settingsApi.updateIntegration).toHaveBeenCalledWith(
+        "telegram",
+        expect.objectContaining({
+          enabled: true,
+        })
+      );
+    });
+  });
+
+  it("permite alternar canal de notificação e salvar WhatsApp na DB", async () => {
+    vi.mocked(settingsApi.updateIntegration).mockResolvedValue({
+      success: true,
+      name: "whatsapp",
+      message: "Configuração de WHATSAPP salva no banco com sucesso!",
+      source: "database",
+    });
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Notificações")).toBeInTheDocument();
+    });
+
+    const notifTab = screen.getByRole("button", { name: /Notificações/i });
+    fireEvent.click(notifTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("WhatsApp Gateway")).toBeInTheDocument();
+    });
+
+    const waBtn = screen.getByRole("button", { name: /WhatsApp Gateway/i });
+    fireEvent.click(waBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Gerenciamento do Canal:/i)).toHaveTextContent(/whatsapp/i);
+    });
+
+    const saveBtn = screen.getByText("Salvar Configuração");
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(settingsApi.updateIntegration).toHaveBeenCalledWith(
+        "whatsapp",
+        expect.objectContaining({
+          gateway_url: "http://whatsapp-gw:8085",
+          enabled: true,
         })
       );
     });
