@@ -27,6 +27,7 @@ from src.contexts.system.services.dynamic_settings_provider import (
 from src.core.config import get_settings
 from src.core.database.session import get_session_factory
 from src.core.infrastructure.redis import ensure_redis
+from src.core.messaging.topics import StreamTopics
 from src.integrations.glpi import GlpiClient
 from src.integrations.glpi.schemas import (
     GlpiImpact,
@@ -156,7 +157,17 @@ class IntegrationTesterService:
                 endpoint=f"{s.REDIS_HOST}:{s.REDIS_PORT}",
                 configured=True,
                 source="environment",
-                details={"db": getattr(s, "REDIS_DB", 0), "host": s.REDIS_HOST, "port": s.REDIS_PORT},
+                details={
+                    "db": getattr(s, "REDIS_DB", 0),
+                    "host": s.REDIS_HOST,
+                    "port": s.REDIS_PORT,
+                    "streams": [
+                        StreamTopics.INCIDENTS.value,
+                        StreamTopics.INVENTORY_CHANGES.value,
+                        StreamTopics.IAM_EVENTS.value,
+                        StreamTopics.SYSTEM_SETTINGS_CHANGED.value,
+                    ],
+                },
             ),
         ]
         return IntegrationStatusResponse(
@@ -342,10 +353,14 @@ class IntegrationTesterService:
         # Teste PostgreSQL
         pg_ok = False
         pg_ms = 0.0
+        timescale_active: bool | None = None
         start_pg = time.perf_counter()
         try:
             async with self.session_factory() as session:
-                await session.execute(text("SELECT 1"))
+                res = await session.execute(
+                    text("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')")
+                )
+                timescale_active = bool(res.scalar())
                 pg_ms = round((time.perf_counter() - start_pg) * 1000, 2)
                 pg_ok = True
         except Exception as exc:  # noqa: BLE001
@@ -355,11 +370,26 @@ class IntegrationTesterService:
         # Teste Redis
         redis_ok = False
         redis_ms = 0.0
+        redis_persistence: str | None = None
         start_redis = time.perf_counter()
         try:
             r = await ensure_redis()
             if r is not None:
                 await r.ping()
+                try:
+                    info = await r.info("persistence")
+                    aof_on = bool(info.get("aof_enabled"))
+                    rdb_ok = info.get("rdb_last_bgsave_status") == "ok"
+                    if aof_on and rdb_ok:
+                        redis_persistence = "AOF & RDB Ativa"
+                    elif aof_on:
+                        redis_persistence = "AOF Ativa"
+                    elif rdb_ok:
+                        redis_persistence = "RDB Snapshots"
+                    else:
+                        redis_persistence = "Em Memória (Volátil)"
+                except Exception:
+                    redis_persistence = "Conectado"
                 redis_ms = round((time.perf_counter() - start_redis) * 1000, 2)
                 redis_ok = True
         except Exception as exc:  # noqa: BLE001
@@ -379,6 +409,8 @@ class IntegrationTesterService:
             redis_ok=redis_ok,
             redis_latency_ms=redis_ms,
             message=msg,
+            timescale_active=timescale_active,
+            redis_persistence=redis_persistence,
         )
 
 
