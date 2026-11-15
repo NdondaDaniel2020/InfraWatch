@@ -52,43 +52,34 @@ bootstrap_glpi() {
     local table_count
     table_count=$(docker exec "${container_db}" mariadb -u glpi -p"${db_password}" glpidb -sN -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='glpidb' AND table_name='glpi_configs';" 2>/dev/null || echo "0")
     if [ "$table_count" -eq 0 ]; then
-        echo -e "${YELLOW}[GLPI] Tabelas do GLPI ainda não criadas no banco de dados.${NC}"
-        return 0
+        echo -e "[GLPI] Tabelas não encontradas. Executando database:install no container ${container_app}..."
+        docker exec "${container_app}" php /var/www/html/glpi/bin/console database:install \
+            --db-host=glpi-db --db-port=3306 --db-name=glpidb --db-user=glpi --db-password="${db_password}" \
+            --force --reconfigure --no-telemetry --no-interaction 2>/dev/null || true
     fi
 
-    echo -e "[GLPI] Habilitando API REST no banco..."
+    # Garantir que o config_db.php existe no container da aplicação
+    if docker ps --format '{{.Names}}' | grep -q "^${container_app}$"; then
+        if ! docker exec "${container_app}" test -f /var/www/html/glpi/config/config_db.php; then
+            echo -e "[GLPI] config_db.php ausente. Configurando conexão com o banco de dados..."
+            docker exec "${container_app}" php /var/www/html/glpi/bin/console database:configure \
+                --db-host=glpi-db --db-port=3306 --db-name=glpidb --db-user=glpi --db-password="${db_password}" \
+                --reconfigure --no-interaction 2>/dev/null || true
+        fi
+        docker exec "${container_app}" chown -R www-data:www-data /var/www/html/glpi/config /var/www/html/glpi/files 2>/dev/null || true
+    fi
+
+    echo -e "[GLPI] Habilitando API REST e login por token externo..."
     docker exec "${container_db}" mariadb -u glpi -p"${db_password}" glpidb -e "
-        UPDATE glpi_configs SET value = '1' WHERE name IN ('enable_api', 'enable_rest_api');
+        UPDATE glpi_configs SET value = '1' WHERE name IN ('enable_api', 'enable_rest_api', 'enable_api_login_external_token');
+        DELETE FROM glpi_apiclients WHERE name = 'InfraWatch API';
+        INSERT INTO glpi_apiclients (name, is_active, ipv4_range_start, ipv4_range_end, ipv6, app_token)
+        VALUES ('InfraWatch API', 1, NULL, NULL, NULL, '${app_token}');
+        UPDATE glpi_users SET api_token = '${user_token}' WHERE name = 'glpi';
     "
+    echo -e "${GREEN}[GLPI] Tokens sincronizados no MariaDB.${NC}"
 
     if docker ps --format '{{.Names}}' | grep -q "^${container_app}$"; then
-        echo -e "[GLPI] Ajustando permissões de www-data no container ${container_app}..."
-        docker exec "${container_app}" chown -R www-data:www-data /var/www/html/glpi/config /var/www/html/glpi/files 2>/dev/null || true
-
-        echo -e "[GLPI] Criptografando tokens com GLPIKey no container do GLPI..."
-        local enc_tokens
-        enc_tokens=$(docker exec "${container_app}" php -r "
-            require '/var/www/html/glpi/vendor/autoload.php';
-            \$kernel = new \Glpi\Kernel\Kernel();
-            \$key = new \GLPIKey();
-            echo \$key->encrypt('${app_token}') . '|||' . \$key->encrypt('${user_token}');
-        " 2>/dev/null || echo "")
-
-        if [ -n "$enc_tokens" ]; then
-            local enc_app
-            local enc_user
-            enc_app="${enc_tokens%%|||*}"
-            enc_user="${enc_tokens##*|||}"
-
-            docker exec "${container_db}" mariadb -u glpi -p"${db_password}" glpidb -e "
-                INSERT INTO glpi_apiclients (name, app_token, is_active)
-                VALUES ('InfraWatch API', '${enc_app}', 1)
-                ON DUPLICATE KEY UPDATE app_token = VALUES(app_token), is_active = 1;
-                UPDATE glpi_users SET api_token = '${enc_user}' WHERE name = 'glpi';
-            "
-            echo -e "${GREEN}[GLPI] Tokens criptografados e sincronizados no MariaDB.${NC}"
-        fi
-
         # Validação de conexão interna
         local status_code
         status_code=$(docker exec "${container_app}" curl -s -o /dev/null -w "%{http_code}" -H "App-Token: ${app_token}" -H "Authorization: user_token ${user_token}" "http://localhost/apirest.php/initSession" 2>/dev/null || echo "000")
