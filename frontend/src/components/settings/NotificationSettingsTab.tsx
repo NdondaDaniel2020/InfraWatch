@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
-  Bell,
-  Send,
+  Play,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -29,8 +28,6 @@ type ChannelType = "telegram" | "whatsapp" | "smtp" | "webhook";
 
 export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefresh }) => {
   const [activeChannel, setActiveChannel] = useState<ChannelType>("telegram");
-  const [recipient, setRecipient] = useState("");
-  const [severity, setSeverity] = useState<"CRITICAL" | "DEGRADED" | "RESOLVED" | "INFO">("CRITICAL");
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -101,23 +98,22 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
     }
   }, [integrations]);
 
-  const handleSendTest = async () => {
+  // Dispara o teste in-process utilizando os dados já configurados no banco/ambiente
+  const handleRunTest = async () => {
     setTesting(true);
     setTestResult(null);
     try {
       const res = await settingsApi.testNotification({
         channel: activeChannel,
-        recipient: recipient.trim() || undefined,
-        severity,
       });
       setTestResult(res);
       if (res.success) {
         toast.success(res.message);
       } else {
-        toast.error(`Falha no envio: ${res.message}`);
+        toast.error(`Falha no teste: ${res.message}`);
       }
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "Falha na requisição";
+      const errMsg = err instanceof Error ? err.message : "Falha ao conectar e despachar alerta de teste";
       setTestResult({
         success: false,
         channel: activeChannel,
@@ -252,7 +248,8 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
       icon: MessageSquare,
       color: "text-sky-400 bg-sky-500/10 border-sky-500/20",
       status: getStatus("telegram"),
-      recipientPlaceholder: "Chat ID (opcional se houver padrão)",
+      title: "Telegram Bot (Alertas e Mensageria)",
+      endpointLabel: "Destino / Chat ID",
     },
     {
       id: "whatsapp" as const,
@@ -260,7 +257,8 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
       icon: MessageSquare,
       color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
       status: getStatus("whatsapp"),
-      recipientPlaceholder: "+244923456789 ou JID de grupo",
+      title: "WhatsApp Gateway (Evolution API)",
+      endpointLabel: "Gateway Endpoint",
     },
     {
       id: "smtp" as const,
@@ -268,7 +266,8 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
       icon: Mail,
       color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
       status: getStatus("smtp"),
-      recipientPlaceholder: "destinatario@rcsangola.co.ao",
+      title: "Servidor SMTP (Alertas por E-mail)",
+      endpointLabel: "Servidor Host",
     },
     {
       id: "webhook" as const,
@@ -276,9 +275,13 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
       icon: Globe,
       color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
       status: getStatus("webhook"),
-      recipientPlaceholder: "https://hook.endpoint/alerta (opcional)",
+      title: "Webhook REST (Discord / Slack / Genérico)",
+      endpointLabel: "URL de Destino",
     },
   ];
+
+  const currentCard = channelCards.find((c) => c.id === activeChannel) || channelCards[0];
+  const CurrentIcon = currentCard.icon;
 
   return (
     <div className="space-y-6">
@@ -337,6 +340,90 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
         })}
       </div>
 
+      {/* Status Bar com Botão de Testar Conexão In-Process (Idêntico ao Zabbix e GLPI) */}
+      <div className="bg-[#0f172a]/80 border border-slate-800 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className={`p-3 rounded-lg border ${currentCard.color}`}>
+            <CurrentIcon className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-semibold text-white">{currentCard.title}</h3>
+              <span
+                className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
+                  currentStatus?.enabled
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-slate-800 text-slate-400 border border-slate-700"
+                }`}
+              >
+                {currentStatus?.enabled ? "ATIVO" : "DESABILITADO"}
+              </span>
+              <span
+                className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 ${
+                  isDatabaseSource
+                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
+                    : "bg-slate-800 text-slate-400 border border-slate-700"
+                }`}
+              >
+                {isDatabaseSource ? <Database className="w-3 h-3" /> : <Terminal className="w-3 h-3" />}
+                {isDatabaseSource ? "Origem: Banco de Dados" : "Origem: Padrão .env"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {currentCard.endpointLabel}:{" "}
+              <code className="text-slate-300 font-mono">
+                {currentStatus?.endpoint ||
+                  (currentStatus?.details?.default_chat_id as string) ||
+                  "Nenhum destino especificado"}
+              </code>
+            </p>
+          </div>
+        </div>
+
+        {/* Botão de Teste Direto com os Dados Já Configurados */}
+        <button
+          type="button"
+          onClick={handleRunTest}
+          disabled={testing || saving}
+          className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition shadow-lg shadow-cyan-600/20"
+        >
+          {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
+          {testing ? "Executando Teste..." : `Testar ${activeChannel.toUpperCase()} In-Process`}
+        </button>
+      </div>
+
+      {/* Test Execution Result Banner */}
+      {testResult && (
+        <div
+          className={`p-4 rounded-xl border flex items-start gap-3 transition-all ${
+            testResult.success
+              ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200"
+              : "bg-rose-950/20 border-rose-500/30 text-rose-200"
+          }`}
+        >
+          {testResult.success ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold">{testResult.message}</span>
+              {testResult.latency_ms > 0 && (
+                <span className="text-xs px-2 py-0.5 bg-black/40 rounded border border-white/10 font-mono">
+                  {testResult.latency_ms.toFixed(1)} ms
+                </span>
+              )}
+            </div>
+            {testResult.error && (
+              <p className="text-xs mt-1 text-rose-300 font-mono bg-rose-950/40 p-2 rounded border border-rose-900/50">
+                {testResult.error}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Editor & Persistence Form Panel */}
       <div className="bg-[#0f172a]/80 border border-slate-800 rounded-xl p-6 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
@@ -347,22 +434,12 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-semibold text-white">
-                  Gerenciamento do Canal: <span className="text-cyan-400 uppercase">{activeChannel}</span>
+                  Parâmetros de Conexão: <span className="text-cyan-400 uppercase">{activeChannel}</span>
                 </h3>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
-                    isDatabaseSource
-                      ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
-                      : "bg-slate-800 text-slate-400 border border-slate-700"
-                  }`}
-                >
-                  {isDatabaseSource ? <Database className="w-3 h-3" /> : <Terminal className="w-3 h-3" />}
-                  {isDatabaseSource ? "Origem: Banco de Dados" : "Origem: Padrão .env"}
-                </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Altere credenciais e parâmetros deste canal. As alterações serão salvas na tabela de configurações e
-                terão precedência sobre o .env.
+                Altere os parâmetros e credenciais. Ao salvar, as configurações são gravadas no banco de dados e
+                prevalecem sobre o .env.
               </p>
             </div>
           </div>
@@ -386,7 +463,7 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
               className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition shadow-lg shadow-cyan-600/20"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? "Salvando na DB..." : "Salvar Configuração"}
+              {saving ? "Salvando..." : "Salvar Configuração"}
             </button>
           </div>
         </div>
@@ -641,102 +718,13 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
             </div>
           )}
         </form>
-      </div>
 
-      {/* Test Execution Console */}
-      <div className="bg-[#0f172a]/80 border border-slate-800 rounded-xl p-6 space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
-          <div>
-            <h3 className="text-base font-semibold text-white flex items-center gap-2">
-              <Bell className="w-5 h-5 text-cyan-400" />
-              Disparador de Alerta Sintético de Teste
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Canal selecionado: <span className="text-cyan-300 font-semibold uppercase">{activeChannel}</span>
-            </p>
-          </div>
-          <button
-            onClick={handleSendTest}
-            disabled={testing || saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition shadow-lg shadow-cyan-600/20"
-          >
-            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {testing ? "Despachando..." : `Disparar Teste via ${activeChannel.toUpperCase()}`}
-          </button>
-        </div>
-
-        {/* Test Result Feedback */}
-        {testResult && (
-          <div
-            className={`p-4 rounded-xl border flex items-start gap-3 transition-all ${
-              testResult.success
-                ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200"
-                : "bg-rose-950/20 border-rose-500/30 text-rose-200"
-            }`}
-          >
-            {testResult.success ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-            )}
-            <div className="flex-1 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">{testResult.message}</span>
-                {testResult.latency_ms > 0 && (
-                  <span className="text-xs px-2 py-0.5 bg-black/40 rounded border border-white/10 font-mono">
-                    {testResult.latency_ms.toFixed(1)} ms
-                  </span>
-                )}
-              </div>
-              {testResult.error && (
-                <p className="text-xs mt-1 text-rose-300 font-mono bg-rose-950/40 p-2 rounded border border-rose-900/50">
-                  {testResult.error}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Form Controls for Test */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Destinatário Específico (Opcional)</label>
-            <input
-              type="text"
-              placeholder={channelCards.find((c) => c.id === activeChannel)?.recipientPlaceholder}
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
-            />
-            <span className="text-[11px] text-slate-500 mt-1 block">
-              Se deixado em branco, o sistema utilizará o destinatário configurado no banco de dados ou .env.
-            </span>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Severidade do Alerta de Teste</label>
-            <select
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
-            >
-              <option value="CRITICAL">CRITICAL (Incidente Crítico NOC)</option>
-              <option value="DEGRADED">DEGRADED (Degradação de Desempenho)</option>
-              <option value="RESOLVED">RESOLVED (Restabelecimento de Serviço)</option>
-              <option value="INFO">INFO (Informativo de Auditoria)</option>
-            </select>
-            <span className="text-[11px] text-slate-500 mt-1 block">
-              Formatação e cores do payload variam de acordo com o nível de severidade.
-            </span>
-          </div>
-        </div>
-
-        {/* Security Alert Note */}
+        {/* Security Note */}
         <div className="p-3 bg-slate-900/70 border border-slate-800 rounded-lg flex items-center gap-2.5 text-xs text-slate-400">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>
-            Os despachos utilizam as classes de notificação nativas assíncronas do backend em memória (sem dual-write e
-            sem subprocessos externos).
+            Os testes e despachos utilizam as classes de notificação nativas assíncronas do backend em memória (sem
+            dual-write e sem subprocessos externos).
           </span>
         </div>
       </div>

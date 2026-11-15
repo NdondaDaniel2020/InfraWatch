@@ -208,10 +208,10 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
     fireEvent.click(notifTab);
 
     await waitFor(() => {
-      expect(screen.getByText("Disparador de Alerta Sintético de Teste")).toBeInTheDocument();
+      expect(screen.getByText("Testar TELEGRAM In-Process")).toBeInTheDocument();
     });
 
-    const sendBtn = screen.getByText("Disparar Teste via TELEGRAM");
+    const sendBtn = screen.getByText("Testar TELEGRAM In-Process");
     fireEvent.click(sendBtn);
 
     await waitFor(() => {
@@ -221,8 +221,6 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
 
     expect(settingsApi.testNotification).toHaveBeenCalledWith({
       channel: "telegram",
-      recipient: undefined,
-      severity: "CRITICAL",
     });
   });
 
@@ -444,7 +442,7 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
     fireEvent.click(notifTab);
 
     await waitFor(() => {
-      expect(screen.getByText(/Gerenciamento do Canal:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Parâmetros de Conexão:/i)).toBeInTheDocument();
       expect(screen.getByText("Salvar Configuração")).toBeInTheDocument();
     });
 
@@ -490,7 +488,7 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
     fireEvent.click(waBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Gerenciamento do Canal:/i)).toHaveTextContent(/whatsapp/i);
+      expect(screen.getByText(/Parâmetros de Conexão:/i)).toHaveTextContent(/whatsapp/i);
     });
 
     const saveBtn = screen.getByText("Salvar Configuração");
