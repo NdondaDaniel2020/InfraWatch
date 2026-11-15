@@ -220,6 +220,8 @@ async def test_test_infra_cluster_endpoint(settings_test_app: FastAPI, admin_tok
         redis_ok=True,
         redis_latency_ms=0.8,
         message="Cluster de infraestrutura 100% operacional.",
+        timescale_active=True,
+        redis_persistence="AOF & RDB Ativa",
     )
 
     with patch(
@@ -239,3 +241,5 @@ async def test_test_infra_cluster_endpoint(settings_test_app: FastAPI, admin_tok
             data = response.json()
             assert data["postgres_ok"] is True
             assert data["redis_ok"] is True
+            assert data["timescale_active"] is True
+            assert data["redis_persistence"] == "AOF & RDB Ativa"

@@ -119,6 +119,12 @@ class InfraTestResponse(BaseModel):
         description="Latência do comando PING no Redis em milissegundos"
     )
     message: str = Field(description="Resumo do estado operacional do cluster")
+    timescale_active: bool | None = Field(
+        default=None, description="Indica se a extensão TimescaleDB está ativa no PostgreSQL"
+    )
+    redis_persistence: str | None = Field(
+        default=None, description="Modo de persistência do Redis detectado em runtime"
+    )
 
 
 class GlpiSettingsUpdateRequest(BaseModel):

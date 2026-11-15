@@ -69,6 +69,8 @@ export interface InfraTestResponse {
   redis_ok: boolean;
   redis_latency_ms: number;
   message: string;
+  timescale_active?: boolean | null;
+  redis_persistence?: string | null;
 }
 
 export interface GlpiSettingsUpdateRequest {

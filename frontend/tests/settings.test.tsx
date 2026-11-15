@@ -46,7 +46,14 @@ const mockStatus: IntegrationStatusResponse = {
       enabled: true,
       endpoint: "redis:6379",
       configured: true,
-      details: { db: 0 },
+      details: {
+        db: 0,
+        streams: [
+          "stream:incidents",
+          "stream:inventory:changes",
+          "stream:system:settings_changed",
+        ],
+      },
     },
   ],
   environment: "production",
@@ -198,13 +205,64 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
     });
   });
 
-  it("permite verificar conectividade e latência do Cluster (TimescaleDB e Redis)", async () => {
+  it("permite verificar conectividade e latência do Cluster (TimescaleDB e Redis) com dados dinâmicos", async () => {
     vi.mocked(settingsApi.testInfra).mockResolvedValue({
       postgres_ok: true,
       postgres_latency_ms: 1.85,
       redis_ok: true,
       redis_latency_ms: 0.92,
       message: "Cluster de infraestrutura 100% operacional (PostgreSQL e Redis conectados).",
+      timescale_active: true,
+      redis_persistence: "AOF & RDB Ativa",
+    });
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Infra & Cluster")).toBeInTheDocument();
+    });
+
+    const clusterTab = screen.getByRole("button", { name: /Infra & Cluster/i });
+    fireEvent.click(clusterTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Verificar Saúde do Cluster")).toBeInTheDocument();
+    });
+
+    // Antes do teste, os crachás mostram estado configurado
+    expect(screen.getAllByText("CONFIGURADO").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("3 Streams Canônicos")).toBeInTheDocument();
+    expect(screen.getByText("Disponível via Diagnóstico")).toBeInTheDocument();
+    expect(screen.getByText("Verificável via Diagnóstico")).toBeInTheDocument();
+
+    const checkBtn = screen.getByText("Verificar Saúde do Cluster");
+    fireEvent.click(checkBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cluster de infraestrutura 100% operacional (PostgreSQL e Redis conectados).")).toBeInTheDocument();
+      expect(screen.getByText("1.85 ms")).toBeInTheDocument();
+      expect(screen.getByText("0.92 ms")).toBeInTheDocument();
+      expect(screen.getByText("Ativa (timescaledb)")).toBeInTheDocument();
+      expect(screen.getByText("AOF & RDB Ativa")).toBeInTheDocument();
+      expect(screen.getAllByText("ONLINE").length).toBeGreaterThanOrEqual(2);
+    });
+
+    expect(settingsApi.testInfra).toHaveBeenCalled();
+  });
+
+  it("exibe badge de FALHA quando diagnóstico de infraestrutura falha", async () => {
+    vi.mocked(settingsApi.testInfra).mockResolvedValue({
+      postgres_ok: false,
+      postgres_latency_ms: 0,
+      redis_ok: false,
+      redis_latency_ms: 0,
+      message: "Atenção: Um ou mais componentes do cluster apresentaram instabilidade.",
+      timescale_active: false,
+      redis_persistence: "Desconectado",
     });
 
     render(
@@ -228,12 +286,10 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
     fireEvent.click(checkBtn);
 
     await waitFor(() => {
-      expect(screen.getByText("Cluster de infraestrutura 100% operacional (PostgreSQL e Redis conectados).")).toBeInTheDocument();
-      expect(screen.getByText("1.85 ms")).toBeInTheDocument();
-      expect(screen.getByText("0.92 ms")).toBeInTheDocument();
+      expect(screen.getByText("Atenção: Um ou mais componentes do cluster apresentaram instabilidade.")).toBeInTheDocument();
+      expect(screen.getAllByText("FALHA").length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText("Não detectada")).toBeInTheDocument();
     });
-
-    expect(settingsApi.testInfra).toHaveBeenCalled();
   });
 
   it("permite salvar e persistir configurações do GLPI com updateIntegration", async () => {
