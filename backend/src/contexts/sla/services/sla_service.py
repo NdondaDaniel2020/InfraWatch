@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -31,6 +32,13 @@ from src.contexts.sla.schemas.responses import (
     SupportTicketResponse,
 )
 from src.core.database.unit_of_work import AbstractUnitOfWork
+from src.integrations.glpi.client import GlpiClient
+from src.integrations.glpi.schemas import (
+    GlpiImpact,
+    GlpiPriority,
+    GlpiTicketCreate,
+    GlpiUrgency,
+)
 
 logger = logging.getLogger("infrawatch.sla.service")
 
@@ -44,7 +52,11 @@ def _ensure_utc(dt: datetime | None) -> datetime | None:
 class SlaService:
     """Serviço de aplicação para orquestração analítica de SLA e gestão de janelas."""
 
-    def __init__(self, uow_or_session: AbstractUnitOfWork | AsyncSession) -> None:
+    def __init__(
+        self,
+        uow_or_session: AbstractUnitOfWork | AsyncSession,
+        glpi_client: GlpiClient | None = None,
+    ) -> None:
         if isinstance(uow_or_session, AbstractUnitOfWork):
             self._uow: AbstractUnitOfWork | None = uow_or_session
             self._session: AsyncSession = uow_or_session.session
@@ -53,6 +65,7 @@ class SlaService:
             self._session = uow_or_session
 
         self._repo = MaintenanceWindowRepository(self._session)
+        self._glpi_client = glpi_client
 
     async def _commit(self) -> None:
         """Garante a consolidação ACID da transação corrente."""
@@ -495,17 +508,101 @@ class SlaService:
         payload: CreateSupportTicketRequest,
         user_email: str,
     ) -> SupportTicketResponse:
-        """Registra a abertura de um chamado de suporte técnico pelo cliente."""
+        """Registra a abertura de um chamado de suporte técnico pelo cliente no GLPI."""
         now = datetime.now(UTC)
         protocol = f"INFRA-{now.strftime('%Y%m%d')}-{str(uuid4())[:6].upper()}"
         ticket_id = str(uuid4())
 
+        # 1. Validação de isolamento multitenant no dispositivo afetado (anti-IDOR)
+        device_info = "Geral / Infraestrutura Contratada"
+        if payload.device_id is not None:
+            stmt = select(DeviceModel).where(
+                DeviceModel.id == payload.device_id,
+                DeviceModel.organization_id == organization_id,
+            )
+            device = (await self._session.execute(stmt)).scalar_one_or_none()
+            if device is None:
+                raise ValueError(
+                    "Dispositivo informado não encontrado ou não pertence à sua organização."
+                )
+            device_info = f"{device.name} ({device.ip_address} • {device.protocol})"
+
+        # 2. Obter nome da organização para identificação no chamado
+        stmt_org = select(OrganizationModel).where(OrganizationModel.id == organization_id)
+        org = (await self._session.execute(stmt_org)).scalar_one_or_none()
+        org_name = org.name if org else str(organization_id)
+
+        # 3. Sanitização contra Stored XSS
+        safe_title = html.escape(payload.title.strip())
+        safe_description = html.escape(payload.description.strip()).replace("\n", "<br/>")
+        safe_email = html.escape(user_email.strip())
+        safe_device = html.escape(device_info)
+        safe_org = html.escape(org_name)
+
+        # 4. Mapeamento de severidade para urgência e impacto no GLPI
+        severity_upper = payload.severity.upper()
+        if severity_upper == "CRITICAL":
+            urgency = GlpiUrgency.VERY_HIGH
+            impact = GlpiImpact.VERY_HIGH
+            priority = GlpiPriority.VERY_HIGH
+        elif severity_upper == "HIGH":
+            urgency = GlpiUrgency.HIGH
+            impact = GlpiImpact.HIGH
+            priority = GlpiPriority.HIGH
+        elif severity_upper == "LOW":
+            urgency = GlpiUrgency.LOW
+            impact = GlpiImpact.LOW
+            priority = GlpiPriority.LOW
+        else:
+            urgency = GlpiUrgency.MEDIUM
+            impact = GlpiImpact.MEDIUM
+            priority = GlpiPriority.MEDIUM
+
+        # 5. Formatação do conteúdo HTML do chamado
+        ticket_html = (
+            '<div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.5; color: #1e293b;">'
+            '<h3 style="color: #0284c7; margin-bottom: 8px;">🎫 Chamado Aberto via Portal do Cliente</h3>'
+            f'<p style="margin: 4px 0;"><strong>Organização:</strong> {safe_org} (ID: {organization_id})</p>'
+            f'<p style="margin: 4px 0;"><strong>Solicitante:</strong> {safe_email}</p>'
+            f'<p style="margin: 4px 0;"><strong>Severidade:</strong> {html.escape(payload.severity)}</p>'
+            f'<p style="margin: 4px 0;"><strong>Ativo Afetado:</strong> {safe_device}</p>'
+            '<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0;" />'
+            '<h4 style="margin: 0 0 6px 0; color: #334155;">Descrição Detalhada:</h4>'
+            '<div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px;">'
+            f"{safe_description}"
+            "</div>"
+            '<p style="font-size: 11px; color: #64748b; margin-top: 12px;">'
+            f'Protocolo de Atendimento InfraWatch: <strong>{protocol}</strong> | Registrado em {now.strftime("%d/%m/%Y %H:%M:%S UTC")}'
+            "</p>"
+            "</div>"
+        )
+
+        ticket_payload = GlpiTicketCreate(
+            name=f"[Portal Cliente - {org_name}] {safe_title}",
+            content=ticket_html,
+            urgency=urgency,
+            impact=impact,
+            priority=priority,
+        )
+
+        glpi_ticket_id: int | None = None
+        if self._glpi_client is not None:
+            async with self._glpi_client as glpi:
+                glpi_ticket_id = await glpi.open_ticket(ticket_payload)
+
         logger.info(
-            "Chamado de suporte registrado: protocolo=%s org=%s severidade=%s autor=%s",
+            "Chamado de suporte registrado: protocolo=%s glpi_ticket_id=%s org=%s severidade=%s autor=%s",
             protocol,
+            glpi_ticket_id,
             organization_id,
             payload.severity,
             user_email,
+        )
+
+        success_msg = (
+            f"Chamado registrado com sucesso no GLPI (#{glpi_ticket_id}) sob o protocolo {protocol}. Equipe NOC notificada."
+            if glpi_ticket_id
+            else f"Chamado registrado com sucesso sob o protocolo {protocol}. Equipe NOC notificada."
         )
 
         return SupportTicketResponse(
@@ -515,7 +612,7 @@ class SlaService:
             severity=payload.severity,
             status="OPEN",
             created_at=now,
-            glpi_ticket_id=8501,
-            message=f"Chamado registrado com sucesso com o protocolo {protocol}. Equipe NOC notificada.",
+            glpi_ticket_id=glpi_ticket_id,
+            message=success_msg,
         )
 
