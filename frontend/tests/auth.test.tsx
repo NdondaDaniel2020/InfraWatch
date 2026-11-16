@@ -425,6 +425,7 @@ describe("Módulo de Autenticação, IAM & Segurança (Issue #216)", () => {
       await user.click(setupBtn);
 
       expect(await screen.findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+      expect(screen.getByTestId("mfa-qrcode-container")).toBeInTheDocument();
     });
   });
 });
