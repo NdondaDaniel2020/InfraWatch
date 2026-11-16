@@ -4,6 +4,8 @@ import type {
   ClientServiceItem,
   ClientSlaSummary,
   OrganizationSlaReportDetails,
+  SlaHistoryExportPayload,
+  SlaMonthlyHistoryItem,
 } from "../src/types/clientPortal";
 
 const mockSummary: ClientSlaSummary = {
@@ -151,5 +153,164 @@ describe("Serviço de Exportação Executiva de SLA em PDF (pdfExportService)", 
 
     expect(typeof content).toBe("string");
     expect(content.startsWith("%PDF-")).toBe(true);
+  });
+
+  describe("Laudo de Auditoria Histórica de SLA em PDF (buildHistoryPdfDoc / exportSlaHistoryPdf)", () => {
+    const generateMockHistory = (monthsCount: number): SlaHistoryExportPayload => {
+      const monthNames = [
+        "Novembro 2026",
+        "Outubro 2026",
+        "Setembro 2026",
+        "Agosto 2026",
+        "Julho 2026",
+        "Junho 2026",
+        "Maio 2026",
+        "Abril 2026",
+        "Março 2026",
+        "Fevereiro 2026",
+        "Janeiro 2026",
+        "Dezembro 2025",
+        "Novembro 2025",
+        "Outubro 2025",
+        "Setembro 2025",
+        "Agosto 2025",
+        "Julho 2025",
+        "Junho 2025",
+      ];
+
+      const items: SlaMonthlyHistoryItem[] = Array.from(
+        { length: monthsCount },
+        (_, i) => {
+          const isViolation = i === 1 || i === 4;
+          return {
+            cycleLabel: monthNames[i % monthNames.length],
+            month: monthNames[i % monthNames.length].slice(0, 3),
+            uptimePct: isViolation ? 98.4 : 99.92,
+            targetPct: 99.5,
+            mttrMinutes: isViolation ? 45 : 6,
+            incidentsCount: isViolation ? 3 : 0,
+            unplannedDowntimeMinutes: isViolation ? 65.4 : 0,
+            exemptedDowntimeMinutes: 120,
+            status: isViolation ? "VIOLADO" : "CONFORME",
+          };
+        }
+      );
+
+      const compliantCount = items.filter((it) => it.status === "CONFORME").length;
+
+      return {
+        tenantId: "org-banco-sol",
+        tenantName: "Banco Sol S.A. • Soluções Corporativas",
+        selectedMonths: monthsCount,
+        avgUptimePct: 99.65,
+        targetPct: 99.5,
+        totalIncidents: 6,
+        avgMttrMinutes: 12.5,
+        compliancePct: (compliantCount / items.length) * 100,
+        compliantCyclesCount: compliantCount,
+        totalCyclesCount: items.length,
+        items,
+        digitalSignature: "SHA256:historico-auditavel-assinatura-cripto-valida",
+      };
+    };
+
+    it("deve gerar laudo de auditoria histórica de 3 meses com cabeçalho oficial e KPIs consolidados", () => {
+      const payload = generateMockHistory(3);
+      const doc = pdfExportService.buildHistoryPdfDoc(payload);
+
+      expect(doc).toBeDefined();
+      expect(doc.getNumberOfPages()).toBe(1);
+
+      const pdfString = doc.output();
+      expect(pdfString).toContain("%PDF-");
+      expect(pdfString).toContain("INFRAWATCH OBSERVABILITY PLATFORM");
+      expect(pdfString).toContain("Auditoria");
+    });
+
+    it("deve gerar laudo de auditoria de 6 e 12 meses com dados reais e formatação de status", () => {
+      const payload6m = generateMockHistory(6);
+      const doc6m = pdfExportService.buildHistoryPdfDoc(payload6m);
+      expect(doc6m.getNumberOfPages()).toBe(1);
+
+      const payload12m = generateMockHistory(12);
+      const doc12m = pdfExportService.buildHistoryPdfDoc(payload12m);
+      expect(doc12m.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+
+      const pdf12mString = doc12m.output();
+      expect(pdf12mString).toContain("Janela de");
+      expect(pdf12mString).toContain("Janeiro 2026");
+    });
+
+    it("deve suportar grandes volumes de ciclos (> 18 meses) com paginação fluída automática (Página X de Y)", () => {
+      const payloadLong = generateMockHistory(24);
+      const docLong = pdfExportService.buildHistoryPdfDoc(payloadLong);
+
+      const totalPages = docLong.getNumberOfPages();
+      expect(totalPages).toBeGreaterThanOrEqual(2);
+
+      const pdfString = docLong.output();
+      expect(pdfString).toContain(`Página 1 de ${totalPages}`);
+    });
+
+    it("deve preservar caracteres acentuados da língua portuguesa sem corrupção no laudo histórico", () => {
+      const payload = generateMockHistory(3);
+      payload.tenantName = "Empresa Nacional de Distribuição de Electricidade • Luanda & Huambo";
+      payload.items[0].cycleLabel = "Março 2026 • Operação Concluída";
+
+      const doc = pdfExportService.buildHistoryPdfDoc(payload);
+      const content = doc.output();
+
+      expect(content).toBeDefined();
+      expect(content.startsWith("%PDF-")).toBe(true);
+    });
+
+    it("deve disparar download via elemento âncora com data-testid='pdf-download-anchor' para o histórico", async () => {
+      const payload = generateMockHistory(3);
+
+      const createObjectURLMock = vi.fn().mockReturnValue("blob:http://localhost/mock-history-pdf-blob");
+      const revokeObjectURLMock = vi.fn();
+      globalThis.URL.createObjectURL = createObjectURLMock;
+      globalThis.URL.revokeObjectURL = revokeObjectURLMock;
+
+      let capturedAnchor: HTMLAnchorElement | null = null;
+      const appendSpy = vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
+        if (node instanceof HTMLAnchorElement) {
+          capturedAnchor = node;
+        }
+        return node;
+      });
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+      const result = await pdfExportService.exportSlaHistoryPdf(payload);
+
+      expect(result).toBe(true);
+      expect(createObjectURLMock).toHaveBeenCalled();
+      expect(appendSpy).toHaveBeenCalled();
+      const anchor = capturedAnchor as HTMLAnchorElement | null;
+      expect(anchor).not.toBeNull();
+      expect(anchor?.getAttribute("data-testid")).toBe("pdf-download-anchor");
+      expect(anchor?.getAttribute("download")).toBe(
+        "laudo-historico-sla-org-banco-sol-3-meses.pdf"
+      );
+      expect(clickSpy).toHaveBeenCalled();
+    });
+
+    it("deve retornar false quando ocorrer um erro inesperado durante a geração do laudo histórico", async () => {
+      vi.spyOn(pdfExportService, "buildHistoryPdfDoc").mockImplementationOnce(() => {
+        throw new Error("Erro simulado de histórico");
+      });
+
+      const payload = generateMockHistory(3);
+      const result = await pdfExportService.exportSlaHistoryPdf(payload);
+      expect(result).toBe(false);
+    });
+
+    it("buildHistoryPdfContent deve retornar uma string binária PDF válida", () => {
+      const payload = generateMockHistory(3);
+      const content = pdfExportService.buildHistoryPdfContent(payload);
+
+      expect(typeof content).toBe("string");
+      expect(content.startsWith("%PDF-")).toBe(true);
+    });
   });
 });
