@@ -306,3 +306,16 @@ async def test_telemetry_multitenancy_isolation(
         resp_admin = await client.get("/api/v1/events/telemetry", headers=headers_admin)
         assert resp_admin.status_code == status.HTTP_200_OK
         assert resp_admin.json()["total"] == 1
+
+        # Super Admin pode filtrar especificamente por organização via org_id
+        resp_filtered_a = await client.get(
+            f"/api/v1/events/telemetry?org_id={org_a}", headers=headers_admin
+        )
+        assert resp_filtered_a.status_code == status.HTTP_200_OK
+        assert resp_filtered_a.json()["total"] == 1
+
+        resp_filtered_b = await client.get(
+            f"/api/v1/events/telemetry?org_id={org_b}", headers=headers_admin
+        )
+        assert resp_filtered_b.status_code == status.HTTP_200_OK
+        assert resp_filtered_b.json()["total"] == 0

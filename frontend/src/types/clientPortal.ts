@@ -22,6 +22,7 @@ export interface ClientServiceItem {
   statusLabel: string;
   responseTimeMs?: number;
   throughputFormatted?: string;
+  packetLossPct?: number;
   successRatePct?: number;
   tags: string[];
   stability30DaysPct?: number;
@@ -52,14 +53,16 @@ export interface ClientNotification {
 }
 
 export interface ClientDeviceDTO {
-  id: string | number;
+  id?: string | number;
+  device_id?: string | number;
   name: string;
   hostname?: string;
   category?: string;
   status?: string;
   protocol?: string;
   ip_address?: string;
-  last_latency_ms?: number;
+  last_latency_ms?: number | null;
+  last_packet_loss?: number | null;
 }
 
 export interface ClientDeviceListResponse {
