@@ -4,6 +4,7 @@
  */
 
 import { apiRequest } from "./apiClient";
+import { useAuthStore } from "../stores/authStore";
 import type {
   MfaEnableResponse,
   MfaSetupResponse,
@@ -55,10 +56,13 @@ export const securityApi = {
 
   /**
    * Lista todas as sessões e dispositivos conectados do usuário autenticado.
+   * Envia X-Refresh-Token para que o backend marque a sessão atual com is_current = True.
    */
   async listSessions(): Promise<SessionListResponse> {
+    const refreshToken = useAuthStore.getState().refreshToken;
     return apiRequest<SessionListResponse>("/api/v1/users/me/sessions", {
       method: "GET",
+      headers: refreshToken ? { "X-Refresh-Token": refreshToken } : undefined,
     });
   },
 
@@ -75,11 +79,13 @@ export const securityApi = {
   },
 
   /**
-   * Encerra todas as sessões ativas do usuário conectado.
+   * Encerra todas as sessões ativas do usuário conectado exceto a atual (quando X-Refresh-Token for enviado).
    */
   async revokeAllSessions(): Promise<{ message: string; revoked_count: number }> {
+    const refreshToken = useAuthStore.getState().refreshToken;
     return apiRequest<{ message: string; revoked_count: number }>("/api/v1/users/me/sessions", {
       method: "DELETE",
+      headers: refreshToken ? { "X-Refresh-Token": refreshToken } : undefined,
     });
   },
 };

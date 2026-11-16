@@ -18,10 +18,16 @@ import {
 } from "lucide-react";
 
 export const SecuritySettingsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
 
   // Estados de MFA
   const [isMfaActive, setIsMfaActive] = useState<boolean>(user?.mfa_enabled ?? false);
+
+  useEffect(() => {
+    if (user?.mfa_enabled !== undefined) {
+      setIsMfaActive(user.mfa_enabled);
+    }
+  }, [user?.mfa_enabled]);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [setupData, setSetupData] = useState<MfaSetupResponse | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
@@ -85,6 +91,9 @@ export const SecuritySettingsPage: React.FC = () => {
     try {
       const res = await securityApi.enableMfa(verificationCode);
       setIsMfaActive(true);
+      if (user) {
+        setUser({ ...user, mfa_enabled: true });
+      }
       setBackupCodes(res.backup_codes || []);
       setFeedbackMessage({
         type: "success",
@@ -109,6 +118,9 @@ export const SecuritySettingsPage: React.FC = () => {
     try {
       await securityApi.disableMfa(disablePassword, disableCode);
       setIsMfaActive(false);
+      if (user) {
+        setUser({ ...user, mfa_enabled: false });
+      }
       setIsDisableModalOpen(false);
       setDisablePassword("");
       setDisableCode("");
