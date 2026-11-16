@@ -9,6 +9,7 @@ import {
 
 import { SlaKpiCards } from "../../components/client/SlaKpiCards";
 import { SanitizedServicesGrid } from "../../components/client/SanitizedServicesGrid";
+import { ClientPortalSkeleton } from "../../components/client/ClientPortalSkeleton";
 import { SlaHistoryModal } from "../../components/client/SlaHistoryModal";
 import { ClientSupportModal } from "../../components/client/ClientSupportModal";
 import { pdfExportService } from "../../services/pdfExportService";
@@ -188,20 +189,7 @@ export const ClientPortalPage: React.FC = () => {
       {/* 2. CONTEÚDO PRINCIPAL COM OVERLAYS DE ESTADO                           */}
       {/* ===================================================================== */}
       <div className="relative flex flex-col gap-6 min-h-[500px]">
-        {viewState === "loading" && (
-          <div
-            data-testid="state-skeleton-overlay"
-            className="absolute inset-0 bg-[#070a12]/95 backdrop-blur-sm z-40 p-6 flex flex-col gap-6 rounded-3xl animate-pulse"
-          >
-            <div className="h-44 bg-[#0d1424] rounded-3xl border border-white/10" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-40 bg-[#0d1424] rounded-2xl border border-white/10" />
-              ))}
-            </div>
-            <div className="h-64 bg-[#0d1424] rounded-2xl border border-white/10" />
-          </div>
-        )}
+        {viewState === "loading" && <ClientPortalSkeleton />}
 
         {viewState === "empty" && (
           <div
@@ -253,7 +241,7 @@ export const ClientPortalPage: React.FC = () => {
           </div>
         )}
 
-        {slaSummary && (
+        {viewState === "nominal" && slaSummary && (
           <SlaKpiCards
             summary={slaSummary}
             onDownloadPdf={handleDownloadPdf}
@@ -262,7 +250,9 @@ export const ClientPortalPage: React.FC = () => {
           />
         )}
 
-        <SanitizedServicesGrid services={services} />
+        {viewState === "nominal" && (
+          <SanitizedServicesGrid services={services} />
+        )}
       </div>
 
       <SlaHistoryModal
