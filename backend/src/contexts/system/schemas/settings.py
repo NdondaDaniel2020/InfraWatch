@@ -186,7 +186,7 @@ class TelegramSettingsUpdateRequest(BaseModel):
 class WebhookSettingsUpdateRequest(BaseModel):
     """Payload para atualização persistente de webhook padrão."""
 
-    url: str = Field(description="URL do webhook de destino")
+    url: str | None = Field(default=None, description="URL do webhook de destino (omitir para preservar atual)")
     enabled: bool = Field(default=True, description="Habilitar webhook padrão")
     validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
 

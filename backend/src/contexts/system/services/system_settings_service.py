@@ -9,7 +9,6 @@ de eventos no Transactional Outbox para atualização reativa dos daemons.
 from __future__ import annotations
 
 import logging
-from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -504,12 +503,15 @@ class SystemSettingsService:
         updated_by: UUID | None = None,
         ip_address: str | None = None,
     ) -> IntegrationUpdateResponse:
-        """Persiste parâmetros do webhook de alerta padrão."""
-        _validate_url(payload.url, "url")
+        """Persiste parâmetros do webhook de alerta padrão sem vazar tokens em auditoria."""
+        url_updated = False
+        if payload.url and payload.url.strip() and not payload.url.strip().endswith("••••••••"):
+            _validate_url(payload.url, "url")
+            await self.repository.save_setting(
+                key="webhook.url", category="webhook", value=payload.url.strip(), is_secret=True, updated_by=updated_by
+            )
+            url_updated = True
 
-        await self.repository.save_setting(
-            key="webhook.url", category="webhook", value=payload.url.strip(), is_secret=False, updated_by=updated_by
-        )
         await self.repository.save_setting(
             key="webhook.enabled",
             category="webhook",
@@ -521,7 +523,7 @@ class SystemSettingsService:
         event = SystemSettingUpdatedEvent(
             category="webhook",
             key="webhook.*",
-            is_secret=False,
+            is_secret=True,
             updated_by=updated_by,
         )
         OutboxRepository.add_event(self.session, event, aggregate_type="system_settings")
@@ -531,7 +533,7 @@ class SystemSettingsService:
             resource_type="system_settings",
             resource_id="webhook",
             actor_user_id=updated_by,
-            details={"category": "webhook", "url": payload.url, "enabled": payload.enabled},
+            details={"category": "webhook", "url_updated": url_updated, "enabled": payload.enabled},
             ip_address=ip_address,
         )
 
@@ -540,9 +542,8 @@ class SystemSettingsService:
         return IntegrationUpdateResponse(
             success=True,
             name="webhook",
-            message="Configurações de Webhook atualizadas com sucesso.",
+            message="Configuração de Webhook REST salva e ativada com sucesso!",
             source="database",
-            details={"url": payload.url, "enabled": payload.enabled},
         )
 
     async def reset_category_settings(
