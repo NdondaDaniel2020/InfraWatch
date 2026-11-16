@@ -409,6 +409,12 @@ async def test_session_management_endpoints(
             json={"email": normal_user.email, "password": password},
         )
         assert login_resp2.status_code == status.HTTP_200_OK
+        tokens2 = login_resp2.json()
+        headers2 = {"Authorization": f"Bearer {tokens2['access_token']}"}
+
+        # Confirma que a segunda sessão tem acesso inicial ativo
+        active_check = await client.get("/api/v1/users/me/sessions", headers=headers2)
+        assert active_check.status_code == status.HTTP_200_OK
 
         # Desconecta outras sessões preservando a primeira (tokens['refresh_token'])
         other_del_resp = await client.delete(
@@ -419,12 +425,17 @@ async def test_session_management_endpoints(
         assert "Outras sessões" in other_del_resp.json()["message"]
         assert other_del_resp.json()["revoked_count"] >= 1
 
+        # Valida que o Access Token da segunda sessão é rejeitado IMEDIATAMENTE (0s)
+        revoked_check2 = await client.get("/api/v1/users/me/sessions", headers=headers2)
+        assert revoked_check2.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "Sessão revogada remotamente" in revoked_check2.json()["detail"]
+
         # Confirma que a primeira sessão continua ativa
         sessions_resp3 = await client.get("/api/v1/users/me/sessions", headers=headers_with_refresh)
         assert sessions_resp3.json()["total"] == 1
         assert sessions_resp3.json()["sessions"][0]["is_current"] is True
 
-        # Revoga a sessão específica
+        # Revoga a sessão específica restante
         session_id = sessions_resp3.json()["sessions"][0]["id"]
         del_resp = await client.delete(
             f"/api/v1/users/me/sessions/{session_id}",
@@ -432,9 +443,10 @@ async def test_session_management_endpoints(
         )
         assert del_resp.status_code == status.HTTP_200_OK
 
-        # Revoga todas
-        all_del_resp = await client.delete("/api/v1/users/me/sessions", headers=headers)
-        assert all_del_resp.status_code == status.HTTP_200_OK
+        # Valida que a sessão específica foi revogada imediatamente
+        revoked_check1 = await client.get("/api/v1/users/me/sessions", headers=headers)
+        assert revoked_check1.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "Sessão revogada remotamente" in revoked_check1.json()["detail"]
 
 
 @pytest.mark.asyncio

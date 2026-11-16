@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends
+from redis.asyncio import Redis
 
 from src.contexts.iam.services.audit_service import AuditService
 from src.contexts.iam.services.auth_service import AuthService
@@ -20,6 +21,7 @@ from src.contexts.iam.services.token_service import TokenService
 from src.contexts.iam.services.user_command_service import UserCommandService
 from src.contexts.iam.services.user_query_service import UserQueryService
 from src.contexts.iam.services.user_service import UserService
+from src.core.infrastructure.redis import get_redis_client
 from src.core.web.dependencies import DbSessionDep, UnitOfWorkDep
 
 
@@ -43,9 +45,12 @@ def get_auth_service(uow: UnitOfWorkDep) -> AuthService:
     return AuthService(uow)
 
 
-def get_session_service(db: DbSessionDep) -> SessionService:
+def get_session_service(
+    db: DbSessionDep,
+    redis: Annotated[Redis | None, Depends(get_redis_client)] = None,
+) -> SessionService:
     """Fábrica de injeção para o SessionService."""
-    return SessionService(db)
+    return SessionService(db, redis_client=redis)
 
 
 def get_mfa_service(db: DbSessionDep) -> MfaService:
@@ -53,9 +58,12 @@ def get_mfa_service(db: DbSessionDep) -> MfaService:
     return MfaService(db)
 
 
-def get_token_service(db: DbSessionDep) -> TokenService:
+def get_token_service(
+    db: DbSessionDep,
+    redis: Annotated[Redis | None, Depends(get_redis_client)] = None,
+) -> TokenService:
     """Fábrica de injeção para o TokenService."""
-    return TokenService(db)
+    return TokenService(db, redis_client=redis)
 
 
 def get_notification_service(db: DbSessionDep) -> NotificationService:

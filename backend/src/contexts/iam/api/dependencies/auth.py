@@ -13,13 +13,17 @@ from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, PyJWTError
 
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.security.tokens import decode_access_token
-from src.contexts.iam.services.token_service import is_token_blacklisted
+from src.contexts.iam.services.token_service import (
+    is_session_blacklisted,
+    is_token_blacklisted,
+)
 from src.core.exceptions import (
     InvalidTokenError as CoreInvalidTokenError,
 )
 from src.core.exceptions import (
     TokenExpiredError as CoreTokenExpiredError,
 )
+from src.core.infrastructure.redis import get_redis_client
 
 
 @dataclass(frozen=True)
@@ -120,15 +124,25 @@ async def get_current_user(
         ) from None
 
     jti = payload.get("jti")
+    sid = payload.get("sid")
 
     redis_cli = None
     if request is not None and hasattr(request, "app") and hasattr(request.app, "state"):
         redis_cli = getattr(request.app.state, "redis_client", None)
+    if redis_cli is None:
+        redis_cli = get_redis_client()
 
     if jti and await is_token_blacklisted(jti, redis_client=redis_cli):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token de autenticação revogado ou na lista de bloqueio.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if sid and await is_session_blacklisted(sid, redis_client=redis_cli):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão revogada remotamente.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
