@@ -386,14 +386,46 @@ async def test_session_management_endpoints(
         tokens = login_resp.json()
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-        # Lista sessões
+        # Lista sessões sem X-Refresh-Token
         sessions_resp = await client.get("/api/v1/users/me/sessions", headers=headers)
         assert sessions_resp.status_code == status.HTTP_200_OK
         sessions_data = sessions_resp.json()
         assert sessions_data["total"] >= 1
-        session_id = sessions_data["sessions"][0]["id"]
+        assert sessions_data["sessions"][0]["is_current"] is False
+
+        # Lista sessões com X-Refresh-Token identificando a sessão ativa
+        headers_with_refresh = {
+            **headers,
+            "X-Refresh-Token": tokens["refresh_token"],
+        }
+        sessions_resp2 = await client.get("/api/v1/users/me/sessions", headers=headers_with_refresh)
+        assert sessions_resp2.status_code == status.HTTP_200_OK
+        sessions_data2 = sessions_resp2.json()
+        assert sessions_data2["sessions"][0]["is_current"] is True
+
+        # Cria segunda sessão para testar desconexão de outras sessões
+        login_resp2 = await client.post(
+            "/api/v1/auth/login",
+            json={"email": normal_user.email, "password": password},
+        )
+        assert login_resp2.status_code == status.HTTP_200_OK
+
+        # Desconecta outras sessões preservando a primeira (tokens['refresh_token'])
+        other_del_resp = await client.delete(
+            "/api/v1/users/me/sessions",
+            headers=headers_with_refresh,
+        )
+        assert other_del_resp.status_code == status.HTTP_200_OK
+        assert "Outras sessões" in other_del_resp.json()["message"]
+        assert other_del_resp.json()["revoked_count"] >= 1
+
+        # Confirma que a primeira sessão continua ativa
+        sessions_resp3 = await client.get("/api/v1/users/me/sessions", headers=headers_with_refresh)
+        assert sessions_resp3.json()["total"] == 1
+        assert sessions_resp3.json()["sessions"][0]["is_current"] is True
 
         # Revoga a sessão específica
+        session_id = sessions_resp3.json()["sessions"][0]["id"]
         del_resp = await client.delete(
             f"/api/v1/users/me/sessions/{session_id}",
             headers=headers,
