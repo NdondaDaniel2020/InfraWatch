@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../../context/AuthContext";
 import { securityApi } from "../../services/securityApi";
 import { Button } from "../../components/ui/Button";
@@ -403,14 +404,33 @@ export const SecuritySettingsPage: React.FC = () => {
         ) : (
           <form onSubmit={handleConfirmEnableMfa} className="space-y-4">
             <p className="text-sm text-slate-400">
-              1. Insira a chave secreta abaixo no seu aplicativo autenticador (Google Authenticator, Authy ou 1Password):
+              1. Aponte a câmera do seu aplicativo autenticador (Google Authenticator, Authy ou 1Password) para escanear o QR Code:
             </p>
 
-            <div className="p-3 rounded-xl bg-obsidian-950 border border-white/10 font-mono text-base font-bold text-center text-amber-400 tracking-wider">
-              {setupData?.secret}
+            {setupData?.otpauth_uri && (
+              <div
+                data-testid="mfa-qrcode-container"
+                className="flex flex-col items-center justify-center p-3.5 bg-white rounded-2xl mx-auto w-fit shadow-md border border-white/20"
+              >
+                <QRCodeSVG
+                  value={setupData.otpauth_uri}
+                  size={168}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <span className="text-xs text-slate-400 block text-center">
+                Ou insira a chave secreta manualmente se preferir:
+              </span>
+              <div className="p-2.5 rounded-xl bg-obsidian-950 border border-white/10 font-mono text-sm font-bold text-center text-amber-400 tracking-wider select-all">
+                {setupData?.secret}
+              </div>
             </div>
 
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-400 pt-1">
               2. Digite o código de 6 dígitos exibido no aplicativo para validar:
             </p>
 
