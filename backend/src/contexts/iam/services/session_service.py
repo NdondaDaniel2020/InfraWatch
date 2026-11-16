@@ -39,4 +39,6 @@ class SessionService:
         self, user_id: UUID, current_token_hash: str | None = None
     ) -> int:
         """Revoga todas as sessões do usuário, preservando a atual se informada."""
-        return await self.repo.revoke_other_sessions(user_id, current_token_hash)
+        count = await self.repo.revoke_other_sessions(user_id, current_token_hash)
+        await self.session.commit()
+        return count

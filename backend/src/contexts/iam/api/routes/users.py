@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from src.contexts.iam.api.dependencies import (
     CurrentUserDep,
@@ -26,6 +26,7 @@ from src.contexts.iam.schemas.user import (
     UserRolesUpdate,
     UserUpdate,
 )
+from src.contexts.iam.security.tokens import hash_token
 from src.core.exceptions import NotFoundError
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users & Sessions"])
@@ -77,10 +78,13 @@ async def update_my_user_profile(
 async def list_my_sessions(
     current_user: CurrentUserDep,
     session_service: SessionServiceDep,
+    x_refresh_token: str | None = Header(default=None, alias="X-Refresh-Token"),
 ) -> SessionListResponse:
     """Retorna todos os tokens de refresh ativos que representam sessões do usuário."""
     user_uuid = UUID(current_user.id)
     tokens = await session_service.list_active_sessions(user_uuid)
+
+    current_hash = hash_token(x_refresh_token) if x_refresh_token else None
 
     sessions_data = [
         SessionResponse(
@@ -89,7 +93,7 @@ async def list_my_sessions(
             ip_address=t.ip_address,
             created_at=t.created_at,
             expires_at=t.expires_at,
-            is_current=False,
+            is_current=bool(current_hash and t.token_hash == current_hash),
         )
         for t in tokens
     ]
@@ -121,17 +125,30 @@ async def revoke_session_by_id(
 @router.delete(
     "/me/sessions",
     response_model=SessionRevokeResponse,
-    summary="Encerrar todas as sessões ativas",
+    summary="Encerrar sessões ativas (preserva atual se X-Refresh-Token fornecido)",
 )
 async def revoke_all_sessions(
     current_user: CurrentUserDep,
     session_service: SessionServiceDep,
+    x_refresh_token: str | None = Header(default=None, alias="X-Refresh-Token"),
 ) -> SessionRevokeResponse:
-    """Invalida todas as sessões ativas do usuário conectado."""
+    """Invalida as sessões ativas do usuário conectado.
+    
+    Se o cabeçalho X-Refresh-Token for informado, desconecta todos os outros dispositivos
+    e mantém a sessão atual ativa.
+    """
     user_uuid = UUID(current_user.id)
-    count = await session_service.revoke_all_sessions(user_uuid)
+    current_hash = hash_token(x_refresh_token) if x_refresh_token else None
+
+    if current_hash:
+        count = await session_service.revoke_other_sessions(user_uuid, current_token_hash=current_hash)
+        msg = "Outras sessões ativas foram desconectadas com sucesso."
+    else:
+        count = await session_service.revoke_all_sessions(user_uuid)
+        msg = "Todas as sessões ativas foram revogadas com sucesso."
+
     return SessionRevokeResponse(
-        message="Todas as sessões ativas foram revogadas com sucesso.",
+        message=msg,
         revoked_count=count,
     )
 
