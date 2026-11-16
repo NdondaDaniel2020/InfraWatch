@@ -138,6 +138,9 @@ async def stream_events(
 async def list_monitored_telemetry(
     current_user: CurrentUserDep,
     query_service: TelemetryQueryServiceDep,
+    org_id: UUID | None = Query(
+        None, description="Filtrar por organização proprietária"
+    ),
     status_filter: str | None = Query(
         None, alias="status", description="Filtrar por status operacional"
     ),
@@ -147,6 +150,7 @@ async def list_monitored_telemetry(
     """Consulta REST dos ativos sob monitoramento com telemetria mais recente."""
     return await query_service.list_monitored_devices(
         current_user=current_user,
+        organization_id=org_id,
         status_filter=status_filter,
         limit=limit,
         offset=offset,
