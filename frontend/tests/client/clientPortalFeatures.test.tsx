@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SanitizedServicesGrid } from "../../src/components/client/SanitizedServicesGrid";
 import { SlaHistoryModal } from "../../src/components/client/SlaHistoryModal";
 import { ClientSupportModal } from "../../src/components/client/ClientSupportModal";
+import { ClientPortalSkeleton } from "../../src/components/client/ClientPortalSkeleton";
 import type { ClientServiceItem } from "../../src/types/clientPortal";
 import { clientPortalApi } from "../../src/services/clientPortalApi";
 import { apiClient } from "../../src/services/apiClient";
@@ -325,5 +326,27 @@ describe("clientPortalApi.getClientServices com Telemetria e SLA", () => {
     expect(services[1].responseTimeMs).toBe(0);
     expect(services[1].throughputFormatted).toBe("100% Perda");
     expect(services[1].stability30DaysPct).toBe(0.0);
+  });
+});
+
+describe("Portal do Cliente - ClientPortalSkeleton (Fidelidade do Esqueleto de Carregamento)", () => {
+  it("deve renderizar o esqueleto completo espelhando a anatomia do banner executivo e da grade de serviços", () => {
+    render(<ClientPortalSkeleton />);
+
+    // Valida container de acessibilidade e animação de pulso
+    const overlay = screen.getByTestId("state-skeleton-overlay");
+    expect(overlay).toBeInTheDocument();
+    expect(overlay).toHaveAttribute("role", "status");
+    expect(overlay).toHaveAttribute("aria-busy", "true");
+
+    // Valida esqueleto do Banner Executivo (SlaKpiCards)
+    expect(screen.getByTestId("sla-banner-skeleton")).toBeInTheDocument();
+
+    // Valida esqueleto da Grade de Serviços (SanitizedServicesGrid)
+    expect(screen.getByTestId("services-grid-skeleton")).toBeInTheDocument();
+
+    // Valida que exatamente 6 cards de serviços são renderizados (matching PAGE_SIZE = 6)
+    const cards = screen.getAllByTestId("service-card-skeleton");
+    expect(cards).toHaveLength(6);
   });
 });
