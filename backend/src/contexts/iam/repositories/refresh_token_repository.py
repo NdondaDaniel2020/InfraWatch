@@ -63,22 +63,39 @@ class RefreshTokenRepository:
         await self.session.flush()
         return bool((getattr(result, "rowcount", 0) or 0) > 0)
 
-    async def revoke_other_sessions(
+    async def revoke_and_return_ids(
         self, user_id: UUID, current_token_hash: str | None = None
-    ) -> int:
-        """Revoga todas as outras sessões ativas do usuário, exceto a atual."""
+    ) -> list[UUID]:
+        """Revoga sessões ativas do usuário e retorna a lista dos IDs revogados."""
         now = datetime.now(UTC)
-        stmt = update(RefreshTokenModel).where(
+        query = select(RefreshTokenModel.id).where(
             RefreshTokenModel.user_id == user_id,
             RefreshTokenModel.is_revoked.is_(False),
         )
         if current_token_hash:
-            stmt = stmt.where(RefreshTokenModel.token_hash != current_token_hash)
+            query = query.where(RefreshTokenModel.token_hash != current_token_hash)
 
-        stmt = stmt.values(is_revoked=True, revoked_at=now)
-        result = await self.session.execute(stmt)
+        result = await self.session.execute(query)
+        session_ids = list(result.scalars().all())
+
+        if not session_ids:
+            return []
+
+        stmt = (
+            update(RefreshTokenModel)
+            .where(RefreshTokenModel.id.in_(session_ids))
+            .values(is_revoked=True, revoked_at=now)
+        )
+        await self.session.execute(stmt)
         await self.session.flush()
-        return int(getattr(result, "rowcount", 0) or 0)
+        return session_ids
+
+    async def revoke_other_sessions(
+        self, user_id: UUID, current_token_hash: str | None = None
+    ) -> int:
+        """Revoga todas as outras sessões ativas do usuário, exceto a atual."""
+        revoked = await self.revoke_and_return_ids(user_id, current_token_hash)
+        return len(revoked)
 
     async def delete_expired(self, before: datetime | None = None) -> int:
         cutoff = before or datetime.now(UTC)
