@@ -288,12 +288,27 @@ export const clientPortalApi = {
     input: CreateSupportTicketInput
   ): Promise<SupportTicketResponse> {
     const url = `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/support-ticket`;
-    return apiClient.post<SupportTicketResponse>(url, {
+    const res = await apiClient.post<Record<string, unknown>>(url, {
       title: input.title,
       description: input.description,
       severity: input.severity,
       device_id: input.deviceId || null,
     });
+    return {
+      ticketId: String(res.ticket_id ?? res.ticketId ?? ""),
+      protocol: String(res.protocol ?? ""),
+      title: String(res.title ?? ""),
+      severity: String(res.severity ?? ""),
+      status: String(res.status ?? ""),
+      createdAt: String(res.created_at ?? res.createdAt ?? ""),
+      glpiTicketId:
+        typeof res.glpi_ticket_id === "number"
+          ? res.glpi_ticket_id
+          : typeof res.glpiTicketId === "number"
+            ? res.glpiTicketId
+            : undefined,
+      message: String(res.message ?? ""),
+    };
   },
 
   /**
