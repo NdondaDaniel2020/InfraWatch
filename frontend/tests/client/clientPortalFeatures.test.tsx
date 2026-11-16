@@ -147,7 +147,7 @@ describe("Portal do Cliente - ClientSupportModal (Suporte e Chamados)", () => {
     vi.clearAllMocks();
   });
 
-  it("deve renderizar modal de suporte com formulário e aba de canais diretos", () => {
+  it("deve renderizar modal de suporte simplificado com formulário e régua de SLA reativa", () => {
     render(
       <ClientSupportModal
         isOpen={true}
@@ -157,15 +157,14 @@ describe("Portal do Cliente - ClientSupportModal (Suporte e Chamados)", () => {
     );
 
     expect(screen.getByTestId("client-support-modal")).toBeInTheDocument();
-    expect(screen.getByTestId("support-tab-ticket")).toBeInTheDocument();
-    expect(screen.getByTestId("support-tab-direct")).toBeInTheDocument();
-
-    // Alternar para canais diretos: contatos vêm do contrato, não de dados fictícios
-    fireEvent.click(screen.getByTestId("support-tab-direct"));
-    expect(screen.queryByTestId("whatsapp-support-link")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/contatos diretos de emergência são definidos no contrato/i)
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-title-input")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-severity-select")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-description-input")).toBeInTheDocument();
+    expect(screen.getByTestId("sla-ruler")).toBeInTheDocument();
+    expect(screen.getByText("≤ 15 min")).toBeInTheDocument();
+    expect(screen.getByText("≤ 1 hora")).toBeInTheDocument();
+    expect(screen.getByText("≤ 4 horas")).toBeInTheDocument();
+    expect(screen.getByText("≤ 12 horas")).toBeInTheDocument();
   });
 
   it("deve validar campos e registrar chamado com protocolo no GLPI", async () => {
