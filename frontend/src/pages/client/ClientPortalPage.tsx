@@ -95,6 +95,7 @@ export const ClientPortalPage: React.FC = () => {
     setIsDownloadingPdf(true);
     showToast("Consultando dados oficiais de telemetria e compilando laudo de SLA...");
     try {
+      // Obtenção dos dados oficiais e compilação assíncrona do laudo com paginação dinâmica
       const reportData = await clientPortalApi.getSlaReport(user?.organization_id);
       const success = await pdfExportService.exportSlaPdf(
         slaSummary,
