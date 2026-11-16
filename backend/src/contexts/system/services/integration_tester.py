@@ -60,6 +60,41 @@ class IntegrationTesterService:
         self.session_factory = get_session_factory()
         self.dynamic_provider = dynamic_provider or get_dynamic_settings_provider()
 
+    @staticmethod
+    def mask_webhook_url(url: str | None) -> str | None:
+        """Mascara tokens de autorização embutidos em URLs de Webhook (Discord, Slack, genéricos)."""
+        if not url:
+            return None
+        url = url.strip()
+        # Discord: https://discord.com/api/webhooks/<id>/<token>
+        if "discord.com/api/webhooks/" in url:
+            prefix, rest = url.split("discord.com/api/webhooks/", 1)
+            parts = rest.split("/")
+            if len(parts) >= 2:
+                webhook_id = parts[0]
+                return f"{prefix}discord.com/api/webhooks/{webhook_id}/••••••••"
+            return f"{prefix}discord.com/api/webhooks/••••••••"
+
+        # Slack: https://hooks.slack.com/services/T.../B.../<token>
+        if "hooks.slack.com/services/" in url:
+            prefix, rest = url.split("hooks.slack.com/services/", 1)
+            parts = rest.split("/")
+            if len(parts) >= 3:
+                return f"{prefix}hooks.slack.com/services/{parts[0]}/{parts[1]}/••••••••"
+            return f"{prefix}hooks.slack.com/services/••••••••"
+
+        # URL genérica: mascara último segmento se longo (> 10 caracteres)
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            path_segments = [p for p in parsed.path.split("/") if p]
+            if path_segments and len(path_segments[-1]) > 10:
+                masked_path = "/" + "/".join(path_segments[:-1]) + "/••••••••" if len(path_segments) > 1 else "/••••••••"
+                return f"{parsed.scheme}://{parsed.netloc}{masked_path}"
+            return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        except Exception:  # noqa: BLE001
+            return url[:24] + "/••••••••" if len(url) > 24 else "••••••••"
+
     async def get_status(self) -> IntegrationStatusResponse:
         """Gera sumário do estado operacional de todas as integrações sem vazar segredos."""
         s = self.settings
@@ -101,7 +136,7 @@ class IntegrationTesterService:
             IntegrationStatusItem(
                 name="telegram",
                 enabled=bool(telegram_cfg["enabled"]),
-                endpoint="api.telegram.org",
+                endpoint=telegram_cfg["default_chat_id"] if telegram_cfg["default_chat_id"] else "Chat ID não configurado",
                 configured=bool(telegram_cfg["configured"]),
                 source=telegram_cfg["source"],
                 details={
@@ -144,11 +179,11 @@ class IntegrationTesterService:
             IntegrationStatusItem(
                 name="webhook",
                 enabled=bool(webhook_cfg["enabled"]),
-                endpoint=webhook_cfg["url"] if webhook_cfg["url"] else None,
+                endpoint=self.mask_webhook_url(webhook_cfg["url"]) if webhook_cfg["url"] else "Webhook não configurado",
                 configured=bool(webhook_cfg["configured"]),
                 source=webhook_cfg["source"],
                 details={
-                    "url": webhook_cfg["url"] or None,
+                    "url": self.mask_webhook_url(webhook_cfg["url"]) if webhook_cfg["url"] else None,
                     "default_webhook_configured": bool(webhook_cfg["configured"]),
                     "enabled": bool(webhook_cfg["enabled"]),
                 },
@@ -324,19 +359,18 @@ class IntegrationTesterService:
         elif channel_name == "smtp":
             s_cfg = await dp.get_smtp_config()
             channel = SmtpNotificationChannel(
-                host=s_cfg.get("host") or "",
-                port=s_cfg.get("port") or 587,
-                tls=bool(s_cfg.get("tls", True)),
-                from_address=s_cfg.get("from_address") or "",
-                user=s_cfg.get("user") or None,
-                password=s_cfg.get("password") or None,
+                smtp_host=s_cfg.get("host") or "",
+                smtp_port=s_cfg.get("port") or 587,
+                smtp_tls=bool(s_cfg.get("tls", True)),
+                smtp_from=s_cfg.get("from_address") or "",
+                smtp_user=s_cfg.get("user") or None,
+                smtp_password=s_cfg.get("password") or None,
                 default_recipient=req.recipient or s_cfg.get("default_recipient") or None,
             )
         elif channel_name == "webhook":
             wh_cfg = await dp.get_webhook_config()
             channel = WebhookChannel(
-                url=req.recipient or wh_cfg.get("url") or "",
-                enabled=wh_cfg.get("enabled"),
+                webhook_url=req.recipient or wh_cfg.get("url") or "",
             )
 
         if not channel:
@@ -425,7 +459,7 @@ class IntegrationTesterService:
                         redis_persistence = "RDB Snapshots"
                     else:
                         redis_persistence = "Em Memória (Volátil)"
-                except Exception:
+                except Exception:  # noqa: BLE001
                     redis_persistence = "Conectado"
                 redis_ms = round((time.perf_counter() - start_redis) * 1000, 2)
                 redis_ok = True

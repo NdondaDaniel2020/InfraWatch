@@ -93,7 +93,7 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
 
     const wh = getStatus("webhook");
     if (wh) {
-      setWebhookUrl(wh.endpoint || (wh.details?.url as string) || "");
+      setWebhookUrl("");
       setWebhookEnabled(wh.enabled ?? true);
     }
   }, [integrations]);
@@ -179,15 +179,17 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
           payload.password = smtpPassword.trim();
         }
       } else if (activeChannel === "webhook") {
-        if (!webhookUrl.trim()) {
+        if (!webhookUrl.trim() && !currentStatus?.configured) {
           toast.error("A URL do Webhook é obrigatória.");
           setSaving(false);
           return;
         }
         payload = {
-          url: webhookUrl.trim(),
           enabled: webhookEnabled,
         };
+        if (webhookUrl.trim() && !webhookUrl.includes("••••")) {
+          payload.url = webhookUrl.trim();
+        }
       }
 
       const res = await settingsApi.updateIntegration(activeChannel, payload);
@@ -197,6 +199,7 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
       setTelegramToken("");
       setWhatsappToken("");
       setSmtpPassword("");
+      setWebhookUrl("");
 
       if (onRefresh) {
         await onRefresh();
@@ -690,17 +693,35 @@ export const NotificationSettingsTab: React.FC<Props> = ({ integrations, onRefre
           {activeChannel === "webhook" && (
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-slate-400 block mb-1">
-                  URL de Destino do Webhook REST <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="url"
-                  placeholder="Ex: https://discord.com/api/webhooks/... ou https://hooks.slack.com/services/..."
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
-                  required
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-slate-400 block">
+                    URL de Destino do Webhook REST <span className="text-rose-400">*</span>
+                  </label>
+                  {currentStatus?.configured && (
+                    <span className="text-[10px] text-cyan-400 flex items-center gap-1 font-mono">
+                      <Lock className="w-3 h-3" /> Token Mascarado por Segurança
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder={
+                      currentStatus?.configured
+                        ? `${currentStatus.endpoint || "•••••••• (Webhook já configurado)"} — deixe em branco para manter`
+                        : "Ex: https://discord.com/api/webhooks/... ou https://hooks.slack.com/services/..."
+                    }
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                  />
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-2.5 top-2.5" />
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  {currentStatus?.configured
+                    ? "O token da URL é protegido contra exibição indevida. Deixe este campo em branco para preservar a URL atual ou digite uma nova para alterá-la."
+                    : "Informe a URL completa do Webhook (Discord, Slack ou endpoint REST compatível)."}
+                </span>
               </div>
 
               <div className="flex items-center gap-2">

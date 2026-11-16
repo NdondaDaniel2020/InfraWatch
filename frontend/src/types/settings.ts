@@ -120,7 +120,7 @@ export interface SmtpSettingsUpdateRequest {
 }
 
 export interface WebhookSettingsUpdateRequest {
-  url: string;
+  url?: string;
   enabled?: boolean;
   validate_connectivity?: boolean;
 }
