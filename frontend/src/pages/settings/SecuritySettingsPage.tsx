@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Copy,
+  Download,
   Laptop,
   LogOut,
   ShieldAlert,
@@ -108,6 +109,40 @@ export const SecuritySettingsPage: React.FC = () => {
     } finally {
       setIsActionLoading(false);
     }
+  };
+
+  // Download dos códigos de recuperação em arquivo txt
+  const handleDownloadBackupCodes = () => {
+    if (backupCodes.length === 0) return;
+
+    const formattedDate = new Date().toISOString().slice(0, 10);
+    const content = [
+      "==================================================",
+      "INFRAWATCH - CÓDIGOS DE RECUPERAÇÃO MFA (BACKUP)",
+      `Data de Emissão: ${new Date().toLocaleString("pt-BR")}`,
+      `Conta: ${user?.email || user?.name || "Usuário"}`,
+      "==================================================",
+      "",
+      "AVISO DE SEGURANÇA:",
+      "- Cada código abaixo pode ser utilizado apenas UMA vez.",
+      "- Guarde este arquivo em um local seguro (ex: cofre de senhas).",
+      "- Não compartilhe estes códigos com ninguém.",
+      "",
+      "--- SEUS 10 CÓDIGOS DE BACKUP ---",
+      ...backupCodes.map((c, i) => `${String(i + 1).padStart(2, "0")}. ${c}`),
+      "",
+      "==================================================",
+    ].join("\n");
+
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `infrawatch-backup-codes-${formattedDate}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Desativar MFA
@@ -378,19 +413,32 @@ export const SecuritySettingsPage: React.FC = () => {
               ))}
             </div>
 
-            <Button
-              variant="outline"
-              size="md"
-              fullWidth
-              icon={<Copy size={16} />}
-              onClick={() => {
-                navigator.clipboard.writeText(backupCodes.join("\n"));
-                alert("Códigos copiados para a área de transferência!");
-              }}
-              className="mb-3"
-            >
-              Copiar Todos os Códigos
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <Button
+                variant="outline"
+                size="md"
+                fullWidth
+                icon={<Copy size={16} />}
+                onClick={() => {
+                  if (navigator?.clipboard?.writeText) {
+                    navigator.clipboard.writeText(backupCodes.join("\n"));
+                  }
+                  alert("Códigos copiados para a área de transferência!");
+                }}
+              >
+                Copiar Códigos
+              </Button>
+
+              <Button
+                variant="outline"
+                size="md"
+                fullWidth
+                icon={<Download size={16} />}
+                onClick={handleDownloadBackupCodes}
+              >
+                Baixar (.txt)
+              </Button>
+            </div>
 
             <Button
               variant="primary"
