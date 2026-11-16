@@ -168,6 +168,54 @@ class TestUnifiedAuthDependency:
         assert exc_info.value.status_code == 401
         assert "revogado ou na lista de bloqueio" in exc_info.value.detail
 
+    @pytest.mark.asyncio
+    async def test_blacklisted_session_in_memory_raises_401(self) -> None:
+        from src.contexts.iam.services.token_service import _in_memory_session_blacklist
+
+        token = create_access_token(
+            data={
+                "sub": "user-session-revoked",
+                "email": "user@infrawatch.ao",
+                "role": "CLIENT_VIEWER",
+                "sid": "session-12345",
+            }
+        )
+
+        _in_memory_session_blacklist["session-12345"] = datetime.now(UTC).timestamp() + 300
+        try:
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_user(token_bearer=token)
+            assert exc_info.value.status_code == 401
+            assert "Sessão revogada remotamente" in exc_info.value.detail
+        finally:
+            _in_memory_session_blacklist.pop("session-12345", None)
+
+    @pytest.mark.asyncio
+    async def test_blacklisted_session_in_redis_raises_401(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock
+
+        token = create_access_token(
+            data={
+                "sub": "user-session-redis-revoked",
+                "email": "user@infrawatch.ao",
+                "role": "CLIENT_VIEWER",
+                "sid": "session-redis-999",
+            }
+        )
+
+        mock_redis = MagicMock()
+        mock_redis.get = AsyncMock(side_effect=lambda key: "1" if key == "blacklist:session:session-redis-999" else None)
+
+        mock_app = MagicMock()
+        mock_app.state.redis_client = mock_redis
+        mock_request = MagicMock()
+        mock_request.app = mock_app
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(request=mock_request, token_bearer=token)
+        assert exc_info.value.status_code == 401
+        assert "Sessão revogada remotamente" in exc_info.value.detail
+
     def test_authenticated_user_scoping_resolution_by_role(self) -> None:
         """Valida que perfis restritos de cliente forçam o próprio org_id e perfis globais têm flexibilidade."""
         # Cliente Viewer não pode escapar de sua organização mesmo passando outro target
