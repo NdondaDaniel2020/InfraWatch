@@ -55,17 +55,38 @@ function normalizeSummary(data: any): ClientSlaSummary {
   };
 }
 
-function mapDeviceToService(item: ClientDeviceDTO): ClientServiceItem {
+function mapDeviceToService(
+  item: ClientDeviceDTO,
+  stabilityPct?: number
+): ClientServiceItem {
   const status = normalizeStatus(item.status);
+  const latency =
+    typeof item.last_latency_ms === "number" && !isNaN(item.last_latency_ms)
+      ? Math.round(item.last_latency_ms)
+      : undefined;
+
+  let throughputFormatted: string | undefined = undefined;
+  if (
+    typeof item.last_packet_loss === "number" &&
+    !isNaN(item.last_packet_loss)
+  ) {
+    throughputFormatted = `${Math.round(item.last_packet_loss)}% Perda`;
+  }
+
   return {
-    id: String(item.id),
+    id: String(item.device_id ?? item.id),
     name: item.name,
     category: item.category || "Sem categoria",
     status,
     statusLabel:
       status === "UP" ? "Nominal" : status === "DEG" ? "Degradação" : "Falha",
-    ...(typeof item.last_latency_ms === "number"
-      ? { responseTimeMs: item.last_latency_ms }
+    ...(typeof latency === "number" ? { responseTimeMs: latency } : {}),
+    ...(throughputFormatted ? { throughputFormatted } : {}),
+    ...(typeof item.last_packet_loss === "number"
+      ? { packetLossPct: item.last_packet_loss }
+      : {}),
+    ...(typeof stabilityPct === "number"
+      ? { stability30DaysPct: Number(stabilityPct.toFixed(1)) }
       : {}),
     tags: item.protocol ? [item.protocol] : [],
   };
@@ -92,14 +113,33 @@ export const clientPortalApi = {
     const params = new URLSearchParams();
     if (organizationId) params.set("org_id", organizationId);
     const query = params.toString();
-    const url = query ? `/api/v1/devices?${query}` : "/api/v1/devices";
+    const url = query ? `/api/v1/events/telemetry?${query}` : "/api/v1/events/telemetry";
     const res = await apiClient.get<ClientDeviceListResponse>(url);
 
     if (!res || !Array.isArray(res.items)) {
       throw new Error("Resposta inválida do backend para a lista de dispositivos.");
     }
 
-    return res.items.map(mapDeviceToService);
+    // Busca relatório oficial de SLA para correlacionar a estabilidade dos últimos 30 dias (uptime_net_pct)
+    const slaMap = new Map<string, number>();
+    if (organizationId) {
+      try {
+        const report = await this.getSlaReport(organizationId);
+        if (report && Array.isArray(report.devices)) {
+          for (const d of report.devices) {
+            if (typeof d.uptimeNetPct === "number") {
+              slaMap.set(String(d.deviceId), d.uptimeNetPct);
+            }
+          }
+        }
+      } catch {
+        // Degradação graciosa caso a organização ainda não possua relatório SLA compilado
+      }
+    }
+
+    return res.items.map((item) =>
+      mapDeviceToService(item, slaMap.get(String(item.device_id ?? item.id)))
+    );
   },
 
   /**
@@ -263,7 +303,7 @@ export const clientPortalApi = {
     const params = new URLSearchParams();
     if (organizationId) params.set("org_id", organizationId);
     const query = params.toString();
-    const url = query ? `/api/v1/devices?${query}` : "/api/v1/devices";
+    const url = query ? `/api/v1/events/telemetry?${query}` : "/api/v1/events/telemetry";
     const res = await apiClient.get<ClientDeviceListResponse>(url);
 
     if (!res || !Array.isArray(res.items)) {
@@ -271,13 +311,13 @@ export const clientPortalApi = {
     }
 
     return res.items.map((item: ClientDeviceDTO) => ({
-      id: String(item.id),
+      id: String(item.device_id ?? item.id),
       domainName: item.hostname || item.name,
       serviceType: item.category || "Sem categoria",
       protocol: item.protocol || "—",
       status: normalizeStatus(item.status),
       ...(typeof item.last_latency_ms === "number"
-        ? { latencyAvgMs: item.last_latency_ms }
+        ? { latencyAvgMs: Math.round(item.last_latency_ms) }
         : {}),
     }));
   },
