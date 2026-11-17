@@ -1,17 +1,22 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   HardDriveDownload,
   Database,
   CloudOff,
   Server,
   Lock,
+  Cloud,
+  Check,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   BackupHistoryItem,
   BackupMetricsSummary,
   BackupProgressEvent,
+  GDriveStatusResponse,
 } from "../../types/backup";
 import { backupApi } from "../../services/backupApi";
 import { BackupTriggerButton } from "../../components/backup/BackupTriggerButton";
@@ -28,6 +33,7 @@ export interface BackupRecoveryPageProps {
 export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
   initialViewState = "nominal",
 }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stateSimulation, setStateSimulation] =
     useState<BackupPageStateSimulation>(initialViewState);
   const [historyItems, setHistoryItems] = useState<BackupHistoryItem[]>([]);
@@ -36,6 +42,8 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
     totalStorageUsed: "—",
   });
   const [isLoading, setIsLoading] = useState(initialViewState === "skeleton");
+  const [gdriveStatus, setGDriveStatus] = useState<GDriveStatusResponse | null>(null);
+  const [isConnectingGDrive, setIsConnectingGDrive] = useState(false);
 
   // Estados de Execução de Backup em Tempo Real
   const [isRunning, setIsRunning] = useState(false);
@@ -59,14 +67,30 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
     };
   }, []);
 
-  // Carrega histórico e métricas
+  // Tratar retorno da autorização do Google Drive via query params
+  useEffect(() => {
+    if (searchParams.get("gdrive_connected") === "true") {
+      toast.success("Google Drive conectado e autorizado com sucesso para replicação de backups!");
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Carrega histórico, métricas e status do Google Drive
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const historyRes = await backupApi.getBackupHistory();
+      const [historyRes, gdriveRes] = await Promise.all([
+        backupApi.getBackupHistory(),
+        typeof backupApi.getGDriveStatus === "function"
+          ? backupApi.getGDriveStatus().catch(() => null)
+          : Promise.resolve({ configured: true, authorized: true, message: "OK" }),
+      ]);
       const metricsRes = await backupApi.getBackupMetrics(historyRes);
       setHistoryItems(historyRes.items);
       setMetrics(metricsRes);
+      if (gdriveRes) {
+        setGDriveStatus(gdriveRes);
+      }
     } catch (err) {
       setStateSimulation("error");
       toast.error(
@@ -82,6 +106,23 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Redireciona para o Google OAuth para autorizar o Drive sem reiniciar contêineres
+  const handleConnectGDrive = async () => {
+    setIsConnectingGDrive(true);
+    try {
+      const redirectUri = window.location.origin + "/auth/callback";
+      const { auth_url } = await backupApi.getGDriveAuthUrl(redirectUri);
+      window.location.href = auth_url;
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Falha ao obter link de autorização do Google Drive."
+      );
+      setIsConnectingGDrive(false);
+    }
+  };
 
   // Disparo manual de backup
   const handleTriggerBackup = async (notes?: string) => {
@@ -163,8 +204,14 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
           </div>
           <h1 className="text-2xl font-display font-extrabold text-white tracking-tight flex items-center gap-2.5">
             <span>Backup &amp; Recuperação de Desastres (Disaster Recovery)</span>
-            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-              DUAL-CLOUD ATIVO
+            <span
+              className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
+                gdriveStatus?.authorized !== false
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+              }`}
+            >
+              {gdriveStatus?.authorized !== false ? "DUAL-CLOUD ATIVO" : "LOCAL ATIVO (NUVEM PENDENTE)"}
             </span>
           </h1>
           <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
@@ -175,6 +222,45 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
 
         {/* Ações de Topo */}
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          {gdriveStatus?.authorized ? (
+            <div className="flex items-center gap-2">
+              <span
+                data-testid="gdrive-status-badge"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold"
+                title="Google Drive configurado e autorizado para replicação"
+              >
+                <Cloud className="w-3.5 h-3.5" />
+                <span>Google Drive Conectado</span>
+                <Check className="w-3 h-3 text-emerald-400" />
+              </span>
+              <button
+                type="button"
+                onClick={handleConnectGDrive}
+                disabled={isConnectingGDrive}
+                className="text-[11px] font-mono text-slate-400 hover:text-white underline transition-colors cursor-pointer"
+                title="Reautorizar Google Drive com outra conta"
+              >
+                Reconectar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              data-testid="connect-gdrive-button"
+              onClick={handleConnectGDrive}
+              disabled={isConnectingGDrive}
+              className="px-3.5 py-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/40 font-mono text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+              title="Autorizar o Google Drive via OAuth 2.0 para replicação remota"
+            >
+              {isConnectingGDrive ? (
+                <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+              ) : (
+                <Cloud className="w-4 h-4 text-sky-400" />
+              )}
+              <span>Conectar Google Drive</span>
+            </button>
+          )}
+
           <BackupTriggerButton
             isLoading={isLoading}
             isRunning={isRunning}
@@ -263,6 +349,41 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
         <>
           {/* 2. Cards de Métricas e Conformidade RPO/RTO */}
           <BackupMetricsCards metrics={metrics} />
+
+          {/* Banner de Aviso de Google Drive não autorizado (se aplicável) */}
+          {gdriveStatus && !gdriveStatus.authorized && (
+            <section
+              data-testid="gdrive-warning-banner"
+              className="bg-amber-950/20 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono text-xs animate-in fade-in duration-200"
+            >
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-amber-300 block">
+                    Google Drive não autorizado para replicação offsite
+                  </span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                    Os backups locais continuam sendo gerados com segurança. Para habilitar o envio automático para o Google Drive sem reiniciar contêineres, realize a autorização com sua conta.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleConnectGDrive}
+                disabled={isConnectingGDrive}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs transition-colors shrink-0 cursor-pointer flex items-center gap-1.5"
+              >
+                {isConnectingGDrive ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Cloud className="w-3.5 h-3.5" />
+                )}
+                <span>Conectar Agora</span>
+              </button>
+            </section>
+          )}
 
           {/* 3. Banner Informativo de Resiliência e Compliance */}
           <section className="bg-obsidian-900/60 border border-obsidian-800/80 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
