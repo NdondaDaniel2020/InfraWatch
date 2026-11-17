@@ -54,6 +54,8 @@ services:
     #   - "8000:8000"
     env_file:
       - ./backend/.env.production
+    volumes:
+      - backup_data:/var/backups/infrawatch:ro
     secrets:
       - postgres_password
       - redis_password

@@ -88,11 +88,19 @@ async def test_get_backup_history_reads_directory(tmp_path: Path) -> None:
     assert "infrawatch_backup_20261017_010000.tar.gz" in filenames
     assert "infrawatch_backup_20261017_020000.tar.gz" in filenames
 
-    # Verifica leitura correta do hash SHA-256
+    # Verifica leitura correta do hash SHA-256 e enriquecimento de targets/trigger
     item_with_sha = next(i for i in history.items if i.filename == b1.name)
     assert (
         item_with_sha.sha256 == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     )
+    assert item_with_sha.trigger == "manual"
+    assert item_with_sha.targets.local == "SUCCESS"
+    assert item_with_sha.targets.gdrive == "SUCCESS"
+    assert item_with_sha.targets.r2 == "SUCCESS"
+
+    cron_item = next(i for i in history.items if i.filename == b2.name)
+    assert cron_item.trigger == "scheduled"
+    assert "Cron" in (cron_item.notes or "")
 
 
 @pytest.mark.asyncio

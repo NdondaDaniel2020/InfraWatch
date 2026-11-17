@@ -36,7 +36,15 @@ export const BackupMetricsCards: React.FC<BackupMetricsCardsProps> = ({ metrics 
             )}
           </div>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                typeof metrics.rpoCurrentMinutes === "number"
+                  ? metrics.isCompliant
+                    ? "bg-emerald-400"
+                    : "bg-amber-400"
+                  : "bg-slate-400"
+              }`}
+            />
             <span>Tempo decorrido desde o último snapshot</span>
           </div>
         </div>
@@ -59,10 +67,10 @@ export const BackupMetricsCards: React.FC<BackupMetricsCardsProps> = ({ metrics 
                 ? `< ${metrics.rtoTargetMinutes}m`
                 : "N/D"}
             </span>
-            <span className="text-xs font-mono text-slate-400">Alvo de DR</span>
+            <span className="text-xs font-mono text-emerald-400 font-semibold">Alvo de DR</span>
           </div>
           <p className="mt-1 text-[11px] font-mono text-slate-400 truncate">
-            Métrica de restauração não exposta pelo backend
+            Meta operacional de restauração (ADR-032)
           </p>
         </div>
       </div>

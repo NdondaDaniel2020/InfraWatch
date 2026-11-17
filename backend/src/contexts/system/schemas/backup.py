@@ -26,6 +26,14 @@ class BackupTriggerResponse(BaseModel):
     triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class BackupTargets(BaseModel):
+    """Status de replicação local e nuvem do snapshot."""
+
+    local: str = Field(default="SUCCESS", description="Status do armazenamento local")
+    gdrive: str = Field(default="SUCCESS", description="Status do Google Drive")
+    r2: str = Field(default="SUCCESS", description="Status do Cloudflare R2")
+
+
 class BackupHistoryItem(BaseModel):
     """Metadados de um arquivo de backup consolidado armazenado localmente."""
 
@@ -35,6 +43,9 @@ class BackupHistoryItem(BaseModel):
     created_at: str = Field(description="Data e hora de criação no formato ISO 8601")
     sha256: str | None = Field(default=None, description="Hash criptográfico SHA-256")
     storage_path: str = Field(description="Caminho completo de armazenamento")
+    targets: BackupTargets = Field(default_factory=BackupTargets, description="Status de replicação por destino")
+    trigger: str = Field(default="scheduled", description="Gatilho de execução: manual ou scheduled")
+    notes: str | None = Field(default=None, description="Observações ou descrição da rotina")
 
 
 class BackupHistoryResponse(BaseModel):
