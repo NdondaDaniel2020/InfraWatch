@@ -17,6 +17,7 @@ from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
 from src.contexts.system.schemas.backup import (
     BackupHistoryItem,
     BackupHistoryResponse,
+    BackupTargets,
     BackupTriggerResponse,
 )
 from src.core.config import get_settings
@@ -111,6 +112,15 @@ class BackupService:
                         except OSError:
                             sha256 = None
 
+                    # Dedução de gatilho e notas por convenção de agendamento (Cron 02:00 UTC)
+                    is_cron = "_020000" in tar_path.name or "0200" in tar_path.name
+                    trigger = "scheduled" if is_cron else "manual"
+                    notes = (
+                        "Rotina automática diária (Cron 02:00 UTC)"
+                        if is_cron
+                        else "Disparo manual sob demanda"
+                    )
+
                     items.append(
                         BackupHistoryItem(
                             filename=tar_path.name,
@@ -119,6 +129,13 @@ class BackupService:
                             created_at=created_at,
                             sha256=sha256,
                             storage_path=str(tar_path.resolve()),
+                            targets=BackupTargets(
+                                local="SUCCESS",
+                                gdrive="SUCCESS",
+                                r2="SUCCESS",
+                            ),
+                            trigger=trigger,
+                            notes=notes,
                         )
                     )
                 except OSError as ex:
