@@ -284,10 +284,10 @@ fi
 
 # Destino 2: Cloudflare R2
 publish_event "upload_r2" 90 "Enviando para o Cloudflare R2..."
-if grep -q "change_me" "${RCLONE_CONFIG}" 2>/dev/null; then
+if grep -q "change_me" "${RCLONE_CONFIG}" 2>/dev/null || ! grep -q "^\[${BACKUP_R2_REMOTE_NAME}\]" "${RCLONE_CONFIG}" 2>/dev/null; then
     TARGET_R2_STATUS="SKIPPED"
     publish_event "upload_r2" 93 "Cloudflare R2: Não configurado (Ignorado)" "\"target_status\":\"SKIPPED\""
-    echo "[*] Cloudflare R2 com parâmetros mock (change_me). Ignorando upload."
+    echo "[*] Cloudflare R2 com parâmetros mock ou não configurado. Ignorando upload."
 elif rclone copy "${BUNDLE_FILE}" "${BACKUP_R2_REMOTE_NAME}:${BACKUP_R2_BUCKET}/" --config "${RCLONE_CONFIG}" --retries 2 2>/dev/null; then
     rclone copy "${BUNDLE_FILE}.sha256" "${BACKUP_R2_REMOTE_NAME}:${BACKUP_R2_BUCKET}/" --config "${RCLONE_CONFIG}" 2>/dev/null || true
     TARGET_R2_STATUS="SUCCESS"
