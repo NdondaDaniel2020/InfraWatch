@@ -21,10 +21,9 @@ import { clientPortalApi } from "../../services/clientPortalApi";
 import { pdfExportService } from "../../services/pdfExportService";
 import { useAuth } from "../../context/AuthContext";
 import type {
-  ClientServiceItem,
-  ClientSlaSummary,
-} from "../../types/clientPortal";
-import type { SlaReportingPeriod } from "../../types/sla";
+  NocSlaReportExportPayload,
+  SlaReportingPeriod,
+} from "../../types/sla";
 import { toast } from "sonner";
 
 export const SlaReportsPage: React.FC = () => {
@@ -117,42 +116,41 @@ export const SlaReportsPage: React.FC = () => {
         effectiveTenantId,
         selectedPeriod
       );
-      const summary: ClientSlaSummary = {
-        tenantId: overview.tenantId,
-        tenantName: overview.tenantName,
-        uptimeCurrentMonthPct: overview.currentUptimePct,
-        slaTargetPct: overview.targetSlaPct,
-        downtimeBalanceFormatted: overview.downtimeBalanceFormatted ?? "N/D",
-        mttrMinutesAvg: overview.mttrMinutes,
-        nextMaintenanceWindow: overview.nextMaintenanceWindow ?? "N/D",
-        cycleMonthLabel: overview.cycleMonthLabel ?? overview.periodLabel,
-      };
-      const services: ClientServiceItem[] = endpoints.map((endpoint) => ({
-        id: endpoint.id,
-        name: endpoint.domainName,
-        category: endpoint.serviceType,
-        status: endpoint.status,
-        statusLabel:
-          endpoint.status === "UP"
-            ? "Nominal"
-            : endpoint.status === "DEG"
-            ? "Degradação"
-            : "Falha",
-        tags: endpoint.protocol ? [endpoint.protocol] : [],
-        ...(typeof endpoint.latencyAvgMs === "number"
-          ? { responseTimeMs: endpoint.latencyAvgMs }
-          : {}),
-      }));
 
-      const exported = await pdfExportService.exportSlaPdf(
-        summary,
-        services,
-        report
-      );
+      const periodLabels: Record<SlaReportingPeriod, string> = {
+        last_7d: "Últimos 7 dias",
+        last_30d: "Últimos 30 dias",
+        current_month: `Mês Vigente (${overview.periodLabel})`,
+        last_90d: "Último Trimestre (90 dias)",
+      };
+
+      const payload: NocSlaReportExportPayload = {
+        tenantId: effectiveTenantId,
+        tenantName: overview.tenantName,
+        periodLabel: periodLabels[selectedPeriod] ?? overview.periodLabel,
+        selectedPeriod,
+        viewMode: tableViewMode,
+        targetSlaPct: overview.targetSlaPct,
+        currentUptimePct: overview.currentUptimePct,
+        marginPct: overview.marginPct,
+        mttrMinutes: overview.mttrMinutes,
+        mtbfHours: overview.mtbfHours,
+        exemptedDowntimeMinutes: overview.exemptedDowntimeMinutes,
+        unexemptedDowntimeMinutes: overview.unexemptedDowntimeMinutes,
+        devices: tableViewMode === "devices" ? devices : undefined,
+        endpoints: tableViewMode === "endpoints" ? endpoints : undefined,
+        digitalSignature: report.digitalSignature,
+      };
+
+      const exported = await pdfExportService.exportNocSlaReportPdf(payload);
       if (!exported) {
         throw new Error("Não foi possível gerar o PDF.");
       }
-      toast.success("Relatório executivo de SLA gerado com assinatura digital.");
+      toast.success(
+        `Relatório executivo NOC (${
+          tableViewMode === "devices" ? "Ativos de Rede" : "Endpoints"
+        }) exportado com sucesso!`
+      );
     } catch (err) {
       toast.error(
         err instanceof Error

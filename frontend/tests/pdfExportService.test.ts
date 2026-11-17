@@ -7,6 +7,7 @@ import type {
   SlaHistoryExportPayload,
   SlaMonthlyHistoryItem,
 } from "../src/types/clientPortal";
+import type { NocSlaReportExportPayload } from "../src/types/sla";
 
 const mockSummary: ClientSlaSummary = {
   tenantId: "org-banco-sol",
@@ -309,6 +310,195 @@ describe("Serviço de Exportação Executiva de SLA em PDF (pdfExportService)", 
       const payload = generateMockHistory(3);
       const content = pdfExportService.buildHistoryPdfContent(payload);
 
+      expect(typeof content).toBe("string");
+      expect(content.startsWith("%PDF-")).toBe(true);
+    });
+  });
+
+  describe("Relatório Executivo NOC de SLA em PDF (buildNocReportPdfDoc / exportNocSlaReportPdf)", () => {
+    const mockNocPayloadDevices: NocSlaReportExportPayload = {
+      tenantId: "org-banco-sol",
+      tenantName: "Banco Sol S.A.",
+      periodLabel: "Últimos 30 dias",
+      selectedPeriod: "last_30d",
+      viewMode: "devices",
+      targetSlaPct: 99.5,
+      currentUptimePct: 99.85,
+      marginPct: 0.35,
+      mttrMinutes: 5.2,
+      mtbfHours: 720,
+      exemptedDowntimeMinutes: 60,
+      unexemptedDowntimeMinutes: 14,
+      devices: [
+        {
+          deviceId: "dev-sw-1",
+          deviceName: "SW-CORE-LUANDA-01",
+          ipAddress: "10.0.1.1",
+          tier: "TIER-1",
+          category: "Switch Core",
+          nominalUptimePct: 99.98,
+          netUptimePct: 99.98,
+          exemptedMaintenanceMinutes: 60,
+          unplannedOutageMinutes: 0,
+          status: "COMPLIANT",
+        },
+        {
+          deviceId: "dev-rt-1",
+          deviceName: "RT-BORDER-BENGUELA",
+          ipAddress: "10.0.2.1",
+          tier: "TIER-2",
+          category: "Roteador Borda",
+          nominalUptimePct: 98.2,
+          netUptimePct: 98.9,
+          exemptedMaintenanceMinutes: 120,
+          unplannedOutageMinutes: 45,
+          status: "AT_RISK",
+        },
+        {
+          deviceId: "dev-srv-1",
+          deviceName: "SRV-TRANSAC-01",
+          ipAddress: "10.0.3.10",
+          tier: "TIER-1",
+          category: "Servidor Transacional",
+          nominalUptimePct: 96.5,
+          netUptimePct: 96.5,
+          exemptedMaintenanceMinutes: 0,
+          unplannedOutageMinutes: 180,
+          status: "BREACHED",
+        },
+      ],
+      digitalSignature: "SHA256:noc-report-devices-signature-test",
+    };
+
+    const mockNocPayloadEndpoints: NocSlaReportExportPayload = {
+      tenantId: "org-banco-sol",
+      tenantName: "Banco Sol S.A.",
+      periodLabel: "Últimos 7 dias",
+      selectedPeriod: "last_7d",
+      viewMode: "endpoints",
+      targetSlaPct: 99.5,
+      currentUptimePct: 99.99,
+      marginPct: 0.49,
+      mttrMinutes: 2.1,
+      mtbfHours: 850,
+      exemptedDowntimeMinutes: 30,
+      unexemptedDowntimeMinutes: 0,
+      endpoints: [
+        {
+          id: "ep-1",
+          domainName: "api.bancosol.ao",
+          serviceType: "REST API",
+          protocol: "HTTPS",
+          status: "UP",
+          latencyAvgMs: 12,
+          sla30dPct: 99.99,
+          datacenterRegion: "Luanda-Talatona",
+        },
+        {
+          id: "ep-2",
+          domainName: "ibanking.bancosol.ao",
+          serviceType: "Web Portal",
+          protocol: "HTTPS",
+          status: "DEG",
+          latencyAvgMs: 145,
+          sla30dPct: 99.4,
+          datacenterRegion: "Luanda-Maianga",
+        },
+      ],
+      digitalSignature: "SHA256:noc-report-endpoints-signature-test",
+    };
+
+    it("deve gerar relatório executivo NOC para Ativos de Rede com IPs e status SLA", () => {
+      const doc = pdfExportService.buildNocReportPdfDoc(mockNocPayloadDevices);
+
+      expect(doc).toBeDefined();
+      expect(doc.getNumberOfPages()).toBe(1);
+
+      const content = doc.output();
+      expect(content).toContain("%PDF-");
+      expect(content).toContain("INFRAWATCH OBSERVABILITY PLATFORM");
+      expect(content).toContain("SW-CORE-LUANDA-01");
+      expect(content).toContain("10.0.1.1");
+    });
+
+    it("deve gerar relatório executivo NOC para Endpoints Contratados com latência e status", () => {
+      const doc = pdfExportService.buildNocReportPdfDoc(mockNocPayloadEndpoints);
+
+      expect(doc).toBeDefined();
+      expect(doc.getNumberOfPages()).toBe(1);
+
+      const content = doc.output();
+      expect(content).toContain("%PDF-");
+      expect(content).toContain("api.bancosol.ao");
+      expect(content).toContain("ibanking.bancosol.ao");
+    });
+
+    it("deve suportar grandes volumes de dispositivos com paginação dinâmica automática", () => {
+      const longDevicesPayload: NocSlaReportExportPayload = {
+        ...mockNocPayloadDevices,
+        devices: Array.from({ length: 30 }, (_, i) => ({
+          deviceId: `dev-long-${i + 1}`,
+          deviceName: `SWITCH-ACCESS-EDIFICIO-${i + 1}`,
+          ipAddress: `10.10.${Math.floor(i / 254)}.${(i % 254) + 1}`,
+          tier: "TIER-2",
+          category: "Acesso LAN",
+          nominalUptimePct: 99.9,
+          netUptimePct: 99.9,
+          exemptedMaintenanceMinutes: 0,
+          unplannedOutageMinutes: 0,
+          status: "COMPLIANT",
+        })),
+      };
+
+      const doc = pdfExportService.buildNocReportPdfDoc(longDevicesPayload);
+      const totalPages = doc.getNumberOfPages();
+      expect(totalPages).toBeGreaterThanOrEqual(2);
+
+      const content = doc.output();
+      expect(content).toContain(`Página 1 de ${totalPages}`);
+      expect(content).toContain("SWITCH-ACCESS-EDIFICIO-30");
+    });
+
+    it("deve disparar download via elemento âncora para o relatório NOC", async () => {
+      const createObjectURLMock = vi.fn().mockReturnValue("blob:http://localhost/mock-noc-pdf-blob");
+      const revokeObjectURLMock = vi.fn();
+      globalThis.URL.createObjectURL = createObjectURLMock;
+      globalThis.URL.revokeObjectURL = revokeObjectURLMock;
+
+      let capturedAnchor: HTMLAnchorElement | null = null;
+      const appendSpy = vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
+        if (node instanceof HTMLAnchorElement) {
+          capturedAnchor = node;
+        }
+        return node;
+      });
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+      const result = await pdfExportService.exportNocSlaReportPdf(mockNocPayloadDevices);
+
+      expect(result).toBe(true);
+      expect(createObjectURLMock).toHaveBeenCalled();
+      expect(appendSpy).toHaveBeenCalled();
+      const anchor = capturedAnchor as HTMLAnchorElement | null;
+      expect(anchor).not.toBeNull();
+      expect(anchor?.getAttribute("data-testid")).toBe("pdf-download-anchor");
+      expect(anchor?.getAttribute("download")).toBe(
+        "relatorio-noc-sla-org-banco-sol-devices-last_30d.pdf"
+      );
+      expect(clickSpy).toHaveBeenCalled();
+    });
+
+    it("deve retornar false quando ocorrer um erro inesperado durante a geração do relatório NOC", async () => {
+      vi.spyOn(pdfExportService, "buildNocReportPdfDoc").mockImplementationOnce(() => {
+        throw new Error("Erro simulado NOC");
+      });
+
+      const result = await pdfExportService.exportNocSlaReportPdf(mockNocPayloadDevices);
+      expect(result).toBe(false);
+    });
+
+    it("buildNocReportPdfContent deve retornar uma string binária PDF válida", () => {
+      const content = pdfExportService.buildNocReportPdfContent(mockNocPayloadDevices);
       expect(typeof content).toBe("string");
       expect(content.startsWith("%PDF-")).toBe(true);
     });
