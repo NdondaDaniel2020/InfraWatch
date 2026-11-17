@@ -242,4 +242,17 @@ describe("Painel de Backup e Recuperação de Desastres — Issue #224", () => {
       "9a8f4c21b8e734d0812f8e1a90f339b1a774c82b09ff8271923e110cf98e4d2a"
     );
   });
+
+  it("deve exibir valores e metas operacionais de RPO e RTO sem N/D", async () => {
+    renderWithProviders(<BackupRecoveryPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("8m")).toBeInTheDocument();
+      expect(screen.getByText("/ 15m máx")).toBeInTheDocument();
+      expect(screen.getByText("< 30m")).toBeInTheDocument();
+      expect(
+        screen.getByText("Meta operacional de restauração (ADR-032)")
+      ).toBeInTheDocument();
+    });
+  });
 });
