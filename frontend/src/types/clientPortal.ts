@@ -137,3 +137,19 @@ export interface SupportTicketResponse {
   message: string;
 }
 
+export interface SlaHistoryExportPayload {
+  tenantId?: string;
+  tenantName: string;
+  selectedMonths: number;
+  avgUptimePct: number;
+  targetPct: number;
+  totalIncidents: number;
+  avgMttrMinutes: number;
+  compliancePct: number;
+  compliantCyclesCount: number;
+  totalCyclesCount: number;
+  items: SlaMonthlyHistoryItem[];
+  digitalSignature?: string;
+}
+
+

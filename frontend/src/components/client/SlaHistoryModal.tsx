@@ -4,20 +4,25 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  Loader2,
   ShieldCheck,
   TrendingUp,
   X,
   XCircle,
 } from "lucide-react";
-import type { SlaMonthlyHistoryItem } from "../../types/clientPortal";
+import type {
+  SlaMonthlyHistoryItem,
+  SlaHistoryExportPayload,
+} from "../../types/clientPortal";
 import { clientPortalApi } from "../../services/clientPortalApi";
+import { pdfExportService } from "../../services/pdfExportService";
 
 export interface SlaHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   organizationId?: string | null;
   tenantName?: string;
-  onExportPdf?: () => void;
+  onExportPdf?: (payload: SlaHistoryExportPayload) => Promise<boolean | void> | void;
 }
 
 export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
@@ -30,6 +35,7 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
   const [selectedMonths, setSelectedMonths] = useState<number>(6);
   const [historyItems, setHistoryItems] = useState<SlaMonthlyHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -96,6 +102,35 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
     : null;
   const isFullyCompliant = hasHistory && compliantCycles === count;
   const targetPct = historyItems[0]?.targetPct;
+
+  const handleExportClick = async () => {
+    if (!hasHistory || isExportingPdf) return;
+
+    const payload: SlaHistoryExportPayload = {
+      tenantId: organizationId ?? undefined,
+      tenantName,
+      selectedMonths,
+      avgUptimePct: Number(avgUptime ?? 100),
+      targetPct: targetPct ?? 99.5,
+      totalIncidents,
+      avgMttrMinutes: Number(avgMttr ?? 0),
+      compliancePct: Number(compliancePct ?? 100),
+      compliantCyclesCount: compliantCycles,
+      totalCyclesCount: count,
+      items: historyItems,
+    };
+
+    setIsExportingPdf(true);
+    try {
+      if (onExportPdf) {
+        await onExportPdf(payload);
+      } else {
+        await pdfExportService.exportSlaHistoryPdf(payload);
+      }
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   return (
     <div
@@ -165,17 +200,20 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
             </div>
           </div>
 
-          {onExportPdf && (
-            <button
-              type="button"
-              data-testid="history-export-pdf-btn"
-              onClick={onExportPdf}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-white transition-colors cursor-pointer"
-            >
+          <button
+            type="button"
+            data-testid="history-export-pdf-btn"
+            onClick={handleExportClick}
+            disabled={!hasHistory || isExportingPdf || isLoading}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed border border-white/10 text-xs font-mono text-white transition-colors cursor-pointer"
+          >
+            {isExportingPdf ? (
+              <Loader2 size={14} className="animate-spin text-emerald-400" />
+            ) : (
               <Download size={14} className="text-emerald-400" />
-              <span>Exportar Laudo Oficial</span>
-            </button>
-          )}
+            )}
+            <span>{isExportingPdf ? "Compilando PDF..." : "Exportar Laudo Oficial"}</span>
+          </button>
         </div>
 
         {/* Cards Resumo do Período */}

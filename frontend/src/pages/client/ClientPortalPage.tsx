@@ -15,7 +15,10 @@ import { ClientSupportModal } from "../../components/client/ClientSupportModal";
 import { pdfExportService } from "../../services/pdfExportService";
 import { clientPortalApi } from "../../services/clientPortalApi";
 import { useAuth } from "../../context/AuthContext";
-import type { ClientServiceItem } from "../../types/clientPortal";
+import type {
+  ClientServiceItem,
+  SlaHistoryExportPayload,
+} from "../../types/clientPortal";
 
 export type PortalViewState = "loading" | "nominal" | "empty" | "error";
 
@@ -112,6 +115,25 @@ export const ClientPortalPage: React.FC = () => {
       );
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleExportHistoryPdf = async (payload: SlaHistoryExportPayload) => {
+    showToast(
+      `Compilando laudo de auditoria histórica (${payload.selectedMonths} meses)...`
+    );
+    try {
+      const success = await pdfExportService.exportSlaHistoryPdf(payload);
+      if (!success) {
+        throw new Error("Falha ao gerar o documento PDF.");
+      }
+      showToast(
+        `Download do laudo de auditoria histórica (${payload.selectedMonths} meses) concluído com sucesso.`
+      );
+    } catch {
+      showToast(
+        "Não foi possível obter o laudo de auditoria histórica de SLA. Nenhum documento foi gerado."
+      );
     }
   };
 
@@ -261,7 +283,7 @@ export const ClientPortalPage: React.FC = () => {
         onClose={() => setIsHistoryModalOpen(false)}
         organizationId={user?.organization_id}
         tenantName={displayTenantName}
-        onExportPdf={handleDownloadPdf}
+        onExportPdf={handleExportHistoryPdf}
       />
 
       <ClientSupportModal
