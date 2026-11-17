@@ -44,10 +44,20 @@ function buildMetrics(history: BackupHistoryResponse): BackupMetricsSummary {
       )
     : undefined;
 
+  // Metas contratuais de governança e resiliência (ADR-032 / Issue #220)
+  // RPO Alvo: 15 minutos | RTO Alvo: 30 minutos
+  const rpoTargetMinutes = 15;
+  const rtoTargetMinutes = 30;
+  const isCompliant =
+    typeof elapsedMinutes === "number" ? elapsedMinutes <= rpoTargetMinutes : false;
+
   return {
     ...(latest ? { lastBackupAt: latest.created_at } : {}),
     totalBackupsCount: history.total,
     totalStorageUsed: formatStorage(totalBytes),
+    rpoTargetMinutes,
+    rtoTargetMinutes,
+    isCompliant,
     ...(typeof elapsedMinutes === "number"
       ? { rpoCurrentMinutes: elapsedMinutes }
       : {}),
