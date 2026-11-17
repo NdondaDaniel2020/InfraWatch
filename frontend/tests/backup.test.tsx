@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { BackupRecoveryPage } from "../src/pages/backup/BackupRecoveryPage";
+import { BackupProgressModal } from "../src/components/backup/BackupProgressModal";
 import { backupApi } from "../src/services/backupApi";
 const { testItems, testMetrics } = vi.hoisted(() => ({
   testItems: [
@@ -39,6 +40,15 @@ vi.mock("../src/services/backupApi", () => ({
       total: testItems.length,
     }),
     getBackupMetrics: vi.fn().mockResolvedValue(testMetrics),
+    getGDriveStatus: vi.fn().mockResolvedValue({
+      configured: true,
+      authorized: true,
+      message: "OK",
+    }),
+    getGDriveAuthUrl: vi.fn().mockResolvedValue({
+      auth_url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=test",
+      state: "gdrive_backup",
+    }),
     triggerBackup: vi.fn().mockResolvedValue({
       backup_id: "bck_test_123",
       status: "accepted",
@@ -252,6 +262,67 @@ describe("Painel de Backup e Recuperação de Desastres — Issue #224", () => {
       expect(screen.getByText("< 30m")).toBeInTheDocument();
       expect(
         screen.getByText("Meta operacional de restauração (ADR-032)")
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("deve exibir falha no Google Drive e ignorado no R2 sem falso verde no modal de progresso", () => {
+    const mockEvent = {
+      stage: "completed" as const,
+      percent: 100,
+      message: "Backup concluído no armazenamento local",
+      filename: "infrawatch_backup_2026-11-17_010000.tar.gz",
+      size_human: "250.0 MB",
+      sha256: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      targets: {
+        local: "SUCCESS" as const,
+        gdrive: "FAILED" as const,
+        r2: "SKIPPED" as const,
+      },
+    };
+
+    render(
+      <BackupProgressModal
+        isOpen={true}
+        currentEvent={mockEvent}
+        isCompleted={true}
+        error={null}
+        onClose={vi.fn()}
+      />
+    );
+
+    // Etapa 6 (Google Drive) deve indicar Falha explicitamente (não 100%)
+    const gdriveStage = screen.getByTestId("stage-item-upload_gdrive");
+    expect(gdriveStage).toHaveTextContent("Falha");
+    expect(gdriveStage).not.toHaveTextContent("100%");
+
+    // Etapa 7 (Cloudflare R2) deve indicar Ignorado (não 100%)
+    const r2Stage = screen.getByTestId("stage-item-upload_r2");
+    expect(r2Stage).toHaveTextContent("Ignorado");
+    expect(r2Stage).not.toHaveTextContent("100%");
+
+    // Resumo deve informar que o snapshot foi consolidado localmente
+    expect(
+      screen.getByText("Snapshot Consolidado no Armazenamento Local")
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Não Autorizado/)).toBeInTheDocument();
+    expect(screen.getByText(/Não Configurado/)).toBeInTheDocument();
+  });
+
+  it("deve exibir botão e banner de conexão com Google Drive quando não autorizado", async () => {
+    vi.spyOn(backupApi, "getGDriveStatus").mockResolvedValueOnce({
+      configured: true,
+      authorized: false,
+      message: "Aguardando autorização",
+    });
+
+    renderWithProviders(<BackupRecoveryPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("connect-gdrive-button")).toBeInTheDocument();
+      expect(screen.getByTestId("gdrive-warning-banner")).toBeInTheDocument();
+      expect(
+        screen.getByText("Google Drive não autorizado para replicação offsite")
       ).toBeInTheDocument();
     });
   });

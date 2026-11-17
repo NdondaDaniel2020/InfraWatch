@@ -5,6 +5,9 @@ import {
   BackupProgressEvent,
   BackupTriggerRequest,
   BackupTriggerResponse,
+  GDriveAuthUrlResponse,
+  GDriveCallbackRequest,
+  GDriveStatusResponse,
 } from "../types/backup";
 import { resolveApiUrl } from "../utils/env";
 
@@ -96,6 +99,33 @@ export const backupApi = {
   getBackupMetrics: async (cachedHistory?: BackupHistoryResponse): Promise<BackupMetricsSummary> => {
     const history = cachedHistory ?? (await backupApi.getBackupHistory());
     return buildMetrics(history);
+  },
+
+  /**
+   * Obtém o status da integração com Google Drive (configurado e autorizado).
+   */
+  getGDriveStatus: async (): Promise<GDriveStatusResponse> => {
+    return apiClient.get<GDriveStatusResponse>(`${BASE_URL}/gdrive/status`);
+  },
+
+  /**
+   * Obtém a URL de autorização OAuth 2.0 do Google.
+   */
+  getGDriveAuthUrl: async (redirectUri: string): Promise<GDriveAuthUrlResponse> => {
+    return apiClient.get<GDriveAuthUrlResponse>(
+      `${BASE_URL}/gdrive/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`
+    );
+  },
+
+  /**
+   * Conclui a autorização trocando o authorization code retornado pelo Google.
+   */
+  completeGDriveAuth: async (
+    code: string,
+    redirectUri: string
+  ): Promise<GDriveStatusResponse> => {
+    const payload: GDriveCallbackRequest = { code, redirect_uri: redirectUri };
+    return apiClient.post<GDriveStatusResponse>(`${BASE_URL}/gdrive/callback`, payload);
   },
 
   /**

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from src.contexts.system.api.dependencies import (
@@ -16,6 +16,9 @@ from src.contexts.system.schemas.backup import (
     BackupHistoryResponse,
     BackupTriggerRequest,
     BackupTriggerResponse,
+    GDriveAuthUrlResponse,
+    GDriveCallbackRequest,
+    GDriveStatusResponse,
 )
 from src.contexts.system.services.backup_service import (
     BackupService,
@@ -86,6 +89,60 @@ async def list_backup_history(
 ) -> BackupHistoryResponse:
     """Retorna listagem dos backups disponíveis no volume local com tamanhos e hashes SHA-256."""
     return await service.get_backup_history()
+
+
+@router.get(
+    "/gdrive/status",
+    response_model=GDriveStatusResponse,
+    summary="Obter status de configuração e autorização do Google Drive",
+)
+async def get_gdrive_status(
+    service: BackupServiceDep,
+) -> GDriveStatusResponse:
+    """Verifica se as credenciais do Google Drive estão configuradas e se há refresh_token válido."""
+    return service.get_gdrive_status()
+
+
+@router.get(
+    "/gdrive/auth-url",
+    response_model=GDriveAuthUrlResponse,
+    summary="Obter URL de autorização OAuth 2.0 para o Google Drive",
+)
+async def get_gdrive_auth_url(
+    service: BackupServiceDep,
+    redirect_uri: str = Query(..., description="URI de retorno autorizada"),
+) -> GDriveAuthUrlResponse:
+    """Gera o link de consentimento OAuth do Google para autorizar o escopo do Google Drive."""
+    try:
+        return service.get_gdrive_auth_url(redirect_uri=redirect_uri)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.post(
+    "/gdrive/callback",
+    response_model=GDriveStatusResponse,
+    summary="Processar código retornado pelo Google e salvar tokens no Rclone",
+)
+async def handle_gdrive_callback(
+    body: GDriveCallbackRequest,
+    service: BackupServiceDep,
+) -> GDriveStatusResponse:
+    """Recebe o authorization code retornado pelo Google, troca por tokens e salva no Rclone."""
+    try:
+        return await service.complete_gdrive_auth(
+            code=body.code,
+            redirect_uri=body.redirect_uri,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
 
 
 __all__ = [

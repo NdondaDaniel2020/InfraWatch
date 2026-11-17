@@ -79,20 +79,27 @@ case "$1" in
         done
         echo "[+] Redis conectado com sucesso."
 
-        # Escutar eventos no canal Pub/Sub do Redis para backup manual
-        echo "[*] Daemon pronto. Escutando canal Pub/Sub: backup:trigger"
+        # Escutar eventos no canal Pub/Sub do Redis para backup manual e atualização dinâmica de credenciais
+        echo "[*] Daemon pronto. Escutando canais Pub/Sub: backup:trigger, backup:config_update"
         
         # Loop de subscrição contínua com reconexão resiliente
         while true; do
-            redis-cli -h "${REDIS_HOST:-redis}" -p "${REDIS_PORT:-6379}" -a "${REDIS_PASSWORD}" --no-auth-warning subscribe backup:trigger | while read -r line; do
-                # A saída do redis-cli subscribe produz blocos de 3 linhas:
-                # 1: "message"
-                # 2: "backup:trigger"
-                # 3: payload
+            redis-cli -h "${REDIS_HOST:-redis}" -p "${REDIS_PORT:-6379}" -a "${REDIS_PASSWORD}" --no-auth-warning subscribe backup:trigger backup:config_update | while read -r line; do
                 if [ "$line" = "backup:trigger" ]; then
                     read -r payload
                     echo "[+] Sinal recebido via Redis no canal backup:trigger (Payload: ${payload})"
                     /app/scripts/backup.sh manual "${payload}" &
+                elif [ "$line" = "backup:config_update" ]; then
+                    read -r payload
+                    echo "[+] Atualização de configuração Rclone recebida via Redis (backup:config_update)"
+                    if echo "${payload}" | grep -q '^{' ; then
+                        B64=$(echo "${payload}" | jq -r '.rclone_conf_b64 // empty' 2>/dev/null || true)
+                        if [ -n "${B64}" ]; then
+                            echo "${B64}" | base64 -d > /tmp/rclone.conf
+                            chmod 600 /tmp/rclone.conf
+                            echo "[+] /tmp/rclone.conf atualizado com sucesso a partir de payload base64."
+                        fi
+                    fi
                 fi
             done
             echo "[!] Conexão com canal Redis encerrada. Reconectando em 3s..."

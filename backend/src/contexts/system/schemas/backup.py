@@ -53,3 +53,27 @@ class BackupHistoryResponse(BaseModel):
 
     items: list[BackupHistoryItem] = Field(default_factory=list)
     total: int = Field(description="Quantidade total de backups encontrados")
+
+
+class GDriveAuthUrlResponse(BaseModel):
+    """Resposta com URL de autorização do Google Drive."""
+
+    auth_url: str = Field(description="URL de autorização OAuth 2.0 do Google")
+    state: str = Field(default="gdrive_backup", description="Parâmetro de segurança state")
+
+
+class GDriveCallbackRequest(BaseModel):
+    """Payload para troca do código de autorização por tokens."""
+
+    code: str = Field(description="Authorization code retornado pelo Google")
+    redirect_uri: str = Field(description="URI de redirecionamento autorizada")
+
+
+class GDriveStatusResponse(BaseModel):
+    """Status da integração de backup com o Google Drive."""
+
+    configured: bool = Field(description="Indica se o client_id e client_secret do Google estão presentes")
+    authorized: bool = Field(description="Indica se existe refresh_token ativo no Rclone")
+    email: str | None = Field(default=None, description="E-mail da conta vinculada (se disponível)")
+    message: str | None = Field(default=None, description="Mensagem de status ou diagnóstico")
+

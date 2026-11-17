@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -8,6 +8,9 @@ import {
   Check,
   ShieldCheck,
   FileArchive,
+  CloudOff,
+  Cloud,
+  HardDrive,
 } from "lucide-react";
 import {
   BackupProgressEvent,
@@ -15,6 +18,8 @@ import {
   BackupStage,
 } from "../../types/backup";
 import { Button } from "../ui/Button";
+
+type StageState = "pending" | "active" | "completed" | "error" | "skipped";
 
 interface BackupProgressModalProps {
   isOpen: boolean;
@@ -32,6 +37,61 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
   onClose,
 }) => {
   const [copiedHash, setCopiedHash] = useState(false);
+  const [stageStatusMap, setStageStatusMap] = useState<Record<string, StageState>>({});
+
+  // Resetar estados das etapas ao iniciar um novo modal
+  useEffect(() => {
+    if (isOpen && !isCompleted && !currentEvent) {
+      setStageStatusMap({});
+    }
+  }, [isOpen, isCompleted, currentEvent]);
+
+  // Rastrear status fiel de cada etapa baseado nos eventos SSE
+  useEffect(() => {
+    if (!currentEvent) return;
+
+    setStageStatusMap((prev) => {
+      const next = { ...prev };
+      const stage = currentEvent.stage;
+
+      // 1. Atualizar com base no payload consolidado targets (se presente)
+      if (currentEvent.targets) {
+        if (currentEvent.targets.gdrive === "SUCCESS") next["upload_gdrive"] = "completed";
+        else if (currentEvent.targets.gdrive === "SKIPPED") next["upload_gdrive"] = "skipped";
+        else if (currentEvent.targets.gdrive === "FAILED") next["upload_gdrive"] = "error";
+
+        if (currentEvent.targets.r2 === "SUCCESS") next["upload_r2"] = "completed";
+        else if (currentEvent.targets.r2 === "SKIPPED") next["upload_r2"] = "skipped";
+        else if (currentEvent.targets.r2 === "FAILED") next["upload_r2"] = "error";
+      }
+
+      // 2. Atualizar com base em target_status específico do evento
+      if (currentEvent.target_status) {
+        if (currentEvent.target_status === "SUCCESS") next[stage] = "completed";
+        else if (currentEvent.target_status === "SKIPPED") next[stage] = "skipped";
+        else if (currentEvent.target_status === "FAILED") next[stage] = "error";
+      } else {
+        const msg = (currentEvent.message || "").toLowerCase();
+        if (stage === "upload_gdrive") {
+          if (msg.includes("falha") || msg.includes("não autorizado") || msg.includes("erro")) {
+            next["upload_gdrive"] = "error";
+          } else if (msg.includes("sucesso") || msg.includes("concluído")) {
+            next["upload_gdrive"] = "completed";
+          }
+        } else if (stage === "upload_r2") {
+          if (msg.includes("ignorado") || msg.includes("não configurado")) {
+            next["upload_r2"] = "skipped";
+          } else if (msg.includes("falha") || msg.includes("erro")) {
+            next["upload_r2"] = "error";
+          } else if (msg.includes("sucesso") || msg.includes("concluído")) {
+            next["upload_r2"] = "completed";
+          }
+        }
+      }
+
+      return next;
+    });
+  }, [currentEvent]);
 
   if (!isOpen) return null;
 
@@ -53,10 +113,14 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
     setTimeout(() => setCopiedHash(false), 2000);
   };
 
-  const getStageState = (stageId: BackupStage, order: number) => {
+  const getStageState = (stageId: BackupStage, order: number): StageState => {
+    // 1. Status explícito registrado para a etapa (evita falso verde)
+    if (stageStatusMap[stageId]) {
+      return stageStatusMap[stageId];
+    }
+
     if (error) {
       if (stageId === currentEvent?.stage) return "error";
-      // As etapas anteriores ao erro foram completadas
       const currentOrder =
         BACKUP_PIPELINE_STAGES.find((s) => s.id === currentEvent?.stage)?.order || 1;
       if (order < currentOrder) return "completed";
@@ -64,6 +128,14 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
     }
 
     if (isCompleted) {
+      if (stageId === "upload_gdrive") {
+        if (currentEvent?.targets?.gdrive === "FAILED") return "error";
+        if (currentEvent?.targets?.gdrive === "SKIPPED") return "skipped";
+      }
+      if (stageId === "upload_r2") {
+        if (currentEvent?.targets?.r2 === "SKIPPED") return "skipped";
+        if (currentEvent?.targets?.r2 === "FAILED") return "error";
+      }
       return "completed";
     }
 
@@ -74,6 +146,7 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
     if (order === currentOrder) return "active";
     return "pending";
   };
+
 
   return (
     <div
@@ -192,6 +265,8 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
                     ? "bg-emerald-950/15 border-emerald-500/30 text-slate-300"
                     : state === "error"
                     ? "bg-rose-950/30 border-rose-500/50 text-rose-200"
+                    : state === "skipped"
+                    ? "bg-amber-950/20 border-amber-500/30 text-slate-400"
                     : "bg-obsidian-950/50 border-obsidian-800/60 text-slate-500"
                 }`}
               >
@@ -204,6 +279,9 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
                   )}
                   {state === "error" && (
                     <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  )}
+                  {state === "skipped" && (
+                    <CloudOff className="w-4 h-4 text-amber-400 shrink-0" />
                   )}
                   {state === "pending" && (
                     <div className="w-4 h-4 rounded-full border border-obsidian-700 bg-obsidian-850 shrink-0" />
@@ -218,6 +296,8 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
                           ? "text-sky-300 font-bold"
                           : state === "error"
                           ? "text-rose-400 font-bold"
+                          : state === "skipped"
+                          ? "text-amber-300 font-semibold"
                           : "text-slate-400"
                       }`}
                     >
@@ -239,7 +319,14 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
                     </span>
                   )}
                   {state === "error" && (
-                    <span className="text-rose-400 font-bold">Falha</span>
+                    <span className="text-rose-400 font-bold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-[10px]">
+                      Falha
+                    </span>
+                  )}
+                  {state === "skipped" && (
+                    <span className="text-amber-400 font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px]">
+                      Ignorado
+                    </span>
                   )}
                   {state === "pending" && (
                     <span className="text-slate-500">Pendente</span>
@@ -252,13 +339,67 @@ export const BackupProgressModal: React.FC<BackupProgressModalProps> = ({
 
         {/* Resumo do Backup Concluído (Se Sucesso) */}
         {isCompleted && currentEvent?.filename && (
-          <div className="p-4 bg-emerald-950/30 border-t border-emerald-500/30 m-4 rounded-xl space-y-2 font-mono text-xs">
-            <div className="flex items-center gap-2 text-emerald-400 font-bold">
-              <FileArchive className="w-4 h-4" />
-              <span>Snapshot Consolidado e Replicado em Nuvem</span>
+          <div className="p-4 bg-emerald-950/20 border-t border-emerald-500/30 m-4 rounded-xl space-y-2.5 font-mono text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                <FileArchive className="w-4 h-4" />
+                <span>
+                  {stageStatusMap["upload_gdrive"] === "error" || currentEvent?.targets?.gdrive === "FAILED"
+                    ? "Snapshot Consolidado no Armazenamento Local"
+                    : "Snapshot Consolidado e Replicado em Nuvem"}
+                </span>
+              </div>
             </div>
 
-            <div className="space-y-1 text-[11px]">
+            {/* Target Status Pills */}
+            <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono flex items-center gap-1 border bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
+                <HardDrive className="w-3 h-3" />
+                <span>Local: OK</span>
+              </span>
+
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono flex items-center gap-1 border ${
+                  stageStatusMap["upload_gdrive"] === "completed" || currentEvent?.targets?.gdrive === "SUCCESS"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : stageStatusMap["upload_gdrive"] === "error" || currentEvent?.targets?.gdrive === "FAILED"
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                }`}
+              >
+                <Cloud className="w-3 h-3" />
+                <span>
+                  GDrive:{" "}
+                  {stageStatusMap["upload_gdrive"] === "completed" || currentEvent?.targets?.gdrive === "SUCCESS"
+                    ? "OK"
+                    : stageStatusMap["upload_gdrive"] === "error" || currentEvent?.targets?.gdrive === "FAILED"
+                    ? "Não Autorizado"
+                    : "Pendente"}
+                </span>
+              </span>
+
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono flex items-center gap-1 border ${
+                  stageStatusMap["upload_r2"] === "completed" || currentEvent?.targets?.r2 === "SUCCESS"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : stageStatusMap["upload_r2"] === "skipped" || currentEvent?.targets?.r2 === "SKIPPED"
+                    ? "bg-slate-800/80 border-slate-700 text-slate-400"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                }`}
+              >
+                <CloudOff className="w-3 h-3" />
+                <span>
+                  R2:{" "}
+                  {stageStatusMap["upload_r2"] === "completed" || currentEvent?.targets?.r2 === "SUCCESS"
+                    ? "OK"
+                    : stageStatusMap["upload_r2"] === "skipped" || currentEvent?.targets?.r2 === "SKIPPED"
+                    ? "Não Configurado"
+                    : "Falhou"}
+                </span>
+              </span>
+            </div>
+
+            <div className="space-y-1 text-[11px] pt-1 border-t border-emerald-500/10">
               <div className="flex justify-between">
                 <span className="text-slate-400">Arquivo:</span>
                 <span className="text-slate-200 font-bold">{currentEvent.filename}</span>
