@@ -109,8 +109,9 @@ export const authApi = {
   /**
    * Obtém a URL de autorização do Google OAuth2.
    */
-  async getGoogleAuthUrl(): Promise<GoogleAuthUrlResponse> {
-    return apiRequest<GoogleAuthUrlResponse>("/api/v1/auth/google/url", {
+  async getGoogleAuthUrl(redirectUri?: string): Promise<GoogleAuthUrlResponse> {
+    const query = redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : "";
+    return apiRequest<GoogleAuthUrlResponse>(`/api/v1/auth/google/url${query}`, {
       method: "GET",
       skipAuth: true,
     });
@@ -119,11 +120,11 @@ export const authApi = {
   /**
    * Envia o código retornado pelo Google para validação e emissão de tokens.
    */
-  async googleCallback(code: string, state: string): Promise<TokenResponse> {
+  async googleCallback(code: string, state: string, redirectUri?: string): Promise<TokenResponse> {
     return apiRequest<TokenResponse>("/api/v1/auth/google/callback", {
       method: "POST",
       skipAuth: true,
-      body: JSON.stringify({ code, state }),
+      body: JSON.stringify({ code, state, redirect_uri: redirectUri }),
     });
   },
 

@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/v1/auth/google", tags=["Authentication - Google 
     response_model=GoogleAuthUrlResponse,
     summary="Obter URL de autorização e estado CSRF para login com Google",
 )
-async def get_google_auth_url() -> GoogleAuthUrlResponse:
+async def get_google_auth_url(redirect_uri: str | None = None) -> GoogleAuthUrlResponse:
     """Retorna a URL de consentimento do Google e o token de estado CSRF assinado.
 
     O cliente deve redirecionar o navegador para a URL retornada. Após o consentimento,
@@ -31,7 +31,7 @@ async def get_google_auth_url() -> GoogleAuthUrlResponse:
     ensure_google_login_enabled()
     state = create_google_state()
     return GoogleAuthUrlResponse(
-        authorization_url=build_authorization_url(state),
+        authorization_url=build_authorization_url(state, redirect_uri=redirect_uri),
         state=state,
     )
 

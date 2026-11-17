@@ -57,7 +57,10 @@ class FakeGoogleIdentityProvider:
         self.exchange_error: Exception | None = None
         self.verify_error: Exception | None = None
 
-    async def exchange_code_for_id_token(self, code: str) -> str:
+    async def exchange_code_for_id_token(
+        self, code: str, redirect_uri: str | None = None
+    ) -> str:
+        self.last_exchange_redirect_uri = redirect_uri
         if self.exchange_error is not None:
             raise self.exchange_error
         return "fake-google-id-token"
@@ -122,6 +125,12 @@ class TestGoogleStateAndUrl:
         assert "response_type=code" in url
         assert "state=state-token-123" in url
         assert "scope=openid+email+profile" in url
+        assert "redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fcallback" in url
+
+        custom_url = build_authorization_url(
+            state, redirect_uri="https://infrawatch.42.fr/auth/callback"
+        )
+        assert "redirect_uri=https%3A%2F%2Finfrawatch.42.fr%2Fauth%2Fcallback" in custom_url
 
 
 class TestGoogleLoginRequestValidation:
@@ -318,6 +327,27 @@ class TestGoogleAuthEndpoints:
             assert "authorization_url" in data
             assert "state" in data
             assert "test-client-id" in data["authorization_url"]
+
+    async def test_get_url_with_custom_redirect_uri(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        settings = get_settings()
+        monkeypatch.setattr(settings, "GOOGLE_LOGIN_ENABLED", True)
+        monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-client-id")
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            resp = await client.get(
+                "/api/v1/auth/google/url",
+                params={"redirect_uri": "https://infrawatch.42.fr/auth/callback"},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert (
+                "redirect_uri=https%3A%2F%2Finfrawatch.42.fr%2Fauth%2Fcallback"
+                in data["authorization_url"]
+            )
 
     async def test_callback_endpoint_success(
         self,

@@ -41,6 +41,11 @@ class GoogleLoginRequest(BaseModel):
         max_length=8192,
         description="ID Token JWT emitido diretamente pelo Google no client-side SDK.",
     )
+    redirect_uri: str | None = Field(
+        default=None,
+        max_length=2048,
+        description="URI de redirecionamento usada na requisição de autorização inicial.",
+    )
 
     @model_validator(mode="after")
     def _require_exactly_one_credential(self) -> Any:

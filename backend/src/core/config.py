@@ -131,7 +131,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str | None = Field(default=None, alias="GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
     GOOGLE_REDIRECT_URI: str = Field(
-        default="http://localhost:8000/api/v1/auth/google/callback",
+        default="https://infrawatch.42.fr/auth/callback",
         alias="GOOGLE_REDIRECT_URI",
     )
     GOOGLE_AUTH_URL: str = Field(

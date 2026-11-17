@@ -112,10 +112,14 @@ export const useAuthStore = create<AuthStore>()(
           }
         },
 
-        completeGoogleLogin: async (code: string, state: string): Promise<AuthUser> => {
+        completeGoogleLogin: async (
+          code: string,
+          state: string,
+          redirectUri?: string
+        ): Promise<AuthUser> => {
           set({ isLoading: true });
           try {
-            const tokenRes = await authApi.googleCallback(code, state);
+            const tokenRes = await authApi.googleCallback(code, state, redirectUri);
 
             const authUser: AuthUser = {
               id: tokenRes.user?.id || "",

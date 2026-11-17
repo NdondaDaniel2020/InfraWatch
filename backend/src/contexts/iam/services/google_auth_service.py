@@ -69,12 +69,12 @@ def verify_google_state(state: str) -> None:
         raise InvalidGoogleTokenError(message="Estado OAuth (CSRF) malformado.")
 
 
-def build_authorization_url(state: str) -> str:
+def build_authorization_url(state: str, redirect_uri: str | None = None) -> str:
     """Monta a URL de consentimento para a qual o frontend deve redirecionar o usuário."""
     settings = get_settings()
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
-        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+        "redirect_uri": redirect_uri or settings.GOOGLE_REDIRECT_URI,
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "online",
@@ -98,14 +98,16 @@ class GoogleIdentityProvider:
         if self._owns_client:
             await self._client.aclose()
 
-    async def exchange_code_for_id_token(self, code: str) -> str:
+    async def exchange_code_for_id_token(
+        self, code: str, redirect_uri: str | None = None
+    ) -> str:
         """Envia o código de autorização para o endpoint de tokens do Google."""
         settings = get_settings()
         data = {
             "code": code,
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
-            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            "redirect_uri": redirect_uri or settings.GOOGLE_REDIRECT_URI,
             "grant_type": "authorization_code",
         }
         try:
@@ -259,7 +261,9 @@ class GoogleAuthService:
                 assert data.state is not None
                 assert data.code is not None
                 verify_google_state(data.state)
-                id_token = await self.provider.exchange_code_for_id_token(data.code)
+                id_token = await self.provider.exchange_code_for_id_token(
+                    data.code, redirect_uri=data.redirect_uri
+                )
             else:
                 id_token = data.id_token
 

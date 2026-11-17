@@ -63,7 +63,8 @@ export const GoogleCallbackPage: React.FC = () => {
       }
 
       try {
-        const user = await completeGoogleLogin(code, state);
+        const redirectUri = window.location.origin + "/auth/callback";
+        const user = await completeGoogleLogin(code, state, redirectUri);
         setStatus("success");
 
         const from = sessionStorage.getItem("google_oauth_from") || "/";
