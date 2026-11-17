@@ -98,6 +98,37 @@ O sistema de Disaster Recovery do **InfraWatch** garante a integridade e alta di
   # region = us-east-1
   ```
 
+### 2.3. Autorização Dinâmica do Google Drive via OAuth 2.0 (Sem Reinício de Contêineres)
+
+O InfraWatch disponibiliza um fluxo interativo para conexão e renovação de credenciais do Google Drive diretamente pela interface de Disaster Recovery (`/dr`):
+
+1. **Obtenção da URL de Autorização:**
+   - O operador clica em **"Conectar Google Drive"** no cockpit de DR (`/dr`).
+   - O frontend solicita `GET /api/v1/system/backup/gdrive/auth-url?redirect_uri=${origin}/auth/callback`.
+   - O backend monta a URL oficial do Google com o escopo `https://www.googleapis.com/auth/drive`, `access_type=offline` e `prompt=consent` para emissão do `refresh_token`.
+
+2. **Troca do Código e Atualização a Quente (Hot-Reload via Redis Pub/Sub):**
+   - Após aprovação no Google, o navegador é redirecionado para `https://infrawatch.42.fr/auth/callback?code=...&state=gdrive_backup`.
+   - O frontend envia `POST /api/v1/system/backup/gdrive/callback`.
+   - O backend troca o authorization code pelo `refresh_token`, atualiza a seção `[gdrive]` preservando os demais remotos e publica uma mensagem no canal Redis `backup:config_update`.
+   - O script de escuta `backup_entrypoint.sh` no contêiner `infrawatch-backup` recebe o evento e atualiza `/tmp/rclone.conf` imediatamente, **sem derrubar ou reiniciar contêineres**.
+
+3. **Checklist Mandatório de Configuração no Google Cloud Platform (GCP):**
+   - **URIs de Redirecionamento Autorizados:** No painel de Credenciais OAuth do GCP, registrar:
+     - `https://infrawatch.42.fr/auth/callback`
+     - `https://localhost/auth/callback`
+     - `http://localhost:3000/auth/callback`
+   - **Utilizadores de Teste (`Erro 403: access_denied`):** Se o Ecrã de Consentimento OAuth estiver com Estado de Publicação em *Teste*, o e-mail do operador (ex.: `ndondadaniel2020@gmail.com`) deve constar obrigatoriamente na lista de **Utilizadores de Teste** (*Test users*).
+   - **Ativação da API (`Erro 403: SERVICE_DISABLED`):** A **Google Drive API** deve estar explicitamente habilitada no projeto GCP através da URL:
+     `https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=<PROJECT_ID>`.
+
+4. **Fidelidade de Status Multi-Destino:**
+   - O script `scripts/backup.sh` grava um manifesto auditável `${BUNDLE_FILE}.meta.json` com o status exato de cada destino:
+     - `Local`: `SUCCESS`
+     - `Google Drive`: `SUCCESS` ou `FAILED`
+     - `Cloudflare R2`: `SUCCESS`, `FAILED` ou `SKIPPED` (marcado como ignorado quando não configurado, eliminando falsos alertas).
+   - A tabela do histórico no frontend exibe crachás com cores e ícones fidedignos (`Local`, `GDrive`, `R2`).
+
 ---
 
 ## 3. Procedimentos Operacionais de Execução

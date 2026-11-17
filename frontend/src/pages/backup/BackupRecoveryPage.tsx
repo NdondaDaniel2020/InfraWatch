@@ -54,27 +54,6 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
   const [progressError, setProgressError] = useState<string | null>(null);
   const cleanupStreamRef = useRef<(() => void) | null>(null);
 
-  const handleCloseModal = useCallback(() => {
-    cleanupStreamRef.current?.();
-    cleanupStreamRef.current = null;
-    setIsModalOpen(false);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      cleanupStreamRef.current?.();
-      cleanupStreamRef.current = null;
-    };
-  }, []);
-
-  // Tratar retorno da autorização do Google Drive via query params
-  useEffect(() => {
-    if (searchParams.get("gdrive_connected") === "true") {
-      toast.success("Google Drive conectado e autorizado com sucesso para replicação de backups!");
-      setSearchParams({}, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
-
   // Carrega histórico, métricas e status do Google Drive
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -86,7 +65,11 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
           : Promise.resolve({ configured: true, authorized: true, message: "OK" }),
       ]);
       const metricsRes = await backupApi.getBackupMetrics(historyRes);
-      setHistoryItems(historyRes.items);
+      setHistoryItems((prev) => {
+        const existingNames = new Set(historyRes.items.map((i) => i.filename));
+        const pendingLocal = prev.filter((i) => !existingNames.has(i.filename));
+        return [...pendingLocal, ...historyRes.items];
+      });
       setMetrics(metricsRes);
       if (gdriveRes) {
         setGDriveStatus(gdriveRes);
@@ -102,6 +85,29 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
       setIsLoading(false);
     }
   }, []);
+
+  const handleCloseModal = useCallback(() => {
+    cleanupStreamRef.current?.();
+    cleanupStreamRef.current = null;
+    setIsModalOpen(false);
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    return () => {
+      cleanupStreamRef.current?.();
+      cleanupStreamRef.current = null;
+    };
+  }, []);
+
+  // Tratar retorno da autorização do Google Drive via query params
+  useEffect(() => {
+    if (searchParams.get("gdrive_connected") === "true") {
+      toast.success("Google Drive conectado e autorizado com sucesso para replicação de backups!");
+      setSearchParams({}, { replace: true });
+      loadData();
+    }
+  }, [searchParams, setSearchParams, loadData]);
 
   useEffect(() => {
     loadData();
@@ -151,22 +157,31 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
           setIsRunning(false);
           cleanupStreamRef.current?.();
           cleanupStreamRef.current = null;
+          const fname = finalEvent.filename || finalEvent.file;
           toast.success(
-            `Backup finalizado com sucesso! Snapshot: ${finalEvent.filename || "novo snapshot"}`
+            `Backup finalizado com sucesso! Snapshot: ${fname || "novo snapshot"}`
           );
 
-          // Atualiza lista localmente com o novo backup
-          if (finalEvent.filename) {
+          // Atualiza lista localmente de imediato com os dados e targets do snapshot
+          if (fname) {
             const newItem: BackupHistoryItem = {
-              filename: finalEvent.filename,
+              filename: fname,
               size_human: finalEvent.size_human ?? "N/D",
               created_at: new Date().toISOString(),
               sha256: finalEvent.sha256,
               trigger: "manual",
               notes: notes || "Disparo manual sob demanda",
+              targets: finalEvent.targets ?? {
+                local: "SUCCESS",
+                gdrive: finalEvent.gdrive ?? "SUCCESS",
+                r2: finalEvent.r2 ?? "SKIPPED",
+              },
             };
-            setHistoryItems((prev) => [newItem, ...prev]);
+            setHistoryItems((prev) => [newItem, ...prev.filter((i) => i.filename !== fname)]);
           }
+
+          // Reconcilia com os dados persistidos pelo backend
+          loadData();
         },
         (err) => {
           setProgressError(err);

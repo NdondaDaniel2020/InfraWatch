@@ -30,11 +30,15 @@ export interface BackupProgressEvent {
   percent: number;
   message: string;
   filename?: string;
+  file?: string;
   size_human?: string;
+  size?: string;
   sha256?: string;
   error?: string;
   target_status?: BackupTargetStatus;
   targets?: BackupTargets;
+  gdrive?: BackupTargetStatus;
+  r2?: BackupTargetStatus;
 }
 
 export interface GDriveAuthUrlResponse {
