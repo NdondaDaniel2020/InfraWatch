@@ -1,3 +1,5 @@
+import type { SanitizedEndpoint } from "./clientPortal";
+
 export type MaintenanceStatus =
   | "PENDING_APPROVAL"
   | "APPROVED"
@@ -110,3 +112,22 @@ export interface SlaDeviceBreakdown {
 }
 
 export type SlaExportFormat = "csv" | "json";
+
+export interface NocSlaReportExportPayload {
+  tenantId: string;
+  tenantName: string;
+  periodLabel: string;
+  selectedPeriod: SlaReportingPeriod;
+  viewMode: "devices" | "endpoints";
+  targetSlaPct: number;
+  currentUptimePct: number;
+  marginPct?: number;
+  mttrMinutes: number;
+  mtbfHours?: number;
+  exemptedDowntimeMinutes?: number;
+  unexemptedDowntimeMinutes?: number;
+  devices?: SlaDeviceBreakdown[];
+  endpoints?: SanitizedEndpoint[];
+  digitalSignature?: string;
+}
+
