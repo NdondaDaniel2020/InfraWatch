@@ -152,3 +152,101 @@ async def test_list_backup_history_rbac(
             data = resp_admin.json()
             assert data["total"] == 1
             assert data["items"][0]["filename"] == "infrawatch_backup_20261017_020000.tar.gz"
+
+
+@pytest.mark.asyncio
+async def test_gdrive_status_api(
+    backup_test_app: FastAPI,
+    admin_token: str,
+    client_viewer_token: str,
+) -> None:
+    """Valida endpoint /gdrive/status para admin e bloqueio para não-admin."""
+    from src.contexts.system.schemas.backup import GDriveStatusResponse
+
+    mock_status = GDriveStatusResponse(configured=True, authorized=False, message="Aguardando autorização")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=backup_test_app),
+        base_url="http://test",
+    ) as client:
+        # 1. 403 para não-admin
+        resp_forbidden = await client.get(
+            "/api/v1/system/backup/gdrive/status",
+            headers={"Authorization": f"Bearer {client_viewer_token}"},
+        )
+        assert resp_forbidden.status_code == status.HTTP_403_FORBIDDEN
+
+        # 2. 200 para admin
+        with patch(
+            "src.contexts.system.api.routes.backup.BackupService.get_gdrive_status",
+            return_value=mock_status,
+        ):
+            resp = await client.get(
+                "/api/v1/system/backup/gdrive/status",
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+            assert resp.status_code == status.HTTP_200_OK
+            data = resp.json()
+            assert data["configured"] is True
+            assert data["authorized"] is False
+
+
+@pytest.mark.asyncio
+async def test_gdrive_auth_url_api(
+    backup_test_app: FastAPI,
+    admin_token: str,
+) -> None:
+    """Valida endpoint /gdrive/auth-url gerando link OAuth."""
+    from src.contexts.system.schemas.backup import GDriveAuthUrlResponse
+
+    mock_auth = GDriveAuthUrlResponse(
+        auth_url="https://accounts.google.com/o/oauth2/v2/auth?client_id=123",
+        state="gdrive_backup",
+    )
+
+    with patch(
+        "src.contexts.system.api.routes.backup.BackupService.get_gdrive_auth_url",
+        return_value=mock_auth,
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=backup_test_app),
+            base_url="http://test",
+        ) as client:
+            resp = await client.get(
+                "/api/v1/system/backup/gdrive/auth-url?redirect_uri=https://localhost/auth/callback",
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+            assert resp.status_code == status.HTTP_200_OK
+            data = resp.json()
+            assert "accounts.google.com" in data["auth_url"]
+            assert data["state"] == "gdrive_backup"
+
+
+@pytest.mark.asyncio
+async def test_gdrive_callback_api(
+    backup_test_app: FastAPI,
+    admin_token: str,
+) -> None:
+    """Valida endpoint POST /gdrive/callback salvando credenciais."""
+    from src.contexts.system.schemas.backup import GDriveStatusResponse
+
+    mock_resp = GDriveStatusResponse(configured=True, authorized=True, message="Conectado com sucesso")
+
+    with patch(
+        "src.contexts.system.api.routes.backup.BackupService.complete_gdrive_auth",
+        new=AsyncMock(return_value=mock_resp),
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=backup_test_app),
+            base_url="http://test",
+        ) as client:
+            resp = await client.post(
+                "/api/v1/system/backup/gdrive/callback",
+                json={"code": "auth-code-123", "redirect_uri": "https://localhost/auth/callback"},
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+            assert resp.status_code == status.HTTP_200_OK
+            data = resp.json()
+            assert data["configured"] is True
+            assert data["authorized"] is True
+
