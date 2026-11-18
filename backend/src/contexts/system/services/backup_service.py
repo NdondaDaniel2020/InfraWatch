@@ -168,7 +168,18 @@ class BackupService:
         tmp_conf = Path("/tmp/rclone.conf")
         if tmp_conf.exists():
             try:
-                return tmp_conf.read_text(encoding="utf-8")
+                content = tmp_conf.read_text(encoding="utf-8")
+                if "refresh_token" in content and '"refresh_token":""' not in content:
+                    return content
+            except OSError:
+                pass
+
+        persisted_conf = Path("/var/backups/infrawatch/.rclone.conf")
+        if persisted_conf.exists():
+            try:
+                content = persisted_conf.read_text(encoding="utf-8")
+                if "refresh_token" in content and '"refresh_token":""' not in content:
+                    return content
             except OSError:
                 pass
 

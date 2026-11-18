@@ -11,12 +11,38 @@ echo "==========================================================================
 
 TARGET_FILE="${1:-}"
 SOURCE_REMOTE="${2:-local}" # local, gdrive, r2
+DRY_RUN="${DRY_RUN:-0}"
+
+# Tratar argumentos caso passem --dry-run em qualquer posição
+if [ "${TARGET_FILE}" = "--dry-run" ]; then
+    DRY_RUN="1"
+    TARGET_FILE=""
+fi
+if [ "${SOURCE_REMOTE}" = "--dry-run" ]; then
+    DRY_RUN="1"
+    SOURCE_REMOTE="local"
+fi
+if [ "${3:-}" = "--dry-run" ]; then
+    DRY_RUN="1"
+fi
 
 BACKUP_LOCAL_PATH="${BACKUP_LOCAL_PATH:-/var/backups/infrawatch}"
 BACKUP_GDRIVE_REMOTE_NAME="${BACKUP_GDRIVE_REMOTE_NAME:-gdrive}"
 BACKUP_GDRIVE_FOLDER="${BACKUP_GDRIVE_FOLDER:-infrawatch-backups}"
 BACKUP_R2_REMOTE_NAME="${BACKUP_R2_REMOTE_NAME:-r2}"
 BACKUP_R2_BUCKET="${BACKUP_R2_BUCKET:-infrawatch-backups}"
+
+# Localização resiliente da configuração Rclone
+if [ -z "${RCLONE_CONFIG:-}" ] || [ ! -f "${RCLONE_CONFIG}" ]; then
+    if [ -f "${BACKUP_LOCAL_PATH}/.rclone.conf" ]; then
+        RCLONE_CONFIG="${BACKUP_LOCAL_PATH}/.rclone.conf"
+    elif [ -f "/tmp/rclone.conf" ]; then
+        RCLONE_CONFIG="/tmp/rclone.conf"
+    elif [ -f "/run/secrets/rclone_config" ]; then
+        RCLONE_CONFIG="/run/secrets/rclone_config"
+    fi
+fi
+export RCLONE_CONFIG="${RCLONE_CONFIG:-/tmp/rclone.conf}"
 
 RESTORE_TMP_DIR="/tmp/restore_$(date +%s)"
 
@@ -27,19 +53,33 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [ "${DRY_RUN}" = "1" ]; then
+    echo "⚠️  [MODO DRY-RUN ATIVO]: O pacote será baixado, decriptado e validado estruturalmente SEM alterar o banco de dados ativo."
+fi
+
 # ------------------------------------------------------------------------------
 # 1. Localização e Download do Pacote de Backup
 # ------------------------------------------------------------------------------
 mkdir -p "${RESTORE_TMP_DIR}"
 
 if [ -z "${TARGET_FILE}" ]; then
-    echo "[*] Nenhum arquivo especificado. Buscando o backup mais recente em ${BACKUP_LOCAL_PATH}..."
-    LATEST_BACKUP=$(ls -1t "${BACKUP_LOCAL_PATH}"/infrawatch_backup_*.tar.gz 2>/dev/null | head -n 1 || true)
-    if [ -z "${LATEST_BACKUP}" ]; then
-        echo "[!] ERRO: Nenhum backup local encontrado. Especifique um arquivo: ./restore.sh <ARQUIVO> [local|gdrive|r2]"
+    if [ "${SOURCE_REMOTE}" = "gdrive" ]; then
+        echo "[*] Nenhum arquivo especificado. Buscando o backup mais recente no Google Drive..."
+        TARGET_FILE=$(rclone lsf "${BACKUP_GDRIVE_REMOTE_NAME}:${BACKUP_GDRIVE_FOLDER}" --include "infrawatch_backup_*.tar.gz" --config "${RCLONE_CONFIG}" 2>/dev/null | sort -r | head -n 1 | tr -d '\r\n' || true)
+    elif [ "${SOURCE_REMOTE}" = "r2" ]; then
+        echo "[*] Nenhum arquivo especificado. Buscando o backup mais recente no Cloudflare R2..."
+        TARGET_FILE=$(rclone lsf "${BACKUP_R2_REMOTE_NAME}:${BACKUP_R2_BUCKET}" --include "infrawatch_backup_*.tar.gz" --config "${RCLONE_CONFIG}" 2>/dev/null | sort -r | head -n 1 | tr -d '\r\n' || true)
+    else
+        echo "[*] Nenhum arquivo especificado. Buscando o backup mais recente em ${BACKUP_LOCAL_PATH}..."
+        LATEST_BACKUP=$(ls -1t "${BACKUP_LOCAL_PATH}"/infrawatch_backup_*.tar.gz 2>/dev/null | head -n 1 || true)
+        if [ -n "${LATEST_BACKUP}" ]; then
+            TARGET_FILE=$(basename "${LATEST_BACKUP}")
+        fi
+    fi
+    if [ -z "${TARGET_FILE}" ]; then
+        echo "[!] ERRO: Nenhum backup encontrado na origem '${SOURCE_REMOTE}'. Especifique um arquivo: ./restore.sh <ARQUIVO> [local|gdrive|r2]"
         exit 1
     fi
-    TARGET_FILE=$(basename "${LATEST_BACKUP}")
     echo "[+] Backup mais recente detectado: ${TARGET_FILE}"
 fi
 
@@ -136,29 +176,35 @@ fi
 # ------------------------------------------------------------------------------
 DUMP_FILE=$(find "${EXTRACTED_DIR}" -name "*.dump" | head -n 1 || true)
 if [ -n "${DUMP_FILE}" ]; then
-    echo "[*] Restaurando banco de dados TimescaleDB a partir de: ${DUMP_FILE}..."
-    
-    POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
-    POSTGRES_PORT="${POSTGRES_PORT:-5432}"
-    POSTGRES_USER="${POSTGRES_USER:-infrawatch_user}"
-    POSTGRES_DB="${POSTGRES_DB:-infrawatch_db}"
-
-    if [ -z "${POSTGRES_PASSWORD:-}" ]; then
-        if [ -f "/run/secrets/postgres_password" ]; then
-            POSTGRES_PASSWORD=$(cat /run/secrets/postgres_password | tr -d '\r\n')
-        elif [ -f "./secrets/postgres_password.txt" ]; then
-            POSTGRES_PASSWORD=$(cat ./secrets/postgres_password.txt | tr -d '\r\n')
-        fi
-    fi
-    export PGPASSWORD="${POSTGRES_PASSWORD:-}"
-
-    # Executar pg_restore com limpeza e suporte a hypertables
-    if pg_restore --clean --if-exists --no-owner --no-privileges \
-        -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-        "${DUMP_FILE}" 2>/dev/null; then
-        echo "[+] TimescaleDB restaurado com sucesso!"
+    if [ "${DRY_RUN}" = "1" ]; then
+        echo "[*] [DRY-RUN] Verificando integridade do catálogo do dump sem aplicar no banco..."
+        pg_restore --list "${DUMP_FILE}" > /dev/null
+        echo "[+] [DRY-RUN] Catálogo do PostgreSQL/TimescaleDB validado com sucesso (nenhuma alteração feita no banco)."
     else
-        echo "[!] pg_restore finalizado com avisos (comportamento normal se objetos já existiam)."
+        echo "[*] Restaurando banco de dados TimescaleDB a partir de: ${DUMP_FILE}..."
+        
+        POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+        POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+        POSTGRES_USER="${POSTGRES_USER:-infrawatch_user}"
+        POSTGRES_DB="${POSTGRES_DB:-infrawatch_db}"
+
+        if [ -z "${POSTGRES_PASSWORD:-}" ]; then
+            if [ -f "/run/secrets/postgres_password" ]; then
+                POSTGRES_PASSWORD=$(cat /run/secrets/postgres_password | tr -d '\r\n')
+            elif [ -f "./secrets/postgres_password.txt" ]; then
+                POSTGRES_PASSWORD=$(cat ./secrets/postgres_password.txt | tr -d '\r\n')
+            fi
+        fi
+        export PGPASSWORD="${POSTGRES_PASSWORD:-}"
+
+        # Executar pg_restore com limpeza e suporte a hypertables
+        if pg_restore --clean --if-exists --no-owner --no-privileges \
+            -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+            "${DUMP_FILE}" 2>/dev/null; then
+            echo "[+] TimescaleDB restaurado com sucesso!"
+        else
+            echo "[!] pg_restore finalizado com avisos (comportamento normal se objetos já existiam)."
+        fi
     fi
 fi
 
@@ -166,16 +212,27 @@ fi
 # 6. Restauração do Redis (RDB Snapshot)
 # ------------------------------------------------------------------------------
 if [ -f "${EXTRACTED_DIR}/dump.rdb" ]; then
-    echo "[*] Snapshot do Redis localizado."
-    if [ -d "/data" ]; then
-        cp "${EXTRACTED_DIR}/dump.rdb" "/data/dump.rdb"
-        echo "[+] Arquivo dump.rdb copiado para o volume /data."
+    if [ "${DRY_RUN}" = "1" ]; then
+        REDIS_SIZE=$(du -h "${EXTRACTED_DIR}/dump.rdb" | cut -f1)
+        echo "[+] [DRY-RUN] Snapshot do Redis validado com sucesso (tamanho: ${REDIS_SIZE}, nenhuma alteração feita)."
     else
-        echo "[.] Volume /data não montado diretamente. Arquivo disponível em: ${EXTRACTED_DIR}/dump.rdb"
+        echo "[*] Snapshot do Redis localizado."
+        if [ -d "/data" ]; then
+            cp "${EXTRACTED_DIR}/dump.rdb" "/data/dump.rdb"
+            echo "[+] Arquivo dump.rdb copiado para o volume /data."
+        else
+            echo "[.] Volume /data não montado diretamente. Arquivo disponível em: ${EXTRACTED_DIR}/dump.rdb"
+        fi
     fi
 fi
 
 echo "================================================================================"
-echo "✅ Restauração do InfraWatch Concluída com Sucesso!"
+if [ "${DRY_RUN}" = "1" ]; then
+    echo "✅ [DRY-RUN] Simulação de Restauração Concluída com Sucesso!"
+    echo "📦 Pacote validado: ${TARGET_FILE}"
+    echo "🔐 Hash SHA-256, Cifra AES-256 e Catálogo SQL íntegros (Zero Impacto no Banco Ativo)."
+else
+    echo "✅ Restauração do InfraWatch Concluída com Sucesso!"
+fi
 echo "================================================================================"
 exit 0

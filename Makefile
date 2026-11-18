@@ -281,11 +281,11 @@ backup:
 	fi
 
 restore:
-	@echo "Executando rotina de restauração do InfraWatch (FILE=$(FILE), FROM=$(FROM))..."
+	@echo "Executando rotina de restauração do InfraWatch (FILE=$(FILE), FROM=$(FROM), DRY_RUN=$(DRY_RUN))..."
 	@if docker compose ps -q infrawatch-backup 2>/dev/null | grep -q .; then \
-		docker compose exec infrawatch-backup /app/scripts/restore.sh "$(FILE)" "$(FROM)"; \
+		docker compose exec -e DRY_RUN="$(DRY_RUN)" infrawatch-backup /app/scripts/restore.sh "$(FILE)" "$(FROM)"; \
 	else \
-		bash scripts/restore.sh "$(FILE)" "$(FROM)"; \
+		DRY_RUN="$(DRY_RUN)" bash scripts/restore.sh "$(FILE)" "$(FROM)"; \
 	fi
 
 # -----------------------------------------------------------------------------

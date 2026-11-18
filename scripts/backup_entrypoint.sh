@@ -38,7 +38,13 @@ mkdir -p "${BACKUP_LOCAL_PATH}" /tmp/backup
 # 2. Configuração do Rclone
 # ------------------------------------------------------------------------------
 RCLONE_CONF_PATH="/tmp/rclone.conf"
-if [ -f "/run/secrets/rclone_config" ]; then
+PERSISTED_CONF="${BACKUP_LOCAL_PATH}/.rclone.conf"
+
+if [ -f "${PERSISTED_CONF}" ] && grep -q "refresh_token" "${PERSISTED_CONF}" && ! grep -q '"refresh_token":""' "${PERSISTED_CONF}"; then
+    echo "[+] Restaurando configuração persistida do Rclone a partir de ${PERSISTED_CONF}..."
+    cp "${PERSISTED_CONF}" "${RCLONE_CONF_PATH}"
+    chmod 600 "${RCLONE_CONF_PATH}"
+elif [ -f "/run/secrets/rclone_config" ]; then
     cp /run/secrets/rclone_config "${RCLONE_CONF_PATH}"
     chmod 600 "${RCLONE_CONF_PATH}"
 elif [ -f "/run/secrets/rclone_config.txt" ]; then
@@ -97,7 +103,9 @@ case "$1" in
                         if [ -n "${B64}" ]; then
                             echo "${B64}" | base64 -d > /tmp/rclone.conf
                             chmod 600 /tmp/rclone.conf
-                            echo "[+] /tmp/rclone.conf atualizado com sucesso a partir de payload base64."
+                            cp /tmp/rclone.conf "${PERSISTED_CONF}" 2>/dev/null || true
+                            chmod 600 "${PERSISTED_CONF}" 2>/dev/null || true
+                            echo "[+] /tmp/rclone.conf atualizado e persistido em ${PERSISTED_CONF} com sucesso."
                         fi
                     fi
                 fi

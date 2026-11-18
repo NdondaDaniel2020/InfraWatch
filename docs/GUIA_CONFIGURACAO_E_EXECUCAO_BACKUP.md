@@ -184,21 +184,97 @@ docker logs --tail 50 infrawatch-backup
 
 ---
 
+## 🔐 Entendendo Checksum SHA-256, Descompactação e Criptografia
+
+Muitos operadores têm dúvidas sobre o papel de cada tecnologia no pipeline de backup. A tabela abaixo sintetiza a responsabilidade de cada camada:
+
+| Componente | Ferramenta / Algoritmo | Papel no Sistema | Modifica os Dados? |
+| :--- | :--- | :--- | :--- |
+| **Checksum SHA-256** | `sha256sum` (Hash 256 bits) | **Verificação de Integridade Criptográfica**: Gera uma impressão digital imutável de 64 caracteres. Serve para conferir se nenhum bit foi corrompido durante transferência na rede ou falha de disco. | **Não**. Não descompacta nem altera arquivos. |
+| **Descompactação** | `tar -xzf` (GNU Tar + Gzip) | **Extração de Arquivos**: Descompacta o arquivo `.tar.gz` contendo o dump do banco, snapshot do Redis e manifestos. | **Sim**, expande os bytes comprimidos. |
+| **Cifra de Segredos** | OpenSSL `aes-256-cbc -pbkdf2` | **Proteção de Credenciais**: Cifra com 100.000 iterações e chave mestra os arquivos confidenciais (`secrets.tar.gz.enc`). | **Sim**, converte texto cifrado em arquivos legíveis. |
+| **Restauração de BD** | `pg_restore` / TimescaleDB | **Injeção no Banco**: Recria tabelas relacionais, hypertables de telemetria e índices. | **Sim**, escreve os dados no banco de dados. |
+
+---
+
 ## 🔄 Como Restaurar um Backup (Disaster Recovery)
 
-Em caso de pane de hardware ou restauração para testes:
+> [!IMPORTANT]
+> **Por que a restauração é feita via Terminal (CLI) e NÃO por botão na Web?**
+> 1. **Zero Blast Radius e Prevenção de Catástrofes:** Uma restauração executa `pg_restore --clean`, que apaga dados existentes para restaurar o estado passado. Um botão na interface web exporia o sistema a cliques acidentais de operadores, podendo destruir dados em produção.
+> 2. **Independência em Desastre Real:** Em caso de corrupção severa do banco ou queda do servidor web, a API e o painel Web estarão inacessíveis. O procedimento de DR deve funcionar de forma resiliente diretamente pelo terminal.
 
-### Cenário A: Restaurar a partir do disco local
+### 🧪 Modo Simulação (DR Dry-Run — Zero Risco ao Banco Ativo)
+Você pode comprovar a qualquer momento que um backup está íntegro e decifrável **sem aplicar nenhuma alteração** no seu banco de dados em produção:
+
 ```bash
-# Restaura o backup mais recente
+# Simula a restauração do backup mais recente
+make restore DRY_RUN=1
+
+# Ou simula a restauração de um arquivo específico
+make restore FILE=infrawatch_backup_20261118_020000.tar.gz DRY_RUN=1
+```
+*O modo Dry-Run baixa o pacote, confere o hash SHA-256, descompacta em `/tmp`, decifra os segredos via OpenSSL e valida o catálogo do PostgreSQL com `pg_restore --list`, garantindo prontidão para desastre com 0% de risco.*
+
+---
+
+### 🚨 Restauração Efetiva em Produção (Disaster Recovery Drill)
+
+#### Cenário A: Restaurar a partir do disco local
+```bash
+# Restaura o backup mais recente existente em /var/backups/infrawatch
 make restore
 
-# Ou restaura um arquivo específico
+# Ou restaura um snapshot específico
 make restore FILE=infrawatch_backup_20261117_233613.tar.gz
 ```
 
-### Cenário B: Restaurar a partir do Google Drive (Perda total do host)
+#### Cenário B: Restaurar a partir do Google Drive (Perda total do host / Servidor novo)
+Caso o host tenha sofrido perda de disco e precise baixar o snapshot da nuvem:
 ```bash
+# Busca e restaura automaticamente o backup mais recente no Google Drive
+make restore FROM=gdrive
+
+# Ou baixa e restaura um arquivo específico da nuvem
 make restore FILE=infrawatch_backup_20261117_233613.tar.gz FROM=gdrive
 ```
-*O script `scripts/restore.sh` baixa o bundle do Google Drive via Rclone, valida o hash SHA-256 e restaura as tabelas e o estado com integridade garantida.*
+*O script utiliza as credenciais Rclone ativas, baixa o bundle e o `.sha256` correspondente, valida a integridade e restaura o TimescaleDB e o Redis.*
+
+#### Cenário C: Restaurar a partir do Cloudflare R2
+```bash
+make restore FILE=infrawatch_backup_20261117_233613.tar.gz FROM=r2
+```
+
+---
+
+## 💾 Persistência de Tokens Google Drive entre Reinícios
+
+Para evitar que o operador precise reconectar o Google Drive toda vez que o servidor for reiniciado:
+* As credenciais do Google Drive obtidas via OAuth 2.0 são gravadas em `/var/backups/infrawatch/.rclone.conf` dentro do volume Docker persistente `backup_data`.
+* Na inicialização do contêiner `infrawatch-backup`, o arquivo é carregado automaticamente antes de ler segredos estáticos, mantendo a replicação em nuvem ativa permanentemente.
+
+---
+
+## 📋 Checklist de Validação Pós-Restauração
+
+Após executar `make restore`, realize a verificação de sanidade operacional:
+
+1. **Status dos Contêineres:**
+   ```bash
+   make status
+   ```
+   *Todos os contêineres principais devem estar `Up (healthy)`.*
+
+2. **Saúde da API:**
+   ```bash
+   curl -s http://localhost:8000/api/health | jq .
+   ```
+   *Deverá retornar `{"status": "healthy"}`.*
+
+3. **Validação das Hypertables do TimescaleDB:**
+   ```bash
+   docker exec infrawatch-postgres psql -U infrawatch_user -d infrawatch_db -c "SELECT count(*) FROM telemetry_metrics;"
+   ```
+
+4. **Acesso ao Cockpit Web:**
+   Aceda a `https://infrawatch.42.fr/dr` e confirme a consistência dos dados operacionais e de telemetria.

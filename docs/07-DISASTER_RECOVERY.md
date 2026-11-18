@@ -178,27 +178,44 @@ curl "http://localhost:8000/api/v1/system/backup/history" \
 
 ## 4. Procedimentos de Restauração (Disaster Recovery)
 
-Em caso de falha de hardware, corrupção de dados ou migração de infraestrutura:
+> [!IMPORTANT]
+> **Arquitetura Zero Blast Radius para Restauração:**
+> - O Checksum SHA-256 é utilizado exclusivamente para **verificação matemática de integridade** (evitando injeção de pacotes corrompidos), enquanto a descompactação é realizada pelo `tar -xzf` e a decifração dos segredos via OpenSSL AES-256-PBKDF2.
+> - A restauração é intencionalmente restrita à interface CLI (`make restore` / `scripts/restore.sh`), blindando a produção contra sobrescrita acidental via cliques na web e assegurando operabilidade mesmo em desastre total com frontend e API inacessíveis.
 
-### 4.1. Cenário A: Restauração a partir do Armazenamento Local
+### 4.1. Simulação Prévia de DR (Modo Dry-Run sem Impacto)
+Permite validar o hash SHA-256, a integridade do pacote e a decifração dos segredos sem aplicar modificações no banco de dados ativo:
+```bash
+# Simula a restauração do último backup
+make restore DRY_RUN=1
+
+# Ou simula um arquivo específico
+make restore FILE=infrawatch_backup_20261118_020000.tar.gz DRY_RUN=1
+```
+
+### 4.2. Cenário A: Restauração a partir do Armazenamento Local
 Restaura o backup mais recente existente em `/var/backups/infrawatch`:
 ```bash
 make restore
 ```
 Ou especificando um arquivo particular:
 ```bash
-make restore FILE=infrawatch_backup_20261017_020000.tar.gz
+make restore FILE=infrawatch_backup_20261117_233613.tar.gz
 ```
 
-### 4.2. Cenário B: Restauração a partir do Google Drive
-Caso o host tenha sofrido perda total do disco local:
+### 4.3. Cenário B: Restauração a partir do Google Drive
+Caso o host tenha sofrido perda total do disco local ou nova máquina esteja sendo provisionada:
 ```bash
-make restore FILE=infrawatch_backup_20261017_020000.tar.gz FROM=gdrive
+# Busca automaticamente o backup mais recente no Google Drive
+make restore FROM=gdrive
+
+# Ou especifica o arquivo da nuvem
+make restore FILE=infrawatch_backup_20261117_233613.tar.gz FROM=gdrive
 ```
 
-### 4.3. Cenário C: Restauração a partir do Cloudflare R2
+### 4.4. Cenário C: Restauração a partir do Cloudflare R2
 ```bash
-make restore FILE=infrawatch_backup_20261017_020000.tar.gz FROM=r2
+make restore FILE=infrawatch_backup_20261117_233613.tar.gz FROM=r2
 ```
 
 ---
