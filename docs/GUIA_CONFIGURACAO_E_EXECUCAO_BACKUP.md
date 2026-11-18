@@ -132,6 +132,13 @@ docker exec infrawatch-redis redis-cli publish backup:trigger '{"trigger":"manua
 ### Método 3: Rotina Automática Diária (Cron Agendado)
 O contêiner `infrawatch-backup` possui um daemon interno que executa diariamente às **02:00 UTC** (`0 2 * * *`), aplicando a política de retenção de 7 dias local e 30 dias na nuvem.
 
+### Método 4: Sincronização e Reconciliação Retroativa com a Nuvem
+Caso existam backups locais antigos que foram gerados antes da autorização do Google Drive (ou snapshots pendentes de replicação), utilize o comando de sincronização em lote:
+```bash
+make sync-backups
+```
+*Este comando copia todos os bundles `.tar.gz` e checksums `.sha256` locais para a pasta `infrawatch-backups` do Google Drive e executa o script `scripts/reconcile_backup_metadata.sh`, atualizando instantaneamente os manifestos `.meta.json` para exibir `Local: SUCCESS` e `GDrive: SUCCESS` na tabela do dashboard.*
+
 ---
 
 ## 🔍 Passo 4: Como Comprovar que o Backup Realmente Funcionou

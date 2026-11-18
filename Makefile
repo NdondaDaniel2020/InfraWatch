@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean certs certs-clean gateway-reload whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup restore front-dev front-test front-build front-lint
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean certs certs-clean gateway-reload whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup sync-backups restore front-dev front-test front-build front-lint
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -24,6 +24,7 @@ help:
 	@echo "  make migrate        - Executa migrações pendentes do Alembic (upgrade head)"
 	@echo "  make seed           - Executa carga de dados base idempotente (roda migrate previamente)"
 	@echo "  make backup         - Executa rotina de backup multi-destino (local, Google Drive, R2)"
+	@echo "  make sync-backups   - Sincroniza e reconcilia todos os backups locais com o Google Drive"
 	@echo "  make restore        - Restaura banco e segredos (FILE=<nome> FROM=local|gdrive|r2)"
 	@echo "  make workers        - Inicia os daemons de workers em segundo plano"
 	@echo "  make worker-probe   - Inicia o Daemon de Sondas (Probe Worker) para pings e checagens"
@@ -278,6 +279,16 @@ backup:
 		docker compose exec infrawatch-backup /app/scripts/backup.sh manual; \
 	else \
 		bash scripts/backup.sh manual; \
+	fi
+
+sync-backups:
+	@echo "Executando sincronização e reconciliação de backups com o Google Drive..."
+	@if docker compose ps -q infrawatch-backup 2>/dev/null | grep -q .; then \
+		docker compose exec infrawatch-backup rclone copy /var/backups/infrawatch/ gdrive:infrawatch-backups/ --include "infrawatch_backup_*.tar.gz*" --config /tmp/rclone.conf; \
+		docker compose exec infrawatch-backup /app/scripts/reconcile_backup_metadata.sh; \
+	else \
+		rclone copy /var/backups/infrawatch/ gdrive:infrawatch-backups/ --include "infrawatch_backup_*.tar.gz*" --config /tmp/rclone.conf; \
+		bash scripts/reconcile_backup_metadata.sh; \
 	fi
 
 restore:
