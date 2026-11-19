@@ -75,6 +75,12 @@ const renderWithProviders = (ui: ReactNode, queryClient?: QueryClient) => {
 describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (adminApi.listOrganizations as Mock).mockResolvedValue({
+      items: mockAdminOrganizations,
+      total: mockAdminOrganizations.length,
+      page: 1,
+      page_size: mockAdminOrganizations.length,
+    });
   });
 
   describe("Painel de Janelas de Manutenção (/maintenance)", () => {

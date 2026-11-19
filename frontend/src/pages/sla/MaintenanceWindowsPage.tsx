@@ -17,6 +17,7 @@ import { MaintenanceCard } from "../../components/sla/MaintenanceCard";
 import { MaintenanceGanttTimeline } from "../../components/sla/MaintenanceGanttTimeline";
 import { CreateMaintenanceModal } from "../../components/sla/CreateMaintenanceModal";
 import { slaApi } from "../../services/slaApi";
+import { adminApi } from "../../services/adminApi";
 import type {
   MaintenanceStatus,
   CreateMaintenanceInput,
@@ -29,7 +30,7 @@ const DEFAULT_MAINTENANCE_KPIS: MaintenanceKpiSummary = {
   activeNowCount: 0,
   scheduledCount: 0,
   exemptedHoursMonth: 0,
-  contractualLimitHours: 0,
+  contractualLimitHours: 8,
 };
 
 export const MaintenanceWindowsPage: React.FC = () => {
@@ -45,6 +46,20 @@ export const MaintenanceWindowsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClient, setSelectedClient] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const { data: organizationsData } = useQuery({
+    queryKey: ["slaOrganizations"],
+    queryFn: async () => {
+      const res = await adminApi.listOrganizations({ size: 100 });
+      return res ?? { items: [], total: 0, page: 1, page_size: 100 };
+    },
+    enabled: isOperator,
+  });
+
+  const organizations = useMemo(
+    () => organizationsData?.items ?? [],
+    [organizationsData]
+  );
 
   const {
     data: maintenances = [],
@@ -134,6 +149,17 @@ export const MaintenanceWindowsPage: React.FC = () => {
       return true;
     });
   }, [safeMaintenances, activeTab, selectedClient, searchQuery]);
+
+  const clientOptions = useMemo(() => {
+    const names = new Set<string>();
+    organizations.forEach((org) => {
+      if (org.name) names.add(org.name);
+    });
+    safeMaintenances.forEach((m) => {
+      if (m.clientName && m.clientName !== "Organização") names.add(m.clientName);
+    });
+    return Array.from(names);
+  }, [organizations, safeMaintenances]);
 
   // Decisão de renderização do estado
   const currentState = isLoading
@@ -351,7 +377,11 @@ export const MaintenanceWindowsPage: React.FC = () => {
           </div>
           <p style={{ fontSize: "0.6875rem", color: "var(--color-healthy)", display: "flex", alignItems: "center", gap: "4px" }}>
             <CheckCircle2 size={12} />
-            <span>Zero paradas ativas no ciclo de telemetria</span>
+            <span>
+              {kpiSummary.activeNowCount > 0
+                ? `${kpiSummary.activeNowCount} parada(s) em andamento no ciclo`
+                : "Zero paradas ativas no ciclo de telemetria"}
+            </span>
           </p>
         </div>
 
@@ -403,7 +433,11 @@ export const MaintenanceWindowsPage: React.FC = () => {
           </div>
           <p style={{ fontSize: "0.6875rem", color: "var(--color-primary)", display: "flex", alignItems: "center", gap: "4px" }}>
             <Clock size={12} />
-            <span>Próxima: 22 Outubro às 03:00 WAT</span>
+            <span>
+              {kpiSummary.scheduledCount > 0
+                ? `${kpiSummary.scheduledCount} parada(s) técnica(s) agendada(s)`
+                : "Nenhuma parada técnica pendente de execução"}
+            </span>
           </p>
         </div>
 
@@ -647,9 +681,11 @@ export const MaintenanceWindowsPage: React.FC = () => {
             }}
           >
             <option value="all">Todas as Contratantes</option>
-            <option value="Unitel">Unitel Angola</option>
-            <option value="Banco Sol">Banco Sol</option>
-            <option value="Sonangol">Sonangol E.P.</option>
+            {clientOptions.map((clientName) => (
+              <option key={clientName} value={clientName}>
+                {clientName}
+              </option>
+            ))}
           </select>
         </div>
       </section>

@@ -448,6 +448,7 @@ async def test_sync_once_concurrency_and_semaphore(mock_session_factory):
 
     with patch("src.workers.daemons.zabbix_sync_worker.get_settings") as mock_settings:
         mock_settings.return_value.ZABBIX_ENABLED = True
+        worker._dynamic_provider.get_zabbix_config = AsyncMock(return_value={"enabled": True})
 
         # Mock de sync_device_metrics para retornar sucesso
         worker.sync_device_metrics = AsyncMock(return_value=MagicMock())
