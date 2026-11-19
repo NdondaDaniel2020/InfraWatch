@@ -13,6 +13,7 @@ Executa carga idempotente para inicialização de desenvolvimento, testes e NOC:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -28,6 +29,7 @@ from src.contexts.iam.database.models import (
     AuditLogModel,
     NotificationModel,
     OrganizationModel,
+    RefreshTokenModel,
     UserModel,
 )
 from src.contexts.iam.domain.enums import AuditResult, OrgTier, UserRole
@@ -38,6 +40,7 @@ from src.contexts.network_topology.database.models import (
     TopologyNodeModel,
 )
 from src.contexts.sla.database.models import MaintenanceWindowModel
+from src.contexts.system.database.models import SystemSettingModel
 from src.contexts.telemetry.database.models import MetricModel
 from src.core.config import get_settings
 from src.core.database.session import get_session_factory
