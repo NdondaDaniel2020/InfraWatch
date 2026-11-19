@@ -71,16 +71,17 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
   };
 
   const getResourceSubtitle = (log: AuditLogEntry) => {
-    if (log.details?.summary) return String(log.details.summary);
-    if (log.details?.title) return String(log.details.title);
-    if (log.details?.reason) return String(log.details.reason);
-    if (log.details?.auth_method) return String(log.details.auth_method);
-    if (log.details?.engine) return `${log.details.engine} ${log.details?.version || ""}`.trim();
     if (log.resource_id === "SW-CORE-LUANDA-01") return "Cisco 9500 Backbone";
     if (log.resource_id === "#INC-2026-081" || log.resource_id === "#INC-8492") return "Queda Link Secundário";
     if (log.resource_id.includes("GLPI")) return "Status > Atendimento";
     if (log.resource_id.includes("bancosol") || log.resource_id.includes("Banco Sol")) return "Falha Energia Externa";
-    if (log.resource_id.includes("Sessão") || log.resource_id.includes("SSO")) return "YubiKey Hardware FIDO2";
+    if (log.resource_id.includes("Sessão") || log.resource_id.includes("BSol") || log.resource_id.includes("SSO")) return "YubiKey Hardware FIDO2";
+    if (log.action === "SYSTEM_GENESIS" || log.resource_id.includes("infrawatch")) return "TimescaleDB / Redis";
+    if (log.details?.summary) return String(log.details.summary);
+    if (log.details?.auth_method) return String(log.details.auth_method);
+    if (log.details?.reason) return String(log.details.reason);
+    if (log.details?.title) return String(log.details.title);
+    if (log.details?.engine) return `${log.details.engine} ${log.details?.version || ""}`.trim();
     return log.resource_type;
   };
 
@@ -156,14 +157,14 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
         <table className="w-full text-left border-collapse font-mono tabular-nums text-xs">
           <thead>
             <tr className="border-b border-obsidian-800 bg-obsidian-950/40 text-[10px] text-slate-400 uppercase tracking-wider">
-              <th className="py-2.5 px-3">Timestamp (WAT)</th>
-              <th className="py-2.5 px-3">Autor</th>
-              <th className="py-2.5 px-2.5">Papel</th>
-              <th className="py-2.5 px-2.5">IP Origem</th>
-              <th className="py-2.5 px-3">Ação</th>
-              <th className="py-2.5 px-3">Recurso</th>
-              <th className="py-2.5 px-2 text-center">Status</th>
-              <th className="py-2.5 px-3 text-right">Diff</th>
+              <th className="py-2.5 px-2.5">Timestamp (WAT)</th>
+              <th className="py-2.5 px-2">Autor</th>
+              <th className="py-2.5 px-1.5">Papel</th>
+              <th className="py-2.5 px-1.5">IP Origem</th>
+              <th className="py-2.5 px-2">Ação</th>
+              <th className="py-2.5 px-2">Recurso</th>
+              <th className="py-2.5 px-1.5 text-center">Status</th>
+              <th className="py-2.5 px-2 text-right">Diff</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-obsidian-800/60">
@@ -228,46 +229,59 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                         : "hover:bg-obsidian-850/50"
                     }`}
                   >
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    <td className="py-3 px-2.5 whitespace-nowrap">
                       <div className={isSelected ? "font-semibold text-white" : "text-slate-300"}>
                         {datePart}
                       </div>
                       <div className="text-[10px] text-slate-500 tabular-nums">{timePart}</div>
                     </td>
 
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    <td className="py-3 px-2 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         {getActorAvatar(log.actor_name, log.actor_role)}
-                        <span className="text-slate-200 text-[11px]">
+                        <span
+                          className="text-slate-200 text-[11px] max-w-[105px] truncate inline-block align-middle"
+                          title={log.actor_name || "system.daemon"}
+                        >
                           {log.actor_name || "system.daemon"}
                         </span>
                       </div>
                     </td>
 
-                    <td className="py-3 px-2.5 whitespace-nowrap">
+                    <td className="py-3 px-1.5 whitespace-nowrap">
                       <span className={getRoleBadge(log.actor_role)}>
                         {log.actor_role}
                       </span>
                     </td>
 
-                    <td className="py-3 px-2.5 whitespace-nowrap">
+                    <td className="py-3 px-1.5 whitespace-nowrap">
                       <span className="text-slate-300 text-[11px] tabular-nums">
                         {log.ip_address || "internal"}
                       </span>
                     </td>
 
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    <td className="py-3 px-2 whitespace-nowrap">
                       <span className={getActionBadge(log.action)}>
                         {log.action}
                       </span>
                     </td>
 
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <div className="text-xs text-white">{log.resource_id}</div>
-                      <div className="text-[10px] text-slate-400">{getResourceSubtitle(log)}</div>
+                    <td className="py-3 px-2 whitespace-nowrap">
+                      <div
+                        className="text-xs text-white max-w-[135px] truncate"
+                        title={log.resource_id}
+                      >
+                        {log.resource_id}
+                      </div>
+                      <div
+                        className="text-[10px] text-slate-400 max-w-[135px] truncate"
+                        title={getResourceSubtitle(log)}
+                      >
+                        {getResourceSubtitle(log)}
+                      </div>
                     </td>
 
-                    <td className="py-3 px-2 text-center whitespace-nowrap">
+                    <td className="py-3 px-1.5 text-center whitespace-nowrap">
                       {isSuccess ? (
                         <span className="text-emerald-400 text-[11px]">✓ Válido</span>
                       ) : (
@@ -275,7 +289,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                       )}
                     </td>
 
-                    <td className="py-3 px-3 text-right whitespace-nowrap">
+                    <td className="py-3 px-2 text-right whitespace-nowrap">
                       <button
                         type="button"
                         onClick={(e) => {
