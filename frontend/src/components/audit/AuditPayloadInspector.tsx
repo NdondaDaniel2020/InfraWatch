@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AuditLogEntry } from "../../types/audit";
-import { Badge } from "../ui/Badge";
 
 interface AuditPayloadInspectorProps {
   log: AuditLogEntry | null;
@@ -91,28 +90,36 @@ function computeStateDelta(
     }
   }
 
-  // Chaves neutras do topo (como device_id, incident_id, etc.)
-  const topKeys = Object.keys(details).filter(
-    (k) =>
-      k !== "before" &&
-      k !== "after" &&
-      k !== "summary" &&
-      (!after || !(k in after)) &&
-      (!before || !(k in before))
-  );
-
+  // Chave identificadora contextual sempre na primeira linha
   const primaryIdKey = details.device_id
     ? "device_id"
     : details.incident_id
     ? "incident_id"
+    : action.startsWith("DEVICE_") || resourceId.startsWith("SW-") || resourceId.startsWith("SRV-") || resourceId.startsWith("RTR-")
+    ? "device_id"
+    : action.startsWith("INCIDENT_") || resourceId.startsWith("#INC")
+    ? "incident_id"
+    : action.startsWith("SESSION_") || resourceId.startsWith("Sessão")
+    ? "session_id"
+    : action.startsWith("GLPI_") || resourceId.startsWith("GLPI")
+    ? "ticket_id"
     : "resource_id";
-  if (!topKeys.includes(primaryIdKey)) {
-    lines.push({ type: "neutral", key: primaryIdKey, value: resourceId });
-  }
 
-  for (const k of topKeys) {
-    if (k !== primaryIdKey) {
-      lines.push({ type: "neutral", key: k, value: details[k] });
+  lines.push({ type: "neutral", key: primaryIdKey, value: resourceId });
+
+  // Outras chaves de topo que não façam parte de before/after
+  for (const [k, val] of Object.entries(details)) {
+    if (
+      k !== "before" &&
+      k !== "after" &&
+      k !== "summary" &&
+      k !== primaryIdKey &&
+      k !== "device_id" &&
+      k !== "incident_id" &&
+      (!after || !(k in after)) &&
+      (!before || !(k in before))
+    ) {
+      lines.push({ type: "neutral", key: k, value: val });
     }
   }
 
@@ -139,7 +146,9 @@ function computeStateDelta(
     }
   } else {
     for (const [key, val] of Object.entries(details)) {
-      lines.push({ type: "neutral", key, value: val });
+      if (key !== primaryIdKey && key !== "device_id" && key !== "incident_id") {
+        lines.push({ type: "neutral", key, value: val });
+      }
     }
   }
 
@@ -218,6 +227,19 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
     toast.success(`Prova forense baixada: proof-${log.id}.sig`);
   };
 
+  const getInspectorRoleBadge = (role: string) => {
+    switch (role) {
+      case "SUPER_ADMIN":
+        return "px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] font-bold font-mono border border-purple-500/30";
+      case "NOC_OPERATOR":
+        return "px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 text-[9px] font-mono border border-sky-500/30";
+      case "ORG_ADMIN":
+        return "px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-semibold font-mono border border-amber-500/30";
+      default:
+        return "px-1.5 py-0.5 rounded bg-obsidian-800 text-slate-400 text-[9px] font-mono";
+    }
+  };
+
   return (
     <aside
       data-testid="audit-payload-inspector"
@@ -248,9 +270,9 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
           <div className="flex items-center gap-1.5">
             <span className="text-slate-400">Autor:</span>
             <span className="text-white font-medium">{log.actor_name || "system"}</span>
-            <Badge variant="neutral" className="text-[9px] font-mono">
+            <span className={getInspectorRoleBadge(log.actor_role)}>
               {log.actor_role}
-            </Badge>
+            </span>
           </div>
           <div className="text-[11px] font-mono text-slate-400">
             Operação: <span className="text-sky-400 font-semibold">{log.action}</span>
@@ -272,7 +294,7 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
       </div>
 
       {/* Visualizador de Código Diff */}
-      <div className="p-4 bg-obsidian-950 font-mono tabular-nums text-xs overflow-x-auto leading-relaxed select-text flex-1 min-h-[300px]">
+      <div className="p-4 bg-obsidian-950 font-mono tabular-nums text-xs overflow-x-auto leading-relaxed select-text flex-1">
         <div className="text-slate-500 pb-1.5 text-[10px] uppercase font-bold tracking-wider">
           // Comparação de Delta Atômico (Before vs After)
         </div>

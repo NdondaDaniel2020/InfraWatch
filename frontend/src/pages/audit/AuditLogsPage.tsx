@@ -139,7 +139,7 @@ export const AuditLogsPage: React.FC = () => {
   return (
     <div
       data-testid="audit-logs-page"
-      className="p-4 md:p-6 flex flex-col gap-6 max-w-7xl mx-auto w-full"
+      className="p-4 md:p-6 flex flex-col gap-6 w-full"
     >
       {/* 1. Header da Página & Breadcrumb */}
       <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
@@ -219,8 +219,8 @@ export const AuditLogsPage: React.FC = () => {
       />
 
       {/* 4. Layout Bento de 2 Colunas: Tabela (7 cols) + Inspector JSONB (5 cols) */}
-      <div className="grid grid-cols-1 2xl:grid-cols-12 gap-5 items-start">
-        <div className="2xl:col-span-7">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+        <div className="xl:col-span-7">
           <AuditLogTable
             logs={logsResponse?.items || []}
             selectedLogId={selectedLog?.id || null}
@@ -233,7 +233,7 @@ export const AuditLogsPage: React.FC = () => {
           />
         </div>
 
-        <div className="2xl:col-span-5">
+        <div className="xl:col-span-5 sticky top-4">
           <AuditPayloadInspector log={selectedLog} />
         </div>
       </div>
