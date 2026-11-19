@@ -139,12 +139,12 @@ export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
         <div className="flex justify-between">
           <span className="text-slate-400">HW / MODELO:</span>
           <span className="text-slate-200 truncate font-semibold max-w-[120px] text-right">
-            {device.model}
+            {device.model || device.category || "Ativo de Rede"}
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-400">IP:</span>
-          <span className="text-slate-200 text-right">{device.ip}</span>
+          <span className="text-slate-200 text-right">{device.ip || "—"}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-400">RTT:</span>
@@ -157,14 +157,18 @@ export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
                 : "text-emerald-400"
             }`}
           >
-            {device.status === "CRITICAL_DOWN" ? "100% PERDA" : `${device.latencyMs}ms`}
+            {device.status === "CRITICAL_DOWN"
+              ? "100% PERDA"
+              : typeof device.latencyMs === "number"
+              ? `${device.latencyMs}ms`
+              : "—"}
           </span>
         </div>
-        {device.status !== "CRITICAL_DOWN" && (
+        {device.status !== "CRITICAL_DOWN" && (typeof device.cpuUsage === "number" || typeof device.memUsage === "number") && (
           <div className="flex justify-between">
             <span className="text-slate-400">CPU / RAM:</span>
             <span className="text-slate-200 text-right">
-              {device.cpuUsage}% / {device.memUsage}%
+              {typeof device.cpuUsage === "number" ? `${device.cpuUsage}%` : "—"} / {typeof device.memUsage === "number" ? `${device.memUsage}%` : "—"}
             </span>
           </div>
         )}

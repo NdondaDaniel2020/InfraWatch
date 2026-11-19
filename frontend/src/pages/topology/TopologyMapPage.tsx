@@ -54,7 +54,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
 }) => {
   const [stateSimulation, setStateSimulation] = useState<TopologyStateSimulation>(initialViewState);
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>("SW-CORE-LUANDA-01");
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
@@ -72,6 +72,30 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   const rawNodes = topologyGraph?.nodes || [];
   const rawEdges = topologyGraph?.edges || [];
 
+  // Define automaticamente o nó ativo na inicialização (compatível com mocks e UUIDs reais)
+  useEffect(() => {
+    if (rawNodes.length > 0 && !selectedDeviceId) {
+      const preferred =
+        rawNodes.find((n) => n.label === "SW-CORE-LUANDA-01" || n.id === "SW-CORE-LUANDA-01") ||
+        rawNodes[0];
+      if (preferred) {
+        setSelectedDeviceId(preferred.id);
+      }
+    }
+  }, [rawNodes, selectedDeviceId]);
+
+  // Contagem dinâmica por categoria baseada nos nós reais retornados
+  const categoryCounts = useMemo(() => {
+    const counts = { all: rawNodes.length, router: 0, switch: 0, workload: 0 };
+    for (const n of rawNodes) {
+      const cat = (n.category || "").toLowerCase();
+      if (cat === "router") counts.router += 1;
+      else if (cat === "switch") counts.switch += 1;
+      else if (cat === "workload" || cat === "server" || cat === "database") counts.workload += 1;
+    }
+    return counts;
+  }, [rawNodes]);
+
   const activeViewState: TopologyStateSimulation =
     initialViewState !== "nominal"
       ? initialViewState
@@ -88,10 +112,11 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
     return rawNodes.map((dev) => ({
       id: dev.id,
       type: "deviceNode",
-      position: INITIAL_NODE_POSITIONS[dev.id] || {
-        x: dev.positionX ?? 200,
-        y: dev.positionY ?? 200,
-      },
+      position: INITIAL_NODE_POSITIONS[dev.id] ||
+        INITIAL_NODE_POSITIONS[dev.label] || {
+          x: dev.positionX ?? 200,
+          y: dev.positionY ?? 200,
+        },
       data: {
         ...dev,
         onSelect: (id: string) => {
@@ -99,7 +124,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           setIsInspectorOpen(true);
         },
       } as any,
-      selected: dev.id === (selectedDeviceId || "SW-CORE-LUANDA-01"),
+      selected: dev.id === (selectedDeviceId || rawNodes[0]?.id),
     }));
   }, [rawNodes, selectedDeviceId]);
 
@@ -201,8 +226,12 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   };
 
   const handleIsolateNode = async (deviceId: string) => {
-    const res = await topologyApi.isolateNode(deviceId);
-    toast.warning(res.message);
+    try {
+      const res = await topologyApi.isolateNode(deviceId);
+      toast.warning(res.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Falha ao isolar o nó ${deviceId}`);
+    }
   };
 
   return (
@@ -220,6 +249,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
         zoomLevel={zoomLevel}
         isInspectorOpen={isInspectorOpen}
         onToggleInspector={() => setIsInspectorOpen(!isInspectorOpen)}
+        categoryCounts={categoryCounts}
       />
 
       {/* 2. Área do Canvas & Drawer Lateral */}

@@ -9,6 +9,13 @@ import {
 
 export type TopologyStateSimulation = "nominal" | "skeleton" | "empty" | "error";
 
+export interface TopologyCategoryCounts {
+  all: number;
+  router: number;
+  switch: number;
+  workload: number;
+}
+
 interface TopologyToolbarProps {
   categoryFilter: string;
   onCategoryFilterChange: (category: string) => void;
@@ -18,6 +25,7 @@ interface TopologyToolbarProps {
   zoomLevel: number;
   isInspectorOpen: boolean;
   onToggleInspector: () => void;
+  categoryCounts?: TopologyCategoryCounts;
 }
 
 export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
@@ -29,6 +37,7 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
   zoomLevel,
   isInspectorOpen,
   onToggleInspector,
+  categoryCounts,
 }) => {
   return (
     <header
@@ -69,7 +78,7 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            Todos (7)
+            Todos {categoryCounts ? `(${categoryCounts.all})` : ""}
           </button>
           <button
             type="button"
@@ -80,7 +89,7 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            Roteadores (2)
+            Roteadores {categoryCounts ? `(${categoryCounts.router})` : ""}
           </button>
           <button
             type="button"
@@ -91,7 +100,7 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            Switches (3)
+            Switches {categoryCounts ? `(${categoryCounts.switch})` : ""}
           </button>
           <button
             type="button"
@@ -102,7 +111,7 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            DB / API (2)
+            DB / API {categoryCounts ? `(${categoryCounts.workload})` : ""}
           </button>
         </div>
 

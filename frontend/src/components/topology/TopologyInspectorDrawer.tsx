@@ -160,34 +160,37 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
           <div className="grid grid-cols-2 gap-2 font-mono tabular-nums text-xs">
             <div>
               <span className="text-slate-400 block text-[10px]">MODELO</span>
-              <span className="text-slate-200 font-semibold truncate block">{device.model}</span>
+              <span className="text-slate-200 font-semibold truncate block">
+                {device.model || device.label}
+              </span>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px]">FIRMWARE / SO</span>
-              <span className="text-slate-200 truncate block">{device.firmware || "Linux Core"}</span>
+              <span className="text-slate-200 truncate block">{device.firmware || "N/D"}</span>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px]">TEMPERATURA</span>
               <span className="text-emerald-400 font-bold block">
-                {device.temperature || "38.5°C"}
+                {device.temperature || "N/D"}
               </span>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px]">UPTIME</span>
-              <span className="text-slate-200 block">{device.uptime || "184d 12h 45m"}</span>
+              <span className="text-slate-200 block">{device.uptime || "—"}</span>
             </div>
           </div>
         </section>
 
-        {/* Matriz de Portas Físicas (24 SFP+) */}
+        {/* Matriz de Portas Físicas */}
         {device.ports && device.ports.length > 0 && (
           <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="font-mono text-[10px] uppercase text-slate-400 font-semibold">
-                {device.portsTitle || "MATRIZ DE PORTAS (24 SFP+)"}
+                {device.portsTitle || "MATRIZ DE PORTAS"}
               </span>
               <span className="font-mono text-[10px] text-emerald-400 font-bold">
-                {device.portsActiveCount || 18}/{device.portsTotalCount || 24} ATIVAS
+                {device.portsActiveCount ?? device.ports.filter((p) => p.status === "UP").length}/
+                {device.portsTotalCount ?? device.ports.length} ATIVAS
               </span>
             </div>
 
@@ -237,50 +240,47 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
                   {selectedPort.speed}
                 </span>
               </div>
-              <div className="text-slate-400 text-[9px] mt-0.5">
-                Potência Óptica: {selectedPort.opticPower || "Rx: -3.2 dBm | Tx: -2.8 dBm"}
-              </div>
+              {selectedPort.opticPower && (
+                <div className="text-slate-400 text-[9px] mt-0.5">
+                  Potência Óptica: {selectedPort.opticPower}
+                </div>
+              )}
             </div>
           </section>
         )}
 
         {/* Fluxo de Banda em Tempo Real */}
-        <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="font-mono text-[10px] uppercase text-slate-400 font-semibold">
-              FLUXO DE BANDA (TEMPO REAL)
-            </span>
-            <span className="font-mono text-[10px] text-emerald-400 font-semibold">
-              INGRESS / EGRESS
-            </span>
-          </div>
-
-          <div className="flex items-baseline gap-4 mb-2">
-            <div>
-              <span className="text-[10px] font-mono text-slate-400 block">INGRESS</span>
-              <span className="font-mono tabular-nums text-base text-emerald-400 font-bold">
-                {device.ingressGbps || "6.4 Gbps"}
+        {(device.ingressGbps || device.egressGbps) && (
+          <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-mono text-[10px] uppercase text-slate-400 font-semibold">
+                FLUXO DE BANDA (TEMPO REAL)
+              </span>
+              <span className="font-mono text-[10px] text-emerald-400 font-semibold">
+                INGRESS / EGRESS
               </span>
             </div>
-            <div>
-              <span className="text-[10px] font-mono text-slate-400 block">EGRESS</span>
-              <span className="font-mono tabular-nums text-base text-sky-400 font-bold">
-                {device.egressGbps || "7.8 Gbps"}
-              </span>
-            </div>
-          </div>
 
-          {/* Sparkline Visual */}
-          <div className="h-10 w-full bg-obsidian-950 rounded flex items-end gap-1 p-1 overflow-hidden border border-obsidian-800">
-            {Array.from({ length: 24 }).map((_, i) => (
-              <div
-                key={i}
-                style={{ height: `${20 + ((i * 7) % 75)}%` }}
-                className="flex-1 bg-emerald-500/40 rounded-t"
-              />
-            ))}
-          </div>
-        </section>
+            <div className="flex items-baseline gap-4 mb-2">
+              {device.ingressGbps && (
+                <div>
+                  <span className="text-[10px] font-mono text-slate-400 block">INGRESS</span>
+                  <span className="font-mono tabular-nums text-base text-emerald-400 font-bold">
+                    {device.ingressGbps}
+                  </span>
+                </div>
+              )}
+              {device.egressGbps && (
+                <div>
+                  <span className="text-[10px] font-mono text-slate-400 block">EGRESS</span>
+                  <span className="font-mono tabular-nums text-base text-sky-400 font-bold">
+                    {device.egressGbps}
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Vizinhos Conectados LLDP */}
         {device.lldpNeighbors && device.lldpNeighbors.length > 0 && (
@@ -316,7 +316,7 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
           </button>
 
           <Link
-            to={`/devices/${device.id}`}
+            to={`/devices/${device.deviceId || device.id}`}
             className="px-2.5 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-200 font-mono text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
           >
             <Eye size={14} className="text-sky-400" />
