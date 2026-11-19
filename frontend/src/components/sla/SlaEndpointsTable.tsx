@@ -166,7 +166,7 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
       </div>
 
       {/* Paginação */}
-      {totalPages > 1 && (
+      {filteredEndpoints.length > 0 && (
         <div
           data-testid="sla-endpoints-pagination"
           className="flex justify-between items-center pt-3 border-t border-white/10 text-xs font-mono text-slate-400"

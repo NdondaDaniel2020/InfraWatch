@@ -313,6 +313,47 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
       expect(screen.getAllByText("SW-CORE-LUANDA-01").length).toBeGreaterThanOrEqual(1);
     });
 
+    it("deve paginar e filtrar a tabela de Ativos Físicos de Rede", async () => {
+      const user = userEvent.setup();
+      const manyDevices = Array.from({ length: 12 }, (_, i) => ({
+        deviceId: `dev-${i + 1}`,
+        deviceName: `DEVICE-CORE-${String(i + 1).padStart(2, "0")}`,
+        ipAddress: `10.0.1.${i + 1}`,
+        tier: "TIER-1" as const,
+        nominalUptimePct: 99.5,
+        netUptimePct: 99.8,
+        exemptedMaintenanceMinutes: 60,
+        status: "COMPLIANT" as const,
+      }));
+
+      (slaApi.getSlaOverview as Mock).mockResolvedValue(mockSlaOverviewBancoSol);
+      (slaApi.getSlaDeviceBreakdown as Mock).mockResolvedValue(manyDevices);
+
+      renderWithProviders(<SlaReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sla-device-breakdown-table")).toBeInTheDocument();
+        expect(screen.getByTestId("sla-devices-pagination")).toBeInTheDocument();
+      });
+
+      // Página 1 deve ter DEVICE-CORE-01 e não DEVICE-CORE-06 (com itemsPerPage=5)
+      expect(screen.getByText("DEVICE-CORE-01")).toBeInTheDocument();
+      expect(screen.queryByText("DEVICE-CORE-06")).not.toBeInTheDocument();
+
+      // Avançar para página 2
+      const nextBtn = screen.getByTestId("sla-devices-pagination-next");
+      await user.click(nextBtn);
+
+      expect(screen.getByText("DEVICE-CORE-06")).toBeInTheDocument();
+      expect(screen.queryByText("DEVICE-CORE-01")).not.toBeInTheDocument();
+
+      // Testar busca
+      const searchInput = screen.getByTestId("sla-device-search-input");
+      await user.type(searchInput, "CORE-12");
+      expect(screen.getByText("DEVICE-CORE-12")).toBeInTheDocument();
+      expect(screen.queryByText("DEVICE-CORE-06")).not.toBeInTheDocument();
+    });
+
     it("deve permitir alterar o período de apuração temporal de SLA", async () => {
       const user = userEvent.setup();
       (slaApi.getSlaOverview as Mock).mockResolvedValue(mockSlaOverviewBancoSol);
