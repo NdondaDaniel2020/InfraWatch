@@ -96,6 +96,8 @@ export const slaApi = {
             ? item.duration_minutes
             : 0;
 
+        const devName = item.device_name || (item.device_id ? `Ativo #${String(item.device_id).slice(0, 8)}` : "Infraestrutura Global");
+
         return {
           id: String(item.id),
           rfcNumber:
@@ -104,7 +106,7 @@ export const slaApi = {
           title: item.title || item.description || "Manutenção Programada",
           description: item.description || "",
           targetDeviceIds: item.device_id ? [String(item.device_id)] : [],
-          targetDeviceNames: item.device_name ? [item.device_name] : [],
+          targetDeviceNames: item.device_name ? [item.device_name] : (item.device_id ? [devName] : []),
           clientName: item.client_name || "Organização",
           clientCategory: item.client_category || "ENTERPRISE",
           startTimeUtc: item.start_time || new Date().toISOString(),
@@ -121,17 +123,38 @@ export const slaApi = {
   },
 
   async getMaintenanceKpiSummary(): Promise<MaintenanceKpiSummary> {
-    const res = await apiClient.get<MaintenanceKpiSummary>(`${BASE_PATH_MAINT}/kpis`);
-    if (!res || typeof res.exemptedHoursMonth !== "number") {
+    const res = await apiClient.get<any>(`${BASE_PATH_MAINT}/kpis`);
+    if (!res) {
       throw new Error("Resposta inválida do backend para KPIs de manutenção.");
     }
-    return res;
+    const exempted = res.exempted_hours_month ?? res.exemptedHoursMonth;
+    if (typeof exempted !== "number") {
+      throw new Error("Resposta inválida do backend para KPIs de manutenção.");
+    }
+    return {
+      activeNowCount: res.active_now_count ?? res.activeNowCount ?? 0,
+      scheduledCount: res.scheduled_count ?? res.scheduledCount ?? 0,
+      exemptedHoursMonth: exempted,
+      contractualLimitHours: res.contractual_limit_hours ?? res.contractualLimitHours ?? 8,
+    };
   },
 
   async createMaintenanceWindow(
     data: CreateMaintenanceInput
-  ): Promise<MaintenanceWindow> {
-    return apiClient.post<MaintenanceWindow>(BASE_PATH_MAINT, data);
+  ): Promise<any> {
+    const payload: Record<string, any> = {
+      description: data.title ? `${data.title} — ${data.description}` : data.description,
+      start_time: data.startTimeUtc,
+      end_time: data.endTimeUtc,
+      is_approved: Boolean(data.slaExemption),
+    };
+    if (data.targetDeviceIds && data.targetDeviceIds.length > 0) {
+      const candidateId = data.targetDeviceIds[0];
+      if (/^[0-9a-fA-F-]{36}$/.test(candidateId)) {
+        payload.device_id = candidateId;
+      }
+    }
+    return apiClient.post(BASE_PATH_MAINT, payload);
   },
 
   async approveMaintenanceWindow(id: string): Promise<MaintenanceWindow> {
