@@ -95,13 +95,26 @@ export async function apiRequest<T>(
       const status = error.response?.status ?? 500;
       const respData = error.response?.data;
 
-      const errorMessage =
+      let errorMessage =
         (typeof respData === "object" &&
           respData !== null &&
           "detail" in respData &&
           typeof (respData as { detail: unknown }).detail === "string")
           ? (respData as { detail: string }).detail
           : error.message || `Erro HTTP ${status}`;
+
+      if (
+        respData &&
+        typeof respData === "object" &&
+        "error" in respData &&
+        Array.isArray((respData as { error?: { details?: Array<{ message?: string }> } }).error?.details) &&
+        (respData as { error: { details: Array<{ message?: string }> } }).error.details.length > 0
+      ) {
+        const firstMsg = (respData as { error: { details: Array<{ message?: string }> } }).error.details[0]?.message;
+        if (firstMsg) {
+          errorMessage = firstMsg;
+        }
+      }
 
       throw new ApiError(errorMessage, status, respData);
     }

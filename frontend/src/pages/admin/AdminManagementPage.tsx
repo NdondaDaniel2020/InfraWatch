@@ -522,6 +522,7 @@ export const AdminManagementPage: React.FC = () => {
                 <input
                   type="password"
                   required
+                  minLength={8}
                   placeholder="Mínimo 8 caracteres"
                   value={newUserPassword}
                   onChange={(e) => setNewUserPassword(e.target.value)}
