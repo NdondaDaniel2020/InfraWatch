@@ -218,9 +218,9 @@ export const AuditLogsPage: React.FC = () => {
         isGlobalAdmin={isGlobalAdmin}
       />
 
-      {/* 4. Layout Bento de 2 Colunas: Tabela (8/7 cols) + Inspector JSONB (4/5 cols) */}
+      {/* 4. Layout Bento de 2 Colunas: Tabela (7 cols) + Inspector JSONB (5 cols) */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-        <div className="xl:col-span-8 2xl:col-span-7">
+        <div className="xl:col-span-7 min-w-0">
           <AuditLogTable
             logs={logsResponse?.items || []}
             selectedLogId={selectedLog?.id || null}
@@ -233,7 +233,7 @@ export const AuditLogsPage: React.FC = () => {
           />
         </div>
 
-        <div className="xl:col-span-4 2xl:col-span-5 sticky top-4">
+        <div className="xl:col-span-5 sticky top-4 min-w-0">
           <AuditPayloadInspector log={selectedLog} />
         </div>
       </div>
