@@ -108,7 +108,9 @@ export const CustodyIntegrityBanner: React.FC<CustodyIntegrityBannerProps> = ({
                 <Copy size={14} />
               )}
             </button>
-            <span className="text-slate-400 text-[10px] pl-1">(14:10:02 WAT)</span>
+            <span className="text-slate-400 text-[10px] pl-1">
+              ({new Date().toLocaleTimeString("pt-BR", { timeZone: "Africa/Luanda" })} WAT)
+            </span>
           </div>
 
           {/* Alertas de Violações se houver */}
@@ -132,7 +134,9 @@ export const CustodyIntegrityBanner: React.FC<CustodyIntegrityBannerProps> = ({
         <div>
           <div className="text-[10px] font-mono text-slate-400 uppercase">Tempo de Verificação</div>
           <div className="text-lg font-mono text-sky-400 font-bold mt-0.5 tabular-nums">
-            {status.verification_time_ms ?? 14}ms
+            {status.verification_time_ms !== undefined && status.verification_time_ms !== null
+              ? `${status.verification_time_ms}ms`
+              : "0ms"}
           </div>
           <div className="text-[10px] text-slate-400">Zero overhead no banco</div>
         </div>

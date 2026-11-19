@@ -51,11 +51,11 @@ function computeStateDelta(
       after = {
         is_active: false,
         monitoring_status: "PAUSED",
-        pause_reason: details.pause_reason || "Manutenção preventiva emergencial de link óptico",
-        operator_id: details.operator_id || "DN-492",
-        authorized_by: details.authorized_by || "Daniel Ndonda",
       };
-    } else if (action === "INCIDENT_ACK") {
+      if (details.pause_reason) after.pause_reason = details.pause_reason;
+      if (details.operator_id) after.operator_id = details.operator_id;
+      if (details.authorized_by) after.authorized_by = details.authorized_by;
+    } else if (action === "INCIDENT_ACK" || action === "INCIDENT_ACKNOWLEDGED") {
       before = {
         status: "TRIGGERED",
         acknowledged: false,
@@ -63,11 +63,9 @@ function computeStateDelta(
       after = {
         status: "ACKNOWLEDGED",
         acknowledged: true,
-        operator_notes:
-          details.operator_notes ||
-          "Acionamento de equipe de campo para verificação da fibra apagada.",
       };
-    } else if (action === "SESSION_MFA") {
+      if (details.operator_notes) after.operator_notes = details.operator_notes;
+    } else if (action === "SESSION_MFA" || action === "SESSION_MFA_PASS") {
       before = {
         authenticated: false,
         mfa_verified: false,
@@ -75,18 +73,18 @@ function computeStateDelta(
       after = {
         authenticated: true,
         mfa_verified: true,
-        auth_method: details.auth_method || "TOTP Corporativo",
-        session_duration: details.session_duration || "4 hours",
       };
-    } else if (action === "SLA_EXEMPT_REQ") {
+      if (details.auth_method) after.auth_method = details.auth_method;
+      if (details.session_duration) after.session_duration = details.session_duration;
+    } else if (action === "SLA_EXEMPT_REQ" || action === "SLA_EXEMPTION_REQ") {
       before = {
         sla_status: "STANDARD_ENFORCED",
       };
       after = {
         sla_status: "EXEMPTION_PENDING_APPROVAL",
-        reason: details.reason,
-        window_hours: details.window_hours,
       };
+      if (details.reason) after.reason = details.reason;
+      if (details.window_hours) after.window_hours = details.window_hours;
     }
   }
 
@@ -95,13 +93,9 @@ function computeStateDelta(
     ? "device_id"
     : details.incident_id
     ? "incident_id"
-    : action.startsWith("DEVICE_") || resourceId.startsWith("SW-") || resourceId.startsWith("SRV-") || resourceId.startsWith("RTR-")
-    ? "device_id"
-    : action.startsWith("INCIDENT_") || resourceId.startsWith("#INC")
-    ? "incident_id"
-    : action.startsWith("SESSION_") || resourceId.startsWith("Sessão")
+    : details.session_id
     ? "session_id"
-    : action.startsWith("GLPI_") || resourceId.startsWith("GLPI")
+    : details.ticket_id
     ? "ticket_id"
     : "resource_id";
 

@@ -74,13 +74,10 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     if (log.details?.summary) return String(log.details.summary);
     if (log.details?.title) return String(log.details.title);
     if (log.details?.reason) return String(log.details.reason);
+    if (log.details?.description) return String(log.details.description);
+    if (log.details?.name) return String(log.details.name);
     if (log.details?.auth_method) return String(log.details.auth_method);
     if (log.details?.engine) return `${log.details.engine} ${log.details?.version || ""}`.trim();
-    if (log.resource_id === "SW-CORE-LUANDA-01") return "Cisco 9500 Backbone";
-    if (log.resource_id === "#INC-2026-081" || log.resource_id === "#INC-8492") return "Queda Link Secundário";
-    if (log.resource_id.includes("GLPI")) return "Status > Atendimento";
-    if (log.resource_id.includes("bancosol") || log.resource_id.includes("Banco Sol")) return "Falha Energia Externa";
-    if (log.resource_id.includes("Sessão") || log.resource_id.includes("SSO")) return "YubiKey Hardware FIDO2";
     return log.resource_type;
   };
 
@@ -101,15 +98,17 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     }
 
     const initials = actorName
-      .split(/[\s.]+/)
-      .map((p) => p[0]?.toUpperCase() || "")
-      .slice(0, 2)
-      .join("");
+      ? actorName
+          .split(/[\s.]+/)
+          .map((p) => p[0]?.toUpperCase() || "")
+          .slice(0, 2)
+          .join("")
+      : "";
 
     if (actorRole === "SUPER_ADMIN") {
       return (
         <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 font-bold text-[9px] flex items-center justify-center border border-purple-500/30">
-          {initials || "DN"}
+          {initials || "SA"}
         </div>
       );
     }
@@ -117,7 +116,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     if (actorRole === "ORG_ADMIN") {
       return (
         <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[9px] flex items-center justify-center border border-amber-500/30">
-          {initials || "MS"}
+          {initials || "OA"}
         </div>
       );
     }
