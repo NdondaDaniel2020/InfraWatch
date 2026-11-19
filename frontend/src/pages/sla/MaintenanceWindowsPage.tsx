@@ -71,7 +71,6 @@ export const MaintenanceWindowsPage: React.FC = () => {
   });
 
   const devices = useMemo(() => devicesData ?? [], [devicesData]);
-
   const {
     data: maintenances = [],
     isLoading,
@@ -225,7 +224,6 @@ export const MaintenanceWindowsPage: React.FC = () => {
     }
     toast.success("Dossiê de RFCs exportado em formato CSV com sucesso!");
   }, [filteredMaintenances]);
-
   // Decisão de renderização do estado
   const currentState = isLoading
     ? "skeleton"
