@@ -384,6 +384,21 @@ class AuditLogModel(Base):
         back_populates="audit_logs",
     )
 
+    @property
+    def actor_name(self) -> str | None:
+        if "actor_user" in self.__dict__:
+            user = self.__dict__["actor_user"]
+            return user.full_name if user is not None else None
+        return None
+
+    @property
+    def actor_role(self) -> str | None:
+        if "actor_user" in self.__dict__:
+            user = self.__dict__["actor_user"]
+            if user is not None and user.role is not None:
+                return str(user.role.value if hasattr(user.role, "value") else user.role)
+        return None
+
     def __repr__(self) -> str:
         return (
             f"<AuditLogModel id={self.id} action={self.action!r} "

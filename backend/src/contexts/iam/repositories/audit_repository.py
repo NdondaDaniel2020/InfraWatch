@@ -6,10 +6,11 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from src.contexts.iam.database.models import AuditLogModel
+from src.contexts.iam.database.models import AuditLogModel, UserModel
 from src.contexts.iam.domain.enums import AuditResult
 from src.core.domain.entity import generate_uuid7
 from src.core.exceptions import AuditImmutabilityError
@@ -98,16 +99,42 @@ class AuditRepository:
         self,
         *,
         organization_id: UUID | None = None,
+        search: str | None = None,
+        role: str | None = None,
+        action: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[AuditLogModel], int]:
         """Recupera registros de auditoria paginados em ordem cronológica decrescente."""
-        query = select(AuditLogModel)
+        query = select(AuditLogModel).options(joinedload(AuditLogModel.actor_user))
         count_query = select(func.count()).select_from(AuditLogModel)
 
         if organization_id is not None:
             query = query.where(AuditLogModel.organization_id == organization_id)
             count_query = count_query.where(AuditLogModel.organization_id == organization_id)
+
+        if action and action != "ALL":
+            query = query.where(AuditLogModel.action == action.strip())
+            count_query = count_query.where(AuditLogModel.action == action.strip())
+
+        if role and role != "ALL":
+            query = query.join(AuditLogModel.actor_user).where(UserModel.role == role.strip())
+            count_query = count_query.join(AuditLogModel.actor_user).where(UserModel.role == role.strip())
+
+        if search and search.strip():
+            term = f"%{search.strip().lower()}%"
+            if not (role and role != "ALL"):
+                query = query.outerjoin(AuditLogModel.actor_user)
+                count_query = count_query.outerjoin(AuditLogModel.actor_user)
+            search_cond = or_(
+                AuditLogModel.resource_id.ilike(term),
+                AuditLogModel.action.ilike(term),
+                AuditLogModel.ip_address.ilike(term),
+                UserModel.full_name.ilike(term),
+                UserModel.email.ilike(term),
+            )
+            query = query.where(search_cond)
+            count_query = count_query.where(search_cond)
 
         query = query.order_by(AuditLogModel.created_at.desc(), AuditLogModel.id.desc())
         query = query.offset(offset).limit(limit)
@@ -115,7 +142,7 @@ class AuditRepository:
         records_res = await self.session.execute(query)
         count_res = await self.session.execute(count_query)
 
-        return list(records_res.scalars().all()), int(count_res.scalar_one())
+        return list(records_res.scalars().unique().all()), int(count_res.scalar_one())
 
     async def list_all_chronological(
         self,

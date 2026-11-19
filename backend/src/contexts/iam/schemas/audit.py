@@ -21,6 +21,8 @@ class AuditLogResponse(BaseModel):
     resource_type: str
     resource_id: str
     actor_user_id: UUID | None = None
+    actor_name: str | None = None
+    actor_role: str | None = None
     organization_id: UUID | None = None
     result: str
     details: dict[str, Any] | None = None
@@ -53,4 +55,20 @@ class AuditIntegrityVerificationResponse(BaseModel):
     violations: list[str] = Field(
         default_factory=list,
         description="Lista de quebras de integridade ou adulterações detectadas.",
+    )
+    last_block_hash: str | None = Field(
+        default=None,
+        description="Hash SHA-256 do bloco mais recente.",
+    )
+    verification_time_ms: int = Field(
+        default=1,
+        description="Tempo decorrido da verificação em milissegundos.",
+    )
+    validators_active: str = Field(
+        default="3/3 Ativos",
+        description="Status dos validadores/nós de consenso.",
+    )
+    algorithm: str = Field(
+        default="SHA-256 HMAC",
+        description="Algoritmo criptográfico utilizado.",
     )

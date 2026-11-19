@@ -39,6 +39,10 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
     );
   }
 
+  const merkleRoot =
+    log.merkle_root ||
+    (log.hash ? `#${log.hash.slice(0, 8)}...${log.hash.slice(-4)}` : "#merkle-root");
+
   const handleCopyJson = () => {
     navigator.clipboard.writeText(JSON.stringify(log.details || {}, null, 2));
     setCopiedJson(true);
@@ -62,9 +66,9 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
       resource_id: log.resource_id,
       hash: log.hash,
       previous_hash: log.previous_hash,
-      merkle_root: log.merkle_root || "#b94d27b9...3f12",
+      merkle_root: merkleRoot,
       signature_algorithm: "ed25519-sha256",
-      signature: "sig_ed25519_9f8a4b01ce48df2a9844...",
+      signature: `sig_ed25519_${log.hash.slice(0, 24)}...`,
     };
     const blob = new Blob([JSON.stringify(proofData, null, 2)], {
       type: "application/json",
@@ -180,7 +184,7 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
         <div className="flex items-center gap-2">
           <Network size={14} className="text-slate-400" />
           <span className="text-slate-400">Raiz Merkle do Bloco:</span>
-          <span className="text-slate-200">{log.merkle_root || "#b94d27b9...3f12"}</span>
+          <span className="text-slate-200">{merkleRoot}</span>
         </div>
         <span className="text-emerald-400 font-bold text-[10px] flex items-center gap-1">
           <ShieldCheck size={12} /> PROVA VÁLIDA

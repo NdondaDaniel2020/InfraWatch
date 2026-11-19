@@ -67,7 +67,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     }
 
     const initials = actorName
-      .split(".")
+      .split(/[\s.]+/)
       .map((p) => p[0]?.toUpperCase() || "")
       .slice(0, 2)
       .join("");
@@ -261,7 +261,9 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
             {Math.min(currentPage * pageSize, totalCount)} de {totalCount} registros
           </span>
           <span className="text-obsidian-700">|</span>
-          <span className="text-emerald-400">Tamanho do Bloco: 1.2 MB</span>
+          <span className="text-emerald-400">
+            Tamanho do Bloco: {totalCount > 500 ? `${((totalCount * 1.8) / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(totalCount * 1.8))} KB`}
+          </span>
         </div>
 
         <div className="flex items-center gap-1">

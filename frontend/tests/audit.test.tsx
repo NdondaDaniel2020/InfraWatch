@@ -69,6 +69,7 @@ const renderWithProviders = (ui: ReactNode, queryClient?: QueryClient) => {
 describe("Trilha de Auditoria Forense & Governança Administrativa (Issue #226)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (auditApi.verifyIntegrity as Mock).mockResolvedValue(mockCustodyVerificationSuccess);
   });
 
   describe("Página de Auditoria Forense (/admin/audit)", () => {
@@ -118,7 +119,7 @@ describe("Trilha de Auditoria Forense & Governança Administrativa (Issue #226)"
       await user.click(verifyButton);
 
       await waitFor(() => {
-        expect(auditApi.verifyIntegrity).toHaveBeenCalledTimes(1);
+        expect(auditApi.verifyIntegrity).toHaveBeenCalledTimes(2);
       });
     });
 
