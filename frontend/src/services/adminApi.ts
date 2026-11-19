@@ -5,6 +5,7 @@ import {
   AdminUser,
   AdminUserListResponse,
   CreateOrganizationInput,
+  CreateUserInput,
   UpdateUserRoleInput,
 } from "../types/admin";
 
@@ -33,6 +34,13 @@ export const adminApi = {
   },
 
   /**
+   * Criação administrativa de novo usuário (restrito a SUPER_ADMIN e ORG_ADMIN).
+   */
+  createUser: async (input: CreateUserInput): Promise<AdminUser> => {
+    return await apiClient.post<AdminUser>("/api/v1/users", input);
+  },
+
+  /**
    * Atualiza o papel de permissão RBAC de um usuário.
    */
   updateUserRole: async (userId: string, input: UpdateUserRoleInput): Promise<AdminUser> => {
@@ -47,12 +55,19 @@ export const adminApi = {
   },
 
   /**
+   * Desativa/suspende a conta de um usuário e revoga tokens ativos.
+   */
+  deactivateUser: async (userId: string): Promise<AdminUser> => {
+    return await apiClient.post<AdminUser>(`/api/v1/users/${userId}/deactivate`);
+  },
+
+  /**
    * Lista organizações com paginação.
    */
   listOrganizations: async (params?: {
     page?: number;
     size?: number;
-    }): Promise<AdminOrganizationListResponse> => {
+  }): Promise<AdminOrganizationListResponse> => {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.size) searchParams.set("size", String(params.size));
@@ -73,12 +88,17 @@ export const adminApi = {
       id: String(org.id ?? ""),
       name: String(org.name ?? ""),
       slug: String(org.slug ?? ""),
+      contact_email: typeof org.contact_email === "string" ? org.contact_email : null,
+      contact_phone: typeof org.contact_phone === "string" ? org.contact_phone : null,
+      tier: typeof org.tier === "string" ? org.tier : "STANDARD",
+      sla_target_default:
+        typeof org.sla_target_default === "number" || typeof org.sla_target_default === "string"
+          ? org.sla_target_default
+          : "99.50",
       cnpj: typeof org.cnpj === "string" ? org.cnpj : null,
       is_active: Boolean(org.is_active),
       created_at: String(org.created_at ?? ""),
-      ...(typeof org.users_count === "number"
-        ? { users_count: org.users_count }
-        : {}),
+      users_count: typeof org.users_count === "number" ? org.users_count : 0,
     }));
 
     return {

@@ -55,18 +55,38 @@ function normalizeSummary(data: any): ClientSlaSummary {
   };
 }
 
-function mapDeviceToService(item: ClientDeviceDTO): ClientServiceItem {
+function mapDeviceToService(
+  item: ClientDeviceDTO,
+  stabilityPct?: number
+): ClientServiceItem {
   const status = normalizeStatus(item.status);
-  const deviceId = String(item.id ?? item.device_id ?? "");
+  const latency =
+    typeof item.last_latency_ms === "number" && !isNaN(item.last_latency_ms)
+      ? Math.round(item.last_latency_ms)
+      : undefined;
+
+  let throughputFormatted: string | undefined = undefined;
+  if (
+    typeof item.last_packet_loss === "number" &&
+    !isNaN(item.last_packet_loss)
+  ) {
+    throughputFormatted = `${Math.round(item.last_packet_loss)}% Perda`;
+  }
+
   return {
-    id: deviceId,
+    id: String(item.device_id ?? item.id),
     name: item.name,
     category: item.category || "Sem categoria",
     status,
     statusLabel:
       status === "UP" ? "Nominal" : status === "DEG" ? "Degradação" : "Falha",
-    ...(typeof item.last_latency_ms === "number"
-      ? { responseTimeMs: Math.round(item.last_latency_ms * 10) / 10 }
+    ...(typeof latency === "number" ? { responseTimeMs: latency } : {}),
+    ...(throughputFormatted ? { throughputFormatted } : {}),
+    ...(typeof item.last_packet_loss === "number"
+      ? { packetLossPct: item.last_packet_loss }
+      : {}),
+    ...(typeof stabilityPct === "number"
+      ? { stability30DaysPct: Number(stabilityPct.toFixed(1)) }
       : {}),
     tags: item.protocol ? [item.protocol] : [],
   };
@@ -87,61 +107,39 @@ export const clientPortalApi = {
 
   /**
    * Obtém a lista de serviços monitorados e sanitizados para o cliente.
-   * Consulta preferencialmente o endpoint de telemetria em tempo real (/api/v1/events/telemetry),
-   * que inclui métricas de latência sob o escopo multitenant estrito do usuário.
-   * Enriquece os itens com a estabilidade de 30 dias obtida do laudo consolidado de SLA.
+   * Não inventa métricas ausentes no payload do backend.
    */
   async getClientServices(organizationId?: string | null): Promise<ClientServiceItem[]> {
-    let rawItems: ClientDeviceDTO[] = [];
+    const params = new URLSearchParams();
+    if (organizationId) params.set("org_id", organizationId);
+    const query = params.toString();
+    const url = query ? `/api/v1/events/telemetry?${query}` : "/api/v1/events/telemetry";
+    const res = await apiClient.get<ClientDeviceListResponse>(url);
 
-    // 1. Tenta obter do endpoint de telemetria consolidada em tempo real (inclui latência e multitenancy)
-    try {
-      const telemetryRes = await apiClient.get<ClientDeviceListResponse>("/api/v1/events/telemetry");
-      if (telemetryRes && Array.isArray(telemetryRes.items) && telemetryRes.items.length > 0) {
-        rawItems = telemetryRes.items;
-      }
-    } catch {
-      // Continua para o endpoint cadastral caso /events/telemetry não responda
+    if (!res || !Array.isArray(res.items)) {
+      throw new Error("Resposta inválida do backend para a lista de dispositivos.");
     }
 
-    // 2. Fallback para /api/v1/devices caso telemetria retorne vazio ou falhe
-    if (rawItems.length === 0) {
-      const params = new URLSearchParams();
-      if (organizationId) params.set("org_id", organizationId);
-      const query = params.toString();
-      const url = query ? `/api/v1/devices?${query}` : "/api/v1/devices";
-      const res = await apiClient.get<ClientDeviceListResponse>(url);
-
-      if (!res || !Array.isArray(res.items)) {
-        throw new Error("Resposta inválida do backend para a lista de dispositivos.");
-      }
-      rawItems = res.items;
-    }
-
-    // 3. Consulta a conformidade/estabilidade de 30 dias dos dispositivos via relatório oficial
-    const stabilityByDeviceId: Record<string, number> = {};
+    // Busca relatório oficial de SLA para correlacionar a estabilidade dos últimos 30 dias (uptime_net_pct)
+    const slaMap = new Map<string, number>();
     if (organizationId) {
       try {
         const report = await this.getSlaReport(organizationId);
         if (report && Array.isArray(report.devices)) {
-          for (const dev of report.devices) {
-            if (dev.deviceId && typeof dev.uptimeNetPct === "number") {
-              stabilityByDeviceId[dev.deviceId] = dev.uptimeNetPct;
+          for (const d of report.devices) {
+            if (typeof d.uptimeNetPct === "number") {
+              slaMap.set(String(d.deviceId), d.uptimeNetPct);
             }
           }
         }
       } catch {
-        // Silencioso se o relatório detalhado ainda não estiver computado
+        // Degradação graciosa caso a organização ainda não possua relatório SLA compilado
       }
     }
 
-    return rawItems.map((item) => {
-      const service = mapDeviceToService(item);
-      if (stabilityByDeviceId[service.id] !== undefined) {
-        service.stability30DaysPct = stabilityByDeviceId[service.id];
-      }
-      return service;
-    });
+    return res.items.map((item) =>
+      mapDeviceToService(item, slaMap.get(String(item.device_id ?? item.id)))
+    );
   },
 
   /**
@@ -290,12 +288,27 @@ export const clientPortalApi = {
     input: CreateSupportTicketInput
   ): Promise<SupportTicketResponse> {
     const url = `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/support-ticket`;
-    return apiClient.post<SupportTicketResponse>(url, {
+    const res = await apiClient.post<Record<string, unknown>>(url, {
       title: input.title,
       description: input.description,
       severity: input.severity,
       device_id: input.deviceId || null,
     });
+    return {
+      ticketId: String(res.ticket_id ?? res.ticketId ?? ""),
+      protocol: String(res.protocol ?? ""),
+      title: String(res.title ?? ""),
+      severity: String(res.severity ?? ""),
+      status: String(res.status ?? ""),
+      createdAt: String(res.created_at ?? res.createdAt ?? ""),
+      glpiTicketId:
+        typeof res.glpi_ticket_id === "number"
+          ? res.glpi_ticket_id
+          : typeof res.glpiTicketId === "number"
+            ? res.glpiTicketId
+            : undefined,
+      message: String(res.message ?? ""),
+    };
   },
 
   /**
@@ -305,7 +318,7 @@ export const clientPortalApi = {
     const params = new URLSearchParams();
     if (organizationId) params.set("org_id", organizationId);
     const query = params.toString();
-    const url = query ? `/api/v1/devices?${query}` : "/api/v1/devices";
+    const url = query ? `/api/v1/events/telemetry?${query}` : "/api/v1/events/telemetry";
     const res = await apiClient.get<ClientDeviceListResponse>(url);
 
     if (!res || !Array.isArray(res.items)) {
@@ -313,13 +326,13 @@ export const clientPortalApi = {
     }
 
     return res.items.map((item: ClientDeviceDTO) => ({
-      id: String(item.id ?? item.device_id ?? ""),
+      id: String(item.device_id ?? item.id),
       domainName: item.hostname || item.name,
       serviceType: item.category || "Sem categoria",
       protocol: item.protocol || "—",
       status: normalizeStatus(item.status),
       ...(typeof item.last_latency_ms === "number"
-        ? { latencyAvgMs: item.last_latency_ms }
+        ? { latencyAvgMs: Math.round(item.last_latency_ms) }
         : {}),
     }));
   },

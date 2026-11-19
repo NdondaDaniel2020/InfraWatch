@@ -3,8 +3,10 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SanitizedServicesGrid } from "../../src/components/client/SanitizedServicesGrid";
 import { SlaHistoryModal } from "../../src/components/client/SlaHistoryModal";
 import { ClientSupportModal } from "../../src/components/client/ClientSupportModal";
+import { ClientPortalSkeleton } from "../../src/components/client/ClientPortalSkeleton";
 import type { ClientServiceItem } from "../../src/types/clientPortal";
 import { clientPortalApi } from "../../src/services/clientPortalApi";
+import { apiClient } from "../../src/services/apiClient";
 
 // Mock de serviços para teste de busca e paginação
 const mockServices: ClientServiceItem[] = [
@@ -146,7 +148,7 @@ describe("Portal do Cliente - ClientSupportModal (Suporte e Chamados)", () => {
     vi.clearAllMocks();
   });
 
-  it("deve renderizar modal de suporte com formulário e aba de canais diretos", () => {
+  it("deve renderizar modal de suporte simplificado com formulário e régua de SLA reativa", () => {
     render(
       <ClientSupportModal
         isOpen={true}
@@ -156,15 +158,14 @@ describe("Portal do Cliente - ClientSupportModal (Suporte e Chamados)", () => {
     );
 
     expect(screen.getByTestId("client-support-modal")).toBeInTheDocument();
-    expect(screen.getByTestId("support-tab-ticket")).toBeInTheDocument();
-    expect(screen.getByTestId("support-tab-direct")).toBeInTheDocument();
-
-    // Alternar para canais diretos: contatos vêm do contrato, não de dados fictícios
-    fireEvent.click(screen.getByTestId("support-tab-direct"));
-    expect(screen.queryByTestId("whatsapp-support-link")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/contatos diretos de emergência são definidos no contrato/i)
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-title-input")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-severity-select")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-description-input")).toBeInTheDocument();
+    expect(screen.getByTestId("sla-ruler")).toBeInTheDocument();
+    expect(screen.getByText("≤ 15 min")).toBeInTheDocument();
+    expect(screen.getByText("≤ 1 hora")).toBeInTheDocument();
+    expect(screen.getByText("≤ 4 horas")).toBeInTheDocument();
+    expect(screen.getByText("≤ 12 horas")).toBeInTheDocument();
   });
 
   it("deve validar campos e registrar chamado com protocolo no GLPI", async () => {
@@ -211,5 +212,141 @@ describe("Portal do Cliente - ClientSupportModal (Suporte e Chamados)", () => {
     });
 
     expect(handleTicketCreated).toHaveBeenCalled();
+  });
+
+  it("deve renderizar rótulo Perda de Pacotes para dispositivos ICMP", () => {
+    const icmpService: ClientServiceItem = {
+      id: "srv-icmp",
+      name: "Casa-estrela",
+      category: "SERVER",
+      status: "UP",
+      statusLabel: "Nominal",
+      responseTimeMs: 232,
+      throughputFormatted: "0% Perda",
+      tags: ["icmp"],
+      stability30DaysPct: 100.0,
+    };
+
+    render(<SanitizedServicesGrid services={[icmpService]} />);
+
+    expect(screen.getByText("Perda de Pacotes")).toBeInTheDocument();
+    expect(screen.getByText("0% Perda")).toBeInTheDocument();
+    expect(screen.getByText("232 ms (Normal)")).toBeInTheDocument();
+    expect(screen.getByText("100.0%")).toBeInTheDocument();
+  });
+});
+
+describe("clientPortalApi.getClientServices com Telemetria e SLA", () => {
+  it("deve mapear latência, perda de pacotes e estabilidade 30 dias a partir dos endpoints reais", async () => {
+    vi.spyOn(apiClient, "get").mockImplementation(async (url: string) => {
+      if (url.startsWith("/api/v1/events/telemetry")) {
+        return {
+          total: 2,
+          items: [
+            {
+              device_id: "dev-1",
+              name: "NdDaniel",
+              category: "SERVER",
+              status: "DEG",
+              protocol: "icmp",
+              last_latency_ms: 388.297,
+              last_packet_loss: 0.0,
+            },
+            {
+              device_id: "dev-2",
+              name: "DESKTOP-SNUOOM3",
+              category: "SERVER",
+              status: "DOWN",
+              protocol: "icmp",
+              last_latency_ms: 0.0,
+              last_packet_loss: 100.0,
+            },
+          ],
+        };
+      }
+      if (url.startsWith("/api/v1/sla/organizations/org-test/report")) {
+        return {
+          organization_id: "org-test",
+          organization_name: "Test Org",
+          digital_signature: "SIG123",
+          period_label: "Nov/2026",
+          start_period: "2026-11-01",
+          end_period: "2026-11-30",
+          uptime_net_pct: 99.8,
+          uptime_gross_pct: 99.8,
+          sla_target_pct: 99.5,
+          sla_met: true,
+          mttr_minutes: 0,
+          mtbf_hours: 720,
+          total_devices: 2,
+          unplanned_downtime_minutes: 0,
+          exempted_downtime_minutes: 0,
+          devices: [
+            {
+              device_id: "dev-1",
+              device_name: "NdDaniel",
+              category: "SERVER",
+              uptime_gross_pct: 99.8,
+              uptime_net_pct: 99.8,
+              rfc_exempted_minutes: 0,
+              sla_target_pct: 99.5,
+              mttr_minutes: 0,
+              status: "CONFORME",
+            },
+            {
+              device_id: "dev-2",
+              device_name: "DESKTOP-SNUOOM3",
+              category: "SERVER",
+              uptime_gross_pct: 0.0,
+              uptime_net_pct: 0.0,
+              rfc_exempted_minutes: 0,
+              sla_target_pct: 99.5,
+              mttr_minutes: 0,
+              status: "VIOLADO",
+            },
+          ],
+        };
+      }
+      return null;
+    });
+
+    const services = await clientPortalApi.getClientServices("org-test");
+    expect(services).toHaveLength(2);
+
+    expect(services[0].id).toBe("dev-1");
+    expect(services[0].name).toBe("NdDaniel");
+    expect(services[0].status).toBe("DEG");
+    expect(services[0].responseTimeMs).toBe(388);
+    expect(services[0].throughputFormatted).toBe("0% Perda");
+    expect(services[0].stability30DaysPct).toBe(99.8);
+
+    expect(services[1].id).toBe("dev-2");
+    expect(services[1].name).toBe("DESKTOP-SNUOOM3");
+    expect(services[1].status).toBe("DOWN");
+    expect(services[1].responseTimeMs).toBe(0);
+    expect(services[1].throughputFormatted).toBe("100% Perda");
+    expect(services[1].stability30DaysPct).toBe(0.0);
+  });
+});
+
+describe("Portal do Cliente - ClientPortalSkeleton (Fidelidade do Esqueleto de Carregamento)", () => {
+  it("deve renderizar o esqueleto completo espelhando a anatomia do banner executivo e da grade de serviços", () => {
+    render(<ClientPortalSkeleton />);
+
+    // Valida container de acessibilidade e animação de pulso
+    const overlay = screen.getByTestId("state-skeleton-overlay");
+    expect(overlay).toBeInTheDocument();
+    expect(overlay).toHaveAttribute("role", "status");
+    expect(overlay).toHaveAttribute("aria-busy", "true");
+
+    // Valida esqueleto do Banner Executivo (SlaKpiCards)
+    expect(screen.getByTestId("sla-banner-skeleton")).toBeInTheDocument();
+
+    // Valida esqueleto da Grade de Serviços (SanitizedServicesGrid)
+    expect(screen.getByTestId("services-grid-skeleton")).toBeInTheDocument();
+
+    // Valida que exatamente 6 cards de serviços são renderizados (matching PAGE_SIZE = 6)
+    const cards = screen.getAllByTestId("service-card-skeleton");
+    expect(cards).toHaveLength(6);
   });
 });

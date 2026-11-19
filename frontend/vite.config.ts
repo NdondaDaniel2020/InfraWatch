@@ -28,6 +28,7 @@ export default defineConfig({
           "vendor-icons": ["lucide-react"],
           "vendor-charts": ["recharts"],
           "vendor-flow": ["@xyflow/react"],
+          "vendor-pdf": ["jspdf", "jspdf-autotable"],
         },
       },
     },

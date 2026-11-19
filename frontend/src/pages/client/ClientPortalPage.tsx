@@ -9,12 +9,16 @@ import {
 
 import { SlaKpiCards } from "../../components/client/SlaKpiCards";
 import { SanitizedServicesGrid } from "../../components/client/SanitizedServicesGrid";
+import { ClientPortalSkeleton } from "../../components/client/ClientPortalSkeleton";
 import { SlaHistoryModal } from "../../components/client/SlaHistoryModal";
 import { ClientSupportModal } from "../../components/client/ClientSupportModal";
 import { pdfExportService } from "../../services/pdfExportService";
 import { clientPortalApi } from "../../services/clientPortalApi";
 import { useAuth } from "../../context/AuthContext";
-import type { ClientServiceItem } from "../../types/clientPortal";
+import type {
+  ClientServiceItem,
+  SlaHistoryExportPayload,
+} from "../../types/clientPortal";
 
 export type PortalViewState = "loading" | "nominal" | "empty" | "error";
 
@@ -94,6 +98,7 @@ export const ClientPortalPage: React.FC = () => {
     setIsDownloadingPdf(true);
     showToast("Consultando dados oficiais de telemetria e compilando laudo de SLA...");
     try {
+      // Obtenção dos dados oficiais e compilação assíncrona do laudo com paginação dinâmica
       const reportData = await clientPortalApi.getSlaReport(user?.organization_id);
       const success = await pdfExportService.exportSlaPdf(
         slaSummary,
@@ -110,6 +115,25 @@ export const ClientPortalPage: React.FC = () => {
       );
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleExportHistoryPdf = async (payload: SlaHistoryExportPayload) => {
+    showToast(
+      `Compilando laudo de auditoria histórica (${payload.selectedMonths} meses)...`
+    );
+    try {
+      const success = await pdfExportService.exportSlaHistoryPdf(payload);
+      if (!success) {
+        throw new Error("Falha ao gerar o documento PDF.");
+      }
+      showToast(
+        `Download do laudo de auditoria histórica (${payload.selectedMonths} meses) concluído com sucesso.`
+      );
+    } catch {
+      showToast(
+        "Não foi possível obter o laudo de auditoria histórica de SLA. Nenhum documento foi gerado."
+      );
     }
   };
 
@@ -188,20 +212,7 @@ export const ClientPortalPage: React.FC = () => {
       {/* 2. CONTEÚDO PRINCIPAL COM OVERLAYS DE ESTADO                           */}
       {/* ===================================================================== */}
       <div className="relative flex flex-col gap-6 min-h-[500px]">
-        {viewState === "loading" && (
-          <div
-            data-testid="state-skeleton-overlay"
-            className="absolute inset-0 bg-[#070a12]/95 backdrop-blur-sm z-40 p-6 flex flex-col gap-6 rounded-3xl animate-pulse"
-          >
-            <div className="h-44 bg-[#0d1424] rounded-3xl border border-white/10" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-40 bg-[#0d1424] rounded-2xl border border-white/10" />
-              ))}
-            </div>
-            <div className="h-64 bg-[#0d1424] rounded-2xl border border-white/10" />
-          </div>
-        )}
+        {viewState === "loading" && <ClientPortalSkeleton />}
 
         {viewState === "empty" && (
           <div
@@ -253,7 +264,7 @@ export const ClientPortalPage: React.FC = () => {
           </div>
         )}
 
-        {slaSummary && (
+        {viewState === "nominal" && slaSummary && (
           <SlaKpiCards
             summary={slaSummary}
             onDownloadPdf={handleDownloadPdf}
@@ -262,7 +273,9 @@ export const ClientPortalPage: React.FC = () => {
           />
         )}
 
-        <SanitizedServicesGrid services={services} />
+        {viewState === "nominal" && (
+          <SanitizedServicesGrid services={services} />
+        )}
       </div>
 
       <SlaHistoryModal
@@ -270,7 +283,7 @@ export const ClientPortalPage: React.FC = () => {
         onClose={() => setIsHistoryModalOpen(false)}
         organizationId={user?.organization_id}
         tenantName={displayTenantName}
-        onExportPdf={handleDownloadPdf}
+        onExportPdf={handleExportHistoryPdf}
       />
 
       <ClientSupportModal

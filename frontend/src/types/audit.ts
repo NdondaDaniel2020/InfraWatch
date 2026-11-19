@@ -53,13 +53,12 @@ export interface AuditIntegrityVerificationResponse {
 
 export const INITIAL_CUSTODY_STATUS: AuditIntegrityVerificationResponse = {
   is_valid: true,
-  total_records: 12480,
+  total_records: 0,
   violations: [],
-  verification_time_ms: 42,
-  validators_active: "4/4 Nós Quórum",
-  last_block_hash:
-    "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
-  algorithm: "SHA-256 (NIST FIPS 180-4) + Merkle-Damgård",
+  verification_time_ms: 1,
+  validators_active: "3/3 Ativos",
+  last_block_hash: "",
+  algorithm: "SHA-256 HMAC",
 };
 
 export interface AuditFilterParams {

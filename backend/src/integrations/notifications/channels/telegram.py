@@ -30,20 +30,56 @@ class TelegramChannel:
         self,
         bot_token: str | None = None,
         default_chat_id: str | None = None,
+        enabled: bool | None = None,
         timeout_seconds: float = 10.0,
         client: httpx.AsyncClient | None = None,
     ) -> None:
+        self._explicit_bot_token = bot_token
+        self._explicit_default_chat_id = default_chat_id
+        self._explicit_enabled = enabled
         settings = get_settings()
         self.bot_token = bot_token if bot_token is not None else settings.TELEGRAM_BOT_TOKEN
         self.default_chat_id = (
             default_chat_id if default_chat_id is not None else settings.TELEGRAM_DEFAULT_CHAT_ID
         )
+        self.enabled = enabled if enabled is not None else bool(self.bot_token)
         self.timeout = timeout_seconds
         self._custom_client = client
 
+    async def _resolve_config(self) -> tuple[bool, str, str]:
+        """Resolve credenciais ativas via DynamicSettingsProvider ou fallback local."""
+        if (
+            self._explicit_bot_token is not None
+            or self._explicit_default_chat_id is not None
+            or self._explicit_enabled is not None
+        ):
+            return (
+                self.enabled,
+                self.bot_token or "",
+                self.default_chat_id or "",
+            )
+        try:
+            from src.contexts.system.services.dynamic_settings_provider import (
+                get_dynamic_settings_provider,
+            )
+
+            cfg = await get_dynamic_settings_provider().get_telegram_config()
+            return (
+                bool(cfg.get("enabled", True)),
+                cfg.get("bot_token") or "",
+                cfg.get("default_chat_id") or "",
+            )
+        except Exception:
+            return (
+                self.enabled,
+                self.bot_token or "",
+                self.default_chat_id or "",
+            )
+
     async def is_available(self) -> bool:
-        """Verifica se o bot token e o chat id estão configurados."""
-        return bool(self.bot_token and (self.default_chat_id or self.bot_token.strip()))
+        """Verifica se o canal está habilitado e se o bot token e o chat id estão configurados."""
+        enabled, bot_token, chat_id = await self._resolve_config()
+        return bool(enabled and bot_token and (chat_id or bot_token.strip()))
 
     def _format_message(self, alert: AlertMessage) -> str:
         """Formata o alerta em HTML para renderização no Telegram."""
@@ -69,12 +105,17 @@ class TelegramChannel:
 
     async def send(self, alert: AlertMessage, recipient: str | None = None) -> bool:
         """Envia mensagem formatada para o chat do Telegram."""
-        chat_id = recipient or self.default_chat_id
-        if not self.bot_token or not chat_id:
+        enabled, bot_token, default_chat_id = await self._resolve_config()
+        if not enabled:
+            logger.info("Canal Telegram desabilitado. Envio ignorado.")
+            return False
+
+        chat_id = recipient or default_chat_id
+        if not bot_token or not chat_id:
             logger.debug("Telegram não configurado (token ou chat_id ausente). Envio ignorado.")
             return False
 
-        url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         payload: dict[str, Any] = {
             "chat_id": chat_id,
             "text": self._format_message(alert),

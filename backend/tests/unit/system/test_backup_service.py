@@ -72,6 +72,21 @@ async def test_get_backup_history_reads_directory(tmp_path: Path) -> None:
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  infrawatch_backup_20261017_010000.tar.gz\n"
     )
 
+    # Criar manifesto .meta.json fiel para b1
+    b1_meta = backup_dir / "infrawatch_backup_20261017_010000.tar.gz.meta.json"
+    b1_meta.write_text(
+        json.dumps({
+            "backup_name": b1.name,
+            "trigger": "manual",
+            "notes": "Backup com falha no GDrive e R2 ignorado",
+            "targets": {
+                "local": "SUCCESS",
+                "gdrive": "FAILED",
+                "r2": "SKIPPED",
+            },
+        })
+    )
+
     b2 = backup_dir / "infrawatch_backup_20261017_020000.tar.gz"
     b2.write_bytes(b"conteudo-backup-2-mais-recente")
 
@@ -88,11 +103,93 @@ async def test_get_backup_history_reads_directory(tmp_path: Path) -> None:
     assert "infrawatch_backup_20261017_010000.tar.gz" in filenames
     assert "infrawatch_backup_20261017_020000.tar.gz" in filenames
 
-    # Verifica leitura correta do hash SHA-256
+    # Verifica leitura correta do hash SHA-256 e enriquecimento fiel de targets a partir do .meta.json
     item_with_sha = next(i for i in history.items if i.filename == b1.name)
     assert (
         item_with_sha.sha256 == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     )
+    assert item_with_sha.trigger == "manual"
+    assert item_with_sha.targets.local == "SUCCESS"
+    assert item_with_sha.targets.gdrive == "FAILED"
+    assert item_with_sha.targets.r2 == "SKIPPED"
+    assert item_with_sha.notes == "Backup com falha no GDrive e R2 ignorado"
+
+    cron_item = next(i for i in history.items if i.filename == b2.name)
+    assert cron_item.trigger == "scheduled"
+    assert "Cron" in (cron_item.notes or "")
+
+
+def test_get_gdrive_auth_url() -> None:
+    """Valida geração correta de URL de consentimento OAuth do Google Drive."""
+    service = BackupService()
+    with patch.object(service, "_get_google_credentials", return_value=("test-client-id", "test-secret")):
+        response = service.get_gdrive_auth_url("https://localhost/auth/callback")
+
+    assert response.state == "gdrive_backup"
+    assert "accounts.google.com" in response.auth_url
+    assert "client_id=test-client-id" in response.auth_url
+    assert "redirect_uri=https%3A%2F%2Flocalhost%2Fauth%2Fcallback" in response.auth_url
+    assert "scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive" in response.auth_url
+
+
+def test_get_gdrive_status() -> None:
+    """Valida verificação de status de configuração e autorização do Google Drive."""
+    service = BackupService()
+
+    # Cenário 1: Sem credenciais
+    with patch.object(service, "_get_google_credentials", return_value=(None, None)):
+        st = service.get_gdrive_status()
+        assert not st.configured
+        assert not st.authorized
+
+    # Cenário 2: Configurado mas sem token no rclone
+    with patch.object(service, "_get_google_credentials", return_value=("id", "sec")), \
+         patch.object(service, "_get_rclone_config_content", return_value="[gdrive]\ntoken = {\"refresh_token\":\"\"}\n"):
+        st = service.get_gdrive_status()
+        assert st.configured
+        assert not st.authorized
+
+    # Cenário 3: Configurado e autorizado com refresh_token válido
+    with patch.object(service, "_get_google_credentials", return_value=("id", "sec")), \
+         patch.object(service, "_get_rclone_config_content", return_value="[gdrive]\ntoken = {\"refresh_token\":\"1//valid_token\"}\n"):
+        st = service.get_gdrive_status()
+        assert st.configured
+        assert st.authorized
+
+
+@pytest.mark.asyncio
+async def test_complete_gdrive_auth() -> None:
+    """Valida troca de authorization code por tokens e persistência no Rclone."""
+    service = BackupService()
+    mock_redis = AsyncMock()
+    mock_redis.publish = AsyncMock(return_value=1)
+
+    fake_token_response = {
+        "access_token": "ya29.test-access-token",
+        "refresh_token": "1//test-refresh-token",
+        "expires_in": 3600,
+        "token_type": "Bearer",
+    }
+
+    mock_http_response = MagicMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = MagicMock(return_value=fake_token_response)
+
+    with patch.object(service, "_get_google_credentials", return_value=("test-id", "test-secret")), \
+         patch("httpx.AsyncClient.post", new=AsyncMock(return_value=mock_http_response)), \
+         patch.object(service, "_save_rclone_gdrive_token", return_value="[gdrive]\ntoken = {}\n"), \
+         patch("src.contexts.system.services.backup_service.get_redis_client", return_value=mock_redis):
+        result = await service.complete_gdrive_auth(
+            code="test-auth-code",
+            redirect_uri="https://localhost/auth/callback",
+        )
+
+    assert result.configured is True
+    assert result.authorized is True
+    assert "sucesso" in (result.message or "").lower()
+    mock_redis.publish.assert_called_once()
+    assert mock_redis.publish.call_args[0][0] == "backup:config_update"
+
 
 
 @pytest.mark.asyncio

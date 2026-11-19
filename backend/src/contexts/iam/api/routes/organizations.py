@@ -41,8 +41,24 @@ async def list_organizations(
         page=page,
         size=size,
     )
+    counts = await organization_service.get_users_counts([org.id for org in items])
     return OrganizationListResponse(
-        items=[OrganizationResponse.model_validate(org) for org in items],
+        items=[
+            OrganizationResponse(
+                id=org.id,
+                name=org.name,
+                slug=org.slug,
+                contact_email=org.contact_email,
+                contact_phone=org.contact_phone,
+                tier=org.tier,
+                sla_target_default=org.sla_target_default,
+                is_active=org.is_active,
+                users_count=counts.get(org.id, 0),
+                created_at=org.created_at,
+                updated_at=org.updated_at,
+            )
+            for org in items
+        ],
         total=total,
         page=page,
         size=size,

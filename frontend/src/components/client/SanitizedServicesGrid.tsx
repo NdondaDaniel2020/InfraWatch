@@ -205,7 +205,11 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                       </span>
                     </div>
                     <div>
-                      <span className="text-[11px] font-mono text-slate-400 block">Vazão / Capacidade</span>
+                      <span className="text-[11px] font-mono text-slate-400 block">
+                        {svc.tags.some((t) => t.toLowerCase() === "icmp")
+                          ? "Perda de Pacotes"
+                          : "Vazão / Capacidade"}
+                      </span>
                       <span className="text-sm font-mono font-bold text-white tabular-nums mt-0.5 block">
                         {svc.throughputFormatted ?? "N/D"}
                       </span>

@@ -141,6 +141,40 @@ class UserCommandService:
 
         return saved_user, raw_token
 
+    async def create_user_admin(
+        self,
+        *,
+        email: str,
+        password: str,
+        full_name: str,
+        role: UserRole | str,
+        organization_id: UUID | None,
+    ) -> UserModel:
+        """Cria e ativa diretamente um novo usuário via painel administrativo."""
+        norm_email = email.strip().lower()
+        existing = await self.user_repo.get_by_email(norm_email)
+        if existing:
+            raise EmailAlreadyExistsError()
+
+        hashed_pwd = password_hasher.hash(password)
+        user_model = UserModel(
+            email=norm_email,
+            hashed_password=hashed_pwd,
+            full_name=full_name.strip(),
+            role=str(role),
+            organization_id=organization_id,
+            is_active=True,
+            is_verified=True,
+        )
+        saved_user = await self.user_repo.save(user_model)
+        await self.session.flush()
+        if organization_id is not None:
+            await self.session.refresh(saved_user, ["organization"])
+        else:
+            await self.session.refresh(saved_user)
+        await self.uow.commit()
+        return saved_user
+
     async def update_profile(
         self,
         user_id: UUID,

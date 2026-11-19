@@ -55,14 +55,14 @@ export const SystemSettingsPage: React.FC = () => {
       id: "notifications" as TabId,
       name: "Notificações",
       icon: Bell,
-      count: "Multicanal",
+      count: "Ativo",
       enabled: true,
     },
     {
       id: "cluster" as TabId,
       name: "Infra & Cluster",
       icon: Server,
-      count: "Timescale/Redis",
+      count: "Ativo",
       enabled: true,
     },
   ];
@@ -103,8 +103,8 @@ export const SystemSettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-800 space-x-2">
+      {/* Tabs Navigation com tamanhos perfeitamente equalizados */}
+      <div className="grid grid-cols-2 md:grid-cols-4 border-b border-slate-800 gap-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -112,16 +112,16 @@ export const SystemSettingsPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2.5 px-4 py-3 border-b-2 text-xs font-medium transition-all ${
+              className={`flex items-center justify-center gap-2 px-3 py-3 border-b-2 text-xs font-medium transition-all ${
                 isActive
-                  ? "border-cyan-500 text-cyan-400 bg-cyan-500/5"
+                  ? "border-cyan-500 text-cyan-400 bg-cyan-500/5 font-semibold"
                   : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30"
               }`}
             >
-              <Icon className="w-4 h-4" />
-              <span>{tab.name}</span>
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="truncate">{tab.name}</span>
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono shrink-0 ${
                   isActive
                     ? "bg-cyan-500/20 text-cyan-300"
                     : "bg-slate-800 text-slate-400"
@@ -149,7 +149,10 @@ export const SystemSettingsPage: React.FC = () => {
             <ZabbixSettingsTab statusItem={getIntegration("zabbix")} onRefresh={fetchStatus} />
           )}
           {activeTab === "notifications" && (
-            <NotificationSettingsTab integrations={statusData?.integrations || []} />
+            <NotificationSettingsTab
+              integrations={statusData?.integrations || []}
+              onRefresh={fetchStatus}
+            />
           )}
           {activeTab === "cluster" && (
             <InfraClusterSettingsTab

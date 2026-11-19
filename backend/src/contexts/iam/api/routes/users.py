@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from src.contexts.iam.api.dependencies import (
     CurrentUserDep,
@@ -21,12 +21,14 @@ from src.contexts.iam.schemas.session import (
     SessionRevokeResponse,
 )
 from src.contexts.iam.schemas.user import (
+    AdminUserCreate,
     UserListResponse,
     UserPublicResponse,
     UserRolesUpdate,
     UserUpdate,
 )
-from src.core.exceptions import NotFoundError
+from src.contexts.iam.security.tokens import hash_token
+from src.core.exceptions import EmailAlreadyExistsError, NotFoundError
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users & Sessions"])
 
@@ -77,10 +79,13 @@ async def update_my_user_profile(
 async def list_my_sessions(
     current_user: CurrentUserDep,
     session_service: SessionServiceDep,
+    x_refresh_token: str | None = Header(default=None, alias="X-Refresh-Token"),
 ) -> SessionListResponse:
     """Retorna todos os tokens de refresh ativos que representam sessões do usuário."""
     user_uuid = UUID(current_user.id)
     tokens = await session_service.list_active_sessions(user_uuid)
+
+    current_hash = hash_token(x_refresh_token) if x_refresh_token else None
 
     sessions_data = [
         SessionResponse(
@@ -89,7 +94,7 @@ async def list_my_sessions(
             ip_address=t.ip_address,
             created_at=t.created_at,
             expires_at=t.expires_at,
-            is_current=False,
+            is_current=bool(current_hash and t.token_hash == current_hash),
         )
         for t in tokens
     ]
@@ -121,17 +126,30 @@ async def revoke_session_by_id(
 @router.delete(
     "/me/sessions",
     response_model=SessionRevokeResponse,
-    summary="Encerrar todas as sessões ativas",
+    summary="Encerrar sessões ativas (preserva atual se X-Refresh-Token fornecido)",
 )
 async def revoke_all_sessions(
     current_user: CurrentUserDep,
     session_service: SessionServiceDep,
+    x_refresh_token: str | None = Header(default=None, alias="X-Refresh-Token"),
 ) -> SessionRevokeResponse:
-    """Invalida todas as sessões ativas do usuário conectado."""
+    """Invalida as sessões ativas do usuário conectado.
+    
+    Se o cabeçalho X-Refresh-Token for informado, desconecta todos os outros dispositivos
+    e mantém a sessão atual ativa.
+    """
     user_uuid = UUID(current_user.id)
-    count = await session_service.revoke_all_sessions(user_uuid)
+    current_hash = hash_token(x_refresh_token) if x_refresh_token else None
+
+    if current_hash:
+        count = await session_service.revoke_other_sessions(user_uuid, current_token_hash=current_hash)
+        msg = "Outras sessões ativas foram desconectadas com sucesso."
+    else:
+        count = await session_service.revoke_all_sessions(user_uuid)
+        msg = "Todas as sessões ativas foram revogadas com sucesso."
+
     return SessionRevokeResponse(
-        message="Todas as sessões ativas foram revogadas com sucesso.",
+        message=msg,
         revoked_count=count,
     )
 
@@ -145,6 +163,20 @@ async def revoke_all_sessions(
     "",
     response_model=UserListResponse,
     summary="Listar usuários cadastrados com paginação (Admin)",
+    dependencies=[
+        Depends(
+            require_roles(
+                UserRole.SUPER_ADMIN,
+                UserRole.NOC_OPERATOR,
+                UserRole.ORG_ADMIN,
+            )
+        )
+    ],
+)
+@router.get(
+    "/",
+    response_model=UserListResponse,
+    include_in_schema=False,
     dependencies=[
         Depends(
             require_roles(
@@ -185,6 +217,69 @@ async def list_users(
         page=pagination.page,
         page_size=pagination.page_size,
     )
+
+
+@router.post(
+    "",
+    response_model=UserPublicResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Cadastrar novo usuário (Admin)",
+    dependencies=[
+        Depends(
+            require_roles(
+                UserRole.SUPER_ADMIN,
+                UserRole.ORG_ADMIN,
+            )
+        )
+    ],
+)
+@router.post(
+    "/",
+    response_model=UserPublicResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+    dependencies=[
+        Depends(
+            require_roles(
+                UserRole.SUPER_ADMIN,
+                UserRole.ORG_ADMIN,
+            )
+        )
+    ],
+)
+async def create_user(
+    body: AdminUserCreate,
+    current_user: CurrentUserDep,
+    command_service: UserCommandServiceDep,
+) -> UserPublicResponse:
+    """Cria diretamente uma conta de usuário via painel administrativo."""
+    if not current_user.is_super_admin:
+        if not current_user.organization_id or str(body.organization_id) != current_user.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ORG_ADMIN só pode cadastrar usuários dentro de sua própria organização.",
+            )
+        if body.role not in [UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ORG_ADMIN não pode atribuir papéis globais como SUPER_ADMIN ou NOC_OPERATOR.",
+            )
+
+    try:
+        user = await command_service.create_user_admin(
+            email=body.email,
+            password=body.password,
+            full_name=body.full_name,
+            role=body.role,
+            organization_id=body.organization_id,
+        )
+    except EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="O e-mail informado já está cadastrado no sistema.",
+        ) from None
+
+    return UserPublicResponse.model_validate(user)
 
 
 @router.get(

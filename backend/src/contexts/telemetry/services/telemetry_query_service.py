@@ -32,6 +32,7 @@ class TelemetryQueryService:
     async def list_monitored_devices(
         self,
         current_user: AuthenticatedUser,
+        organization_id: UUID | None = None,
         status_filter: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -40,11 +41,13 @@ class TelemetryQueryService:
         stmt = select(DeviceModel)
 
         # Isolamento multitenancy: usuários regulares acessam apenas a sua própria organização
-        if not current_user.is_super_admin:
+        if not current_user.is_global_operator:
             if current_user.organization_id:
                 stmt = stmt.where(DeviceModel.organization_id == UUID(current_user.organization_id))
             else:
                 return MonitoredDevicesResponse(total=0, items=[])
+        elif organization_id:
+            stmt = stmt.where(DeviceModel.organization_id == organization_id)
 
         if status_filter:
             stmt = stmt.where(DeviceModel.status == status_filter.upper())

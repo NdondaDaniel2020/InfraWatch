@@ -10,6 +10,7 @@ import { SlaReportsPage } from "../src/pages/sla/SlaReportsPage";
 import { slaApi } from "../src/services/slaApi";
 import { adminApi } from "../src/services/adminApi";
 import { clientPortalApi } from "../src/services/clientPortalApi";
+import { pdfExportService } from "../src/services/pdfExportService";
 import {
   mockMaintenanceWindows,
   mockMaintenanceKpiSummary,
@@ -322,6 +323,51 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
       const periodSelect = screen.getByLabelText(/selecionar período de apuração/i);
       await user.selectOptions(periodSelect, "last_7d");
       expect(periodSelect).toHaveValue("last_7d");
+    });
+
+    it("deve disparar a exportação do relatório executivo NOC em PDF na visão de dispositivos", async () => {
+      const user = userEvent.setup();
+      (slaApi.getSlaOverview as Mock).mockResolvedValue(mockSlaOverviewBancoSol);
+      (slaApi.getSlaDeviceBreakdown as Mock).mockResolvedValue(mockSlaDeviceBreakdown);
+      (slaApi.getSlaReportDetails as Mock).mockResolvedValue({
+        organizationId: "org-1",
+        organizationName: "Banco Sol S.A.",
+        periodLabel: "Nov/2026",
+        startPeriod: "2026-11-01",
+        endPeriod: "2026-11-30",
+        uptimeNetPct: 99.85,
+        uptimeGrossPct: 99.9,
+        slaTargetPct: 99.5,
+        slaMet: true,
+        mttrMinutes: 5.2,
+        mtbfHours: 720,
+        totalDevices: 3,
+        unplannedDowntimeMinutes: 14,
+        exemptedDowntimeMinutes: 60,
+        devices: [],
+        digitalSignature: "SHA256:test-signature-noc",
+      });
+
+      const exportSpy = vi.spyOn(pdfExportService, "exportNocSlaReportPdf").mockResolvedValue(true);
+
+      renderWithProviders(<SlaReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Gerar Relatório Executivo PDF")).toBeInTheDocument();
+      });
+
+      const generatePdfBtn = screen.getByText("Gerar Relatório Executivo PDF");
+      await user.click(generatePdfBtn);
+
+      await waitFor(() => {
+        expect(exportSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            viewMode: "devices",
+            tenantName: mockSlaOverviewBancoSol.tenantName,
+            selectedPeriod: "last_30d",
+          })
+        );
+      });
     });
   });
 

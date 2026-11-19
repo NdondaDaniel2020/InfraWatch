@@ -386,23 +386,67 @@ async def test_session_management_endpoints(
         tokens = login_resp.json()
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-        # Lista sessões
+        # Lista sessões sem X-Refresh-Token
         sessions_resp = await client.get("/api/v1/users/me/sessions", headers=headers)
         assert sessions_resp.status_code == status.HTTP_200_OK
         sessions_data = sessions_resp.json()
         assert sessions_data["total"] >= 1
-        session_id = sessions_data["sessions"][0]["id"]
+        assert sessions_data["sessions"][0]["is_current"] is False
 
-        # Revoga a sessão específica
+        # Lista sessões com X-Refresh-Token identificando a sessão ativa
+        headers_with_refresh = {
+            **headers,
+            "X-Refresh-Token": tokens["refresh_token"],
+        }
+        sessions_resp2 = await client.get("/api/v1/users/me/sessions", headers=headers_with_refresh)
+        assert sessions_resp2.status_code == status.HTTP_200_OK
+        sessions_data2 = sessions_resp2.json()
+        assert sessions_data2["sessions"][0]["is_current"] is True
+
+        # Cria segunda sessão para testar desconexão de outras sessões
+        login_resp2 = await client.post(
+            "/api/v1/auth/login",
+            json={"email": normal_user.email, "password": password},
+        )
+        assert login_resp2.status_code == status.HTTP_200_OK
+        tokens2 = login_resp2.json()
+        headers2 = {"Authorization": f"Bearer {tokens2['access_token']}"}
+
+        # Confirma que a segunda sessão tem acesso inicial ativo
+        active_check = await client.get("/api/v1/users/me/sessions", headers=headers2)
+        assert active_check.status_code == status.HTTP_200_OK
+
+        # Desconecta outras sessões preservando a primeira (tokens['refresh_token'])
+        other_del_resp = await client.delete(
+            "/api/v1/users/me/sessions",
+            headers=headers_with_refresh,
+        )
+        assert other_del_resp.status_code == status.HTTP_200_OK
+        assert "Outras sessões" in other_del_resp.json()["message"]
+        assert other_del_resp.json()["revoked_count"] >= 1
+
+        # Valida que o Access Token da segunda sessão é rejeitado IMEDIATAMENTE (0s)
+        revoked_check2 = await client.get("/api/v1/users/me/sessions", headers=headers2)
+        assert revoked_check2.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "Sessão revogada remotamente" in revoked_check2.json()["detail"]
+
+        # Confirma que a primeira sessão continua ativa
+        sessions_resp3 = await client.get("/api/v1/users/me/sessions", headers=headers_with_refresh)
+        assert sessions_resp3.json()["total"] == 1
+        assert sessions_resp3.json()["sessions"][0]["is_current"] is True
+
+        # Revoga a sessão específica restante
+        session_id = sessions_resp3.json()["sessions"][0]["id"]
         del_resp = await client.delete(
             f"/api/v1/users/me/sessions/{session_id}",
             headers=headers,
         )
         assert del_resp.status_code == status.HTTP_200_OK
 
-        # Revoga todas
-        all_del_resp = await client.delete("/api/v1/users/me/sessions", headers=headers)
-        assert all_del_resp.status_code == status.HTTP_200_OK
+        # Valida que a sessão específica foi revogada imediatamente
+        revoked_check1 = await client.get("/api/v1/users/me/sessions", headers=headers)
+        assert revoked_check1.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "Sessão revogada remotamente" in revoked_check1.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -460,3 +504,32 @@ async def test_admin_user_management(
         )
         assert mfa_del_resp.status_code == status.HTTP_200_OK
         assert mfa_del_resp.json()["mfa_enabled"] is False
+
+        # 6. Admin cria novo usuário diretamente
+        create_user_resp = await client.post(
+            "/api/v1/users",
+            headers=admin_headers,
+            json={
+                "email": "new.analyst.admin@test.org",
+                "full_name": "Analista Criado por Admin",
+                "password": "CompliantPassword#2026",
+                "role": "CLIENT_VIEWER",
+                "organization_id": str(admin_user.organization_id),
+            },
+        )
+        assert create_user_resp.status_code == status.HTTP_201_CREATED
+        created_data = create_user_resp.json()
+        assert created_data["email"] == "new.analyst.admin@test.org"
+        assert created_data["is_active"] is True
+        assert created_data["is_verified"] is True
+
+        # 7. Listagem de usuários traz organization_name
+        list_after_create = await client.get("/api/v1/users", headers=admin_headers)
+        assert list_after_create.status_code == status.HTTP_200_OK
+        first_user = list_after_create.json()["items"][0]
+        assert "organization_name" in first_user
+
+        # 8. Listagem de organizações traz users_count real
+        orgs_resp = await client.get("/api/v1/organizations", headers=admin_headers)
+        assert orgs_resp.status_code == status.HTTP_200_OK
+        assert orgs_resp.json()["items"][0]["users_count"] >= 1

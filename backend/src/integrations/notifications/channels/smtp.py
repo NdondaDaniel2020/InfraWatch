@@ -55,25 +55,101 @@ class SmtpNotificationChannel:
         default_recipient: str | None = None,
         timeout_seconds: float = 10.0,
         sender_func: Callable[..., Awaitable[Any]] | None = None,
+        *,
+        host: str | None = None,
+        port: int | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        from_address: str | None = None,
+        tls: bool | None = None,
+        enabled: bool | None = None,
     ) -> None:
         settings = get_settings()
-        self.smtp_host = smtp_host if smtp_host is not None else settings.SMTP_HOST
-        self.smtp_port = smtp_port if smtp_port is not None else settings.SMTP_PORT
-        self.smtp_user = smtp_user if smtp_user is not None else settings.SMTP_USER
-        self.smtp_password = smtp_password if smtp_password is not None else settings.SMTP_PASSWORD
-        self.smtp_from = smtp_from if smtp_from is not None else settings.SMTP_FROM
-        self.smtp_tls = smtp_tls if smtp_tls is not None else settings.SMTP_TLS
+        effective_host = smtp_host if smtp_host is not None else host
+        effective_port = smtp_port if smtp_port is not None else port
+        effective_user = smtp_user if smtp_user is not None else user
+        effective_password = smtp_password if smtp_password is not None else password
+        effective_from = smtp_from if smtp_from is not None else from_address
+        effective_tls = smtp_tls if smtp_tls is not None else tls
+
+        self._explicit_host = effective_host
+        self._explicit_port = effective_port
+        self._explicit_user = effective_user
+        self._explicit_password = effective_password
+        self._explicit_from = effective_from
+        self._explicit_tls = effective_tls
+        self._explicit_default_recipient = default_recipient
+        self._explicit_enabled = enabled
+
+        self.smtp_host = effective_host if effective_host is not None else settings.SMTP_HOST
+        self.smtp_port = effective_port if effective_port is not None else settings.SMTP_PORT
+        self.smtp_user = effective_user if effective_user is not None else settings.SMTP_USER
+        self.smtp_password = effective_password if effective_password is not None else settings.SMTP_PASSWORD
+        self.smtp_from = effective_from if effective_from is not None else settings.SMTP_FROM
+        self.smtp_tls = effective_tls if effective_tls is not None else settings.SMTP_TLS
         self.default_recipient = (
             default_recipient
             if default_recipient is not None
             else (settings.SMTP_DEFAULT_RECIPIENT or None)
         )
+        self.enabled = enabled if enabled is not None else bool(self.smtp_host and self.smtp_host.strip())
         self.timeout = timeout_seconds
         self._sender_func = sender_func or aiosmtplib.send
 
+    async def _resolve_config(self) -> tuple[bool, str, int, bool, str, str | None, str | None, str | None]:
+        """Resolve credenciais ativas via DynamicSettingsProvider ou fallback local."""
+        if (
+            self._explicit_host is not None
+            or self._explicit_port is not None
+            or self._explicit_user is not None
+            or self._explicit_password is not None
+            or self._explicit_from is not None
+            or self._explicit_tls is not None
+            or self._explicit_default_recipient is not None
+            or self._explicit_enabled is not None
+        ):
+            return (
+                self.enabled,
+                self.smtp_host or "",
+                self.smtp_port,
+                self.smtp_tls,
+                self.smtp_from or "",
+                self.smtp_user,
+                self.smtp_password,
+                self.default_recipient,
+            )
+        try:
+            from src.contexts.system.services.dynamic_settings_provider import (
+                get_dynamic_settings_provider,
+            )
+
+            cfg = await get_dynamic_settings_provider().get_smtp_config()
+            return (
+                bool(cfg.get("enabled", True)),
+                cfg.get("host") or "",
+                cfg.get("port") or 587,
+                bool(cfg.get("tls", True)),
+                cfg.get("from_address") or "",
+                cfg.get("user"),
+                cfg.get("password"),
+                cfg.get("default_recipient"),
+            )
+        except Exception:
+            return (
+                self.enabled,
+                self.smtp_host or "",
+                self.smtp_port,
+                self.smtp_tls,
+                self.smtp_from or "",
+                self.smtp_user,
+                self.smtp_password,
+                self.default_recipient,
+            )
+
     async def is_available(self) -> bool:
-        """Verifica se o servidor SMTP está configurado."""
-        return bool(self.smtp_host and self.smtp_host.strip())
+        """Verifica se o canal SMTP está habilitado e configurado."""
+        enabled, host, _, _, _, _, _, _ = await self._resolve_config()
+        return bool(enabled and host and host.strip())
 
     def _render_html(self, alert: AlertMessage) -> str:
         """Renderiza template HTML responsivo e seguro para o alerta."""
@@ -110,14 +186,19 @@ class SmtpNotificationChannel:
 
     async def send(self, alert: AlertMessage, recipient: str | None = None) -> bool:
         """Envia e-mail formatado via SMTP assíncrono."""
-        target_email = recipient or self.default_recipient
-        if not target_email or not self.smtp_host:
+        enabled, host, port, tls, from_addr, user, password, default_recipient = await self._resolve_config()
+        if not enabled:
+            logger.info("Canal SMTP desabilitado. Envio ignorado.")
+            return False
+
+        target_email = recipient or default_recipient
+        if not target_email or not host:
             logger.debug("SMTP não configurado ou destinatário ausente. Envio ignorado.")
             return False
 
         message = MIMEMultipart("alternative")
         message["Subject"] = f"[INFRAWATCH - {alert.severity.value}] {alert.title}"
-        message["From"] = self.smtp_from
+        message["From"] = from_addr
         message["To"] = target_email
 
         # Versão texto simples
@@ -131,11 +212,11 @@ class SmtpNotificationChannel:
         try:
             await self._sender_func(
                 message,
-                hostname=self.smtp_host,
-                port=self.smtp_port,
-                username=self.smtp_user if self.smtp_user else None,
-                password=self.smtp_password if self.smtp_password else None,
-                start_tls=self.smtp_tls,
+                hostname=host,
+                port=port,
+                username=user if user else None,
+                password=password if password else None,
+                start_tls=tls,
                 timeout=self.timeout,
             )
             logger.info(

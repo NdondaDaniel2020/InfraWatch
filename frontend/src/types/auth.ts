@@ -97,7 +97,7 @@ export interface AuthState {
 export interface AuthActions {
   login: (credentials: LoginCredentials) => Promise<LoginResult>;
   submitMfaChallenge: (code: string) => Promise<AuthUser>;
-  completeGoogleLogin: (code: string, state: string) => Promise<AuthUser>;
+  completeGoogleLogin: (code: string, state: string, redirectUri?: string) => Promise<AuthUser>;
   setSession: (user: AuthUser, token: string) => void;
   setTokens: (accessToken: string | null, refreshToken: string | null) => void;
   setUser: (user: AuthUser | null) => void;

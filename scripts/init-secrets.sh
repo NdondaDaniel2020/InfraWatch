@@ -10,6 +10,23 @@ SECRETS_DIR="${ROOT_DIR}/secrets"
 
 mkdir -p "${SECRETS_DIR}"
 
+# Carrega variáveis do backend/.env caso existam, para sincronizar credenciais reais
+if [[ -f "${ROOT_DIR}/backend/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Ignora linhas em branco ou comentários
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+            k="${BASH_REMATCH[1]}"
+            v="${BASH_REMATCH[2]}"
+            # Remove comentários inline se houver e limpa aspas
+            v=$(echo "$v" | sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            if [[ -n "$k" && -z "${!k:-}" ]]; then
+                export "$k"="$v"
+            fi
+        fi
+    done < "${ROOT_DIR}/backend/.env"
+fi
+
 create_secret_if_missing() {
     local file_path="${SECRETS_DIR}/$1"
     local default_val="$2"
@@ -19,7 +36,16 @@ create_secret_if_missing() {
         chmod 600 "${file_path}"
         echo "[+] Segredo criado: secrets/$1"
     else
-        echo "[.] Segredo já existente: secrets/$1"
+        local current_val
+        current_val="$(cat "${file_path}" 2>/dev/null || true)"
+        # Atualiza se o segredo atual contiver valor dummy e houver valor real configurado no .env
+        if [[ "${current_val}" =~ ^(dev_|infrawatch_insecure_|-0000000000|https://discord.com/api/webhooks/dev_webhook) && ! "${default_val}" =~ ^(dev_|infrawatch_insecure_|-0000000000|https://discord.com/api/webhooks/dev_webhook) ]]; then
+            echo -n "${default_val}" > "${file_path}"
+            chmod 600 "${file_path}"
+            echo "[*] Segredo atualizado a partir do .env: secrets/$1"
+        else
+            echo "[.] Segredo já existente: secrets/$1"
+        fi
     fi
 }
 

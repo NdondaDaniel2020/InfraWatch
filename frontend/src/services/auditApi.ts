@@ -15,6 +15,9 @@ export const auditApi = {
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.page_size) searchParams.set("page_size", String(params.page_size));
     if (params?.organization_id) searchParams.set("organization_id", params.organization_id);
+    if (params?.search && params.search.trim()) searchParams.set("search", params.search.trim());
+    if (params?.role && params.role !== "ALL") searchParams.set("role", params.role);
+    if (params?.action && params.action !== "ALL") searchParams.set("action", params.action);
 
     const qs = searchParams.toString();
     const endpoint = qs ? `/api/v1/audit/logs?${qs}` : "/api/v1/audit/logs";

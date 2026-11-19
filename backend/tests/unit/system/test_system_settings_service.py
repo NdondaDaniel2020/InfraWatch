@@ -296,6 +296,37 @@ async def test_update_webhook_settings_success(
 
 
 @pytest.mark.asyncio
+async def test_update_telegram_settings_success(
+    mock_session: MagicMock,
+    mock_provider: MagicMock,
+) -> None:
+    from src.contexts.system.schemas.settings import TelegramSettingsUpdateRequest
+
+    service = SystemSettingsService(
+        session=mock_session,
+        dynamic_provider=mock_provider,
+    )
+    service.repository = AsyncMock()
+    service.repository.get_category_dict.return_value = {}
+    service.repository.save_setting = AsyncMock()
+    service.audit_service = AsyncMock()
+
+    user_id = uuid4()
+    req = TelegramSettingsUpdateRequest(
+        bot_token="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+        default_chat_id="-1001234567890",
+        enabled=True,
+    )
+
+    res = await service.update_telegram_settings(req, updated_by=user_id)
+    assert res.success is True
+    assert res.name == "telegram"
+    assert res.source == "database"
+    assert service.repository.save_setting.await_count == 3
+    mock_provider.invalidate_cache.assert_called_with("telegram")
+
+
+@pytest.mark.asyncio
 async def test_reset_category_settings_success(
     mock_session: MagicMock,
     mock_provider: MagicMock,

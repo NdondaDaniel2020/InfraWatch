@@ -132,6 +132,14 @@ class UserModel(Base):
     def password_hash(self, value: str | None) -> None:
         self.hashed_password = value
 
+    @property
+    def organization_name(self) -> str | None:
+        """Retorna o nome da organização vinculada se já carregada na sessão."""
+        if "organization" in self.__dict__:
+            org = self.__dict__["organization"]
+            return org.name if org is not None else None
+        return None
+
     # Relacionamentos
     organization: Mapped[OrganizationModel | None] = relationship(
         "OrganizationModel",
@@ -375,6 +383,21 @@ class AuditLogModel(Base):
         "UserModel",
         back_populates="audit_logs",
     )
+
+    @property
+    def actor_name(self) -> str | None:
+        if "actor_user" in self.__dict__:
+            user = self.__dict__["actor_user"]
+            return user.full_name if user is not None else None
+        return None
+
+    @property
+    def actor_role(self) -> str | None:
+        if "actor_user" in self.__dict__:
+            user = self.__dict__["actor_user"]
+            if user is not None and user.role is not None:
+                return str(user.role.value if hasattr(user.role, "value") else user.role)
+        return None
 
     def __repr__(self) -> str:
         return (

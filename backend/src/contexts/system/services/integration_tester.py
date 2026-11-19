@@ -27,6 +27,7 @@ from src.contexts.system.services.dynamic_settings_provider import (
 from src.core.config import get_settings
 from src.core.database.session import get_session_factory
 from src.core.infrastructure.redis import ensure_redis
+from src.core.messaging.topics import StreamTopics
 from src.integrations.glpi import GlpiClient
 from src.integrations.glpi.schemas import (
     GlpiImpact,
@@ -59,6 +60,41 @@ class IntegrationTesterService:
         self.session_factory = get_session_factory()
         self.dynamic_provider = dynamic_provider or get_dynamic_settings_provider()
 
+    @staticmethod
+    def mask_webhook_url(url: str | None) -> str | None:
+        """Mascara tokens de autorização embutidos em URLs de Webhook (Discord, Slack, genéricos)."""
+        if not url:
+            return None
+        url = url.strip()
+        # Discord: https://discord.com/api/webhooks/<id>/<token>
+        if "discord.com/api/webhooks/" in url:
+            prefix, rest = url.split("discord.com/api/webhooks/", 1)
+            parts = rest.split("/")
+            if len(parts) >= 2:
+                webhook_id = parts[0]
+                return f"{prefix}discord.com/api/webhooks/{webhook_id}/••••••••"
+            return f"{prefix}discord.com/api/webhooks/••••••••"
+
+        # Slack: https://hooks.slack.com/services/T.../B.../<token>
+        if "hooks.slack.com/services/" in url:
+            prefix, rest = url.split("hooks.slack.com/services/", 1)
+            parts = rest.split("/")
+            if len(parts) >= 3:
+                return f"{prefix}hooks.slack.com/services/{parts[0]}/{parts[1]}/••••••••"
+            return f"{prefix}hooks.slack.com/services/••••••••"
+
+        # URL genérica: mascara último segmento se longo (> 10 caracteres)
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            path_segments = [p for p in parsed.path.split("/") if p]
+            if path_segments and len(path_segments[-1]) > 10:
+                masked_path = "/" + "/".join(path_segments[:-1]) + "/••••••••" if len(path_segments) > 1 else "/••••••••"
+                return f"{parsed.scheme}://{parsed.netloc}{masked_path}"
+            return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        except Exception:  # noqa: BLE001
+            return url[:24] + "/••••••••" if len(url) > 24 else "••••••••"
+
     async def get_status(self) -> IntegrationStatusResponse:
         """Gera sumário do estado operacional de todas as integrações sem vazar segredos."""
         s = self.settings
@@ -66,6 +102,7 @@ class IntegrationTesterService:
 
         glpi_cfg = await dp.get_glpi_config()
         zabbix_cfg = await dp.get_zabbix_config()
+        telegram_cfg = await dp.get_telegram_config()
         whatsapp_cfg = await dp.get_whatsapp_config()
         smtp_cfg = await dp.get_smtp_config()
         webhook_cfg = await dp.get_webhook_config()
@@ -98,13 +135,14 @@ class IntegrationTesterService:
             ),
             IntegrationStatusItem(
                 name="telegram",
-                enabled=bool(s.TELEGRAM_BOT_TOKEN),
-                endpoint="api.telegram.org",
-                configured=bool(s.TELEGRAM_BOT_TOKEN and s.TELEGRAM_DEFAULT_CHAT_ID),
-                source="environment",
+                enabled=bool(telegram_cfg["enabled"]),
+                endpoint=telegram_cfg["default_chat_id"] if telegram_cfg["default_chat_id"] else "Chat ID não configurado",
+                configured=bool(telegram_cfg["configured"]),
+                source=telegram_cfg["source"],
                 details={
-                    "default_chat_id": s.TELEGRAM_DEFAULT_CHAT_ID or None,
-                    "bot_token_configured": bool(s.TELEGRAM_BOT_TOKEN),
+                    "default_chat_id": telegram_cfg["default_chat_id"] or None,
+                    "bot_token_configured": bool(telegram_cfg["bot_token"]),
+                    "enabled": bool(telegram_cfg["enabled"]),
                 },
             ),
             IntegrationStatusItem(
@@ -117,11 +155,12 @@ class IntegrationTesterService:
                     "gateway_url": whatsapp_cfg["gateway_url"] or None,
                     "api_token_configured": bool(whatsapp_cfg["api_token"]),
                     "default_recipient": whatsapp_cfg["default_recipient"] or None,
+                    "enabled": bool(whatsapp_cfg["enabled"]),
                 },
             ),
             IntegrationStatusItem(
                 name="smtp",
-                enabled=bool(smtp_cfg["configured"]),
+                enabled=bool(smtp_cfg["enabled"]),
                 endpoint=f"{smtp_cfg['host']}:{smtp_cfg['port']}" if smtp_cfg["host"] else None,
                 configured=bool(smtp_cfg["configured"]),
                 source=smtp_cfg["source"],
@@ -129,18 +168,25 @@ class IntegrationTesterService:
                     "host": smtp_cfg["host"] or None,
                     "port": smtp_cfg["port"],
                     "tls": bool(smtp_cfg["tls"]),
-                    "from_address": smtp_cfg["from_address"],
+                    "from_address": smtp_cfg["from_address"] or None,
+                    "user": smtp_cfg["user"] or None,
                     "user_configured": bool(smtp_cfg["user"]),
+                    "password_configured": bool(smtp_cfg["password"]),
                     "default_recipient": smtp_cfg["default_recipient"] or None,
+                    "enabled": bool(smtp_cfg["enabled"]),
                 },
             ),
             IntegrationStatusItem(
                 name="webhook",
                 enabled=bool(webhook_cfg["enabled"]),
-                endpoint=webhook_cfg["url"] if webhook_cfg["url"] else None,
+                endpoint=self.mask_webhook_url(webhook_cfg["url"]) if webhook_cfg["url"] else "Webhook não configurado",
                 configured=bool(webhook_cfg["configured"]),
                 source=webhook_cfg["source"],
-                details={"default_webhook_configured": bool(webhook_cfg["configured"])},
+                details={
+                    "url": self.mask_webhook_url(webhook_cfg["url"]) if webhook_cfg["url"] else None,
+                    "default_webhook_configured": bool(webhook_cfg["configured"]),
+                    "enabled": bool(webhook_cfg["enabled"]),
+                },
             ),
             IntegrationStatusItem(
                 name="postgres",
@@ -156,7 +202,17 @@ class IntegrationTesterService:
                 endpoint=f"{s.REDIS_HOST}:{s.REDIS_PORT}",
                 configured=True,
                 source="environment",
-                details={"db": getattr(s, "REDIS_DB", 0), "host": s.REDIS_HOST, "port": s.REDIS_PORT},
+                details={
+                    "db": getattr(s, "REDIS_DB", 0),
+                    "host": s.REDIS_HOST,
+                    "port": s.REDIS_PORT,
+                    "streams": [
+                        StreamTopics.INCIDENTS.value,
+                        StreamTopics.INVENTORY_CHANGES.value,
+                        StreamTopics.IAM_EVENTS.value,
+                        StreamTopics.SYSTEM_SETTINGS_CHANGED.value,
+                    ],
+                },
             ),
         ]
         return IntegrationStatusResponse(
@@ -283,14 +339,40 @@ class IntegrationTesterService:
             device_ip="10.200.0.1",
         )
 
-        channel_map: dict[str, NotificationChannel] = {
-            "telegram": TelegramChannel(),
-            "whatsapp": WhatsAppChannel(),
-            "smtp": SmtpNotificationChannel(),
-            "webhook": WebhookChannel(),
-        }
+        dp = self.dynamic_provider
+        channel: NotificationChannel | None = None
 
-        channel = channel_map.get(channel_name)
+        if channel_name == "telegram":
+            t_cfg = await dp.get_telegram_config()
+            channel = TelegramChannel(
+                bot_token=t_cfg.get("bot_token") or None,
+                default_chat_id=req.recipient or t_cfg.get("default_chat_id") or None,
+            )
+        elif channel_name == "whatsapp":
+            w_cfg = await dp.get_whatsapp_config()
+            channel = WhatsAppChannel(
+                gateway_url=w_cfg.get("gateway_url") or None,
+                api_token=w_cfg.get("api_token") or None,
+                default_recipient=req.recipient or w_cfg.get("default_recipient") or None,
+                enabled=w_cfg.get("enabled"),
+            )
+        elif channel_name == "smtp":
+            s_cfg = await dp.get_smtp_config()
+            channel = SmtpNotificationChannel(
+                smtp_host=s_cfg.get("host") or "",
+                smtp_port=s_cfg.get("port") or 587,
+                smtp_tls=bool(s_cfg.get("tls", True)),
+                smtp_from=s_cfg.get("from_address") or "",
+                smtp_user=s_cfg.get("user") or None,
+                smtp_password=s_cfg.get("password") or None,
+                default_recipient=req.recipient or s_cfg.get("default_recipient") or None,
+            )
+        elif channel_name == "webhook":
+            wh_cfg = await dp.get_webhook_config()
+            channel = WebhookChannel(
+                webhook_url=req.recipient or wh_cfg.get("url") or "",
+            )
+
         if not channel:
             return NotificationTestResponse(
                 success=False,
@@ -342,10 +424,14 @@ class IntegrationTesterService:
         # Teste PostgreSQL
         pg_ok = False
         pg_ms = 0.0
+        timescale_active: bool | None = None
         start_pg = time.perf_counter()
         try:
             async with self.session_factory() as session:
-                await session.execute(text("SELECT 1"))
+                res = await session.execute(
+                    text("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')")
+                )
+                timescale_active = bool(res.scalar())
                 pg_ms = round((time.perf_counter() - start_pg) * 1000, 2)
                 pg_ok = True
         except Exception as exc:  # noqa: BLE001
@@ -355,11 +441,26 @@ class IntegrationTesterService:
         # Teste Redis
         redis_ok = False
         redis_ms = 0.0
+        redis_persistence: str | None = None
         start_redis = time.perf_counter()
         try:
             r = await ensure_redis()
             if r is not None:
                 await r.ping()
+                try:
+                    info = await r.info("persistence")
+                    aof_on = bool(info.get("aof_enabled"))
+                    rdb_ok = info.get("rdb_last_bgsave_status") == "ok"
+                    if aof_on and rdb_ok:
+                        redis_persistence = "AOF & RDB Ativa"
+                    elif aof_on:
+                        redis_persistence = "AOF Ativa"
+                    elif rdb_ok:
+                        redis_persistence = "RDB Snapshots"
+                    else:
+                        redis_persistence = "Em Memória (Volátil)"
+                except Exception:  # noqa: BLE001
+                    redis_persistence = "Conectado"
                 redis_ms = round((time.perf_counter() - start_redis) * 1000, 2)
                 redis_ok = True
         except Exception as exc:  # noqa: BLE001
@@ -379,6 +480,8 @@ class IntegrationTesterService:
             redis_ok=redis_ok,
             redis_latency_ms=redis_ms,
             message=msg,
+            timescale_active=timescale_active,
+            redis_persistence=redis_persistence,
         )
 
 

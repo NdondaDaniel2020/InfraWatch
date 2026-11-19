@@ -43,6 +43,7 @@ services:
         condition: service_healthy
     networks:
       - infrawatch-glpi-net
+      - infrawatch-net
 
 secrets:
   glpi_db_root_password:
@@ -59,3 +60,6 @@ volumes:
 networks:
   infrawatch-glpi-net:
     driver: bridge
+  infrawatch-net:
+    external: true
+    name: infrawatch_infrawatch-net

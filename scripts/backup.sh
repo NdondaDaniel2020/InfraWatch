@@ -8,6 +8,19 @@ set -euo pipefail
 TRIGGER_MODE="${1:-manual}"
 TRIGGER_PAYLOAD="${2:-{}}"
 
+# Extração de observações do payload JSON de gatilho
+TRIGGER_NOTES=""
+if [ -n "${TRIGGER_PAYLOAD}" ] && [ "${TRIGGER_PAYLOAD}" != "{}" ]; then
+    TRIGGER_NOTES=$(echo "${TRIGGER_PAYLOAD}" | grep -o '"notes":"[^"]*' | cut -d'"' -f4 2>/dev/null || true)
+fi
+if [ -z "${TRIGGER_NOTES}" ]; then
+    if [ "${TRIGGER_MODE}" = "scheduled" ] || [ "${TRIGGER_MODE}" = "cron" ]; then
+        TRIGGER_NOTES="Rotina automática diária (Cron 02:00 UTC)"
+    else
+        TRIGGER_NOTES="Disparo manual sob demanda"
+    fi
+fi
+
 echo "================================================================================"
 echo "  InfraWatch Backup Pipeline — Iniciando (Modo: ${TRIGGER_MODE})"
 echo "================================================================================"
@@ -245,38 +258,70 @@ echo "[+] Checksum SHA-256: ${SHA256_HASH}"
 # ------------------------------------------------------------------------------
 # 8. Fan-Out de Upload Multi-Destino
 # ------------------------------------------------------------------------------
-UPLOAD_GDRIVE_STATUS="Pendente"
-UPLOAD_R2_STATUS="Pendente"
-UPLOAD_S3_STATUS="Preparado (Comentado)"
+TARGET_LOCAL_STATUS="SUCCESS"
+TARGET_GDRIVE_STATUS="SKIPPED"
+TARGET_R2_STATUS="SKIPPED"
+
+# Recarregar dinamicamente caminho de configuração caso tenha sido atualizado em tempo de execução
+if [ -f "/tmp/rclone.conf" ]; then
+    RCLONE_CONFIG="/tmp/rclone.conf"
+elif [ -f "/run/secrets/rclone_config" ]; then
+    RCLONE_CONFIG="/run/secrets/rclone_config"
+fi
 
 # Destino 1: Google Drive
 publish_event "upload_gdrive" 80 "Enviando para o Google Drive..."
-if rclone copy "${BUNDLE_FILE}" "${BACKUP_GDRIVE_REMOTE_NAME}:${BACKUP_GDRIVE_FOLDER}/" --config "${RCLONE_CONFIG}" --retries 3 2>/dev/null; then
+if rclone copy "${BUNDLE_FILE}" "${BACKUP_GDRIVE_REMOTE_NAME}:${BACKUP_GDRIVE_FOLDER}/" --config "${RCLONE_CONFIG}" --retries 2 2>/dev/null; then
     rclone copy "${BUNDLE_FILE}.sha256" "${BACKUP_GDRIVE_REMOTE_NAME}:${BACKUP_GDRIVE_FOLDER}/" --config "${RCLONE_CONFIG}" 2>/dev/null || true
-    UPLOAD_GDRIVE_STATUS="Sucesso"
+    TARGET_GDRIVE_STATUS="SUCCESS"
+    publish_event "upload_gdrive" 85 "Google Drive: Replicado com sucesso" "\"target_status\":\"SUCCESS\""
     echo "[+] Upload para Google Drive concluído com sucesso."
 else
-    UPLOAD_GDRIVE_STATUS="Falhou / Não Configurado"
+    TARGET_GDRIVE_STATUS="FAILED"
+    publish_event "upload_gdrive" 85 "Google Drive: Falha no upload / Não autorizado" "\"target_status\":\"FAILED\""
     echo "[!] Falha ou falta de configuração para Google Drive. Prosseguindo..."
 fi
 
 # Destino 2: Cloudflare R2
 publish_event "upload_r2" 90 "Enviando para o Cloudflare R2..."
-if rclone copy "${BUNDLE_FILE}" "${BACKUP_R2_REMOTE_NAME}:${BACKUP_R2_BUCKET}/" --config "${RCLONE_CONFIG}" --retries 3 2>/dev/null; then
+if grep -q "change_me" "${RCLONE_CONFIG}" 2>/dev/null || ! grep -q "^\[${BACKUP_R2_REMOTE_NAME}\]" "${RCLONE_CONFIG}" 2>/dev/null; then
+    TARGET_R2_STATUS="SKIPPED"
+    publish_event "upload_r2" 93 "Cloudflare R2: Não configurado (Ignorado)" "\"target_status\":\"SKIPPED\""
+    echo "[*] Cloudflare R2 com parâmetros mock ou não configurado. Ignorando upload."
+elif rclone copy "${BUNDLE_FILE}" "${BACKUP_R2_REMOTE_NAME}:${BACKUP_R2_BUCKET}/" --config "${RCLONE_CONFIG}" --retries 2 2>/dev/null; then
     rclone copy "${BUNDLE_FILE}.sha256" "${BACKUP_R2_REMOTE_NAME}:${BACKUP_R2_BUCKET}/" --config "${RCLONE_CONFIG}" 2>/dev/null || true
-    UPLOAD_R2_STATUS="Sucesso"
+    TARGET_R2_STATUS="SUCCESS"
+    publish_event "upload_r2" 93 "Cloudflare R2: Replicado com sucesso" "\"target_status\":\"SUCCESS\""
     echo "[+] Upload para Cloudflare R2 concluído com sucesso."
 else
-    UPLOAD_R2_STATUS="Falhou / Não Configurado"
-    echo "[!] Falha ou falta de configuração para Cloudflare R2. Prosseguindo..."
+    TARGET_R2_STATUS="FAILED"
+    publish_event "upload_r2" 93 "Cloudflare R2: Falha na replicação S3" "\"target_status\":\"FAILED\""
+    echo "[!] Falha no upload para Cloudflare R2. Prosseguindo..."
 fi
 
-# Destino 3: AWS S3 (Preparado para ativação com contas acadêmicas / créditos de estudante)
-# //rclone copy "${BACKUP_FILE}" aws_s3:infrawatch-backups/
-# rclone copy "${BUNDLE_FILE}" aws_s3:infrawatch-backups/ --config "${RCLONE_CONFIG}" 2>/dev/null || true
+# ------------------------------------------------------------------------------
+# 9. Salvar Manifesto de Metadados Auditável (.meta.json)
+# ------------------------------------------------------------------------------
+cat <<EOF > "${BUNDLE_FILE}.meta.json"
+{
+  "backup_name": "${BACKUP_NAME}.tar.gz",
+  "timestamp": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+  "database": "${POSTGRES_DB}",
+  "trigger": "${TRIGGER_MODE}",
+  "notes": "${TRIGGER_NOTES}",
+  "sha256": "${SHA256_HASH}",
+  "size_human": "${BUNDLE_SIZE}",
+  "targets": {
+    "local": "${TARGET_LOCAL_STATUS}",
+    "gdrive": "${TARGET_GDRIVE_STATUS}",
+    "r2": "${TARGET_R2_STATUS}"
+  }
+}
+EOF
+echo "[+] Manifesto de auditoria gerado: ${BUNDLE_FILE}.meta.json"
 
 # ------------------------------------------------------------------------------
-# 9. Rotação & Pruning de Backups Antigos
+# 10. Rotação & Pruning de Backups Antigos
 # ------------------------------------------------------------------------------
 publish_event "pruning" 95 "Executando limpeza e política de retenção..."
 
@@ -284,22 +329,25 @@ publish_event "pruning" 95 "Executando limpeza e política de retenção..."
 find "${BACKUP_LOCAL_PATH}" -type f -name "infrawatch_backup_*.tar.gz*" -mtime "+${BACKUP_RETENTION_LOCAL_DAYS}" -delete 2>/dev/null || true
 
 # Limpeza remota no Google Drive e Cloudflare R2
-rclone delete "${BACKUP_GDRIVE_REMOTE_NAME}:${BACKUP_GDRIVE_FOLDER}" --min-age "${BACKUP_RETENTION_REMOTE_DAYS}d" --config "${RCLONE_CONFIG}" 2>/dev/null || true
-rclone delete "${BACKUP_R2_REMOTE_NAME}:${BACKUP_R2_BUCKET}" --min-age "${BACKUP_RETENTION_REMOTE_DAYS}d" --config "${RCLONE_CONFIG}" 2>/dev/null || true
+if [ "${TARGET_GDRIVE_STATUS}" = "SUCCESS" ]; then
+    rclone delete "${BACKUP_GDRIVE_REMOTE_NAME}:${BACKUP_GDRIVE_FOLDER}" --min-age "${BACKUP_RETENTION_REMOTE_DAYS}d" --config "${RCLONE_CONFIG}" 2>/dev/null || true
+fi
+if [ "${TARGET_R2_STATUS}" = "SUCCESS" ]; then
+    rclone delete "${BACKUP_R2_REMOTE_NAME}:${BACKUP_R2_BUCKET}" --min-age "${BACKUP_RETENTION_REMOTE_DAYS}d" --config "${RCLONE_CONFIG}" 2>/dev/null || true
+fi
 
 # ------------------------------------------------------------------------------
-# 10. Conclusão & Emissão de Relatório
+# 11. Conclusão & Emissão de Relatório
 # ------------------------------------------------------------------------------
-EXTRA_COMPLETED="\"file\":\"${BACKUP_NAME}.tar.gz\",\"size\":\"${BUNDLE_SIZE}\",\"sha256\":\"${SHA256_HASH}\",\"gdrive\":\"${UPLOAD_GDRIVE_STATUS}\",\"r2\":\"${UPLOAD_R2_STATUS}\""
-publish_event "completed" 100 "Backup concluído com sucesso!" "${EXTRA_COMPLETED}"
+EXTRA_COMPLETED="\"file\":\"${BACKUP_NAME}.tar.gz\",\"size\":\"${BUNDLE_SIZE}\",\"sha256\":\"${SHA256_HASH}\",\"gdrive\":\"${TARGET_GDRIVE_STATUS}\",\"r2\":\"${TARGET_R2_STATUS}\",\"targets\":{\"local\":\"${TARGET_LOCAL_STATUS}\",\"gdrive\":\"${TARGET_GDRIVE_STATUS}\",\"r2\":\"${TARGET_R2_STATUS}\"}"
+publish_event "completed" 100 "Backup concluído no armazenamento local" "${EXTRA_COMPLETED}"
 
-SUMMARY_MESSAGE="✅ *[InfraWatch]* Rotina de Backup Concluída com Sucesso!
+SUMMARY_MESSAGE="✅ *[InfraWatch]* Rotina de Backup Concluída!
 📦 *Arquivo:* \`${BACKUP_NAME}.tar.gz\` (${BUNDLE_SIZE})
 🔐 *SHA-256:* \`${SHA256_HASH:0:16}...\`
-💾 *Local:* \`${BACKUP_LOCAL_PATH}\` (OK)
-☁️ *Google Drive:* ${UPLOAD_GDRIVE_STATUS}
-⚡ *Cloudflare R2:* ${UPLOAD_R2_STATUS}
-🎓 *AWS S3:* ${UPLOAD_S3_STATUS}"
+💾 *Local:* ${TARGET_LOCAL_STATUS}
+☁️ *Google Drive:* ${TARGET_GDRIVE_STATUS}
+⚡ *Cloudflare R2:* ${TARGET_R2_STATUS}"
 
 echo "================================================================================"
 echo "${SUMMARY_MESSAGE}"

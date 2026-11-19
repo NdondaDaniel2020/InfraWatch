@@ -50,6 +50,7 @@ class OrganizationResponse(BaseModel):
     tier: str
     sla_target_default: Decimal
     is_active: bool
+    users_count: int = 0
     created_at: datetime
     updated_at: datetime
 

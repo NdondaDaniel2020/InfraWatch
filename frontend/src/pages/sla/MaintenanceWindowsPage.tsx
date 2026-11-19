@@ -180,6 +180,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
         gap: "24px",
         padding: "24px",
         minHeight: "100%",
+        ["--color-surface-elevated" as string]: "var(--color-surface-card, #0d1424)",
       }}
     >
       {/* Breadcrumb e Cabeçalho */}
@@ -330,7 +331,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
       >
         <div
           style={{
-            backgroundColor: "var(--color-surface-elevated)",
+            backgroundColor: "var(--color-surface-card, #0d1424)",
             border: "var(--border-subtle)",
             borderRadius: "var(--radius-lg)",
             padding: "16px 20px",
@@ -386,7 +387,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
 
         <div
           style={{
-            backgroundColor: "var(--color-surface-elevated)",
+            backgroundColor: "var(--color-surface-card, #0d1424)",
             border: "var(--border-subtle)",
             borderRadius: "var(--radius-lg)",
             padding: "16px 20px",
@@ -442,7 +443,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
 
         <div
           style={{
-            backgroundColor: "var(--color-surface-elevated)",
+            backgroundColor: "var(--color-surface-card, #0d1424)",
             border: "var(--border-subtle)",
             borderRadius: "var(--radius-lg)",
             padding: "16px 20px",
@@ -499,7 +500,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
           display: "flex",
           flexDirection: "column",
           gap: "12px",
-          backgroundColor: "var(--color-surface-elevated)",
+          backgroundColor: "var(--color-surface-card, #0d1424)",
           border: "var(--border-subtle)",
           borderRadius: "var(--radius-lg)",
           padding: "16px",
@@ -571,7 +572,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
                     fontSize: "0.625rem",
                     padding: "2px 6px",
                     borderRadius: "var(--radius-full)",
-                    backgroundColor: "var(--color-surface-card)",
+                    backgroundColor: "var(--color-bg-deep, #070a12)",
                     fontFamily: "var(--font-mono)",
                   }}
                 >
@@ -655,7 +656,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
                 width: "100%",
                 padding: "8px 12px 8px 36px",
                 borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--color-surface-card)",
+                backgroundColor: "var(--color-bg-deep, #070a12)",
                 border: "var(--border-subtle)",
                 color: "var(--color-text-primary)",
                 fontSize: "0.75rem",
@@ -671,7 +672,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
             style={{
               padding: "8px 12px",
               borderRadius: "var(--radius-sm)",
-              backgroundColor: "var(--color-surface-card)",
+              backgroundColor: "var(--color-bg-deep, #070a12)",
               border: "var(--border-subtle)",
               color: "var(--color-text-primary)",
               fontSize: "0.75rem",
@@ -705,7 +706,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
         <section
           data-testid="maint-empty-container"
           style={{
-            backgroundColor: "var(--color-surface-elevated)",
+            backgroundColor: "var(--color-surface-card, #0d1424)",
             border: "var(--border-subtle)",
             borderRadius: "var(--radius-lg)",
             padding: "48px 24px",

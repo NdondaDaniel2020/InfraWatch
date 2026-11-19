@@ -22,6 +22,7 @@ export interface ClientServiceItem {
   statusLabel: string;
   responseTimeMs?: number;
   throughputFormatted?: string;
+  packetLossPct?: number;
   successRatePct?: number;
   tags: string[];
   stability30DaysPct?: number;
@@ -60,8 +61,8 @@ export interface ClientDeviceDTO {
   status?: string;
   protocol?: string;
   ip_address?: string;
-  last_latency_ms?: number;
-  last_packet_loss?: number;
+  last_latency_ms?: number | null;
+  last_packet_loss?: number | null;
 }
 
 export interface ClientDeviceListResponse {
@@ -135,4 +136,20 @@ export interface SupportTicketResponse {
   glpiTicketId?: number;
   message: string;
 }
+
+export interface SlaHistoryExportPayload {
+  tenantId?: string;
+  tenantName: string;
+  selectedMonths: number;
+  avgUptimePct: number;
+  targetPct: number;
+  totalIncidents: number;
+  avgMttrMinutes: number;
+  compliancePct: number;
+  compliantCyclesCount: number;
+  totalCyclesCount: number;
+  items: SlaMonthlyHistoryItem[];
+  digitalSignature?: string;
+}
+
 

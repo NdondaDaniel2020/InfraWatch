@@ -30,9 +30,32 @@ export interface BackupProgressEvent {
   percent: number;
   message: string;
   filename?: string;
+  file?: string;
   size_human?: string;
+  size?: string;
   sha256?: string;
   error?: string;
+  target_status?: BackupTargetStatus;
+  targets?: BackupTargets;
+  gdrive?: BackupTargetStatus;
+  r2?: BackupTargetStatus;
+}
+
+export interface GDriveAuthUrlResponse {
+  auth_url: string;
+  state: string;
+}
+
+export interface GDriveCallbackRequest {
+  code: string;
+  redirect_uri: string;
+}
+
+export interface GDriveStatusResponse {
+  configured: boolean;
+  authorized: boolean;
+  email?: string | null;
+  message?: string | null;
 }
 
 export interface BackupTriggerRequest {

@@ -108,6 +108,8 @@ Toda a documentação técnica, contratos de API, especificações e planos de i
 | [04-UI_UX_BRIEF.md](docs/04-UI_UX_BRIEF.md) | Especificação de Design System (Paleta Obsidian, Tipografia, Componentes) |
 | [05-BACKEND_SCHEMA.md](docs/05-BACKEND_SCHEMA.md) | DDL Completo do Banco de Dados, Índices, Constraints, TIMESTAMPTZ e Particionamento |
 | [06-IMPLEMENTATION_PLAN.md](docs/06-IMPLEMENTATION_PLAN.md) | Plano Detalhado de Implementação em 6 Fases com Status de Entrega Atualizado |
+| [07-DISASTER_RECOVERY.md](docs/07-DISASTER_RECOVERY.md) | Procedimento Operacional Padrão de Backup Multi-Destino e Recuperação de Desastres (DR) |
+| [08-TESTING_ENVIRONMENT.md](docs/08-TESTING_ENVIRONMENT.md) | Guia do Ambiente de Testes, Catálogo de Seeds/Credenciais, Suítes e Troubleshooting |
 | [DECISIONS.md](docs/DECISIONS.md) | Registro de Decisões de Arquitetura (ADR-001 a ADR-030) |
 
 ---

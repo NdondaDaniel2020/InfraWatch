@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from src.contexts.iam.api.dependencies import CurrentUserDep, require_roles
@@ -20,6 +22,9 @@ from src.contexts.sla.schemas.responses import (
     SlaReportResponse,
     SupportTicketResponse,
 )
+from src.integrations.glpi.client import GlpiAuthError
+
+logger = logging.getLogger("infrawatch.sla.api")
 
 router = APIRouter(prefix="/api/v1/sla", tags=["SLA & Contractual Compliance"])
 
@@ -318,9 +323,21 @@ async def create_client_support_ticket(
             detail="Acesso não autorizado para abrir chamados em nome desta organização.",
         )
 
-    return await service.create_support_ticket(
-        organization_id=organization_id,
-        payload=payload,
-        user_email=user.email,
-    )
+    try:
+        return await service.create_support_ticket(
+            organization_id=organization_id,
+            payload=payload,
+            user_email=user.email,
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        ) from err
+    except (GlpiAuthError, RuntimeError, httpx.HTTPError) as err:
+        logger.error("Erro na integração com o GLPI para o suporte técnico: %s", err)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Serviço de abertura de chamados do GLPI temporariamente indisponível.",
+        ) from err
 

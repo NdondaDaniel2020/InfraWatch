@@ -76,6 +76,27 @@ async def test_settings_status_requires_super_admin(
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
+def test_mask_webhook_url() -> None:
+    """Valida o mascaramento de tokens embutidos em URLs de Webhooks."""
+    from src.contexts.system.services.integration_tester import IntegrationTesterService
+
+    # Discord Webhook simulado
+    discord_url = "https://discord.com/api/webhooks/123456789/dummy_token_abc123"
+    masked_discord = IntegrationTesterService.mask_webhook_url(discord_url)
+    assert masked_discord == "https://discord.com/api/webhooks/123456789/••••••••"
+    assert "dummy_token" not in masked_discord
+
+    # Slack Webhook simulado
+    slack_url = "https://hooks.slack.com/services/T111/B222/dummy333"
+    masked_slack = IntegrationTesterService.mask_webhook_url(slack_url)
+    assert masked_slack == "https://hooks.slack.com/services/T111/B222/••••••••"
+    assert "dummy333" not in masked_slack
+
+    # None / vazio
+    assert IntegrationTesterService.mask_webhook_url(None) is None
+    assert IntegrationTesterService.mask_webhook_url("") is None
+
+
 @pytest.mark.asyncio
 async def test_settings_status_success(settings_test_app: FastAPI, admin_token: str) -> None:
     """Garante que SUPER_ADMIN consiga listar o status consolidado das integrações."""
@@ -220,6 +241,8 @@ async def test_test_infra_cluster_endpoint(settings_test_app: FastAPI, admin_tok
         redis_ok=True,
         redis_latency_ms=0.8,
         message="Cluster de infraestrutura 100% operacional.",
+        timescale_active=True,
+        redis_persistence="AOF & RDB Ativa",
     )
 
     with patch(
@@ -239,3 +262,5 @@ async def test_test_infra_cluster_endpoint(settings_test_app: FastAPI, admin_tok
             data = response.json()
             assert data["postgres_ok"] is True
             assert data["redis_ok"] is True
+            assert data["timescale_active"] is True
+            assert data["redis_persistence"] == "AOF & RDB Ativa"

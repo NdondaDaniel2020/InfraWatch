@@ -1,5 +1,17 @@
 import React, { useState } from "react";
-import { Database, Server, RefreshCw, Loader2, CheckCircle2, AlertCircle, HardDrive } from "lucide-react";
+import {
+  Database,
+  Server,
+  RefreshCw,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  HardDrive,
+  Layers,
+  ShieldCheck,
+  Activity,
+  Cpu,
+} from "lucide-react";
 import { settingsApi } from "../../services/settingsApi";
 import type { InfraTestResponse, IntegrationStatusItem } from "../../types/settings";
 
@@ -35,6 +47,10 @@ export const InfraClusterSettingsTab: React.FC<Props> = ({
       setTesting(false);
     }
   };
+
+  const redisStreams = Array.isArray(redisStatus?.details?.streams)
+    ? (redisStatus.details.streams as string[])
+    : [];
 
   return (
     <div className="space-y-6">
@@ -118,30 +134,62 @@ export const InfraClusterSettingsTab: React.FC<Props> = ({
               <Database className="w-4 h-4 text-cyan-400" />
               TimescaleDB / PostgreSQL 16
             </h4>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-              ONLINE
-            </span>
+            {testResult ? (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                  testResult.postgres_ok
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                }`}
+              >
+                {testResult.postgres_ok ? "ONLINE" : "FALHA"}
+              </span>
+            ) : (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                  postgresStatus?.configured
+                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                    : "bg-slate-800 text-slate-400 border border-slate-700"
+                }`}
+              >
+                {postgresStatus?.configured ? "CONFIGURADO" : "NÃO CONFIGURADO"}
+              </span>
+            )}
           </div>
           <div className="space-y-3 text-xs">
             <div className="flex justify-between items-center py-2 border-b border-slate-800">
               <span className="text-slate-400">Endpoint / Host</span>
-              <span className="text-slate-200 font-mono">{postgresStatus?.endpoint || "postgres:5432"}</span>
+              <span className="text-slate-200 font-mono">{postgresStatus?.endpoint || "Não informado"}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-800">
               <span className="text-slate-400">Banco de Dados Ativo</span>
               <span className="text-slate-200 font-mono">
-                {typeof postgresStatus?.details?.database === "string" ? postgresStatus.details.database : "infrawatch"}
+                {typeof postgresStatus?.details?.database === "string"
+                  ? postgresStatus.details.database
+                  : "Não informado"}
               </span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-800">
               <span className="text-slate-400">Pool de Conexões</span>
               <span className="text-slate-200 font-mono">
-                {typeof postgresStatus?.details?.pool_size === "number" ? postgresStatus.details.pool_size : 20} Conexões
+                {typeof postgresStatus?.details?.pool_size === "number"
+                  ? `${postgresStatus.details.pool_size} Conexões`
+                  : "Padrão"}
               </span>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-slate-400">Extensão Hypertables</span>
-              <span className="text-emerald-400 font-mono font-medium">Habilitada (timescaledb)</span>
+              {testResult?.timescale_active !== undefined && testResult.timescale_active !== null ? (
+                <span
+                  className={`font-mono font-medium ${
+                    testResult.timescale_active ? "text-emerald-400" : "text-amber-400"
+                  }`}
+                >
+                  {testResult.timescale_active ? "Ativa (timescaledb)" : "Não detectada"}
+                </span>
+              ) : (
+                <span className="text-slate-400 font-mono">Disponível via Diagnóstico</span>
+              )}
             </div>
           </div>
         </div>
@@ -153,14 +201,32 @@ export const InfraClusterSettingsTab: React.FC<Props> = ({
               <HardDrive className="w-4 h-4 text-rose-400" />
               Redis 7 (Streams & Cache)
             </h4>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-              ONLINE
-            </span>
+            {testResult ? (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                  testResult.redis_ok
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                }`}
+              >
+                {testResult.redis_ok ? "ONLINE" : "FALHA"}
+              </span>
+            ) : (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                  redisStatus?.configured
+                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                    : "bg-slate-800 text-slate-400 border border-slate-700"
+                }`}
+              >
+                {redisStatus?.configured ? "CONFIGURADO" : "NÃO CONFIGURADO"}
+              </span>
+            )}
           </div>
           <div className="space-y-3 text-xs">
             <div className="flex justify-between items-center py-2 border-b border-slate-800">
               <span className="text-slate-400">Endpoint / Host</span>
-              <span className="text-slate-200 font-mono">{redisStatus?.endpoint || "redis:6379"}</span>
+              <span className="text-slate-200 font-mono">{redisStatus?.endpoint || "Não informado"}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-800">
               <span className="text-slate-400">Índice do Banco</span>
@@ -170,13 +236,96 @@ export const InfraClusterSettingsTab: React.FC<Props> = ({
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-800">
               <span className="text-slate-400">Topologia de Barramento</span>
-              <span className="text-slate-200 font-mono">infrawatch:events:stream</span>
+              <span
+                className="text-slate-200 font-mono truncate max-w-[220px]"
+                title={redisStreams.length > 0 ? redisStreams.join(", ") : "stream:incidents, stream:inventory:changes"}
+              >
+                {redisStreams.length > 0
+                  ? `${redisStreams.length} Streams Canônicos`
+                  : "stream:incidents (ADR-038)"}
+              </span>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-slate-400">Persistência AOF / RDB</span>
-              <span className="text-emerald-400 font-mono font-medium">Ativa</span>
+              {testResult?.redis_persistence ? (
+                <span className="text-emerald-400 font-mono font-medium">
+                  {testResult.redis_persistence}
+                </span>
+              ) : (
+                <span className="text-slate-400 font-mono">Verificável via Diagnóstico</span>
+              )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Cluster Architecture & Real-Time Topology Details (Alinhado ao tamanho dos outros painéis) */}
+      <div className="bg-[#0f172a]/80 border border-slate-800 rounded-xl p-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-indigo-400">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white">
+                Topologia de Dados & Arquitetura do Cluster
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Padrões arquiteturais ativos de persistência relacional, séries temporais e mensageria assíncrona.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-mono flex items-center gap-1.5 border border-slate-700">
+              <Activity className="w-3.5 h-3.5 text-cyan-400" />
+              Alta Concorrência
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-lg space-y-2">
+            <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold">
+              <Database className="w-4 h-4" />
+              <span>Pool Assíncrono (SQLAlchemy)</span>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Conexões geridas via driver assíncrono AsyncPG com verificação contínua de pre-ping e reciclagem para
+              eliminar conexões órfãs ou bloqueios de rede.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-lg space-y-2">
+            <div className="flex items-center gap-2 text-rose-400 text-xs font-semibold">
+              <Cpu className="w-4 h-4" />
+              <span>Event Streams (Pub/Sub)</span>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Desacoplamento por Transactional Outbox e Redis Streams, garantindo entrega sem dual-write para incidentes,
+              mudanças no inventário e auditoria IAM.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-lg space-y-2">
+            <div className="flex items-center gap-2 text-cyan-400 text-xs font-semibold">
+              <Server className="w-4 h-4" />
+              <span>Séries Temporais (Timescale)</span>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Armazenamento de telemetria particionado por tempo (Hypertables), oferecendo consultas analíticas ultra-rápidas
+              e retenção de métricas de rede otimizada.
+            </p>
+          </div>
+        </div>
+
+        {/* Security & Observability Note */}
+        <div className="p-3 bg-slate-900/70 border border-slate-800 rounded-lg flex items-center gap-2.5 text-xs text-slate-400">
+          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>
+            Infraestrutura central isolada em rede de contêineres segura com diagnóstico in-process em tempo real e
+            telemetria Prometheus ativa.
+          </span>
         </div>
       </div>
     </div>

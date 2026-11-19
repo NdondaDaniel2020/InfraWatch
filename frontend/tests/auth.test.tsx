@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -425,6 +425,89 @@ describe("Módulo de Autenticação, IAM & Segurança (Issue #216)", () => {
       await user.click(setupBtn);
 
       expect(await screen.findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+      expect(screen.getByTestId("mfa-qrcode-container")).toBeInTheDocument();
+    });
+
+    it("deve exibir e permitir download dos códigos de backup após confirmar ativação do MFA", async () => {
+      vi.mocked(securityApi.listSessions).mockResolvedValueOnce({
+        sessions: [],
+        total: 0,
+      });
+
+      vi.mocked(securityApi.setupMfa).mockResolvedValueOnce({
+        secret: "JBSWY3DPEHPK3PXP",
+        otpauth_uri: "otpauth://totp/InfraWatch:user@test.io?secret=JBSWY3DPEHPK3PXP",
+      });
+
+      vi.mocked(securityApi.enableMfa).mockResolvedValueOnce({
+        message: "MFA ativado com sucesso.",
+        backup_codes: [
+          "A1B2-C3D4",
+          "E5F6-G7H8",
+          "I9J0-K1L2",
+          "M3N4-O5P6",
+          "Q7R8-S9T0",
+          "U1V2-W3X4",
+          "Y5Z6-A7B8",
+          "C9D0-E1F2",
+          "G3H4-I5J6",
+          "K7L8-M9N0",
+        ],
+      });
+
+      const createObjectURLMock = vi.fn().mockReturnValue("blob:http://localhost/mock-blob-url");
+      const revokeObjectURLMock = vi.fn();
+      globalThis.URL.createObjectURL = createObjectURLMock;
+      globalThis.URL.revokeObjectURL = revokeObjectURLMock;
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+      const user = userEvent.setup();
+      render(
+        <AuthProvider
+          initialState={{
+            isLoading: false,
+            user: {
+              id: "usr-01",
+              name: "Daniel Ndonda",
+              email: "daniel@infrawatch.io",
+              role: "SUPER_ADMIN",
+              mfa_enabled: false,
+            },
+            accessToken: "token-test",
+          }}
+        >
+          <SecuritySettingsPage />
+        </AuthProvider>
+      );
+
+      const setupBtn = await screen.findByRole("button", {
+        name: /configurar mfa agora/i,
+      });
+      await user.click(setupBtn);
+
+      expect(await screen.findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+
+      const codeInput = screen.getByPlaceholderText("000000");
+      fireEvent.change(codeInput, { target: { value: "123456" } });
+
+      const submitBtn = screen.getByRole("button", { name: /ativar mfa/i });
+      fireEvent.click(submitBtn);
+
+      expect(await screen.findByText("Códigos de Backup")).toBeInTheDocument();
+      expect(screen.getByText("A1B2-C3D4")).toBeInTheDocument();
+      expect(screen.getByText("K7L8-M9N0")).toBeInTheDocument();
+
+      const copyBtn = screen.getByRole("button", { name: /copiar códigos/i });
+      const downloadBtn = screen.getByRole("button", { name: /baixar \(\.txt\)/i });
+      expect(copyBtn).toBeInTheDocument();
+      expect(downloadBtn).toBeInTheDocument();
+
+      await user.click(downloadBtn);
+
+      expect(createObjectURLMock).toHaveBeenCalled();
+      expect(revokeObjectURLMock).toHaveBeenCalled();
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
     });
   });
 });

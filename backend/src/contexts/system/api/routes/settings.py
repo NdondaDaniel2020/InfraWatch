@@ -25,6 +25,7 @@ from src.contexts.system.schemas.settings import (
     NotificationTestRequest,
     NotificationTestResponse,
     SmtpSettingsUpdateRequest,
+    TelegramSettingsUpdateRequest,
     WebhookSettingsUpdateRequest,
     WhatsappSettingsUpdateRequest,
     ZabbixSettingsUpdateRequest,
@@ -84,6 +85,9 @@ async def update_integration_settings(
         elif cat == "zabbix":
             zabbix_req = ZabbixSettingsUpdateRequest(**payload)
             return await service.update_zabbix_settings(zabbix_req, updated_by=user_uuid, ip_address=client_ip)
+        elif cat == "telegram":
+            telegram_req = TelegramSettingsUpdateRequest(**payload)
+            return await service.update_telegram_settings(telegram_req, updated_by=user_uuid, ip_address=client_ip)
         elif cat == "whatsapp":
             wa_req = WhatsappSettingsUpdateRequest(**payload)
             return await service.update_whatsapp_settings(wa_req, updated_by=user_uuid, ip_address=client_ip)
@@ -96,7 +100,7 @@ async def update_integration_settings(
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Integração '{name}' não é suportada. Opções: glpi, zabbix, whatsapp, smtp, webhook.",
+                detail=f"Integração '{name}' não é suportada. Opções: glpi, zabbix, telegram, whatsapp, smtp, webhook.",
             )
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))

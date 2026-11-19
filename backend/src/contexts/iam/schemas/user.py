@@ -73,6 +73,36 @@ class UserRolesUpdate(BaseModel):
     role: UserRole = Field(..., description="Novo papel atribuído ao usuário")
 
 
+class AdminUserCreate(BaseModel):
+    """Payload para criação administrativa de usuário por SUPER_ADMIN ou ORG_ADMIN."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(..., description="Endereço de e-mail válido", max_length=255)
+    password: str = Field(..., min_length=8, max_length=128, description="Senha em texto plano")
+    full_name: str = Field(..., min_length=1, max_length=255, description="Nome completo")
+    organization_id: UUID | None = Field(default=None, description="UUID da organização tenant")
+    role: UserRole = Field(default=UserRole.CLIENT_VIEWER, description="Papel RBAC atribuído")
+
+    @field_validator("password")
+    @classmethod
+    def check_password_strength(cls, value: str) -> str:
+        return validate_password_strength(value)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().lower()
+
+    @field_validator("full_name")
+    @classmethod
+    def strip_full_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("O nome completo não pode ser vazio.")
+        return stripped
+
+
 class UserPublicResponse(BaseModel):
     """Perfil público serializado do usuário."""
 
@@ -83,6 +113,7 @@ class UserPublicResponse(BaseModel):
     full_name: str
     role: str
     organization_id: UUID | None = None
+    organization_name: str | None = None
     is_active: bool
     is_verified: bool
     mfa_enabled: bool

@@ -74,7 +74,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
     <article
       data-testid={`rfc-card-${maintenance.id}`}
       style={{
-        backgroundColor: "var(--color-surface-elevated)",
+        backgroundColor: "var(--color-surface-card, #0d1424)",
         border: "var(--border-subtle)",
         borderRadius: "var(--radius-lg)",
         padding: "20px",
@@ -108,7 +108,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
           justifyContent: "center",
           padding: "12px",
           borderRadius: "var(--radius-md)",
-          backgroundColor: "var(--color-surface-card)",
+          backgroundColor: "var(--color-bg-deep, #070a12)",
           border: "var(--border-subtle)",
           minWidth: "120px",
           textAlign: "center",
@@ -174,7 +174,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
                 color: statusConfigs.color,
                 padding: "2px 8px",
                 borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--color-surface-card)",
+                backgroundColor: "var(--color-bg-deep, #070a12)",
                 border: "var(--border-subtle)",
               }}
             >
@@ -198,7 +198,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
               gap: "6px",
               padding: "2px 8px",
               borderRadius: "var(--radius-sm)",
-              backgroundColor: "var(--color-surface-card)",
+              backgroundColor: "var(--color-bg-deep, #070a12)",
               border: "var(--border-subtle)",
               fontSize: "0.75rem",
               fontFamily: "var(--font-mono)",
@@ -233,7 +233,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
                   fontSize: "0.75rem",
                   padding: "2px 8px",
                   borderRadius: "var(--radius-sm)",
-                  backgroundColor: "var(--color-surface-card)",
+                  backgroundColor: "var(--color-bg-deep, #070a12)",
                   border: "var(--border-subtle)",
                   color: "var(--color-text-primary)",
                   display: "inline-flex",
@@ -279,7 +279,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
           style={{
             padding: "10px 12px",
             borderRadius: "var(--radius-md)",
-            backgroundColor: "var(--color-surface-card)",
+            backgroundColor: "var(--color-bg-deep, #070a12)",
             border: maintenance.slaExemption
               ? "1px solid var(--color-healthy-border)"
               : "1px solid var(--color-warning-border)",
@@ -387,7 +387,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
           style={{
             padding: "8px 12px",
             borderRadius: "var(--radius-md)",
-            backgroundColor: "var(--color-surface-card)",
+            backgroundColor: "var(--color-bg-deep, #070a12)",
             border: "var(--border-subtle)",
             color: "var(--color-text-secondary)",
             fontSize: "0.75rem",

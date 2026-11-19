@@ -125,7 +125,8 @@ export const LoginPage: React.FC = () => {
     setErrorMessage(null);
     setIsGoogleLoading(true);
     try {
-      const { authorization_url, state } = await authApi.getGoogleAuthUrl();
+      const redirectUri = window.location.origin + "/auth/callback";
+      const { authorization_url, state } = await authApi.getGoogleAuthUrl(redirectUri);
       sessionStorage.setItem("google_oauth_state", state);
       sessionStorage.setItem("google_oauth_from", from);
       window.location.href = authorization_url;

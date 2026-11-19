@@ -51,6 +51,7 @@ def create_access_token(
     org_id: UUID | str | None = None,
     expires_delta: timedelta | None = None,
     extra_claims: dict[str, Any] | None = None,
+    session_id: UUID | str | None = None,
     *,
     data: dict[str, Any] | None = None,
 ) -> TokenResult:
@@ -74,6 +75,8 @@ def create_access_token(
         payload.setdefault("iat", int(now.timestamp()))
         payload.setdefault("exp", int(expiry.timestamp()))
         payload.setdefault("jti", jti)
+        if session_id is not None:
+            payload["sid"] = str(session_id)
         if "organization_id" in payload and "org_id" not in payload:
             payload["org_id"] = payload["organization_id"]
         elif "org_id" in payload and "organization_id" not in payload:
@@ -93,9 +96,12 @@ def create_access_token(
         "exp": int(expiry.timestamp()),
     }
 
+    if session_id is not None:
+        payload["sid"] = str(session_id)
+
     if extra_claims:
         for k, v in extra_claims.items():
-            if k not in payload:
+            if k not in payload or payload[k] is None:
                 payload[k] = v
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

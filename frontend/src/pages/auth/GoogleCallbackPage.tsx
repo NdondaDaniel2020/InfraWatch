@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { backupApi } from "../../services/backupApi";
 import { Card, CardContent, CardHeader } from "../../components/ui/Card";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 
@@ -30,6 +31,28 @@ export const GoogleCallbackPage: React.FC = () => {
         return;
       }
 
+      // 1. Fluxo de Autorização do Google Drive para Backup & DR (ADR-032)
+      if (state === "gdrive_backup") {
+        try {
+          const redirectUri = window.location.origin + "/auth/callback";
+          await backupApi.completeGDriveAuth(code, redirectUri);
+          setStatus("success");
+          setTimeout(() => {
+            navigate("/dr?gdrive_connected=true", { replace: true });
+          }, 800);
+          return;
+        } catch (err) {
+          setStatus("error");
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : "Falha ao vincular Google Drive ao daemon de backup."
+          );
+          return;
+        }
+      }
+
+      // 2. Fluxo de Autenticação de Usuário (IAM Social Login)
       const savedState = sessionStorage.getItem("google_oauth_state");
       if (!savedState || savedState !== state) {
         sessionStorage.removeItem("google_oauth_state");
@@ -40,7 +63,8 @@ export const GoogleCallbackPage: React.FC = () => {
       }
 
       try {
-        const user = await completeGoogleLogin(code, state);
+        const redirectUri = window.location.origin + "/auth/callback";
+        const user = await completeGoogleLogin(code, state, redirectUri);
         setStatus("success");
 
         const from = sessionStorage.getItem("google_oauth_from") || "/";

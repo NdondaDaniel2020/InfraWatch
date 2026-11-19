@@ -69,6 +69,8 @@ export interface InfraTestResponse {
   redis_ok: boolean;
   redis_latency_ms: number;
   message: string;
+  timescale_active?: boolean | null;
+  redis_persistence?: string | null;
 }
 
 export interface GlpiSettingsUpdateRequest {
@@ -87,6 +89,39 @@ export interface ZabbixSettingsUpdateRequest {
   username?: string;
   password?: string;
   timeout_seconds?: number;
+  validate_connectivity?: boolean;
+}
+
+export interface TelegramSettingsUpdateRequest {
+  bot_token?: string;
+  default_chat_id?: string;
+  enabled?: boolean;
+  validate_connectivity?: boolean;
+}
+
+export interface WhatsappSettingsUpdateRequest {
+  gateway_url: string;
+  enabled?: boolean;
+  api_token?: string;
+  default_recipient?: string;
+  validate_connectivity?: boolean;
+}
+
+export interface SmtpSettingsUpdateRequest {
+  host: string;
+  port?: number;
+  tls?: boolean;
+  from_address: string;
+  user?: string;
+  password?: string;
+  default_recipient?: string;
+  enabled?: boolean;
+  validate_connectivity?: boolean;
+}
+
+export interface WebhookSettingsUpdateRequest {
+  url?: string;
+  enabled?: boolean;
   validate_connectivity?: boolean;
 }
 

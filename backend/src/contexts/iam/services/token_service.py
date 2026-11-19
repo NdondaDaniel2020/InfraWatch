@@ -10,6 +10,7 @@ Implementa:
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -30,6 +31,7 @@ from src.contexts.iam.security.tokens import (
 )
 from src.core.config import get_settings
 from src.core.database import OutboxRepository
+from src.core.domain.entity import generate_uuid7
 from src.core.exceptions import (
     InvalidTokenError,
     TokenExpiredError,
@@ -39,17 +41,22 @@ from src.core.web.client_info import parse_user_agent
 
 logger = logging.getLogger("infrawatch.iam.token")
 
-# Fallback em memória para blacklist de tokens quando o Redis estiver inacessível
+# Fallback em memória para blacklist de tokens e sessões quando o Redis estiver inacessível
 _in_memory_blacklist: dict[str, float] = {}
+_in_memory_session_blacklist: dict[str, float] = {}
 MAX_IN_MEMORY_BLACKLIST_SIZE = 10_000
 
 
 def _clean_expired_in_memory_blacklist(max_size: int = MAX_IN_MEMORY_BLACKLIST_SIZE) -> None:
     """Expurga entradas expiradas do cache em memória e aplica limite rígido (LRU/TTL)."""
     now_ts = datetime.now(UTC).timestamp()
-    expired = [jti for jti, exp in _in_memory_blacklist.items() if exp <= now_ts]
-    for jti in expired:
+    expired_tokens = [jti for jti, exp in _in_memory_blacklist.items() if exp <= now_ts]
+    for jti in expired_tokens:
         _in_memory_blacklist.pop(jti, None)
+
+    expired_sessions = [sid for sid, exp in _in_memory_session_blacklist.items() if exp <= now_ts]
+    for sid in expired_sessions:
+        _in_memory_session_blacklist.pop(sid, None)
 
     # Se atingir ou exceder o tamanho máximo, remove as entradas que expiram primeiro
     if len(_in_memory_blacklist) >= max_size:
@@ -57,6 +64,12 @@ def _clean_expired_in_memory_blacklist(max_size: int = MAX_IN_MEMORY_BLACKLIST_S
         sorted_by_exp = sorted(_in_memory_blacklist.items(), key=lambda item: item[1])
         for jti, _ in sorted_by_exp[:excess]:
             _in_memory_blacklist.pop(jti, None)
+
+    if len(_in_memory_session_blacklist) >= max_size:
+        excess_s = len(_in_memory_session_blacklist) - max_size + 1
+        sorted_by_exp_s = sorted(_in_memory_session_blacklist.items(), key=lambda item: item[1])
+        for sid, _ in sorted_by_exp_s[:excess_s]:
+            _in_memory_session_blacklist.pop(sid, None)
 
 
 @dataclass(frozen=True)
@@ -107,26 +120,29 @@ class TokenService:
         settings = get_settings()
         now = datetime.now(UTC)
 
-        # 1. Gerar Access Token JWT assinado
+        # 1. Gerar ID de sessão prévio e Refresh Token opaco
+        session_id = generate_uuid7()
+        raw_refresh_token = generate_opaque_token(48)
+        token_hash = hash_token(raw_refresh_token)
+
+        # 2. Gerar Access Token JWT assinado com a claim 'sid'
         access_token, _ = create_access_token(
             user_id=user.id,
             role=user.role,
             org_id=user.organization_id,
-            extra_claims={"email": user.email},
+            session_id=session_id,
+            extra_claims={"email": user.email, "sid": str(session_id)},
         )
-
-        # 2. Gerar Refresh Token opaco e seguro
-        raw_refresh_token = generate_opaque_token(48)
-        token_hash = hash_token(raw_refresh_token)
 
         # 3. Determinar nome amigável de dispositivo
         effective_device_name = device_name or (
             parse_user_agent(user_agent) if user_agent else None
         )
 
-        # 4. Persistir o hash do Refresh Token no banco relacional
+        # 4. Persistir o hash do Refresh Token no banco relacional com o ID da sessão
         expires_at = now + timedelta(days=settings.JWT_REFRESH_DAYS)
         token_record = RefreshTokenModel(
+            id=session_id,
             user_id=user.id,
             token_hash=token_hash,
             expires_at=expires_at,
@@ -197,7 +213,8 @@ class TokenService:
                     user_id=token_record.user.id,
                     role=token_record.user.role,
                     org_id=token_record.user.organization_id,
-                    extra_claims={"email": token_record.user.email},
+                    session_id=token_record.id,
+                    extra_claims={"email": token_record.user.email, "sid": str(token_record.id)},
                 )
                 return TokenPairResponse(
                     access_token=access_token,
@@ -228,11 +245,13 @@ class TokenService:
             )
 
         # Caso 3: Token ativo e válido -> Rotação Atômica
+        new_session_id = generate_uuid7()
         new_access_token, _ = create_access_token(
             user_id=token_record.user.id,
             role=token_record.user.role,
             org_id=token_record.user.organization_id,
-            extra_claims={"email": token_record.user.email},
+            session_id=new_session_id,
+            extra_claims={"email": token_record.user.email, "sid": str(new_session_id)},
         )
         new_raw_refresh_token = generate_opaque_token(48)
         new_token_hash = hash_token(new_raw_refresh_token)
@@ -249,8 +268,9 @@ class TokenService:
             or token_record.device_name
         )
 
-        # Persiste o novo token rotacionado
+        # Persiste o novo token rotacionado com ID explícito
         new_token_record = RefreshTokenModel(
+            id=new_session_id,
             user_id=token_record.user_id,
             token_hash=new_token_hash,
             expires_at=now + timedelta(days=settings.JWT_REFRESH_DAYS),
@@ -357,6 +377,20 @@ class TokenService:
         """Verifica se o JTI do Access Token consta como revogado/bloqueado."""
         return await is_token_blacklisted(jti, self._redis)
 
+    async def blacklist_session(self, session_id: str | UUID, ttl_seconds: int = 900) -> None:
+        """Adiciona o ID de uma sessão à blacklist no Redis com TTL de expiração."""
+        await blacklist_session_ids([session_id], redis_client=self._redis, ttl_seconds=ttl_seconds)
+
+    async def blacklist_sessions(
+        self, session_ids: Sequence[str | UUID], ttl_seconds: int = 900
+    ) -> None:
+        """Adiciona múltiplos IDs de sessão à blacklist no Redis via pipeline."""
+        await blacklist_session_ids(session_ids, redis_client=self._redis, ttl_seconds=ttl_seconds)
+
+    async def is_session_blacklisted(self, session_id: str | UUID) -> bool:
+        """Verifica se o ID de sessão consta como revogado no Redis ou na memória."""
+        return await is_session_blacklisted(session_id, self._redis)
+
 
 async def is_token_blacklisted(jti: str, redis_client: aioredis.Redis | None = None) -> bool:
     """Verifica se o JTI do Access Token consta como revogado/bloqueado no Redis ou na memória."""
@@ -372,3 +406,53 @@ async def is_token_blacklisted(jti: str, redis_client: aioredis.Redis | None = N
 
     _clean_expired_in_memory_blacklist()
     return jti in _in_memory_blacklist
+
+
+async def blacklist_session_ids(
+    session_ids: Sequence[str | UUID],
+    redis_client: aioredis.Redis | None = None,
+    ttl_seconds: int = 900,
+) -> None:
+    """Registra uma ou mais sessões na blacklist do Redis com expiração TTL (ou fallback em memória)."""
+    if not session_ids or ttl_seconds <= 0:
+        return
+
+    sids = [str(sid) for sid in session_ids if sid]
+    if not sids:
+        return
+
+    if redis_client is not None:
+        try:
+            pipe = redis_client.pipeline()
+            for sid in sids:
+                pipe.set(f"blacklist:session:{sid}", "1", ex=ttl_seconds)
+            await pipe.execute()
+            return
+        except (RedisError, ConnectionError, OSError) as exc:
+            logger.warning(
+                "Falha ao registrar blacklist de sessões no Redis, utilizando fallback em memória: %s", exc
+            )
+
+    _clean_expired_in_memory_blacklist()
+    expire_at = datetime.now(UTC).timestamp() + ttl_seconds
+    for sid in sids:
+        _in_memory_session_blacklist[sid] = expire_at
+
+
+async def is_session_blacklisted(
+    session_id: str | UUID, redis_client: aioredis.Redis | None = None
+) -> bool:
+    """Verifica se o ID de sessão consta como revogado no Redis ou na memória."""
+    if not session_id:
+        return False
+
+    sid = str(session_id)
+    if redis_client is not None:
+        try:
+            val = await redis_client.get(f"blacklist:session:{sid}")
+            return val is not None
+        except (RedisError, ConnectionError, OSError) as exc:
+            logger.warning("Falha ao consultar blacklist de sessão no Redis, checando memória: %s", exc)
+
+    _clean_expired_in_memory_blacklist()
+    return sid in _in_memory_session_blacklist

@@ -190,6 +190,32 @@ async def test_update_zabbix_settings_endpoint_success(
 
 
 @pytest.mark.asyncio
+async def test_update_telegram_settings_endpoint_success(
+    settings_update_app: FastAPI,
+    mock_settings_service: AsyncMock,
+    admin_token: str,
+) -> None:
+    mock_settings_service.update_telegram_settings.return_value = IntegrationUpdateResponse(
+        success=True,
+        name="telegram",
+        message="Telegram atualizado",
+        source="database",
+    )
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=settings_update_app),
+        base_url="http://test",
+    ) as client:
+        resp = await client.patch(
+            "/api/v1/system/settings/integrations/telegram",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"bot_token": "token123", "default_chat_id": "-1001", "enabled": True},
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        mock_settings_service.update_telegram_settings.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_reset_integration_settings_endpoint_success(
     settings_update_app: FastAPI,
     mock_settings_service: AsyncMock,

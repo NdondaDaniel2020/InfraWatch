@@ -132,12 +132,18 @@ class AuditService:
         self,
         *,
         organization_id: UUID | None = None,
+        search: str | None = None,
+        role: str | None = None,
+        action: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[AuditLogModel], int]:
-        """Consulta registros de auditoria paginados."""
+        """Consulta registros de auditoria paginados com suporte a busca e filtros."""
         return await self.repository.list_paginated(
             organization_id=organization_id,
+            search=search,
+            role=role,
+            action=action,
             offset=offset,
             limit=limit,
         )

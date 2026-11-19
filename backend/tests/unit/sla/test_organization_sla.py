@@ -89,6 +89,13 @@ async def test_create_support_ticket_retorna_protocolo_formal():
     session = AsyncMock()
     org_id = uuid4()
 
+    mock_org = MagicMock()
+    mock_org.id = org_id
+    mock_org.name = "Banco Sol S.A."
+    org_res = MagicMock()
+    org_res.scalar_one_or_none.return_value = mock_org
+    session.execute.return_value = org_res
+
     service = SlaService(session)
     payload = CreateSupportTicketRequest(
         title="Instabilidade no canal Internet Banking",

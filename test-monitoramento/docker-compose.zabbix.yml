@@ -11,6 +11,7 @@ services:
       - zabbix_db_data:/var/lib/postgresql/data
     networks:
       - infrawatch-zabbix-net
+      - infrawatch-net
     secrets:
       - zabbix_db_password
     healthcheck:
@@ -37,6 +38,7 @@ services:
         condition: service_healthy
     networks:
       - infrawatch-zabbix-net
+      - infrawatch-net
 
   zabbix-web:
     image: zabbix/zabbix-web-nginx-pgsql:alpine-7.0.31
@@ -60,6 +62,7 @@ services:
         condition: service_started
     networks:
       - infrawatch-zabbix-net
+      - infrawatch-net
 
   zabbix-agent:
     image: zabbix/zabbix-agent:alpine-7.0.31
@@ -75,6 +78,7 @@ services:
       - zabbix-server
     networks:
       - infrawatch-zabbix-net
+      - infrawatch-net
 
 secrets:
   zabbix_db_password:
@@ -87,3 +91,6 @@ volumes:
 networks:
   infrawatch-zabbix-net:
     driver: bridge
+  infrawatch-net:
+    external: true
+    name: infrawatch_infrawatch-net

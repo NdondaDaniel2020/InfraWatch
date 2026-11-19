@@ -63,6 +63,10 @@ class OrganizationService:
         total = await self.org_repo.count_all()
         return items, total
 
+    async def get_users_counts(self, org_ids: list[UUID]) -> dict[UUID, int]:
+        """Calcula o mapa de contagem de usuários para as organizações fornecidas."""
+        return await self.org_repo.get_users_count_map(org_ids)
+
     async def create_organization(self, data: OrganizationCreate) -> OrganizationModel:
         """Valida unicidade do slug, persiste no repositório e emite evento Outbox."""
         clean_slug = data.slug.strip().lower()

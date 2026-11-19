@@ -32,7 +32,28 @@ const mockStatus: IntegrationStatusResponse = {
       enabled: true,
       endpoint: "api.telegram.org",
       configured: true,
-      details: {},
+      details: { default_chat_id: "-10012345" },
+    },
+    {
+      name: "whatsapp",
+      enabled: true,
+      endpoint: "http://whatsapp-gw:8085",
+      configured: true,
+      details: { gateway_url: "http://whatsapp-gw:8085", default_recipient: "+244923000111" },
+    },
+    {
+      name: "smtp",
+      enabled: true,
+      endpoint: "smtp.gmail.com:587",
+      configured: true,
+      details: { host: "smtp.gmail.com", port: 587, tls: true, from_address: "noc@infrawatch.ao" },
+    },
+    {
+      name: "webhook",
+      enabled: true,
+      endpoint: "https://discord.com/api/webhooks/test",
+      configured: true,
+      details: { url: "https://discord.com/api/webhooks/test" },
     },
     {
       name: "postgres",
@@ -46,7 +67,14 @@ const mockStatus: IntegrationStatusResponse = {
       enabled: true,
       endpoint: "redis:6379",
       configured: true,
-      details: { db: 0 },
+      details: {
+        db: 0,
+        streams: [
+          "stream:incidents",
+          "stream:inventory:changes",
+          "stream:system:settings_changed",
+        ],
+      },
     },
   ],
   environment: "production",
@@ -180,10 +208,10 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
     fireEvent.click(notifTab);
 
     await waitFor(() => {
-      expect(screen.getByText("Disparador de Alerta Sintético de Teste")).toBeInTheDocument();
+      expect(screen.getByText("Testar TELEGRAM In-Process")).toBeInTheDocument();
     });
 
-    const sendBtn = screen.getByText("Disparar Teste via TELEGRAM");
+    const sendBtn = screen.getByText("Testar TELEGRAM In-Process");
     fireEvent.click(sendBtn);
 
     await waitFor(() => {
@@ -193,18 +221,67 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
 
     expect(settingsApi.testNotification).toHaveBeenCalledWith({
       channel: "telegram",
-      recipient: undefined,
-      severity: "CRITICAL",
     });
   });
 
-  it("permite verificar conectividade e latência do Cluster (TimescaleDB e Redis)", async () => {
+  it("permite verificar conectividade e latência do Cluster (TimescaleDB e Redis) com dados dinâmicos", async () => {
     vi.mocked(settingsApi.testInfra).mockResolvedValue({
       postgres_ok: true,
       postgres_latency_ms: 1.85,
       redis_ok: true,
       redis_latency_ms: 0.92,
       message: "Cluster de infraestrutura 100% operacional (PostgreSQL e Redis conectados).",
+      timescale_active: true,
+      redis_persistence: "AOF & RDB Ativa",
+    });
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Infra & Cluster")).toBeInTheDocument();
+    });
+
+    const clusterTab = screen.getByRole("button", { name: /Infra & Cluster/i });
+    fireEvent.click(clusterTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Verificar Saúde do Cluster")).toBeInTheDocument();
+    });
+
+    // Antes do teste, os crachás mostram estado configurado
+    expect(screen.getAllByText("CONFIGURADO").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("3 Streams Canônicos")).toBeInTheDocument();
+    expect(screen.getByText("Disponível via Diagnóstico")).toBeInTheDocument();
+    expect(screen.getByText("Verificável via Diagnóstico")).toBeInTheDocument();
+
+    const checkBtn = screen.getByText("Verificar Saúde do Cluster");
+    fireEvent.click(checkBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cluster de infraestrutura 100% operacional (PostgreSQL e Redis conectados).")).toBeInTheDocument();
+      expect(screen.getByText("1.85 ms")).toBeInTheDocument();
+      expect(screen.getByText("0.92 ms")).toBeInTheDocument();
+      expect(screen.getByText("Ativa (timescaledb)")).toBeInTheDocument();
+      expect(screen.getByText("AOF & RDB Ativa")).toBeInTheDocument();
+      expect(screen.getAllByText("ONLINE").length).toBeGreaterThanOrEqual(2);
+    });
+
+    expect(settingsApi.testInfra).toHaveBeenCalled();
+  });
+
+  it("exibe badge de FALHA quando diagnóstico de infraestrutura falha", async () => {
+    vi.mocked(settingsApi.testInfra).mockResolvedValue({
+      postgres_ok: false,
+      postgres_latency_ms: 0,
+      redis_ok: false,
+      redis_latency_ms: 0,
+      message: "Atenção: Um ou mais componentes do cluster apresentaram instabilidade.",
+      timescale_active: false,
+      redis_persistence: "Desconectado",
     });
 
     render(
@@ -228,12 +305,10 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
     fireEvent.click(checkBtn);
 
     await waitFor(() => {
-      expect(screen.getByText("Cluster de infraestrutura 100% operacional (PostgreSQL e Redis conectados).")).toBeInTheDocument();
-      expect(screen.getByText("1.85 ms")).toBeInTheDocument();
-      expect(screen.getByText("0.92 ms")).toBeInTheDocument();
+      expect(screen.getByText("Atenção: Um ou mais componentes do cluster apresentaram instabilidade.")).toBeInTheDocument();
+      expect(screen.getAllByText("FALHA").length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText("Não detectada")).toBeInTheDocument();
     });
-
-    expect(settingsApi.testInfra).toHaveBeenCalled();
   });
 
   it("permite salvar e persistir configurações do GLPI com updateIntegration", async () => {
@@ -340,6 +415,91 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
           endpoint: "http://zabbix:8080/api_jsonrpc.php",
           enabled: true,
           validate_connectivity: true,
+        })
+      );
+    });
+  });
+
+  it("permite salvar e persistir configurações de canal de Notificação no banco com updateIntegration", async () => {
+    vi.mocked(settingsApi.updateIntegration).mockResolvedValue({
+      success: true,
+      name: "telegram",
+      message: "Configuração de TELEGRAM salva no banco com sucesso!",
+      source: "database",
+    });
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Notificações")).toBeInTheDocument();
+    });
+
+    const notifTab = screen.getByRole("button", { name: /Notificações/i });
+    fireEvent.click(notifTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Parâmetros de Conexão:/i)).toBeInTheDocument();
+      expect(screen.getByText("Salvar Configuração")).toBeInTheDocument();
+    });
+
+    const saveBtn = screen.getByText("Salvar Configuração");
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(settingsApi.updateIntegration).toHaveBeenCalledWith(
+        "telegram",
+        expect.objectContaining({
+          enabled: true,
+        })
+      );
+    });
+  });
+
+  it("permite alternar canal de notificação e salvar WhatsApp na DB", async () => {
+    vi.mocked(settingsApi.updateIntegration).mockResolvedValue({
+      success: true,
+      name: "whatsapp",
+      message: "Configuração de WHATSAPP salva no banco com sucesso!",
+      source: "database",
+    });
+
+    render(
+      <MemoryRouter>
+        <SystemSettingsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Notificações")).toBeInTheDocument();
+    });
+
+    const notifTab = screen.getByRole("button", { name: /Notificações/i });
+    fireEvent.click(notifTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("WhatsApp Gateway")).toBeInTheDocument();
+    });
+
+    const waBtn = screen.getByRole("button", { name: /WhatsApp Gateway/i });
+    fireEvent.click(waBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Parâmetros de Conexão:/i)).toHaveTextContent(/whatsapp/i);
+    });
+
+    const saveBtn = screen.getByText("Salvar Configuração");
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(settingsApi.updateIntegration).toHaveBeenCalledWith(
+        "whatsapp",
+        expect.objectContaining({
+          gateway_url: "http://whatsapp-gw:8085",
+          enabled: true,
         })
       );
     });

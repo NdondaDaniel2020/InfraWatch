@@ -119,6 +119,12 @@ class InfraTestResponse(BaseModel):
         description="Latência do comando PING no Redis em milissegundos"
     )
     message: str = Field(description="Resumo do estado operacional do cluster")
+    timescale_active: bool | None = Field(
+        default=None, description="Indica se a extensão TimescaleDB está ativa no PostgreSQL"
+    )
+    redis_persistence: str | None = Field(
+        default=None, description="Modo de persistência do Redis detectado em runtime"
+    )
 
 
 class GlpiSettingsUpdateRequest(BaseModel):
@@ -164,13 +170,23 @@ class SmtpSettingsUpdateRequest(BaseModel):
     user: str | None = Field(default=None, description="Usuário SMTP")
     password: str | None = Field(default=None, description="Senha SMTP (omitir para preservar atual)")
     default_recipient: str | None = Field(default=None, description="Destinatário de alerta padrão")
+    enabled: bool = Field(default=True, description="Habilitar envio via SMTP")
+    validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
+
+
+class TelegramSettingsUpdateRequest(BaseModel):
+    """Payload para atualização persistente de parâmetros do Telegram Bot."""
+
+    bot_token: str | None = Field(default=None, description="Token do Telegram Bot (omitir para preservar atual)")
+    default_chat_id: str | None = Field(default=None, description="Chat ID padrão de alertas")
+    enabled: bool = Field(default=True, description="Habilitar envio via Telegram")
     validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
 
 
 class WebhookSettingsUpdateRequest(BaseModel):
     """Payload para atualização persistente de webhook padrão."""
 
-    url: str = Field(description="URL do webhook de destino")
+    url: str | None = Field(default=None, description="URL do webhook de destino (omitir para preservar atual)")
     enabled: bool = Field(default=True, description="Habilitar webhook padrão")
     validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
 

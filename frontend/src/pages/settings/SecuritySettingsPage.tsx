@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../../context/AuthContext";
 import { securityApi } from "../../services/securityApi";
 import { Button } from "../../components/ui/Button";
@@ -9,6 +10,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Copy,
+  Download,
   Laptop,
   LogOut,
   ShieldAlert,
@@ -18,10 +20,16 @@ import {
 } from "lucide-react";
 
 export const SecuritySettingsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
 
   // Estados de MFA
   const [isMfaActive, setIsMfaActive] = useState<boolean>(user?.mfa_enabled ?? false);
+
+  useEffect(() => {
+    if (user?.mfa_enabled !== undefined) {
+      setIsMfaActive(user.mfa_enabled);
+    }
+  }, [user?.mfa_enabled]);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [setupData, setSetupData] = useState<MfaSetupResponse | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
@@ -85,6 +93,9 @@ export const SecuritySettingsPage: React.FC = () => {
     try {
       const res = await securityApi.enableMfa(verificationCode);
       setIsMfaActive(true);
+      if (user) {
+        setUser({ ...user, mfa_enabled: true });
+      }
       setBackupCodes(res.backup_codes || []);
       setFeedbackMessage({
         type: "success",
@@ -100,6 +111,40 @@ export const SecuritySettingsPage: React.FC = () => {
     }
   };
 
+  // Download dos códigos de recuperação em arquivo txt
+  const handleDownloadBackupCodes = () => {
+    if (backupCodes.length === 0) return;
+
+    const formattedDate = new Date().toISOString().slice(0, 10);
+    const content = [
+      "==================================================",
+      "INFRAWATCH - CÓDIGOS DE RECUPERAÇÃO MFA (BACKUP)",
+      `Data de Emissão: ${new Date().toLocaleString("pt-BR")}`,
+      `Conta: ${user?.email || user?.name || "Usuário"}`,
+      "==================================================",
+      "",
+      "AVISO DE SEGURANÇA:",
+      "- Cada código abaixo pode ser utilizado apenas UMA vez.",
+      "- Guarde este arquivo em um local seguro (ex: cofre de senhas).",
+      "- Não compartilhe estes códigos com ninguém.",
+      "",
+      "--- SEUS 10 CÓDIGOS DE BACKUP ---",
+      ...backupCodes.map((c, i) => `${String(i + 1).padStart(2, "0")}. ${c}`),
+      "",
+      "==================================================",
+    ].join("\n");
+
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `infrawatch-backup-codes-${formattedDate}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Desativar MFA
   const handleConfirmDisableMfa = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +154,9 @@ export const SecuritySettingsPage: React.FC = () => {
     try {
       await securityApi.disableMfa(disablePassword, disableCode);
       setIsMfaActive(false);
+      if (user) {
+        setUser({ ...user, mfa_enabled: false });
+      }
       setIsDisableModalOpen(false);
       setDisablePassword("");
       setDisableCode("");
@@ -365,19 +413,32 @@ export const SecuritySettingsPage: React.FC = () => {
               ))}
             </div>
 
-            <Button
-              variant="outline"
-              size="md"
-              fullWidth
-              icon={<Copy size={16} />}
-              onClick={() => {
-                navigator.clipboard.writeText(backupCodes.join("\n"));
-                alert("Códigos copiados para a área de transferência!");
-              }}
-              className="mb-3"
-            >
-              Copiar Todos os Códigos
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <Button
+                variant="outline"
+                size="md"
+                fullWidth
+                icon={<Copy size={16} />}
+                onClick={() => {
+                  if (navigator?.clipboard?.writeText) {
+                    navigator.clipboard.writeText(backupCodes.join("\n"));
+                  }
+                  alert("Códigos copiados para a área de transferência!");
+                }}
+              >
+                Copiar Códigos
+              </Button>
+
+              <Button
+                variant="outline"
+                size="md"
+                fullWidth
+                icon={<Download size={16} />}
+                onClick={handleDownloadBackupCodes}
+              >
+                Baixar (.txt)
+              </Button>
+            </div>
 
             <Button
               variant="primary"
@@ -391,14 +452,33 @@ export const SecuritySettingsPage: React.FC = () => {
         ) : (
           <form onSubmit={handleConfirmEnableMfa} className="space-y-4">
             <p className="text-sm text-slate-400">
-              1. Insira a chave secreta abaixo no seu aplicativo autenticador (Google Authenticator, Authy ou 1Password):
+              1. Aponte a câmera do seu aplicativo autenticador (Google Authenticator, Authy ou 1Password) para escanear o QR Code:
             </p>
 
-            <div className="p-3 rounded-xl bg-obsidian-950 border border-white/10 font-mono text-base font-bold text-center text-amber-400 tracking-wider">
-              {setupData?.secret}
+            {setupData?.otpauth_uri && (
+              <div
+                data-testid="mfa-qrcode-container"
+                className="flex flex-col items-center justify-center p-3.5 bg-white rounded-2xl mx-auto w-fit shadow-md border border-white/20"
+              >
+                <QRCodeSVG
+                  value={setupData.otpauth_uri}
+                  size={168}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <span className="text-xs text-slate-400 block text-center">
+                Ou insira a chave secreta manualmente se preferir:
+              </span>
+              <div className="p-2.5 rounded-xl bg-obsidian-950 border border-white/10 font-mono text-sm font-bold text-center text-amber-400 tracking-wider select-all">
+                {setupData?.secret}
+              </div>
             </div>
 
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-400 pt-1">
               2. Digite o código de 6 dígitos exibido no aplicativo para validar:
             </p>
 

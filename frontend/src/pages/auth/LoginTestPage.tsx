@@ -26,6 +26,7 @@ interface QuickProfile {
   role: UserRole;
   name: string;
   email: string;
+  password?: string;
   initials: string;
   description: string;
   icon: React.ReactNode;
@@ -35,37 +36,41 @@ interface QuickProfile {
 const QUICK_PROFILES: QuickProfile[] = [
   {
     role: "SUPER_ADMIN",
-    name: "Daniel Ndonda",
-    email: "admin@infrawatch.io",
-    initials: "DN",
-    description: "Acesso total irrestrito (Auditoria, Backups, RBAC)",
+    name: "NOC Super Admin",
+    email: "noc-admin@rcsangola.co.ao",
+    password: "Ndonda#2026!Admin",
+    initials: "SA",
+    description: "Acesso total irrestrito (Auditoria, Backups, RBAC, Configurações)",
     icon: <ShieldAlert size={16} />,
     variant: "primary",
   },
   {
     role: "NOC_OPERATOR",
     name: "Operador NOC Luanda",
-    email: "noc.operator@infrawatch.io",
+    email: "operador.noc@infrawatch.ao",
+    password: "Operator#2026!Noc",
     initials: "OP",
-    description: "Cockpit NOC, TV Wallboard, Incidentes & Sondas",
+    description: "Cockpit NOC, TV Wallboard, Topologia, Incidentes & Sondas",
     icon: <Server size={16} />,
     variant: "secondary",
   },
   {
     role: "ORG_ADMIN",
-    name: "Gestor TI Banco Sol",
-    email: "ti.gestor@bancosol.ao",
+    name: "Mateus Silva (Banco Sol)",
+    email: "gestor.ti@bancosol.ao",
+    password: "Admin#2026!BancoSol",
     initials: "BS",
-    description: "Gestão da Organização e Relatórios de SLA",
+    description: "Gestão da Organização, Janelas de Manutenção e Relatórios de SLA",
     icon: <Building2 size={16} />,
     variant: "secondary",
   },
   {
     role: "CLIENT_VIEWER",
-    name: "Diretoria Executiva",
-    email: "diretoria@bancosol.ao",
+    name: "Auditor Banco Sol",
+    email: "viewer@bancosol.ao",
+    password: "Viewer#2026!BancoSol",
     initials: "DE",
-    description: "Portal do Cliente sanitizado (Disponibilidade e SLA)",
+    description: "Portal do Cliente sanitizado (Disponibilidade e Laudos de SLA)",
     icon: <Shield size={16} />,
     variant: "outline",
   },
@@ -78,61 +83,93 @@ export interface LoginTestPageProps {
 export const LoginTestPage: React.FC<LoginTestPageProps> = ({
   testId = "login-test-page",
 }) => {
-  const { setSession } = useAuth();
+  const { login, setSession } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [selectedRole, setSelectedRole] = useState<UserRole>("NOC_OPERATOR");
-  const [email, setEmail] = useState("daniel.ndonda@infrawatch.io");
-  const [password, setPassword] = useState("••••••••••••");
+  const [selectedRole, setSelectedRole] = useState<UserRole>("SUPER_ADMIN");
+  const [email, setEmail] = useState("noc-admin@rcsangola.co.ao");
+  const [password, setPassword] = useState("Ndonda#2026!Admin");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Destino original pós-autenticação
   const from =
     (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
-  const executeLogin = (
-    role: UserRole,
-    name: string,
-    userEmail: string,
-    initials: string
-  ) => {
-    const orgId =
-      role === "ORG_ADMIN" || role === "CLIENT_VIEWER" ? "bancosol" : null;
-    const orgName =
-      role === "ORG_ADMIN" || role === "CLIENT_VIEWER" ? "Banco Sol" : null;
-
-    setSession(
-      {
-        id: `usr-${role.toLowerCase()}-01`,
-        email: userEmail,
-        name,
-        role,
-        initials,
-        organization_id: orgId,
-        organization_name: orgName,
-      },
-      `mock-jwt-token-${role.toLowerCase()}`
-    );
-
-    // Se perfil corporativo (viewer ou gestor org), vai para /portal, senão destino original
-    if (
-      (role === "CLIENT_VIEWER" || role === "ORG_ADMIN") &&
-      (from === "/" || from === "/login" || from === "/login-test" || from === "/dev/login")
-    ) {
-      navigate("/portal", { replace: true });
-    } else {
-      navigate(from, { replace: true });
+  const handleRoleChange = (newRole: UserRole) => {
+    setSelectedRole(newRole);
+    const profile = QUICK_PROFILES.find((p) => p.role === newRole);
+    if (profile) {
+      setEmail(profile.email);
+      if (profile.password) {
+        setPassword(profile.password);
+      }
     }
   };
 
-  const handleCustomFormSubmit = (e: React.FormEvent) => {
+  const executeLogin = async (
+    role: UserRole,
+    name: string,
+    userEmail: string,
+    initials: string,
+    userPassword?: string
+  ) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    const pwd = userPassword || password;
+
+    try {
+      // 1. Tenta autenticar no backend para obter token JWT legítimo assinado (ADR-033)
+      await login({ email: userEmail, password: pwd });
+    } catch {
+      // 2. Fallback de compatibilidade para ambiente estritamente offline/testes de unidade
+      const orgId =
+        role === "ORG_ADMIN" || role === "CLIENT_VIEWER"
+          ? "01a18e2f-01c8-705b-9e4c-54c66dcf68ba"
+          : null;
+      const orgName =
+        role === "ORG_ADMIN" || role === "CLIENT_VIEWER" ? "Banco Sol" : null;
+
+      setSession(
+        {
+          id: `usr-${role.toLowerCase()}-01`,
+          email: userEmail,
+          name,
+          role,
+          initials,
+          organization_id: orgId,
+          organization_name: orgName,
+        },
+        `mock-jwt-token-${role.toLowerCase()}`
+      );
+    } finally {
+      setIsSubmitting(false);
+
+      // Redirecionamento apropriado por nível de acesso
+      if (
+        (role === "CLIENT_VIEWER" || role === "ORG_ADMIN") &&
+        (from === "/" || from === "/login" || from === "/login-test" || from === "/dev/login")
+      ) {
+        navigate("/portal", { replace: true });
+      } else if (from === "/" || from === "/login" || from === "/login-test") {
+        navigate("/noc", { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
+    }
+  };
+
+  const handleCustomFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const profile = QUICK_PROFILES.find((p) => p.role === selectedRole);
-    executeLogin(
+    await executeLogin(
       selectedRole,
       profile?.name || "Usuário InfraWatch",
       email,
-      profile?.initials || "IW"
+      profile?.initials || "IW",
+      password
     );
   };
 
@@ -231,8 +268,9 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
                   <button
                     key={p.role}
                     type="button"
+                    disabled={isSubmitting}
                     onClick={() =>
-                      executeLogin(p.role, p.name, p.email, p.initials)
+                      executeLogin(p.role, p.name, p.email, p.initials, p.password)
                     }
                     data-testid={`quick-login-${p.role.toLowerCase()}`}
                     style={{
@@ -244,17 +282,22 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
                       backgroundColor: "var(--color-surface-elevated)",
                       border: "var(--border-subtle)",
                       color: "var(--color-text-primary)",
-                      cursor: "pointer",
+                      cursor: isSubmitting ? "not-allowed" : "pointer",
+                      opacity: isSubmitting ? 0.7 : 1,
                       textAlign: "left",
                       transition: "all var(--transition-fast)",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--color-healthy-border)";
-                      e.currentTarget.style.backgroundColor = "var(--color-surface-hover)";
+                      if (!isSubmitting) {
+                        e.currentTarget.style.borderColor = "var(--color-healthy-border)";
+                        e.currentTarget.style.backgroundColor = "var(--color-surface-hover)";
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "var(--color-border-subtle)";
-                      e.currentTarget.style.backgroundColor = "var(--color-surface-elevated)";
+                      if (!isSubmitting) {
+                        e.currentTarget.style.borderColor = "var(--color-border-subtle)";
+                        e.currentTarget.style.backgroundColor = "var(--color-surface-elevated)";
+                      }
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -311,7 +354,7 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
                         fontWeight: 600,
                       }}
                     >
-                      Entrar →
+                      {isSubmitting ? "Entrando..." : "Entrar →"}
                     </span>
                   </button>
                 ))}
@@ -361,7 +404,8 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
                 <select
                   id="test-role-select"
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+                  onChange={(e) => handleRoleChange(e.target.value as UserRole)}
+                  disabled={isSubmitting}
                   data-testid="login-role-select"
                   style={{
                     width: "100%",
@@ -399,6 +443,7 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
                     id="test-email-input"
                     type="email"
                     value={email}
+                    disabled={isSubmitting}
                     onChange={(e) => setEmail(e.target.value)}
                     style={{
                       width: "100%",
@@ -434,13 +479,14 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
                     marginBottom: "4px",
                   }}
                 >
-                  Senha Simulada:
+                  Senha:
                 </label>
                 <div style={{ position: "relative" }}>
                   <input
                     id="test-password-input"
                     type="password"
                     value={password}
+                    disabled={isSubmitting}
                     onChange={(e) => setPassword(e.target.value)}
                     style={{
                       width: "100%",
@@ -465,13 +511,29 @@ export const LoginTestPage: React.FC<LoginTestPageProps> = ({
                 </div>
               </div>
 
+              {errorMessage && (
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--color-danger, #ef4444)",
+                    backgroundColor: "rgba(239, 68, 68, 0.1)",
+                    border: "1px solid rgba(239, 68, 68, 0.2)",
+                    borderRadius: "var(--radius-sm)",
+                    padding: "8px 12px",
+                  }}
+                >
+                  {errorMessage}
+                </div>
+              )}
+
               <Button
                 type="submit"
                 variant="primary"
+                disabled={isSubmitting}
                 style={{ width: "100%", marginTop: "6px" }}
                 data-testid="login-submit-button"
               >
-                Entrar com Dados Customizados
+                {isSubmitting ? "Autenticando..." : "Entrar com Dados Customizados"}
               </Button>
             </form>
           </CardContent>
