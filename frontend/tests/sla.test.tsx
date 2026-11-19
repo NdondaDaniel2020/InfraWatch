@@ -41,6 +41,22 @@ vi.mock("../src/services/adminApi", () => ({
   },
 }));
 
+vi.mock("../src/services/devicesApi", () => ({
+  devicesApi: {
+    listDevices: vi.fn().mockResolvedValue({
+      items: [
+        { id: "dev-1", name: "SW-CORE-LUANDA-01", hostname: "SW-CORE-LUANDA-01", ipAddress: "10.0.1.1", category: "NETWORK" },
+        { id: "dev-2", name: "SW-CORE-LUANDA-02", hostname: "SW-CORE-LUANDA-02", ipAddress: "10.0.1.2", category: "NETWORK" },
+        { id: "dev-3", name: "DB-REPLICA-02", hostname: "DB-REPLICA-02", ipAddress: "10.0.2.1", category: "DATABASE" },
+      ],
+      total: 3,
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
+    }),
+  },
+}));
+
 vi.mock("../src/services/clientPortalApi", () => ({
   clientPortalApi: {
     getSanitizedEndpoints: vi.fn(),
@@ -76,6 +92,8 @@ const renderWithProviders = (ui: ReactNode, queryClient?: QueryClient) => {
 describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.URL.createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
+    window.URL.revokeObjectURL = vi.fn();
     (adminApi.listOrganizations as Mock).mockResolvedValue({
       items: mockAdminOrganizations,
       total: mockAdminOrganizations.length,
@@ -187,6 +205,27 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
 
       await waitFor(() => {
         expect(slaApi.approveMaintenanceWindow).toHaveBeenCalledWith("maint-2");
+      });
+    });
+
+    it("deve exportar dossie de RFCs em CSV e abrir dossie tecnico", async () => {
+      const user = userEvent.setup();
+      (slaApi.listMaintenanceWindows as Mock).mockResolvedValue(mockMaintenanceWindows);
+      (slaApi.getMaintenanceKpiSummary as Mock).mockResolvedValue(mockMaintenanceKpiSummary);
+
+      renderWithProviders(<MaintenanceWindowsPage />);
+
+      await waitFor(() => expect(screen.getByText("RFC-2026-8812")).toBeInTheDocument());
+
+      const exportBtn = screen.getByRole("button", { name: /exportar rfcs/i });
+      await user.click(exportBtn);
+
+      const dossierBtn = screen.getAllByRole("button", { name: /ver dossiê/i })[0];
+      await user.click(dossierBtn);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("rfc-dossier-maint-1")).toBeInTheDocument();
+        expect(screen.getByText(/DOSSIÊ TÉCNICO OPERACIONAL — RFC-2026-8812/i)).toBeInTheDocument();
       });
     });
 

@@ -154,6 +154,9 @@ export const slaApi = {
         payload.device_id = candidateId;
       }
     }
+    if (data.organizationId && /^[0-9a-fA-F-]{36}$/.test(data.organizationId)) {
+      payload.organization_id = data.organizationId;
+    }
     return apiClient.post(BASE_PATH_MAINT, payload);
   },
 

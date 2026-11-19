@@ -142,12 +142,21 @@ class SlaService:
         self, req: CreateMaintenanceWindowRequest
     ) -> MaintenanceWindow:
         """Cadastra uma nova janela de manutenção programada."""
+        org_id = req.organization_id
+        if req.device_id and not org_id:
+            dev_res = await self._session.execute(
+                select(DeviceModel.organization_id).where(DeviceModel.id == req.device_id)
+            )
+            dev_org_id = dev_res.scalar_one_or_none()
+            if dev_org_id:
+                org_id = dev_org_id
+
         window = MaintenanceWindow(
             start_time=req.start_time,
             end_time=req.end_time,
             description=req.description,
             device_id=req.device_id,
-            organization_id=req.organization_id,
+            organization_id=org_id,
             is_approved=req.is_approved,
         )
         saved = await self._repo.save(window)

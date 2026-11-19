@@ -82,7 +82,9 @@ async def create_maintenance_window(
 
     try:
         window = await service.create_maintenance_window(payload)
-        return MaintenanceWindowResponse.from_domain(window)
+        resp = MaintenanceWindowResponse.from_domain(window)
+        resp.rfc_number = f"RFC-{str(window.id)[:8].upper()}"
+        return resp
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
 
@@ -195,7 +197,9 @@ async def approve_maintenance_window(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Janela de manutenção com id '{window_id}' não encontrada.",
         )
-    return MaintenanceWindowResponse.from_domain(approved)
+    resp = MaintenanceWindowResponse.from_domain(approved)
+    resp.rfc_number = f"RFC-{str(approved.id)[:8].upper()}"
+    return resp
 
 
 @router.delete(
