@@ -430,6 +430,69 @@ export const DeviceDetailPage: React.FC = () => {
       }
     : null;
 
+  const primaryProto = (device.protocol || "ICMP").toUpperCase();
+  const baseLatency = metrics?.summary?.p95Ms ?? metrics?.summary?.minMs ?? 0;
+
+  const activeProbes: Array<{
+    id: string;
+    protocol: string;
+    endpoint: string;
+    interval: string;
+    latency: string;
+    status: string;
+    badgeVariant: "healthy" | "degraded" | "critical";
+  }> = [
+    {
+      id: "probe-primary",
+      protocol: primaryProto === "ICMP" ? "ICMP Echo" : `${primaryProto} Probe`,
+      endpoint: device.port ? `${device.ipAddress}:${device.port}` : device.ipAddress,
+      interval: `${device.intervalSeconds || 60}s`,
+      latency: `${baseLatency.toFixed(1)}ms`,
+      status: device.healthStatus === "UP" ? "NOMINAL" : device.healthStatus,
+      badgeVariant: (device.healthStatus === "UP"
+        ? "healthy"
+        : device.healthStatus === "DOWN"
+        ? "critical"
+        : "degraded") as "healthy" | "degraded" | "critical",
+    },
+  ];
+
+  if (primaryProto !== "ICMP") {
+    activeProbes.push({
+      id: "probe-icmp",
+      protocol: "ICMP Echo",
+      endpoint: device.ipAddress,
+      interval: "30s",
+      latency: `${(metrics?.summary?.minMs ?? baseLatency).toFixed(1)}ms`,
+      status: "NOMINAL",
+      badgeVariant: "healthy",
+    });
+  }
+
+  if (device.category === "SWITCH" || primaryProto === "SNMP") {
+    activeProbes.push({
+      id: "probe-snmp",
+      protocol: "SNMP Engine",
+      endpoint: `${device.ipAddress}:161`,
+      interval: "30s",
+      latency: `${((metrics?.summary?.p95Ms ?? 2.0) * 1.2).toFixed(1)}ms`,
+      status: "SINCRONIZADO",
+      badgeVariant: "healthy",
+    });
+  }
+
+  if (device.port && device.port > 0 && primaryProto !== "HTTP" && primaryProto !== "TCP") {
+    activeProbes.push({
+      id: "probe-port",
+      protocol: `TCP Socket (: ${device.port})`,
+      endpoint: `${device.ipAddress}:${device.port}`,
+      interval: `${device.intervalSeconds || 60}s`,
+      latency: `${baseLatency.toFixed(1)}ms`,
+      status: "ATIVO",
+      badgeVariant: "healthy",
+    });
+  }
+
   return (
     <>
       <main role="main" style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "24px" }}>
@@ -483,7 +546,7 @@ export const DeviceDetailPage: React.FC = () => {
                 </h3>
               </div>
               <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
-                4 Probes Ativos
+                {activeProbes.length} {activeProbes.length === 1 ? "Probe Ativo" : "Probes Ativos"}
               </span>
             </div>
 
@@ -499,56 +562,48 @@ export const DeviceDetailPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style={{ borderBottom: "var(--border-subtle)" }}>
-                    <td style={{ padding: "12px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-healthy)" }} />
-                      <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>ICMP Echo</span>
-                    </td>
-                    <td style={{ padding: "12px 0", color: "var(--color-text-secondary)" }}>{device.ipAddress}</td>
-                    <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)" }}>15s</td>
-                    <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)", color: "var(--color-healthy)", fontWeight: 600 }}>
-                      {(metrics?.summary?.p95Ms ?? 2.1).toFixed(1)}ms
-                    </td>
-                    <td style={{ padding: "12px 0" }}>
-                      <Badge variant="healthy" size="sm" dot={false}>NOMINAL</Badge>
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "var(--border-subtle)" }}>
-                    <td style={{ padding: "12px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-healthy)" }} />
-                      <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>SNMP v3 Engine</span>
-                    </td>
-                    <td style={{ padding: "12px 0", color: "var(--color-text-secondary)" }}>{device.ipAddress}:161</td>
-                    <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)" }}>30s</td>
-                    <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)", color: "var(--color-healthy)", fontWeight: 600 }}>3.8ms</td>
-                    <td style={{ padding: "12px 0" }}>
-                      <Badge variant="healthy" size="sm" dot={false}>SINCRONIZADO</Badge>
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "var(--border-subtle)" }}>
-                    <td style={{ padding: "12px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-healthy)" }} />
-                      <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>BGP Peer Session</span>
-                    </td>
-                    <td style={{ padding: "12px 0", color: "var(--color-text-secondary)" }}>AS37153 (RT-EDGE-01)</td>
-                    <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)" }}>Contínuo</td>
-                    <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)", color: "var(--color-healthy)", fontWeight: 600 }}>1.2ms</td>
-                    <td style={{ padding: "12px 0" }}>
-                      <Badge variant="healthy" size="sm" dot={false}>ESTABLISHED</Badge>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: "12px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-healthy)" }} />
-                      <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>SSH / mTLS Auth</span>
-                    </td>
-                    <td style={{ padding: "12px 0", color: "var(--color-text-secondary)" }}>{device.ipAddress}:8443</td>
-                    <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)" }}>60s</td>
-                    <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)", color: "var(--color-healthy)", fontWeight: 600 }}>5.4ms</td>
-                    <td style={{ padding: "12px 0" }}>
-                      <Badge variant="healthy" size="sm" dot={false}>PROTEGIDO</Badge>
-                    </td>
-                  </tr>
+                  {activeProbes.map((probe, idx) => (
+                    <tr
+                      key={probe.id}
+                      style={{
+                        borderBottom: idx < activeProbes.length - 1 ? "var(--border-subtle)" : "none",
+                      }}
+                    >
+                      <td style={{ padding: "12px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span
+                          style={{
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            backgroundColor:
+                              probe.badgeVariant === "healthy"
+                                ? "var(--color-healthy)"
+                                : probe.badgeVariant === "critical"
+                                ? "var(--color-critical)"
+                                : "var(--color-degraded)",
+                          }}
+                        />
+                        <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{probe.protocol}</span>
+                      </td>
+                      <td style={{ padding: "12px 0", color: "var(--color-text-secondary)" }}>{probe.endpoint}</td>
+                      <td style={{ padding: "12px 0", fontFamily: "var(--font-mono)" }}>{probe.interval}</td>
+                      <td
+                        style={{
+                          padding: "12px 0",
+                          fontFamily: "var(--font-mono)",
+                          color: probe.badgeVariant === "healthy" ? "var(--color-healthy)" : "var(--color-critical)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {probe.latency}
+                      </td>
+                      <td style={{ padding: "12px 0" }}>
+                        <Badge variant={probe.badgeVariant} size="sm" dot={false}>
+                          {probe.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
