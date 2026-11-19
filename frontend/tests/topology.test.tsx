@@ -159,4 +159,42 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
 
     expect(topologyApi.runPingTrace).toHaveBeenCalledWith("SW-CORE-LUANDA-01");
   }, 30000);
+
+  it("deve renderizar contadores dinâmicos na toolbar e link de visão 360 com deviceId", async () => {
+    (topologyApi.getTopologyGraph as any).mockResolvedValue({
+      nodes: [
+        {
+          id: "node-1",
+          label: "SW-CORE-TEST",
+          category: "switch",
+          status: "UP",
+          deviceId: "device-uuid-999",
+          ip: "10.0.1.1",
+        },
+        {
+          id: "node-2",
+          label: "RT-EDGE-TEST",
+          category: "router",
+          status: "UP",
+          ip: "10.0.0.1",
+        },
+      ],
+      edges: [],
+      totalNodes: 2,
+      totalEdges: 0,
+      cluster: "LUANDA-CORE",
+    });
+
+    renderWithProviders(<TopologyMapPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Todos (2)")).toBeInTheDocument();
+      expect(screen.getByText("Roteadores (1)")).toBeInTheDocument();
+      expect(screen.getByText("Switches (1)")).toBeInTheDocument();
+      expect(screen.getByText("DB / API (0)")).toBeInTheDocument();
+    });
+
+    const link360 = screen.getByRole("link", { name: /Visão 360°/i });
+    expect(link360).toHaveAttribute("href", "/devices/device-uuid-999");
+  });
 });
