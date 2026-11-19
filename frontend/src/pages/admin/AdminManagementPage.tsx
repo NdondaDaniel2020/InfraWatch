@@ -322,7 +322,9 @@ export const AdminManagementPage: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4 font-sans text-slate-300">
-                        {u.organization_name || (u.organization_id ? "Organização Cliente" : "InfraWatch Core (Global)")}
+                        {u.organization_name ||
+                          orgsData?.items?.find((o) => o.id === u.organization_id)?.name ||
+                          (u.organization_id ? "Organização Cliente" : "InfraWatch Core (Global)")}
                       </td>
 
                       <td className="py-3 px-3">

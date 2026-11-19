@@ -168,7 +168,10 @@ class UserCommandService:
         )
         saved_user = await self.user_repo.save(user_model)
         await self.session.flush()
-        await self.session.refresh(saved_user)
+        if organization_id is not None:
+            await self.session.refresh(saved_user, ["organization"])
+        else:
+            await self.session.refresh(saved_user)
         await self.uow.commit()
         return saved_user
 

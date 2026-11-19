@@ -173,6 +173,20 @@ async def revoke_all_sessions(
         )
     ],
 )
+@router.get(
+    "/",
+    response_model=UserListResponse,
+    include_in_schema=False,
+    dependencies=[
+        Depends(
+            require_roles(
+                UserRole.SUPER_ADMIN,
+                UserRole.NOC_OPERATOR,
+                UserRole.ORG_ADMIN,
+            )
+        )
+    ],
+)
 async def list_users(
     current_user: CurrentUserDep,
     pagination: PaginationParamsDep,
@@ -210,6 +224,20 @@ async def list_users(
     response_model=UserPublicResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Cadastrar novo usuário (Admin)",
+    dependencies=[
+        Depends(
+            require_roles(
+                UserRole.SUPER_ADMIN,
+                UserRole.ORG_ADMIN,
+            )
+        )
+    ],
+)
+@router.post(
+    "/",
+    response_model=UserPublicResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
     dependencies=[
         Depends(
             require_roles(
