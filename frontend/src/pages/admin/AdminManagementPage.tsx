@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { adminApi } from "../../services/adminApi";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
+import { Pagination } from "../../components/common";
 import { useAuth } from "../../context/AuthContext";
 
 export const AdminManagementPage: React.FC = () => {
@@ -26,20 +27,29 @@ export const AdminManagementPage: React.FC = () => {
   const [newOrgSlug, setNewOrgSlug] = useState("");
   const [newOrgCnpj, setNewOrgCnpj] = useState("");
 
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersPageSize, setUsersPageSize] = useState(10);
+  const [orgsPage, setOrgsPage] = useState(1);
+  const [orgsPageSize, setOrgsPageSize] = useState(6);
+
+  React.useEffect(() => {
+    setUsersPage(1);
+  }, [searchUser, roleFilter]);
+
   // Query de Usuários
   const {
     data: usersData,
     isLoading: isLoadingUsers,
     refetch: refetchUsers,
   } = useQuery({
-    queryKey: ["adminUsers"],
-    queryFn: () => adminApi.listUsers(),
+    queryKey: ["adminUsers", usersPage, usersPageSize],
+    queryFn: () => adminApi.listUsers({ page: usersPage, size: usersPageSize }),
   });
 
   // Query de Organizações
   const { data: orgsData } = useQuery({
-    queryKey: ["adminOrgs"],
-    queryFn: () => adminApi.listOrganizations(),
+    queryKey: ["adminOrgs", orgsPage, orgsPageSize],
+    queryFn: () => adminApi.listOrganizations({ page: orgsPage, size: orgsPageSize }),
   });
 
   // Mutação para Alterar Papel
@@ -289,6 +299,22 @@ export const AdminManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginação de Usuários */}
+          <Pagination
+            currentPage={usersPage}
+            totalPages={Math.max(1, Math.ceil((usersData?.total || 0) / usersPageSize))}
+            totalItems={usersData?.total || 0}
+            pageSize={usersPageSize}
+            onPageChange={(page) => setUsersPage(page)}
+            onPageSizeChange={(newSize) => {
+              setUsersPageSize(newSize);
+              setUsersPage(1);
+            }}
+            pageSizeOptions={[5, 10, 20, 50]}
+            itemLabel="usuários"
+            testIdPrefix="admin-users-pagination"
+          />
         </section>
       )}
 
@@ -343,6 +369,22 @@ export const AdminManagementPage: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* Paginação de Organizações */}
+          <Pagination
+            currentPage={orgsPage}
+            totalPages={Math.max(1, Math.ceil((orgsData?.total || 0) / orgsPageSize))}
+            totalItems={orgsData?.total || 0}
+            pageSize={orgsPageSize}
+            onPageChange={(page) => setOrgsPage(page)}
+            onPageSizeChange={(newSize) => {
+              setOrgsPageSize(newSize);
+              setOrgsPage(1);
+            }}
+            pageSizeOptions={[6, 12, 24]}
+            itemLabel="organizações"
+            testIdPrefix="admin-orgs-pagination"
+          />
         </section>
       )}
 
