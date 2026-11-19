@@ -21,13 +21,14 @@ from src.contexts.iam.schemas.session import (
     SessionRevokeResponse,
 )
 from src.contexts.iam.schemas.user import (
+    AdminUserCreate,
     UserListResponse,
     UserPublicResponse,
     UserRolesUpdate,
     UserUpdate,
 )
 from src.contexts.iam.security.tokens import hash_token
-from src.core.exceptions import NotFoundError
+from src.core.exceptions import EmailAlreadyExistsError, NotFoundError
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users & Sessions"])
 
@@ -202,6 +203,55 @@ async def list_users(
         page=pagination.page,
         page_size=pagination.page_size,
     )
+
+
+@router.post(
+    "",
+    response_model=UserPublicResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Cadastrar novo usuário (Admin)",
+    dependencies=[
+        Depends(
+            require_roles(
+                UserRole.SUPER_ADMIN,
+                UserRole.ORG_ADMIN,
+            )
+        )
+    ],
+)
+async def create_user(
+    body: AdminUserCreate,
+    current_user: CurrentUserDep,
+    command_service: UserCommandServiceDep,
+) -> UserPublicResponse:
+    """Cria diretamente uma conta de usuário via painel administrativo."""
+    if not current_user.is_super_admin:
+        if not current_user.organization_id or str(body.organization_id) != current_user.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ORG_ADMIN só pode cadastrar usuários dentro de sua própria organização.",
+            )
+        if body.role not in [UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ORG_ADMIN não pode atribuir papéis globais como SUPER_ADMIN ou NOC_OPERATOR.",
+            )
+
+    try:
+        user = await command_service.create_user_admin(
+            email=body.email,
+            password=body.password,
+            full_name=body.full_name,
+            role=body.role,
+            organization_id=body.organization_id,
+        )
+    except EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="O e-mail informado já está cadastrado no sistema.",
+        ) from None
+
+    return UserPublicResponse.model_validate(user)
 
 
 @router.get(

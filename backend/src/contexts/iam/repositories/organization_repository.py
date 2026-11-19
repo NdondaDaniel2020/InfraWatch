@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.iam.database.models import OrganizationModel
+from src.contexts.iam.database.models import OrganizationModel, UserModel
 from src.contexts.iam.domain.enums import OrgTier
 
 
@@ -73,6 +73,18 @@ class OrganizationRepository:
         query = select(func.count()).select_from(OrganizationModel)
         result = await self.session.execute(query)
         return int(result.scalar_one())
+
+    async def get_users_count_map(self, organization_ids: list[UUID]) -> dict[UUID, int]:
+        """Calcula o total de usuários vinculados para cada organização informada."""
+        if not organization_ids:
+            return {}
+        query = (
+            select(UserModel.organization_id, func.count(UserModel.id))
+            .where(UserModel.organization_id.in_(organization_ids))
+            .group_by(UserModel.organization_id)
+        )
+        result = await self.session.execute(query)
+        return {org_id: int(count) for org_id, count in result.all() if org_id is not None}
 
 
 __all__ = ["OrganizationRepository"]

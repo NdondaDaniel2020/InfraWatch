@@ -9,6 +9,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.iam.database.models import UserModel
@@ -50,7 +51,7 @@ class UserQueryService:
         limit: int = 50,
     ) -> tuple[list[UserModel], int]:
         """Lista usuários paginados com filtro opcional por organização/tenant."""
-        query = select(UserModel)
+        query = select(UserModel).options(joinedload(UserModel.organization))
         count_query = select(func.count()).select_from(UserModel)
 
         if organization_id is not None:

@@ -29,8 +29,10 @@ vi.mock("../src/services/auditApi", () => ({
 vi.mock("../src/services/adminApi", () => ({
   adminApi: {
     listUsers: vi.fn(),
+    createUser: vi.fn(),
     updateUserRole: vi.fn(),
     activateUser: vi.fn(),
+    deactivateUser: vi.fn(),
     listOrganizations: vi.fn(),
     createOrganization: vi.fn(),
   },
@@ -295,6 +297,138 @@ describe("Trilha de Auditoria Forense & Governança Administrativa (Issue #226)"
       await waitFor(() => {
         expect(adminApi.updateUserRole).toHaveBeenCalledWith("usr-operador", {
           role: "SUPER_ADMIN",
+        });
+      });
+    });
+
+    it("deve acionar mutação para suspender conta de usuário ativo", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      (adminApi.listUsers as Mock).mockResolvedValue({
+        items: mockAdminUsers,
+        total: mockAdminUsers.length,
+        page: 1,
+        page_size: 20,
+      });
+      (adminApi.deactivateUser as Mock).mockResolvedValue({
+        ...mockAdminUsers[1],
+        is_active: false,
+      });
+
+      renderWithProviders(<AdminManagementPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Operador NOC 01")).toBeInTheDocument();
+      });
+
+      const suspendButtons = screen.getAllByRole("button", { name: "Suspender" });
+      expect(suspendButtons.length).toBeGreaterThan(0);
+      await user.click(suspendButtons[0]);
+
+      await waitFor(() => {
+        expect(adminApi.deactivateUser).toHaveBeenCalled();
+      });
+    });
+
+    it("deve abrir modal e cadastrar novo usuário com sucesso", async () => {
+      const user = userEvent.setup();
+      (adminApi.listUsers as Mock).mockResolvedValue({
+        items: mockAdminUsers,
+        total: mockAdminUsers.length,
+        page: 1,
+        page_size: 20,
+      });
+      (adminApi.listOrganizations as Mock).mockResolvedValue({
+        items: mockAdminOrganizations,
+        total: mockAdminOrganizations.length,
+        page: 1,
+        page_size: 20,
+      });
+      (adminApi.createUser as Mock).mockResolvedValue({
+        id: "usr-new-001",
+        full_name: "Novo Colaborador",
+        email: "novo.colaborador@empresa.ao",
+        role: "CLIENT_VIEWER",
+        is_active: true,
+        is_verified: true,
+        organization_id: null,
+        created_at: new Date().toISOString(),
+      });
+
+      renderWithProviders(<AdminManagementPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("create-user-btn")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId("create-user-btn"));
+
+      expect(screen.getByText("Novo Usuário Administrativo")).toBeInTheDocument();
+
+      await user.type(screen.getByPlaceholderText("Ex: Ana Paula Silva"), "Novo Colaborador");
+      await user.type(screen.getByPlaceholderText("Ex: ana.silva@empresa.com"), "novo.colaborador@empresa.ao");
+      await user.type(screen.getByPlaceholderText("Mínimo 8 caracteres"), "SenhaSegura#2026");
+
+      await user.click(screen.getByRole("button", { name: "Cadastrar Usuário" }));
+
+      await waitFor(() => {
+        expect(adminApi.createUser).toHaveBeenCalledWith({
+          full_name: "Novo Colaborador",
+          email: "novo.colaborador@empresa.ao",
+          password: "SenhaSegura#2026",
+          role: "CLIENT_VIEWER",
+          organization_id: null,
+        });
+      });
+    });
+
+    it("deve abrir modal e cadastrar nova organização com campos reais e sem CNPJ", async () => {
+      const user = userEvent.setup();
+      (adminApi.listOrganizations as Mock).mockResolvedValue({
+        items: mockAdminOrganizations,
+        total: mockAdminOrganizations.length,
+        page: 1,
+        page_size: 20,
+      });
+      (adminApi.createOrganization as Mock).mockResolvedValue({
+        id: "org-new-001",
+        name: "Nova Empresa S.A.",
+        slug: "nova-empresa",
+        contact_email: "contato@novaempresa.ao",
+        contact_phone: "+244 923 000 000",
+        tier: "ENTERPRISE_GOLD",
+        sla_target_default: 99.90,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      });
+
+      renderWithProviders(<AdminManagementPage />);
+
+      // Alternar para aba organizações
+      await user.click(screen.getByRole("button", { name: /Organizações Clientes/i }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("create-organization-btn")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId("create-organization-btn"));
+
+      expect(screen.getByText("Nova Organização Cliente")).toBeInTheDocument();
+
+      await user.type(screen.getByPlaceholderText("Ex: Banco Sol S.A."), "Nova Empresa S.A.");
+      await user.type(screen.getByPlaceholderText("contato@cliente.ao"), "contato@novaempresa.ao");
+
+      await user.click(screen.getByRole("button", { name: "Cadastrar Organização" }));
+
+      await waitFor(() => {
+        expect(adminApi.createOrganization).toHaveBeenCalledWith({
+          name: "Nova Empresa S.A.",
+          slug: "nova-empresa-s-a",
+          contact_email: "contato@novaempresa.ao",
+          contact_phone: undefined,
+          tier: "STANDARD",
+          sla_target_default: 99.50,
         });
       });
     });

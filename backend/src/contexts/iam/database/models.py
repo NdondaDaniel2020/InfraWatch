@@ -132,6 +132,14 @@ class UserModel(Base):
     def password_hash(self, value: str | None) -> None:
         self.hashed_password = value
 
+    @property
+    def organization_name(self) -> str | None:
+        """Retorna o nome da organização vinculada se já carregada na sessão."""
+        if "organization" in self.__dict__:
+            org = self.__dict__["organization"]
+            return org.name if org is not None else None
+        return None
+
     # Relacionamentos
     organization: Mapped[OrganizationModel | None] = relationship(
         "OrganizationModel",

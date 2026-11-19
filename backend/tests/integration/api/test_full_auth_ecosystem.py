@@ -504,3 +504,32 @@ async def test_admin_user_management(
         )
         assert mfa_del_resp.status_code == status.HTTP_200_OK
         assert mfa_del_resp.json()["mfa_enabled"] is False
+
+        # 6. Admin cria novo usuário diretamente
+        create_user_resp = await client.post(
+            "/api/v1/users",
+            headers=admin_headers,
+            json={
+                "email": "new.analyst.admin@test.org",
+                "full_name": "Analista Criado por Admin",
+                "password": "CompliantPassword#2026",
+                "role": "CLIENT_VIEWER",
+                "organization_id": str(admin_user.organization_id),
+            },
+        )
+        assert create_user_resp.status_code == status.HTTP_201_CREATED
+        created_data = create_user_resp.json()
+        assert created_data["email"] == "new.analyst.admin@test.org"
+        assert created_data["is_active"] is True
+        assert created_data["is_verified"] is True
+
+        # 7. Listagem de usuários traz organization_name
+        list_after_create = await client.get("/api/v1/users", headers=admin_headers)
+        assert list_after_create.status_code == status.HTTP_200_OK
+        first_user = list_after_create.json()["items"][0]
+        assert "organization_name" in first_user
+
+        # 8. Listagem de organizações traz users_count real
+        orgs_resp = await client.get("/api/v1/organizations", headers=admin_headers)
+        assert orgs_resp.status_code == status.HTTP_200_OK
+        assert orgs_resp.json()["items"][0]["users_count"] >= 1
