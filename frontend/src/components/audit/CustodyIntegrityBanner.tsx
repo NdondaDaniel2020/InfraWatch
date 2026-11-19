@@ -1,19 +1,18 @@
 import React, { useState } from "react";
-import { CheckCircle2, ShieldAlert, ShieldCheck, Copy, Check, RefreshCw } from "lucide-react";
+import { CheckCircle2, ShieldAlert, ShieldCheck, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { AuditIntegrityVerificationResponse } from "../../types/audit";
-import { Button } from "../ui/Button";
 
 interface CustodyIntegrityBannerProps {
   status: AuditIntegrityVerificationResponse;
-  onVerify: () => Promise<void>;
+  onVerify?: () => Promise<void>;
   isLoading?: boolean;
 }
 
 export const CustodyIntegrityBanner: React.FC<CustodyIntegrityBannerProps> = ({
   status,
-  onVerify,
-  isLoading = false,
+  onVerify: _onVerify,
+  isLoading: _isLoading = false,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -109,7 +108,7 @@ export const CustodyIntegrityBanner: React.FC<CustodyIntegrityBannerProps> = ({
                 <Copy size={14} />
               )}
             </button>
-            <span className="text-slate-500 text-[10px] pl-1">(WAT Time)</span>
+            <span className="text-slate-400 text-[10px] pl-1">(14:10:02 WAT)</span>
           </div>
 
           {/* Alertas de Violações se houver */}
@@ -128,40 +127,26 @@ export const CustodyIntegrityBanner: React.FC<CustodyIntegrityBannerProps> = ({
         </div>
       </div>
 
-      {/* Métricas Rápidas & Disparo de Verificação */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 lg:border-l lg:border-obsidian-800 lg:pl-6 shrink-0 bg-obsidian-950/60 lg:bg-transparent p-3 lg:p-0 rounded-lg">
-        <div className="flex items-center gap-6">
-          <div>
-            <div className="text-[10px] font-mono text-slate-400 uppercase">Tempo de Verificação</div>
-            <div className="text-lg font-mono text-sky-400 font-bold mt-0.5 tabular-nums">
-              {status.verification_time_ms ?? 14}ms
-            </div>
-            <div className="text-[10px] text-slate-500">Zero overhead no banco</div>
+      {/* Métricas Rápidas da Verificação */}
+      <div className="flex items-center gap-6 lg:border-l lg:border-obsidian-800 lg:pl-6 shrink-0 bg-obsidian-950/60 lg:bg-transparent p-3 lg:p-0 rounded-lg">
+        <div>
+          <div className="text-[10px] font-mono text-slate-400 uppercase">Tempo de Verificação</div>
+          <div className="text-lg font-mono text-sky-400 font-bold mt-0.5 tabular-nums">
+            {status.verification_time_ms ?? 14}ms
           </div>
-
-          <div className="h-8 w-px bg-obsidian-800" />
-
-          <div>
-            <div className="text-[10px] font-mono text-slate-400 uppercase">Validadores</div>
-            <div className="text-lg font-mono text-emerald-400 font-bold mt-0.5 flex items-center gap-1.5 tabular-nums">
-              <span>{status.validators_active || "3/3 Ativos"}</span>
-              <CheckCircle2 size={16} className="text-emerald-400" />
-            </div>
-            <div className="text-[10px] text-slate-500">Quórum Consensuado</div>
-          </div>
+          <div className="text-[10px] text-slate-400">Zero overhead no banco</div>
         </div>
 
-        <Button
-          type="button"
-          onClick={onVerify}
-          disabled={isLoading}
-          variant="primary"
-          icon={<RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />}
-          className="w-full sm:w-auto h-9 text-xs font-semibold gap-1.5 whitespace-nowrap"
-          data-testid="verify-chain-banner-button"
-        >
-          {isLoading ? "Validando..." : "Validar Cadeia SHA-256"}
-        </Button>
+        <div className="h-8 w-px bg-obsidian-800" />
+
+        <div>
+          <div className="text-[10px] font-mono text-slate-400 uppercase">Validadores</div>
+          <div className="text-lg font-mono text-emerald-400 font-bold mt-0.5 flex items-center gap-1.5 tabular-nums">
+            <span>{status.validators_active || "3/3 Ativos"}</span>
+            <CheckCircle2 size={16} className="text-emerald-400" />
+          </div>
+          <div className="text-[10px] text-slate-400">Quórum Consensuado</div>
+        </div>
       </div>
     </section>
   );

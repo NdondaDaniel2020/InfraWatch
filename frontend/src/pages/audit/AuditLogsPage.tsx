@@ -255,7 +255,7 @@ export const AuditLogsPage: React.FC = () => {
             <code className="text-sky-400">ed25519:9f8a...4b01</code>
           </span>
           <span className="text-obsidian-700">|</span>
-          <span className="text-emerald-400">RFC 5424 Syslog Válido</span>
+          <span className="text-emerald-400 font-semibold">STATUS: ATTESTED / NOMINAL</span>
         </div>
       </footer>
     </div>

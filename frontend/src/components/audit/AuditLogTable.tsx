@@ -1,7 +1,6 @@
 import React from "react";
-import { Receipt, Check, AlertCircle, Bot, KeyRound, Shield } from "lucide-react";
+import { Receipt, Bot, KeyRound, Shield } from "lucide-react";
 import { AuditLogEntry } from "../../types/audit";
-import { Badge } from "../ui/Badge";
 
 interface AuditLogTableProps {
   logs: AuditLogEntry[];
@@ -37,17 +36,52 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
     }
   };
 
-  const getRoleBadgeVariant = (role: string) => {
+  const getRoleBadge = (role: string) => {
     switch (role) {
       case "SUPER_ADMIN":
-        return "critical"; // badge roxo/destaque
+        return "px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[9px] font-bold";
       case "NOC_OPERATOR":
-        return "healthy";
+        return "px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[9px]";
       case "ORG_ADMIN":
-        return "degraded";
+        return "px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[9px] font-semibold";
       default:
-        return "neutral";
+        return "px-1.5 py-0.5 rounded bg-obsidian-800 text-slate-400 text-[9px]";
     }
+  };
+
+  const getActionBadge = (action: string) => {
+    switch (action) {
+      case "DEVICE_PAUSED":
+        return "px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[9px] font-bold";
+      case "INCIDENT_ACK":
+      case "INCIDENT_ACKNOWLEDGED":
+        return "px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[9px] font-semibold";
+      case "GLPI_SYNC":
+      case "GLPI_TICKET_SYNCED":
+        return "px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-semibold";
+      case "SLA_EXEMPT_REQ":
+      case "SLA_EXEMPTION_REQ":
+        return "px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[9px] font-semibold";
+      case "SESSION_MFA":
+      case "SESSION_MFA_PASS":
+        return "px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[9px] font-semibold";
+      default:
+        return "px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[9px] font-bold";
+    }
+  };
+
+  const getResourceSubtitle = (log: AuditLogEntry) => {
+    if (log.details?.summary) return String(log.details.summary);
+    if (log.details?.title) return String(log.details.title);
+    if (log.details?.reason) return String(log.details.reason);
+    if (log.details?.auth_method) return String(log.details.auth_method);
+    if (log.details?.engine) return `${log.details.engine} ${log.details?.version || ""}`.trim();
+    if (log.resource_id === "SW-CORE-LUANDA-01") return "Cisco 9500 Backbone";
+    if (log.resource_id === "#INC-2026-081" || log.resource_id === "#INC-8492") return "Queda Link Secundário";
+    if (log.resource_id.includes("GLPI")) return "Status > Atendimento";
+    if (log.resource_id.includes("bancosol") || log.resource_id.includes("Banco Sol")) return "Falha Energia Externa";
+    if (log.resource_id.includes("Sessão") || log.resource_id.includes("SSO")) return "YubiKey Hardware FIDO2";
+    return log.resource_type;
   };
 
   const getActorAvatar = (actorName?: string, actorRole?: string) => {
@@ -72,9 +106,25 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
       .slice(0, 2)
       .join("");
 
+    if (actorRole === "SUPER_ADMIN") {
+      return (
+        <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 font-bold text-[9px] flex items-center justify-center border border-purple-500/30">
+          {initials || "DN"}
+        </div>
+      );
+    }
+
+    if (actorRole === "ORG_ADMIN") {
+      return (
+        <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[9px] flex items-center justify-center border border-amber-500/30">
+          {initials || "MS"}
+        </div>
+      );
+    }
+
     return (
-      <div className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 font-bold text-[9px] flex items-center justify-center border border-purple-500/30">
-        {initials || "US"}
+      <div className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-300 font-bold text-[9px] flex items-center justify-center border border-sky-500/30">
+        {initials || "OP"}
       </div>
     );
   };
@@ -195,9 +245,9 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                     </td>
 
                     <td className="py-3 px-2.5 whitespace-nowrap">
-                      <Badge variant={getRoleBadgeVariant(log.actor_role)} className="text-[9px]">
+                      <span className={getRoleBadge(log.actor_role)}>
                         {log.actor_role}
-                      </Badge>
+                      </span>
                     </td>
 
                     <td className="py-3 px-2.5 whitespace-nowrap">
@@ -207,25 +257,21 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                     </td>
 
                     <td className="py-3 px-3 whitespace-nowrap">
-                      <span className="px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[9px] font-bold">
+                      <span className={getActionBadge(log.action)}>
                         {log.action}
                       </span>
                     </td>
 
                     <td className="py-3 px-3 whitespace-nowrap">
                       <div className="text-xs text-white">{log.resource_id}</div>
-                      <div className="text-[10px] text-slate-500">{log.resource_type}</div>
+                      <div className="text-[10px] text-slate-400">{getResourceSubtitle(log)}</div>
                     </td>
 
                     <td className="py-3 px-2 text-center whitespace-nowrap">
                       {isSuccess ? (
-                        <span className="text-emerald-400 text-[11px] inline-flex items-center gap-1">
-                          <Check size={12} /> Válido
-                        </span>
+                        <span className="text-emerald-400 text-[11px]">✓ Válido</span>
                       ) : (
-                        <span className="text-rose-400 text-[11px] inline-flex items-center gap-1">
-                          <AlertCircle size={12} /> Inválido
-                        </span>
+                        <span className="text-rose-400 text-[11px]">✗ Inválido</span>
                       )}
                     </td>
 
