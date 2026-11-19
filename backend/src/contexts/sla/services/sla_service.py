@@ -7,12 +7,13 @@ import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.alerting.database.models import IncidentModel
 from src.contexts.iam.database.models import OrganizationModel
 from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.sla.database.models import MaintenanceWindowModel
 from src.contexts.sla.database.repository import MaintenanceWindowRepository
 from src.contexts.sla.domain.calculator import calculate_sla
 from src.contexts.sla.domain.models import DowntimePeriod, MaintenanceWindow
@@ -22,6 +23,8 @@ from src.contexts.sla.schemas.requests import (
     UpdateMaintenanceWindowRequest,
 )
 from src.contexts.sla.schemas.responses import (
+    MaintenanceKpiSummaryResponse,
+    MaintenanceWindowResponse,
     OrganizationSlaHistoryItem,
     OrganizationSlaHistoryResponse,
     OrganizationSlaReportDetailsResponse,
@@ -200,6 +203,115 @@ class SlaService:
             is_approved=is_approved,
             limit=limit,
             offset=offset,
+        )
+
+    async def list_maintenance_windows_with_details(
+        self,
+        organization_id: UUID | None = None,
+        device_id: UUID | None = None,
+        is_approved: bool | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[MaintenanceWindowResponse], int]:
+        """Consulta janelas de manutenção enriquecidas com nomes reais de ativos e clientes."""
+        windows, total = await self._repo.list_windows(
+            organization_id=organization_id,
+            device_id=device_id,
+            is_approved=is_approved,
+            limit=limit,
+            offset=offset,
+        )
+
+        device_ids = {w.device_id for w in windows if w.device_id}
+        org_ids = {w.organization_id for w in windows if w.organization_id}
+
+        devices_map: dict[UUID, str] = {}
+        if device_ids:
+            dev_res = await self._session.execute(
+                select(DeviceModel.id, DeviceModel.name).where(DeviceModel.id.in_(device_ids))
+            )
+            devices_map = {row[0]: row[1] for row in dev_res.all()}
+
+        orgs_map: dict[UUID, str] = {}
+        if org_ids:
+            org_res = await self._session.execute(
+                select(OrganizationModel.id, OrganizationModel.name).where(OrganizationModel.id.in_(org_ids))
+            )
+            orgs_map = {row[0]: row[1] for row in org_res.all()}
+
+        items: list[MaintenanceWindowResponse] = []
+        for w in windows:
+            rfc = f"RFC-{str(w.id)[:8].upper()}"
+            dev_name = devices_map.get(w.device_id) if w.device_id else None
+            org_name = orgs_map.get(w.organization_id) if w.organization_id else None
+            items.append(
+                MaintenanceWindowResponse(
+                    id=w.id,
+                    device_id=w.device_id,
+                    organization_id=w.organization_id,
+                    start_time=w.start_time,
+                    end_time=w.end_time,
+                    is_approved=w.is_approved,
+                    description=w.description,
+                    created_at=w.created_at,
+                    device_name=dev_name,
+                    client_name=org_name,
+                    rfc_number=rfc,
+                )
+            )
+
+        return items, total
+
+    async def get_maintenance_kpi_summary(
+        self,
+        organization_id: UUID | None = None,
+    ) -> MaintenanceKpiSummaryResponse:
+        """Calcula os indicadores consolidados de governança de paradas técnicas."""
+        now = datetime.now(UTC)
+        start_of_month = datetime(now.year, now.month, 1, tzinfo=UTC)
+
+        stmt_active = select(func.count(MaintenanceWindowModel.id)).where(
+            MaintenanceWindowModel.start_time <= now,
+            MaintenanceWindowModel.end_time >= now,
+        )
+        if organization_id:
+            stmt_active = stmt_active.where(MaintenanceWindowModel.organization_id == organization_id)
+        active_now = (await self._session.execute(stmt_active)).scalar_one() or 0
+
+        stmt_scheduled = select(func.count(MaintenanceWindowModel.id)).where(
+            MaintenanceWindowModel.start_time > now,
+        )
+        if organization_id:
+            stmt_scheduled = stmt_scheduled.where(MaintenanceWindowModel.organization_id == organization_id)
+        scheduled = (await self._session.execute(stmt_scheduled)).scalar_one() or 0
+
+        stmt_exempted = select(MaintenanceWindowModel).where(
+            MaintenanceWindowModel.is_approved.is_(True),
+            MaintenanceWindowModel.start_time >= start_of_month,
+        )
+        if organization_id:
+            stmt_exempted = stmt_exempted.where(MaintenanceWindowModel.organization_id == organization_id)
+        res_exempted = await self._session.execute(stmt_exempted)
+        approved_windows = res_exempted.scalars().all()
+
+        total_exempted_minutes = 0.0
+        for w in approved_windows:
+            start_t = _ensure_utc(w.start_time) or w.start_time
+            end_t = _ensure_utc(w.end_time) or w.end_time
+            if end_t > start_t:
+                total_exempted_minutes += (end_t - start_t).total_seconds() / 60.0
+
+        exempted_hours = round(total_exempted_minutes / 60.0, 1)
+
+        return MaintenanceKpiSummaryResponse(
+            active_now_count=active_now,
+            scheduled_count=scheduled,
+            exempted_hours_month=exempted_hours,
+            contractual_limit_hours=8.0,
+            activeNowCount=active_now,
+            scheduledCount=scheduled,
+            exemptedHoursMonth=exempted_hours,
+            contractualLimitHours=8.0,
         )
 
     async def get_device_with_sla(

@@ -23,6 +23,9 @@ class MaintenanceWindowResponse(BaseModel):
     is_approved: bool
     description: str
     created_at: datetime
+    device_name: str | None = None
+    client_name: str | None = None
+    rfc_number: str | None = None
 
     @classmethod
     def from_domain(cls, window: MaintenanceWindow) -> MaintenanceWindowResponse:
@@ -35,7 +38,27 @@ class MaintenanceWindowResponse(BaseModel):
             is_approved=window.is_approved,
             description=window.description,
             created_at=window.created_at,
+            rfc_number=f"RFC-{str(window.id)[:8].upper()}",
         )
+
+
+class MaintenanceKpiSummaryResponse(BaseModel):
+    """Resumo consolidado de KPIs de governança de janelas de manutenção."""
+
+    active_now_count: int = Field(default=0, description="Janelas em andamento no momento")
+    scheduled_count: int = Field(default=0, description="Janelas agendadas para o futuro")
+    exempted_hours_month: float = Field(
+        default=0.0, description="Horas isentas homologadas no mês"
+    )
+    contractual_limit_hours: float = Field(
+        default=8.0, description="Teto contratual mensal de horas isentas"
+    )
+    activeNowCount: int | None = None
+    scheduledCount: int | None = None
+    exemptedHoursMonth: float | None = None
+    contractualLimitHours: float | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MaintenanceWindowListResponse(BaseModel):

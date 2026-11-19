@@ -15,6 +15,7 @@ from src.contexts.sla.schemas.requests import (
     UpdateMaintenanceWindowRequest,
 )
 from src.contexts.sla.schemas.responses import (
+    MaintenanceKpiSummaryResponse,
     MaintenanceWindowListResponse,
     MaintenanceWindowResponse,
 )
@@ -47,7 +48,7 @@ async def list_maintenance_windows(
     if user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN} and user.organization_id:
         organization_id = UUID(user.organization_id)
 
-    items, total = await service.list_maintenance_windows(
+    items, total = await service.list_maintenance_windows_with_details(
         organization_id=organization_id,
         device_id=device_id,
         is_approved=is_approved,
@@ -56,7 +57,7 @@ async def list_maintenance_windows(
     )
 
     return MaintenanceWindowListResponse(
-        items=[MaintenanceWindowResponse.from_domain(item) for item in items],
+        items=items,
         total=total,
         page=pagination.page,
         page_size=pagination.page_size,
@@ -84,6 +85,24 @@ async def create_maintenance_window(
         return MaintenanceWindowResponse.from_domain(window)
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
+
+
+@router.get(
+    "/kpis",
+    response_model=MaintenanceKpiSummaryResponse,
+    summary="Obter indicadores consolidados de janelas de manutenção",
+)
+async def get_maintenance_kpis(
+    user: CurrentUserDep,
+    service: SlaServiceDep,
+    organization_id: Annotated[UUID | None, Query(description="Filtrar por organização")] = None,
+    _: object = Depends(require_roles(*READ_ROLES)),
+) -> MaintenanceKpiSummaryResponse:
+    """Retorna contadores de janelas ativas, agendadas e horas de isenção no mês corrente."""
+    if user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN} and user.organization_id:
+        organization_id = UUID(user.organization_id)
+
+    return await service.get_maintenance_kpi_summary(organization_id=organization_id)
 
 
 @router.get(
