@@ -411,7 +411,7 @@ export const DeviceDetailPage: React.FC = () => {
     );
   }
 
-  if (!device || (metrics && metrics.buckets.length === 0)) {
+  if (!device || !metrics || !metrics.buckets || metrics.buckets.length === 0) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "24px" }}>
         <EmptyState onDiscover={handleTriggerProbe} />
@@ -451,7 +451,7 @@ export const DeviceDetailPage: React.FC = () => {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
-            <DeviceMetricsTimescaleChart data={metrics!} period={period} onPeriodChange={setPeriod} />
+            <DeviceMetricsTimescaleChart data={metrics} period={period} onPeriodChange={setPeriod} />
 
             <section
             style={{
