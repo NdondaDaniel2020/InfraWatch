@@ -228,6 +228,15 @@ class BackupService:
         except OSError as e:
             logger.debug("Não foi possível salvar /tmp/rclone.conf: %s", e)
 
+        # Salvar no volume persistente caso acessível
+        persisted_conf = Path("/var/backups/infrawatch/.rclone.conf")
+        if persisted_conf.parent.exists() and os.access(persisted_conf.parent, os.W_OK):
+            try:
+                persisted_conf.write_text(current_conf, encoding="utf-8")
+                persisted_conf.chmod(0o644)
+            except OSError as e:
+                logger.debug("Não foi possível salvar em %s: %s", persisted_conf, e)
+
         # Salvar na pasta secrets do projeto caso acessível
         for root in (Path.cwd(), Path(__file__).resolve().parents[5]):
             secret_file = root / "secrets" / "rclone_config.txt"

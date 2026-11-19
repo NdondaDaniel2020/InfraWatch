@@ -241,9 +241,9 @@ test-notif:
 	@echo "Executando teste de notifications..."
 	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)
 
-integration-up: glpi-up zabbix-up bootstrap-integrations
+integration-up: up glpi-up zabbix-up bootstrap-integrations
 
-integration-down: glpi-down zabbix-down
+integration-down: down glpi-down zabbix-down
 
 integration-test: test-glpi test-zabbix test-notif
 

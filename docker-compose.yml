@@ -81,6 +81,7 @@ services:
       - default_webhook_url
       - prometheus_metrics_user
       - prometheus_metrics_pass
+      - rclone_config
     depends_on:
       postgres:
         condition: service_healthy
@@ -154,6 +155,7 @@ services:
       - default_webhook_url
       - prometheus_metrics_user
       - prometheus_metrics_pass
+      - rclone_config
     depends_on:
       postgres:
         condition: service_healthy
@@ -197,6 +199,7 @@ services:
       - default_webhook_url
       - prometheus_metrics_user
       - prometheus_metrics_pass
+      - rclone_config
     depends_on:
       postgres:
         condition: service_healthy
@@ -238,6 +241,7 @@ services:
       - default_webhook_url
       - prometheus_metrics_user
       - prometheus_metrics_pass
+      - rclone_config
     depends_on:
       postgres:
         condition: service_healthy
@@ -279,6 +283,7 @@ services:
       - default_webhook_url
       - prometheus_metrics_user
       - prometheus_metrics_pass
+      - rclone_config
     depends_on:
       postgres:
         condition: service_healthy
@@ -320,6 +325,7 @@ services:
       - default_webhook_url
       - prometheus_metrics_user
       - prometheus_metrics_pass
+      - rclone_config
     depends_on:
       postgres:
         condition: service_healthy

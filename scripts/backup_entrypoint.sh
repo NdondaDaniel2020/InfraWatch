@@ -44,12 +44,17 @@ if [ -f "${PERSISTED_CONF}" ] && grep -q "refresh_token" "${PERSISTED_CONF}" && 
     echo "[+] Restaurando configuração persistida do Rclone a partir de ${PERSISTED_CONF}..."
     cp "${PERSISTED_CONF}" "${RCLONE_CONF_PATH}"
     chmod 600 "${RCLONE_CONF_PATH}"
+    chmod 644 "${PERSISTED_CONF}" 2>/dev/null || true
 elif [ -f "/run/secrets/rclone_config" ]; then
     cp /run/secrets/rclone_config "${RCLONE_CONF_PATH}"
     chmod 600 "${RCLONE_CONF_PATH}"
+    cp /run/secrets/rclone_config "${PERSISTED_CONF}" 2>/dev/null || true
+    chmod 644 "${PERSISTED_CONF}" 2>/dev/null || true
 elif [ -f "/run/secrets/rclone_config.txt" ]; then
     cp /run/secrets/rclone_config.txt "${RCLONE_CONF_PATH}"
     chmod 600 "${RCLONE_CONF_PATH}"
+    cp /run/secrets/rclone_config.txt "${PERSISTED_CONF}" 2>/dev/null || true
+    chmod 644 "${PERSISTED_CONF}" 2>/dev/null || true
 else
     echo "[!] AVISO: /run/secrets/rclone_config não encontrado. Gerando configuração temporária vazia."
     touch "${RCLONE_CONF_PATH}"
@@ -104,7 +109,7 @@ case "$1" in
                             echo "${B64}" | base64 -d > /tmp/rclone.conf
                             chmod 600 /tmp/rclone.conf
                             cp /tmp/rclone.conf "${PERSISTED_CONF}" 2>/dev/null || true
-                            chmod 600 "${PERSISTED_CONF}" 2>/dev/null || true
+                            chmod 644 "${PERSISTED_CONF}" 2>/dev/null || true
                             echo "[+] /tmp/rclone.conf atualizado e persistido em ${PERSISTED_CONF} com sucesso."
                         fi
                     fi
