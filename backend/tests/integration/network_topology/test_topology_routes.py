@@ -284,3 +284,47 @@ async def test_rbac_client_viewer_cannot_create_node(
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 
     app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_isolate_node_route(
+    in_memory_db: async_sessionmaker[AsyncSession],
+    super_admin_user: AuthenticatedUser,
+    test_org_id: UUID,
+):
+    """Operador isola um nó crítico via POST /api/v1/topology/nodes/{id}/isolate."""
+    app = create_app()
+
+    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+        async with in_memory_db() as session:
+            yield session
+
+    def override_get_current_user() -> AuthenticatedUser:
+        return super_admin_user
+
+    app.dependency_overrides[get_db_session] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        # Cria nó para isolar
+        create_res = await client.post(
+            "/api/v1/topology/nodes",
+            params={"organization_id": str(test_org_id)},
+            json={"label": "SW-ISOLATE-TEST", "node_type": "device", "ip_address": "10.0.99.1"},
+        )
+        assert create_res.status_code == status.HTTP_201_CREATED
+        node_id = create_res.json()["id"]
+
+        # Dispara isolamento
+        isolate_res = await client.post(
+            f"/api/v1/topology/nodes/{node_id}/isolate",
+            params={"organization_id": str(test_org_id)},
+        )
+        assert isolate_res.status_code == status.HTTP_200_OK
+        data = isolate_res.json()
+        assert data["success"] is True
+        assert "isolado da rota de trânsito OSPF/BGP" in data["message"]
+        assert data["node_id"] == str(node_id)
+
+    app.dependency_overrides.clear()

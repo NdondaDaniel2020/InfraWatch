@@ -7,6 +7,7 @@ from src.contexts.network_topology.schemas.requests import (
     UpdateTopologyNodePositionRequest,
 )
 from src.contexts.network_topology.schemas.responses import (
+    IsolateNodeResponse,
     ProbeDispatchResponse,
     TopologyEdgeResponse,
     TopologyGraphResponse,
@@ -16,6 +17,7 @@ from src.contexts.network_topology.schemas.responses import (
 __all__ = [
     "CreateTopologyEdgeRequest",
     "CreateTopologyNodeRequest",
+    "IsolateNodeResponse",
     "ProbeDispatchResponse",
     "TopologyEdgeResponse",
     "TopologyGraphResponse",

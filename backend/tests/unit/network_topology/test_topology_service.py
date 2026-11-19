@@ -172,3 +172,32 @@ async def test_dispatch_ondemand_probe_missing_ip(service, mock_repo):
 
     with pytest.raises(MissingIpAddressError):
         await service.dispatch_ondemand_probe(node_id, org_id)
+
+
+@pytest.mark.asyncio
+async def test_isolate_node_success(service, mock_repo, mock_session):
+    org_id = uuid4()
+    node_id = uuid4()
+    node = TopologyNode(
+        id=node_id,
+        label="SW-CORE-TEST",
+        node_type="device",
+        organization_id=org_id,
+        ip_address="10.0.1.1",
+    )
+    mock_repo.get_node.return_value = node
+
+    msg = await service.isolate_node(node_id, org_id)
+    assert "isolado da rota de trânsito OSPF/BGP" in msg
+    assert "SW-CORE-TEST" in msg
+    mock_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_isolate_node_not_found(service, mock_repo):
+    org_id = uuid4()
+    node_id = uuid4()
+    mock_repo.get_node.return_value = None
+
+    with pytest.raises(NodeNotFoundError):
+        await service.isolate_node(node_id, org_id)
