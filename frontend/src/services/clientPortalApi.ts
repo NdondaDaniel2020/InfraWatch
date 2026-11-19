@@ -252,6 +252,7 @@ export const clientPortalApi = {
         ? res.devices.map((d: any) => ({
             deviceId: String(d.device_id ?? d.deviceId),
             deviceName: String(d.device_name ?? d.deviceName ?? ""),
+            ipAddress: d.ip_address ?? d.ipAddress ?? null,
             category: String(d.category ?? "—"),
             uptimeGrossPct: requireNumber(
               d.uptime_gross_pct ?? d.uptimeGrossPct,
@@ -312,9 +313,12 @@ export const clientPortalApi = {
   },
 
   /**
-   * Obtém os endpoints sanitizados do cliente.
+   * Obtém os endpoints sanitizados do cliente correlacionando o SLA no período e localização.
    */
-  async getSanitizedEndpoints(organizationId?: string): Promise<SanitizedEndpoint[]> {
+  async getSanitizedEndpoints(
+    organizationId?: string,
+    period?: { startPeriod?: string; endPeriod?: string }
+  ): Promise<SanitizedEndpoint[]> {
     const params = new URLSearchParams();
     if (organizationId) params.set("org_id", organizationId);
     const query = params.toString();
@@ -325,15 +329,43 @@ export const clientPortalApi = {
       throw new Error("Resposta inválida do backend para a lista de endpoints.");
     }
 
-    return res.items.map((item: ClientDeviceDTO) => ({
-      id: String(item.device_id ?? item.id),
-      domainName: item.hostname || item.name,
-      serviceType: item.category || "Sem categoria",
-      protocol: item.protocol || "—",
-      status: normalizeStatus(item.status),
-      ...(typeof item.last_latency_ms === "number"
-        ? { latencyAvgMs: Math.round(item.last_latency_ms) }
-        : {}),
-    }));
+    // Busca relatório oficial de SLA para correlacionar o SLA no período por ativo
+    const slaMap = new Map<string, number>();
+    if (organizationId) {
+      try {
+        const report = await this.getSlaReport(organizationId, period);
+        if (report && Array.isArray(report.devices)) {
+          for (const d of report.devices) {
+            if (typeof d.uptimeNetPct === "number") {
+              slaMap.set(String(d.deviceId), d.uptimeNetPct);
+            }
+          }
+        }
+      } catch {
+        // Degradação graciosa caso a organização ainda não possua relatório SLA compilado
+      }
+    }
+
+    return res.items.map((item: ClientDeviceDTO) => {
+      const devId = String(item.device_id ?? item.id);
+      const slaPct = slaMap.get(devId);
+      const dcRegion =
+        item.datacenter_region ||
+        item.cluster ||
+        "CLUSTER LUANDA-01";
+
+      return {
+        id: devId,
+        domainName: item.hostname || item.name,
+        serviceType: item.category || "Sem categoria",
+        protocol: item.protocol || "—",
+        status: normalizeStatus(item.status),
+        ...(typeof slaPct === "number" ? { sla30dPct: slaPct } : {}),
+        ...(typeof item.last_latency_ms === "number"
+          ? { latencyAvgMs: Math.round(item.last_latency_ms) }
+          : {}),
+        datacenterRegion: dcRegion,
+      };
+    });
   },
 };

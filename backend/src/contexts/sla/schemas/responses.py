@@ -151,6 +151,7 @@ class SlaDeviceReportItem(BaseModel):
 
     device_id: UUID
     device_name: str
+    ip_address: str | None = None
     category: str
     uptime_gross_pct: float
     uptime_net_pct: float

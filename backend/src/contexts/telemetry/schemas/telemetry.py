@@ -51,6 +51,9 @@ class MonitoredDeviceItem(BaseModel):
     last_monitored_at: datetime | None = Field(
         default=None, description="Timestamp da última telemetria registrada"
     )
+    datacenter_region: str | None = Field(
+        default=None, description="Região ou datacenter de localização do ativo"
+    )
 
 
 class MonitoredDevicesResponse(BaseModel):

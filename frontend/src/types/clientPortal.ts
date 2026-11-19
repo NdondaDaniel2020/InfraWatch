@@ -63,6 +63,8 @@ export interface ClientDeviceDTO {
   ip_address?: string;
   last_latency_ms?: number | null;
   last_packet_loss?: number | null;
+  datacenter_region?: string | null;
+  cluster?: string | null;
 }
 
 export interface ClientDeviceListResponse {
@@ -91,6 +93,8 @@ export interface SlaHistoryResponse {
 export interface SlaDeviceReportItem {
   deviceId: string;
   deviceName: string;
+  ipAddress?: string | null;
+  ip_address?: string | null;
   category: string;
   uptimeGrossPct: number;
   uptimeNetPct: number;

@@ -193,6 +193,7 @@ export const slaApi = {
     return report.devices.map((device) => ({
       deviceId: device.deviceId,
       deviceName: device.deviceName,
+      ipAddress: device.ipAddress ?? undefined,
       category: device.category,
       nominalUptimePct: device.uptimeGrossPct,
       netUptimePct: device.uptimeNetPct,

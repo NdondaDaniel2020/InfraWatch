@@ -22,6 +22,7 @@ import { mockAdminOrganizations } from "../src/mocks/auditMocks";
 import { MOCK_SANITIZED_ENDPOINTS } from "../src/mocks/clientPortalMocks";
 
 vi.mock("../src/services/slaApi", () => ({
+  resolveSlaPeriodRange: vi.fn((_period?: string) => ({})),
   slaApi: {
     listMaintenanceWindows: vi.fn(),
     getMaintenanceKpiSummary: vi.fn(),
@@ -284,6 +285,7 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("sla-device-breakdown-table")).toBeInTheDocument();
+        expect(screen.getByText("10.0.1.1")).toBeInTheDocument();
       });
 
       // Clicar na aba de Endpoints Contratados (Visão Cliente)
@@ -294,6 +296,8 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
         expect(screen.getByTestId("sla-endpoints-table")).toBeInTheDocument();
         expect(screen.getByText("api.bancosol.ao")).toBeInTheDocument();
         expect(screen.getByText("ibanking.bancosol.ao")).toBeInTheDocument();
+        expect(screen.getAllByText("DC Luanda Sul").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText("99.99%")).toBeInTheDocument();
       });
 
       // Testar busca de endpoints

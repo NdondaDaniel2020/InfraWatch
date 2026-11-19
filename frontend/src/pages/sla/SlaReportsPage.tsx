@@ -15,7 +15,7 @@ import { SlaKpiCards } from "../../components/sla/SlaKpiCards";
 import { SlaExportActions } from "../../components/sla/SlaExportActions";
 import { SlaDeviceBreakdownTable } from "../../components/sla/SlaDeviceBreakdownTable";
 import { SlaEndpointsTable } from "../../components/sla/SlaEndpointsTable";
-import { slaApi } from "../../services/slaApi";
+import { slaApi, resolveSlaPeriodRange } from "../../services/slaApi";
 import { adminApi } from "../../services/adminApi";
 import { clientPortalApi } from "../../services/clientPortalApi";
 import { pdfExportService } from "../../services/pdfExportService";
@@ -86,8 +86,12 @@ export const SlaReportsPage: React.FC = () => {
     error: endpointsError,
     refetch: refetchEndpoints,
   } = useQuery({
-    queryKey: ["slaEndpoints", effectiveTenantId],
-    queryFn: () => clientPortalApi.getSanitizedEndpoints(effectiveTenantId!),
+    queryKey: ["slaEndpoints", effectiveTenantId, selectedPeriod],
+    queryFn: () =>
+      clientPortalApi.getSanitizedEndpoints(
+        effectiveTenantId!,
+        resolveSlaPeriodRange(selectedPeriod)
+      ),
     enabled:
       Boolean(effectiveTenantId) &&
       (!isGlobalOperator || tableViewMode === "endpoints"),

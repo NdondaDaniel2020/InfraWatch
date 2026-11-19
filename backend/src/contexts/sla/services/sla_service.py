@@ -573,6 +573,7 @@ class SlaService:
                 SlaDeviceReportItem(
                     device_id=dev.id,
                     device_name=dev.name,
+                    ip_address=getattr(dev, "ip_address", None),
                     category=str(getattr(dev, "category", "Core")),
                     uptime_gross_pct=gross_uptime,
                     uptime_net_pct=rep.uptime_percentage,
