@@ -40,8 +40,13 @@ RUN rm -rf /etc/nginx/conf.d/default.conf /usr/share/nginx/html/*
 # Copia configuração Nginx com suporte a IPv4/IPv6 e endpoint /healthz
 COPY default.conf /etc/nginx/conf.d/default.conf
 
-# Copia apenas os artefatos estáticos compilados (injeção via volume no compose)
+# Copia os artefatos compilados para /app/dist e para o diretório padrão
+COPY --from=exporter /app/dist /app/dist
 COPY --from=exporter /app/dist /usr/share/nginx/html
+
+# Copia e configura o script de inicialização para sincronização do volume compartilhado
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expõe a porta 80 interna
 EXPOSE 80
@@ -50,5 +55,5 @@ EXPOSE 80
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s \
     CMD wget -qO- http://localhost:80/healthz || exit 1
 
-# Inicia o Nginx em primeiro plano
-CMD ["nginx", "-g", "daemon off;"]
+# Sincroniza o volume compartilhado antes de subir o Nginx
+ENTRYPOINT ["/entrypoint.sh"]

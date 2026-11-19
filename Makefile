@@ -1,4 +1,4 @@
-.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean certs certs-clean gateway-reload whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup sync-backups restore front-dev front-test front-build front-lint
+.PHONY: help dev run api app worker-probe worker-outbox worker-cleanup worker-zabbix worker-integration workers test lint format up down status container container-stop glpi-up glpi-down test-glpi zabbix-up zabbix-down test-zabbix test-notif bootstrap-integrations secrets-init secrets-clean certs certs-clean gateway-reload whatsapp-up clab-deploy clab-destroy clab-inspect clab-graph migrate seed backup sync-backups restore front-dev front-test front-build front-sync front-lint
 
 UV := $(shell which uv 2>/dev/null)
 ifeq ($(UV),)
@@ -310,6 +310,20 @@ front-test:
 
 front-build:
 	cd frontend && npm run build
+	@if docker ps -q -f name=infrawatch-frontend | grep -q .; then \
+		echo "Sincronizando dist para o container infrawatch-frontend..."; \
+		docker cp frontend/dist/. infrawatch-frontend:/usr/share/nginx/html/; \
+		echo "Volume compartilhado frontend_dist atualizado com sucesso."; \
+	fi
+
+front-sync:
+	@if docker ps -q -f name=infrawatch-frontend | grep -q .; then \
+		echo "Sincronizando dist para o container infrawatch-frontend..."; \
+		docker cp frontend/dist/. infrawatch-frontend:/usr/share/nginx/html/; \
+		echo "Volume compartilhado frontend_dist atualizado com sucesso."; \
+	else \
+		echo "Container infrawatch-frontend não está em execução."; \
+	fi
 
 front-lint:
 	cd frontend && npx tsc --noEmit
