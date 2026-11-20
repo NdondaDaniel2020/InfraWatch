@@ -225,3 +225,83 @@ async def test_create_device_super_admin_with_payload_org(override_get_db):
         data = resp.json()
         assert data["name"] == "NOC Global Switch"
         assert data["organization_id"] == target_org_id
+
+
+@pytest.mark.asyncio
+async def test_probe_device_on_demand_endpoint(override_get_db):
+    """Valida o endpoint POST /api/v1/devices/{device_id}/probe para sonda on-demand."""
+    org_id = str(uuid4())
+    token = generate_token("ORG_ADMIN", org_id)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        device_payload = {
+            "name": "Probe Target Device",
+            "ipAddress": "127.0.0.1",
+            "port": 65530,
+            "protocol": "TCP",
+            "category": "SERVER",
+            "intervalSeconds": 60,
+        }
+        create_resp = await client.post("/api/v1/devices/", json=device_payload, headers=headers)
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        device_id = create_resp.json()["id"]
+
+        probe_resp = await client.post(f"/api/v1/devices/{device_id}/probe", headers=headers)
+        assert probe_resp.status_code == status.HTTP_200_OK
+        data = probe_resp.json()
+        assert "success" in data
+        assert "rttMs" in data
+        assert "packetLossPct" in data
+        assert "packetsSent" in data
+        assert "packetsReceived" in data
+
+
+@pytest.mark.asyncio
+async def test_get_device_interfaces_endpoint(override_get_db):
+    """Valida o endpoint GET /api/v1/devices/{device_id}/interfaces para recuperacao de interfaces."""
+    org_id = str(uuid4())
+    token = generate_token("ORG_ADMIN", org_id)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # 1. Dispositivo categoria SWITCH
+        switch_payload = {
+            "name": "Core Optical Switch",
+            "ipAddress": "10.0.1.1",
+            "protocol": "ICMP",
+            "category": "SWITCH",
+            "intervalSeconds": 60,
+        }
+        switch_resp = await client.post("/api/v1/devices/", json=switch_payload, headers=headers)
+        assert switch_resp.status_code == status.HTTP_201_CREATED
+        switch_id = switch_resp.json()["id"]
+
+        interfaces_resp = await client.get(f"/api/v1/devices/{switch_id}/interfaces", headers=headers)
+        assert interfaces_resp.status_code == status.HTTP_200_OK
+        interfaces = interfaces_resp.json()
+        assert len(interfaces) == 24
+        assert interfaces[0]["portName"] == "100GE0/0/1"
+        assert interfaces[0]["speed"] == "25GE SFP28"
+
+        # 2. Dispositivo categoria CONTAINER
+        server_payload = {
+            "name": "App Container Node",
+            "ipAddress": "172.18.0.5",
+            "protocol": "DOCKER",
+            "category": "CONTAINER",
+            "intervalSeconds": 30,
+        }
+        server_resp = await client.post("/api/v1/devices/", json=server_payload, headers=headers)
+        assert server_resp.status_code == status.HTTP_201_CREATED
+        server_id = server_resp.json()["id"]
+
+        server_interfaces_resp = await client.get(f"/api/v1/devices/{server_id}/interfaces", headers=headers)
+        assert server_interfaces_resp.status_code == status.HTTP_200_OK
+        server_interfaces = server_interfaces_resp.json()
+        assert len(server_interfaces) == 1
+        assert server_interfaces[0]["portName"] == "eth0"

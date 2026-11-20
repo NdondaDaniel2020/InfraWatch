@@ -9,6 +9,8 @@ export interface DeviceDetail {
   firmwareVersion: string;
   protocol: string;
   category: string;
+  port?: number;
+  intervalSeconds?: number;
   healthStatus: "UP" | "DOWN" | "DEG" | "MAINT" | "PAUSED";
   uptimeSeconds: number;
   uptimeDisplay: string;

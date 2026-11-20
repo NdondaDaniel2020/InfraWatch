@@ -5,6 +5,7 @@ import { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { DeviceDetailPage } from "../src/pages/inventory/DeviceDetailPage";
+import { DeviceMetricsTimescaleChart } from "../src/components/device/DeviceMetricsTimescaleChart";
 import { deviceDetailApi } from "../src/services/deviceDetailApi";
 import {
   createMockDeviceDetail,
@@ -121,6 +122,38 @@ describe("DeviceDetailPage — Cockpit 360° do Dispositivo (Issue #244)", () =>
 
       (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(emptyDevice);
       (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue(emptyMetrics);
+
+      renderWithProviders(<DeviceDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/nenhum registro de telemetria/i)).toBeInTheDocument();
+      });
+    });
+
+    it("deve exibir estado vazio e não quebrar quando metrics for null ou vazio (prevenção do erro 'buckets')", async () => {
+      const redisDevice = createMockDeviceDetail({
+        id: "01a1da45-d1de-721b-b5e8-1ef12b8a7dcf",
+        name: "infrawatch-redis",
+      });
+
+      (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(redisDevice);
+      (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue(null as any);
+
+      renderWithProviders(<DeviceDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/nenhum registro de telemetria/i)).toBeInTheDocument();
+      });
+    });
+
+    it("deve exibir estado vazio quando metrics retornar objeto sem buckets", async () => {
+      const redisDevice = createMockDeviceDetail({
+        id: "01a1da45-d1de-721b-b5e8-1ef12b8a7dcf",
+        name: "infrawatch-redis",
+      });
+
+      (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(redisDevice);
+      (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue({ period: "24h" } as any);
 
       renderWithProviders(<DeviceDetailPage />);
 
@@ -382,6 +415,49 @@ describe("DeviceDetailPage — Cockpit 360° do Dispositivo (Issue #244)", () =>
 
       await user.tab();
       expect(document.activeElement).toBeInTheDocument();
+    });
+  });
+
+  describe("DeviceMetricsTimescaleChart — Resiliência Defensiva", () => {
+    it("deve renderizar sem lançar exceção quando data for undefined", () => {
+      expect(() => {
+        render(
+          <DeviceMetricsTimescaleChart
+            data={undefined as any}
+            period="24h"
+            onPeriodChange={vi.fn()}
+          />
+        );
+      }).not.toThrow();
+
+      expect(screen.getByText(/Latência RTT — TimescaleDB Hypertable/i)).toBeInTheDocument();
+    });
+
+    it("deve renderizar sem lançar exceção quando data.buckets for undefined ou nulo", () => {
+      expect(() => {
+        render(
+          <DeviceMetricsTimescaleChart
+            data={{ period: "24h", summary: { minMs: 0, p95Ms: 0, maxMs: 0, avgLossPct: 0 } } as any}
+            period="24h"
+            onPeriodChange={vi.fn()}
+          />
+        );
+      }).not.toThrow();
+
+      expect(screen.getByText(/Latência RTT — TimescaleDB Hypertable/i)).toBeInTheDocument();
+    });
+
+    it("deve renderizar com dados e buckets válidos", () => {
+      render(
+        <DeviceMetricsTimescaleChart
+          data={mockMetrics}
+          period="24h"
+          onPeriodChange={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Latência RTT — TimescaleDB Hypertable/i)).toBeInTheDocument();
+      expect(screen.getByText("1.8")).toBeInTheDocument();
     });
   });
 });

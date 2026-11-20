@@ -3,7 +3,7 @@ import { Monitor } from "lucide-react";
 import type { TimescaleMetricsResponse, TimescalePeriod } from "../../types/deviceDetail";
 
 interface DeviceMetricsTimescaleChartProps {
-  data: TimescaleMetricsResponse;
+  data?: TimescaleMetricsResponse | null;
   period: TimescalePeriod;
   onPeriodChange: (period: TimescalePeriod) => void;
 }
@@ -36,19 +36,22 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
   period,
   onPeriodChange,
 }) => {
+  const buckets = useMemo(() => (Array.isArray(data?.buckets) ? data.buckets : []), [data?.buckets]);
+
   const maxValue = useMemo(() => {
-    const allValues = data.buckets.flatMap((b) => [b.rttMinMs, b.rttP95Ms, b.rttMaxMs]);
+    if (buckets.length === 0) return ALERT_THRESHOLD_MS * 1.2;
+    const allValues = buckets.flatMap((b) => [b?.rttMinMs ?? 0, b?.rttP95Ms ?? 0, b?.rttMaxMs ?? 0]);
     return Math.max(...allValues, ALERT_THRESHOLD_MS * 1.2);
-  }, [data.buckets]);
+  }, [buckets]);
 
   const sampledBuckets = useMemo(() => {
     const targetPoints = 60;
-    if (data.buckets.length <= targetPoints) return data.buckets;
-    const step = data.buckets.length / targetPoints;
+    if (buckets.length <= targetPoints) return buckets;
+    const step = buckets.length / targetPoints;
     return Array.from({ length: targetPoints }, (_, i) =>
-      data.buckets[Math.floor(i * step)]
-    );
-  }, [data.buckets]);
+      buckets[Math.floor(i * step)]
+    ).filter(Boolean);
+  }, [buckets]);
 
   const pathData = useMemo(() => {
     if (sampledBuckets.length < 2) return "";
@@ -67,7 +70,7 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
     if (sampledBuckets.length < 2) return "";
     const points = sampledBuckets.map((bucket, i) => ({
       x: getXPosition(i, sampledBuckets.length),
-      y: getYPosition(bucket.rttP95Ms, maxValue),
+      y: getYPosition(bucket?.rttP95Ms ?? 0, maxValue),
     }));
     return (
       `M ${points[0].x} ${CHART_HEIGHT - 20} ` +
@@ -81,12 +84,13 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
       .map((bucket, i) => ({
         ...bucket,
         x: getXPosition(i, sampledBuckets.length),
-        y: getYPosition(bucket.rttMaxMs, maxValue),
+        y: getYPosition(bucket?.rttMaxMs ?? 0, maxValue),
       }))
-      .filter((p) => p.rttMaxMs > ALERT_THRESHOLD_MS);
+      .filter((p) => (p?.rttMaxMs ?? 0) > ALERT_THRESHOLD_MS);
   }, [sampledBuckets, maxValue]);
 
   const timeLabels = useMemo(() => {
+    if (sampledBuckets.length === 0) return [];
     const labels = [
       { index: 0, label: sampledBuckets[0] ? new Date(sampledBuckets[0].timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "" },
       { index: Math.floor(sampledBuckets.length * 0.25), label: "" },
