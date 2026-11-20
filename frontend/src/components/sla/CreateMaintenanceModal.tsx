@@ -1,41 +1,78 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, AlertTriangle, Calendar, X } from "lucide-react";
-import type { CreateMaintenanceInput } from "../../types/sla";
+import type { CreateMaintenanceInput, MaintenanceWindow } from "../../types/sla";
 import {
   createMaintenanceSchema,
   type CreateMaintenanceFormData,
 } from "../../schemas/slaSchema";
 import { Button } from "../ui";
 
+interface DeviceOption {
+  id: string;
+  name: string;
+  ipAddress?: string;
+  category?: string;
+}
+
+interface OrganizationOption {
+  id: string;
+  name: string;
+}
+
 interface CreateMaintenanceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: CreateMaintenanceInput) => void;
   isSubmitting?: boolean;
+  organizations?: OrganizationOption[];
+  devices?: DeviceOption[];
+  existingMaintenances?: MaintenanceWindow[];
 }
+
+const getDefaultTimes = () => {
+  const now = new Date();
+  const start = new Date(now.getTime() + 60 * 60 * 1000);
+  start.setMinutes(0, 0, 0);
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toLocalIso = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return {
+    startTime: toLocalIso(start),
+    endTime: toLocalIso(end),
+  };
+};
 
 export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
   isSubmitting = false,
+  organizations = [],
+  devices = [],
+  existingMaintenances = [],
 }) => {
+  const initialTimes = useMemo(() => getDefaultTimes(), []);
+  const defaultDevice = devices[0]?.name || "SW-CORE-LUANDA-01";
+  const defaultClient = organizations[0]?.name || "Unitel Angola (Backbone Core)";
+
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateMaintenanceFormData>({
     resolver: zodResolver(createMaintenanceSchema),
     defaultValues: {
       title: "",
       description: "",
-      targetDeviceInput: "SW-CORE-LUANDA-01",
-      clientName: "Unitel Angola (Backbone Core)",
-      startTime: "2026-10-22T02:00",
-      endTime: "2026-10-22T04:00",
+      targetDeviceInput: defaultDevice,
+      clientName: defaultClient,
+      startTime: initialTimes.startTime,
+      endTime: initialTimes.endTime,
       alarmSuppression: true,
       slaExemption: true,
       rollbackPlan: "",
@@ -43,28 +80,63 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
     mode: "onChange",
   });
 
-  const targetDeviceInput = watch("targetDeviceInput", "SW-CORE-LUANDA-01");
+  const targetDeviceInput = watch("targetDeviceInput", defaultDevice);
+
+  const conflictingMaintenance = useMemo(() => {
+    if (!targetDeviceInput || existingMaintenances.length === 0) return null;
+    const inputUpper = targetDeviceInput.toUpperCase().trim();
+    return existingMaintenances.find((m) => {
+      if (m.status === "CANCELLED" || m.status === "COMPLETED") return false;
+      return (
+        m.targetDeviceNames.some(
+          (d) => d.toUpperCase().includes(inputUpper) || inputUpper.includes(d.toUpperCase())
+        ) ||
+        m.targetDeviceIds.some((id) => id.toLowerCase() === targetDeviceInput.toLowerCase().trim())
+      );
+    });
+  }, [targetDeviceInput, existingMaintenances]);
+
+  const isCoreAsset = useMemo(() => {
+    const upper = (targetDeviceInput || "").toUpperCase();
+    return (
+      upper.includes("SW-CORE") ||
+      upper.includes("10.0.1.1") ||
+      upper.includes("CORE") ||
+      upper.includes("BACKBONE")
+    );
+  }, [targetDeviceInput]);
+
+  const hasConflict = Boolean(conflictingMaintenance || isCoreAsset);
 
   if (!isOpen) return null;
-
-  const hasConflict =
-    targetDeviceInput.toUpperCase().includes("SW-CORE") ||
-    targetDeviceInput.includes("10.0.1.1");
 
   const onFormSubmit = (data: CreateMaintenanceFormData) => {
     const startDate = new Date(data.startTime);
     const endDate = new Date(data.endTime);
 
-    const targetDeviceIds = data.targetDeviceInput
+    const deviceValues = data.targetDeviceInput
       .split(",")
       .map((d) => d.trim())
       .filter(Boolean);
 
+    // Mapeia nomes informados para UUIDs reais caso existam no inventário
+    const resolvedDeviceIds = deviceValues.map((val) => {
+      const match = devices.find(
+        (d) => d.name.toLowerCase() === val.toLowerCase() || d.id === val
+      );
+      return match ? match.id : val;
+    });
+
+    const matchedOrg = organizations.find(
+      (org) => org.name.toLowerCase() === data.clientName.trim().toLowerCase()
+    );
+
     onSubmit({
       title: data.title,
       description: data.description,
-      targetDeviceIds,
+      targetDeviceIds: resolvedDeviceIds,
       clientName: data.clientName,
+      organizationId: matchedOrg ? matchedOrg.id : undefined,
       startTimeUtc: startDate.toISOString(),
       endTimeUtc: endDate.toISOString(),
       alarmSuppression: data.alarmSuppression,
@@ -194,7 +266,15 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
           >
             <AlertTriangle size={16} />
             <span>
-              Atenção: O ativo <strong>{targetDeviceInput}</strong> é um nó core crítico de agregação. O tráfego redundante será automaticamente desviado.
+              {conflictingMaintenance ? (
+                <>
+                  Atenção: Conflito operacional detectado com a RFC <strong>{conflictingMaintenance.rfcNumber}</strong> ({conflictingMaintenance.title}).
+                </>
+              ) : (
+                <>
+                  Atenção: O ativo <strong>{targetDeviceInput}</strong> é um nó core crítico de agregação. O tráfego redundante será automaticamente desviado.
+                </>
+              )}
             </span>
           </div>
         )}
@@ -231,22 +311,61 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                 Ativo(s) Alvo (separados por vírgula) *
               </label>
-              <input
-                type="text"
-                {...register("targetDeviceInput")}
-                placeholder="Ex: SW-CORE-LUANDA-01, SW-CORE-LUANDA-02"
-                aria-invalid={!!errors.targetDeviceInput}
-                style={{
-                  backgroundColor: "var(--color-bg-deep, #070a12)",
-                  border: errors.targetDeviceInput ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "8px 12px",
-                  color: "var(--color-text-primary)",
-                  fontSize: "0.75rem",
-                  fontFamily: "var(--font-mono)",
-                  outline: "none",
-                }}
-              />
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  type="text"
+                  list="maint-devices-datalist"
+                  {...register("targetDeviceInput")}
+                  placeholder="Ex: SW-CORE-LUANDA-01, SW-CORE-LUANDA-02"
+                  aria-invalid={!!errors.targetDeviceInput}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "var(--color-bg-deep, #070a12)",
+                    border: errors.targetDeviceInput ? "1px solid var(--color-critical)" : "var(--border-subtle)",
+                    borderRadius: "var(--radius-sm)",
+                    padding: "8px 12px",
+                    color: "var(--color-text-primary)",
+                    fontSize: "0.75rem",
+                    fontFamily: "var(--font-mono)",
+                    outline: "none",
+                  }}
+                />
+                {devices.length > 0 && (
+                  <select
+                    aria-label="Selecionar ativo do inventário"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setValue("targetDeviceInput", e.target.value, { shouldValidate: true });
+                      }
+                    }}
+                    style={{
+                      maxWidth: "110px",
+                      backgroundColor: "var(--color-bg-deep, #070a12)",
+                      border: "var(--border-subtle)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px",
+                      color: "var(--color-text-muted)",
+                      fontSize: "0.7rem",
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="">Ativos...</option>
+                    {devices.map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <datalist id="maint-devices-datalist">
+                {devices.map((d) => (
+                  <option key={d.id} value={d.name}>
+                    {d.ipAddress ? `${d.ipAddress} (${d.category || "Ativo"})` : d.name}
+                  </option>
+                ))}
+              </datalist>
               {errors.targetDeviceInput && (
                 <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
                   {errors.targetDeviceInput.message}
@@ -258,20 +377,58 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                 Contratante / Cliente Afetado *
               </label>
-              <input
-                type="text"
-                {...register("clientName")}
-                aria-invalid={!!errors.clientName}
-                style={{
-                  backgroundColor: "var(--color-bg-deep, #070a12)",
-                  border: errors.clientName ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "8px 12px",
-                  color: "var(--color-text-primary)",
-                  fontSize: "0.75rem",
-                  outline: "none",
-                }}
-              />
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  type="text"
+                  list="maint-orgs-datalist"
+                  {...register("clientName")}
+                  placeholder="Ex: Unitel Angola, Banco Sol..."
+                  aria-invalid={!!errors.clientName}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "var(--color-bg-deep, #070a12)",
+                    border: errors.clientName ? "1px solid var(--color-critical)" : "var(--border-subtle)",
+                    borderRadius: "var(--radius-sm)",
+                    padding: "8px 12px",
+                    color: "var(--color-text-primary)",
+                    fontSize: "0.75rem",
+                    outline: "none",
+                  }}
+                />
+                {organizations.length > 0 && (
+                  <select
+                    aria-label="Selecionar contratante"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setValue("clientName", e.target.value, { shouldValidate: true });
+                      }
+                    }}
+                    style={{
+                      maxWidth: "110px",
+                      backgroundColor: "var(--color-bg-deep, #070a12)",
+                      border: "var(--border-subtle)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px",
+                      color: "var(--color-text-muted)",
+                      fontSize: "0.7rem",
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="">Clientes...</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.name}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <datalist id="maint-orgs-datalist">
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.name} />
+                ))}
+              </datalist>
               {errors.clientName && (
                 <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
                   {errors.clientName.message}

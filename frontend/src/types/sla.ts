@@ -51,6 +51,7 @@ export interface CreateMaintenanceInput {
   description: string;
   targetDeviceIds: string[];
   clientName: string;
+  organizationId?: string;
   startTimeUtc: string;
   endTimeUtc: string;
   alarmSuppression: boolean;

@@ -18,6 +18,7 @@ import { MaintenanceGanttTimeline } from "../../components/sla/MaintenanceGanttT
 import { CreateMaintenanceModal } from "../../components/sla/CreateMaintenanceModal";
 import { slaApi } from "../../services/slaApi";
 import { adminApi } from "../../services/adminApi";
+import { devicesApi } from "../../services/devicesApi";
 import type {
   MaintenanceStatus,
   CreateMaintenanceInput,
@@ -61,6 +62,15 @@ export const MaintenanceWindowsPage: React.FC = () => {
     [organizationsData]
   );
 
+  const { data: devicesData } = useQuery({
+    queryKey: ["slaDevicesList"],
+    queryFn: async () => {
+      const res = await devicesApi.listDevices({ pageSize: 100 });
+      return res?.items ?? [];
+    },
+  });
+
+  const devices = useMemo(() => devicesData ?? [], [devicesData]);
   const {
     data: maintenances = [],
     isLoading,
@@ -161,6 +171,59 @@ export const MaintenanceWindowsPage: React.FC = () => {
     return Array.from(names);
   }, [organizations, safeMaintenances]);
 
+  const handleExportRfcs = useCallback(() => {
+    if (filteredMaintenances.length === 0) {
+      toast.warning("Nenhuma RFC disponível para exportação com os filtros atuais.");
+      return;
+    }
+    const headers = [
+      "RFC",
+      "Titulo",
+      "Contratante",
+      "Ativos",
+      "Inicio (UTC)",
+      "Termino (UTC)",
+      "Duracao (min)",
+      "Status",
+      "Isencao SLA",
+      "Supressao Alarmes",
+      "Descricao",
+    ];
+    const rows = filteredMaintenances.map((m) => [
+      `"${m.rfcNumber}"`,
+      `"${(m.title || "").replace(/"/g, '""')}"`,
+      `"${(m.clientName || "").replace(/"/g, '""')}"`,
+      `"${m.targetDeviceNames.join(", ")}"`,
+      `"${m.startTimeUtc}"`,
+      `"${m.endTimeUtc}"`,
+      m.durationMinutes,
+      `"${m.status}"`,
+      m.slaExemption ? "SIM" : "NAO",
+      m.alarmSuppression ? "SIM" : "NAO",
+      `"${(m.description || "").replace(/"/g, '""')}"`,
+    ]);
+    const csvContent =
+      `# Dossie de Janelas de Manutencao e RFCs Homologadas\n` +
+      `# Extraido em: ${new Date().toISOString()}\n` +
+      `# Total de Registros: ${filteredMaintenances.length}\n\n` +
+      headers.join(";") +
+      "\n" +
+      rows.map((r) => r.join(";")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    if (typeof window !== "undefined" && typeof window.URL?.createObjectURL === "function") {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `dossie-rfcs-${new Date().toISOString().substring(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      if (typeof window.URL?.revokeObjectURL === "function") {
+        URL.revokeObjectURL(url);
+      }
+    }
+    toast.success("Dossiê de RFCs exportado em formato CSV com sucesso!");
+  }, [filteredMaintenances]);
   // Decisão de renderização do estado
   const currentState = isLoading
     ? "skeleton"
@@ -258,7 +321,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
         >
           <Button
             type="button"
-            onClick={() => toast.info("Exportando dossiê de RFCs homologadas...")}
+            onClick={handleExportRfcs}
             variant="ghost"
             size="sm"
             icon={<FileText size={16} />}
@@ -304,7 +367,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
               </strong>
               <span style={{ color: "var(--color-text-muted)" }}>
                 {error?.message ||
-                  "Não foi possível consultar as mudanças programadas no GLPI/ServiceNow."}
+                  "Não foi possível consultar as janelas de manutenção no serviço de governança de SLA."}
               </span>
             </div>
           </div>
@@ -781,6 +844,9 @@ export const MaintenanceWindowsPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreate}
         isSubmitting={createMutation.isPending}
+        organizations={organizations}
+        devices={devices}
+        existingMaintenances={safeMaintenances}
       />
     </main>
   );

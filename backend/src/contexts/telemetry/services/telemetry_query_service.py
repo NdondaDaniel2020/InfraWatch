@@ -85,6 +85,22 @@ class TelemetryQueryService:
         timestamps_by_dev: dict[UUID, datetime] = {}
         fallback_metric_by_dev: dict[UUID, MetricModel] = {}
 
+        # Mapeamento de cluster da topologia para identificação de Região / DC
+        cluster_by_dev: dict[UUID, str] = {}
+        try:
+            from src.contexts.network_topology.database.models import TopologyNodeModel
+
+            topo_stmt = select(TopologyNodeModel.device_id, TopologyNodeModel.cluster).where(
+                TopologyNodeModel.device_id.in_(device_ids),
+                TopologyNodeModel.cluster.isnot(None),
+            )
+            topo_res = (await self._session.execute(topo_stmt)).all()
+            for t_dev_id, t_cluster in topo_res:
+                if t_dev_id and t_cluster:
+                    cluster_by_dev[t_dev_id] = t_cluster
+        except Exception:
+            pass
+
         for m in metrics_result:
             timestamps_by_dev[m.device_id] = m.timestamp
             fallback_metric_by_dev[m.device_id] = m
@@ -110,6 +126,15 @@ class TelemetryQueryService:
                 ):
                     lat = fallback_m.value
 
+            dc_region = (
+                cluster_by_dev.get(dev.id)
+                or (dev.thresholds or {}).get("datacenter")
+                or (dev.thresholds or {}).get("datacenter_region")
+                or (dev.thresholds or {}).get("region")
+                or (dev.thresholds or {}).get("cluster")
+                or "CLUSTER LUANDA-01"
+            )
+
             items.append(
                 MonitoredDeviceItem(
                     device_id=dev.id,
@@ -124,6 +149,7 @@ class TelemetryQueryService:
                     last_latency_ms=lat,
                     last_packet_loss=loss if loss is not None else (0.0 if ts else None),
                     last_monitored_at=ts,
+                    datacenter_region=dc_region,
                 )
             )
 

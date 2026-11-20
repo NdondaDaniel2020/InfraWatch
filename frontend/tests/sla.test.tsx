@@ -22,6 +22,7 @@ import { mockAdminOrganizations } from "../src/mocks/auditMocks";
 import { MOCK_SANITIZED_ENDPOINTS } from "../src/mocks/clientPortalMocks";
 
 vi.mock("../src/services/slaApi", () => ({
+  resolveSlaPeriodRange: vi.fn((_period?: string) => ({})),
   slaApi: {
     listMaintenanceWindows: vi.fn(),
     getMaintenanceKpiSummary: vi.fn(),
@@ -37,6 +38,22 @@ vi.mock("../src/services/slaApi", () => ({
 vi.mock("../src/services/adminApi", () => ({
   adminApi: {
     listOrganizations: vi.fn(),
+  },
+}));
+
+vi.mock("../src/services/devicesApi", () => ({
+  devicesApi: {
+    listDevices: vi.fn().mockResolvedValue({
+      items: [
+        { id: "dev-1", name: "SW-CORE-LUANDA-01", hostname: "SW-CORE-LUANDA-01", ipAddress: "10.0.1.1", category: "NETWORK" },
+        { id: "dev-2", name: "SW-CORE-LUANDA-02", hostname: "SW-CORE-LUANDA-02", ipAddress: "10.0.1.2", category: "NETWORK" },
+        { id: "dev-3", name: "DB-REPLICA-02", hostname: "DB-REPLICA-02", ipAddress: "10.0.2.1", category: "DATABASE" },
+      ],
+      total: 3,
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
+    }),
   },
 }));
 
@@ -75,6 +92,8 @@ const renderWithProviders = (ui: ReactNode, queryClient?: QueryClient) => {
 describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.URL.createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
+    window.URL.revokeObjectURL = vi.fn();
     (adminApi.listOrganizations as Mock).mockResolvedValue({
       items: mockAdminOrganizations,
       total: mockAdminOrganizations.length,
@@ -189,6 +208,27 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
       });
     });
 
+    it("deve exportar dossie de RFCs em CSV e abrir dossie tecnico", async () => {
+      const user = userEvent.setup();
+      (slaApi.listMaintenanceWindows as Mock).mockResolvedValue(mockMaintenanceWindows);
+      (slaApi.getMaintenanceKpiSummary as Mock).mockResolvedValue(mockMaintenanceKpiSummary);
+
+      renderWithProviders(<MaintenanceWindowsPage />);
+
+      await waitFor(() => expect(screen.getByText("RFC-2026-8812")).toBeInTheDocument());
+
+      const exportBtn = screen.getByRole("button", { name: /exportar rfcs/i });
+      await user.click(exportBtn);
+
+      const dossierBtn = screen.getAllByRole("button", { name: /ver dossiê/i })[0];
+      await user.click(dossierBtn);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("rfc-dossier-maint-1")).toBeInTheDocument();
+        expect(screen.getByText(/DOSSIÊ TÉCNICO OPERACIONAL — RFC-2026-8812/i)).toBeInTheDocument();
+      });
+    });
+
     it("deve exibir estado vazio quando não houver manutenções agendadas", async () => {
       (slaApi.listMaintenanceWindows as Mock).mockResolvedValue([]);
       (slaApi.getMaintenanceKpiSummary as Mock).mockResolvedValue(mockMaintenanceKpiSummary);
@@ -284,6 +324,7 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("sla-device-breakdown-table")).toBeInTheDocument();
+        expect(screen.getByText("10.0.1.1")).toBeInTheDocument();
       });
 
       // Clicar na aba de Endpoints Contratados (Visão Cliente)
@@ -294,6 +335,8 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
         expect(screen.getByTestId("sla-endpoints-table")).toBeInTheDocument();
         expect(screen.getByText("api.bancosol.ao")).toBeInTheDocument();
         expect(screen.getByText("ibanking.bancosol.ao")).toBeInTheDocument();
+        expect(screen.getAllByText("DC Luanda Sul").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText("99.99%")).toBeInTheDocument();
       });
 
       // Testar busca de endpoints
@@ -307,6 +350,47 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
       await user.click(devicesTab);
       expect(screen.getByTestId("sla-device-breakdown-table")).toBeInTheDocument();
       expect(screen.getAllByText("SW-CORE-LUANDA-01").length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("deve paginar e filtrar a tabela de Ativos Físicos de Rede", async () => {
+      const user = userEvent.setup();
+      const manyDevices = Array.from({ length: 12 }, (_, i) => ({
+        deviceId: `dev-${i + 1}`,
+        deviceName: `DEVICE-CORE-${String(i + 1).padStart(2, "0")}`,
+        ipAddress: `10.0.1.${i + 1}`,
+        tier: "TIER-1" as const,
+        nominalUptimePct: 99.5,
+        netUptimePct: 99.8,
+        exemptedMaintenanceMinutes: 60,
+        status: "COMPLIANT" as const,
+      }));
+
+      (slaApi.getSlaOverview as Mock).mockResolvedValue(mockSlaOverviewBancoSol);
+      (slaApi.getSlaDeviceBreakdown as Mock).mockResolvedValue(manyDevices);
+
+      renderWithProviders(<SlaReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("sla-device-breakdown-table")).toBeInTheDocument();
+        expect(screen.getByTestId("sla-devices-pagination")).toBeInTheDocument();
+      });
+
+      // Página 1 deve ter DEVICE-CORE-01 e não DEVICE-CORE-06 (com itemsPerPage=5)
+      expect(screen.getByText("DEVICE-CORE-01")).toBeInTheDocument();
+      expect(screen.queryByText("DEVICE-CORE-06")).not.toBeInTheDocument();
+
+      // Avançar para página 2
+      const nextBtn = screen.getByTestId("sla-devices-pagination-next");
+      await user.click(nextBtn);
+
+      expect(screen.getByText("DEVICE-CORE-06")).toBeInTheDocument();
+      expect(screen.queryByText("DEVICE-CORE-01")).not.toBeInTheDocument();
+
+      // Testar busca
+      const searchInput = screen.getByTestId("sla-device-search-input");
+      await user.type(searchInput, "CORE-12");
+      expect(screen.getByText("DEVICE-CORE-12")).toBeInTheDocument();
+      expect(screen.queryByText("DEVICE-CORE-06")).not.toBeInTheDocument();
     });
 
     it("deve permitir alterar o período de apuração temporal de SLA", async () => {

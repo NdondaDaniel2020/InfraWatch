@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Calendar,
@@ -24,6 +24,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
   onApprove,
   canApprove = false,
 }) => {
+  const [isDossierOpen, setIsDossierOpen] = useState(false);
   const startDate = new Date(maintenance.startTimeUtc);
   const dayStr = startDate.toLocaleDateString("pt-BR", { day: "2-digit" });
   const monthStr = startDate
@@ -224,7 +225,8 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
             Ativos Alvo:
           </span>
           {maintenance.targetDeviceNames.map((name, index) => {
-            const devId = maintenance.targetDeviceIds[index] || "dev-1";
+            const devId = maintenance.targetDeviceIds[index];
+            const isValidDeviceUuid = Boolean(devId && /^[0-9a-fA-F-]{36}$/.test(devId));
             return (
               <span
                 key={name}
@@ -249,16 +251,20 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
                     backgroundColor: "var(--color-healthy)",
                   }}
                 />
-                <Link
-                  to={`/devices/${devId}`}
-                  style={{
-                    color: "inherit",
-                    textDecoration: "none",
-                  }}
-                  className="hover:underline"
-                >
-                  {name}
-                </Link>
+                {isValidDeviceUuid ? (
+                  <Link
+                    to={`/devices/${devId}`}
+                    style={{
+                      color: "inherit",
+                      textDecoration: "none",
+                    }}
+                    className="hover:underline"
+                  >
+                    {name}
+                  </Link>
+                ) : (
+                  <span>{name}</span>
+                )}
               </span>
             );
           })}
@@ -326,6 +332,8 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
             <span style={{ fontSize: "0.6875rem", color: "var(--color-text-muted)" }}>
               {maintenance.approvedBy
                 ? `Aprovador: ${maintenance.approvedBy}`
+                : maintenance.status === "APPROVED" || maintenance.slaExemption
+                ? "Homologado pelo NOC Lead"
                 : "Parecer técnico pendente do NOC Lead"}
             </span>
           </div>
@@ -384,12 +392,14 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
       >
         <button
           type="button"
+          onClick={() => setIsDossierOpen(!isDossierOpen)}
+          aria-expanded={isDossierOpen}
           style={{
             padding: "8px 12px",
             borderRadius: "var(--radius-md)",
-            backgroundColor: "var(--color-bg-deep, #070a12)",
-            border: "var(--border-subtle)",
-            color: "var(--color-text-secondary)",
+            backgroundColor: isDossierOpen ? "rgba(56, 189, 248, 0.15)" : "var(--color-bg-deep, #070a12)",
+            border: isDossierOpen ? "1px solid var(--color-primary)" : "var(--border-subtle)",
+            color: isDossierOpen ? "var(--color-primary)" : "var(--color-text-secondary)",
             fontSize: "0.75rem",
             fontWeight: 600,
             display: "flex",
@@ -400,7 +410,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
           }}
         >
           <Eye size={14} />
-          Ver Dossiê
+          {isDossierOpen ? "Fechar Dossiê" : "Ver Dossiê"}
         </button>
 
         {maintenance.rollbackPlan && (
@@ -427,6 +437,67 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
           </button>
         )}
       </div>
+
+      {/* Dossiê Técnico Detalhado da RFC */}
+      {isDossierOpen && (
+        <section
+          data-testid={`rfc-dossier-${maintenance.id}`}
+          style={{
+            width: "100%",
+            marginTop: "12px",
+            padding: "16px",
+            borderRadius: "var(--radius-md)",
+            backgroundColor: "var(--color-bg-deep, #070a12)",
+            border: "1px solid rgba(56, 189, 248, 0.2)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+            fontSize: "0.75rem",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "var(--border-subtle)", paddingBottom: "6px" }}>
+            <span style={{ color: "var(--color-primary)", fontWeight: 700 }}>
+              DOSSIÊ TÉCNICO OPERACIONAL — {maintenance.rfcNumber}
+            </span>
+            <span style={{ color: "var(--color-text-muted)" }}>
+              ID: {maintenance.id}
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px" }}>
+            <div>
+              <span style={{ color: "var(--color-text-muted)", display: "block" }}>Janela UTC:</span>
+              <span style={{ color: "var(--color-text-primary)" }}>{maintenance.startTimeUtc} até {maintenance.endTimeUtc}</span>
+            </div>
+            <div>
+              <span style={{ color: "var(--color-text-muted)", display: "block" }}>Duração Homologada:</span>
+              <span style={{ color: "var(--color-text-primary)" }}>{maintenance.durationMinutes} minutos</span>
+            </div>
+            <div>
+              <span style={{ color: "var(--color-text-muted)", display: "block" }}>Contratante Vinculada:</span>
+              <span style={{ color: "var(--color-text-primary)" }}>{maintenance.clientName} ({maintenance.clientCategory || "CORPORATIVO"})</span>
+            </div>
+            <div>
+              <span style={{ color: "var(--color-text-muted)", display: "block" }}>Ativo(s) Afetado(s):</span>
+              <span style={{ color: "var(--color-text-primary)" }}>{maintenance.targetDeviceNames.join(", ") || "Global"}</span>
+            </div>
+          </div>
+          <div>
+            <span style={{ color: "var(--color-text-muted)", display: "block" }}>Escopo e Procedimento:</span>
+            <p style={{ color: "var(--color-text-secondary)", marginTop: "4px", lineHeight: 1.4 }}>
+              {maintenance.description || maintenance.title}
+            </p>
+          </div>
+          {maintenance.rollbackPlan && (
+            <div>
+              <span style={{ color: "var(--color-warning)", display: "block" }}>Plano de Contingência / Rollback:</span>
+              <p style={{ color: "var(--color-text-secondary)", marginTop: "4px" }}>
+                {maintenance.rollbackPlan}
+              </p>
+            </div>
+          )}
+        </section>
+      )}
     </article>
   );
 };

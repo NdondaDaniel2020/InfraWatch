@@ -85,6 +85,50 @@ async def test_get_organization_sla_history_gera_itens_mensais():
 
 
 @pytest.mark.asyncio
+async def test_get_organization_sla_report_details_inclui_ip_address():
+    session = AsyncMock()
+    org_id = uuid4()
+
+    mock_org = MagicMock()
+    mock_org.name = "Banco Sol S.A."
+    org_res = MagicMock()
+    org_res.scalar_one_or_none.return_value = mock_org
+    session.execute.return_value = org_res
+
+    service = SlaService(session)
+
+    mock_dev = MagicMock()
+    mock_dev.id = uuid4()
+    mock_dev.name = "API-GATEWAY-PROD"
+    mock_dev.ip_address = "10.0.2.15"
+    mock_dev.category = "SERVER"
+
+    now = datetime.now(UTC)
+    mock_rep = SlaReportResponse(
+        device_id=mock_dev.id,
+        start_period=now,
+        end_period=now,
+        total_period_hours=720.0,
+        unplanned_downtime_minutes=0.0,
+        exempted_downtime_minutes=0.0,
+        uptime_percentage=100.0,
+        sla_target=99.50,
+        sla_met=True,
+        mttr_minutes=0.0,
+        mtbf_hours=720.0,
+        incidents_count=0,
+        exempted_incidents_count=0,
+    )
+    service.get_organization_sla_reports = AsyncMock(return_value=[(mock_dev, mock_rep)])
+
+    details = await service.get_organization_sla_report_details(org_id)
+
+    assert len(details.devices) == 1
+    assert details.devices[0].ip_address == "10.0.2.15"
+    assert details.devices[0].device_name == "API-GATEWAY-PROD"
+
+
+@pytest.mark.asyncio
 async def test_create_support_ticket_retorna_protocolo_formal():
     session = AsyncMock()
     org_id = uuid4()
