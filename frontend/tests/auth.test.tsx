@@ -389,6 +389,59 @@ describe("Módulo de Autenticação, IAM & Segurança (Issue #216)", () => {
       });
     });
 
+    it("deve paginar lista de sessões quando houver múltiplos dispositivos", async () => {
+      const mockManySessions = Array.from({ length: 15 }, (_, i) => ({
+        id: `session-${i + 1}`,
+        device_name: `Dispositivo #${i + 1}`,
+        ip_address: `192.168.1.${10 + i}`,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 86400000).toISOString(),
+        is_current: i === 0,
+      }));
+
+      vi.mocked(securityApi.listSessions).mockResolvedValueOnce({
+        sessions: mockManySessions,
+        total: 15,
+      });
+
+      const user = userEvent.setup();
+      render(
+        <AuthProvider
+          initialState={{
+            isLoading: false,
+            user: {
+              id: "usr-01",
+              name: "Daniel Ndonda",
+              email: "daniel@infrawatch.io",
+              role: "SUPER_ADMIN",
+              mfa_enabled: false,
+            },
+            accessToken: "token-test",
+          }}
+        >
+          <SecuritySettingsPage />
+        </AuthProvider>
+      );
+
+      // Página 1: dispositivos 1 a 10 visíveis, dispositivo 11 não visível
+      expect(await screen.findByText("Dispositivo #1")).toBeInTheDocument();
+      expect(screen.getByText("Dispositivo #10")).toBeInTheDocument();
+      expect(screen.queryByText("Dispositivo #11")).not.toBeInTheDocument();
+
+      // Paginação informando 1 a 10 de 15
+      expect(screen.getByTestId("sessions-pagination-container")).toBeInTheDocument();
+      expect(screen.getByText(/mostrando/i)).toBeInTheDocument();
+
+      // Navega para a página 2
+      const nextBtn = screen.getByTestId("sessions-pagination-next");
+      await user.click(nextBtn);
+
+      // Página 2: dispositivos 11 a 15 visíveis, dispositivo 1 não visível
+      expect(await screen.findByText("Dispositivo #11")).toBeInTheDocument();
+      expect(screen.getByText("Dispositivo #15")).toBeInTheDocument();
+      expect(screen.queryByText("Dispositivo #1")).not.toBeInTheDocument();
+    });
+
     it("deve iniciar fluxo de configuração de MFA exibindo o segredo Base32", async () => {
       vi.mocked(securityApi.listSessions).mockResolvedValueOnce({
         sessions: [],

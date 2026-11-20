@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../../context/AuthContext";
 import { securityApi } from "../../services/securityApi";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
+import { Pagination } from "../../components/common/Pagination";
 import type { ActiveSession, MfaSetupResponse } from "../../types/auth";
 import {
   AlertTriangle,
@@ -41,11 +42,32 @@ export const SecuritySettingsPage: React.FC = () => {
   // Estados de Sessões Conectadas
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [sessionPage, setSessionPage] = useState(1);
+  const [sessionPageSize, setSessionPageSize] = useState(10);
   const [feedbackMessage, setFeedbackMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
+
+  const totalSessions = sessions.length;
+  const totalSessionPages = Math.max(1, Math.ceil(totalSessions / sessionPageSize));
+
+  useEffect(() => {
+    if (sessionPage > totalSessionPages) {
+      setSessionPage(totalSessionPages);
+    }
+  }, [sessionPage, totalSessionPages]);
+
+  const paginatedSessions = useMemo(() => {
+    const start = (sessionPage - 1) * sessionPageSize;
+    return sessions.slice(start, start + sessionPageSize);
+  }, [sessions, sessionPage, sessionPageSize]);
+
+  const handleSessionPageSizeChange = (newSize: number) => {
+    setSessionPageSize(newSize);
+    setSessionPage(1);
+  };
 
   // Carrega sessões ativas
   const fetchSessions = async () => {
@@ -340,7 +362,7 @@ export const SecuritySettingsPage: React.FC = () => {
             </div>
           ) : (
             <div className="flex flex-col gap-2.5">
-              {sessions.map((session) => (
+              {paginatedSessions.map((session) => (
                 <article
                   key={session.id}
                   className="flex items-center justify-between p-3.5 rounded-xl bg-obsidian-950/80 border border-white/5 hover:border-white/10 transition-colors"
@@ -385,6 +407,19 @@ export const SecuritySettingsPage: React.FC = () => {
                   )}
                 </article>
               ))}
+
+              <Pagination
+                currentPage={sessionPage}
+                totalPages={totalSessionPages}
+                totalItems={totalSessions}
+                pageSize={sessionPageSize}
+                onPageChange={setSessionPage}
+                onPageSizeChange={handleSessionPageSizeChange}
+                pageSizeOptions={[5, 10, 20, 50]}
+                itemLabel="sessões"
+                testIdPrefix="sessions-pagination"
+                className="rounded-xl border border-white/5 mt-2"
+              />
             </div>
           )}
         </div>
