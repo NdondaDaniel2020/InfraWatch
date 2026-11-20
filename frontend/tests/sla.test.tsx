@@ -166,7 +166,7 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
 
       await waitFor(() => expect(screen.getByText("RFC-2026-8812")).toBeInTheDocument());
 
-      const openModalBtn = screen.getByRole("button", { name: /\+ agendar nova parada técnica/i });
+      const openModalBtn = screen.getByRole("button", { name: /agendar nova parada técnica/i });
       await user.click(openModalBtn);
 
       expect(screen.getByRole("dialog")).toBeInTheDocument();

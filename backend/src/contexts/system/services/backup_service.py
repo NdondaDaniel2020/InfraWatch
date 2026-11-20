@@ -258,7 +258,7 @@ class BackupService:
 
         conf_content = self._get_rclone_config_content()
         authorized = False
-        if "[gdrive]" in conf_content:
+        if configured and "[gdrive]" in conf_content:
             for line in conf_content.splitlines():
                 stripped = line.strip()
                 if stripped.startswith("token =") or stripped.startswith("token="):
