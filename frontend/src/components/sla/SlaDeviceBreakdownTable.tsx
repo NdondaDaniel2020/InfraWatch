@@ -14,7 +14,7 @@ export interface SlaDeviceBreakdownTableProps {
 export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = ({
   devices,
   targetSlaPct,
-  itemsPerPage = 10,
+  itemsPerPage = 5,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,6 +109,7 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
                 return (
                   <tr
                     key={device.deviceId}
+                    data-testid={`sla-device-row-${device.deviceId}`}
                     className="hover:bg-white/[0.02] transition-colors"
                   >
                     <td className="py-3 px-3 font-bold text-slate-200">
