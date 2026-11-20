@@ -506,26 +506,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
     });
   });
 
-  describe("4. Rota Especial Wallboard TV (/tv)", () => {
-    it("deve renderizar Wallboard TV em tela cheia sem Header e sem Sidebar do Shell", () => {
-      const authMock = createAuthMock({}, "NOC_OPERATOR", true);
-
-      render(
-        <MemoryRouter initialEntries={["/tv"]}>
-          <AuthContext.Provider value={authMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
-      );
-
-      expect(screen.getByTestId("tv-wallboard-page")).toBeInTheDocument();
-      expect(screen.queryByTestId("app-sidebar")).not.toBeInTheDocument();
-    });
-  });
-
-  describe("5. GlobalErrorBoundary", () => {
+  describe("4. GlobalErrorBoundary", () => {
     it("deve capturar falhas críticas de renderização e exibir tela de contingência com botão de recarga", () => {
       // Silencia o console.error esperado do teste de erro
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});

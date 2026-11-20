@@ -50,7 +50,7 @@ const QUICK_PROFILES: QuickProfile[] = [
     email: "operador.noc@infrawatch.ao",
     password: "Operator#2026!Noc",
     initials: "OP",
-    description: "Cockpit NOC, TV Wallboard, Topologia, Incidentes & Sondas",
+    description: "Cockpit NOC, Topologia, Incidentes & Sondas",
     icon: <Server size={16} />,
     variant: "secondary",
   },

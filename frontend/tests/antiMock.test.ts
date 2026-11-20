@@ -13,8 +13,6 @@ describe("Diretriz Arquitetural Anti-Mock (P2 - CI & Contratos Reais)", () => {
   const topologyPagesDir = path.resolve(srcDir, "pages/topology");
   const inventoryPagesDir = path.resolve(srcDir, "pages/inventory");
   const nocPagesDir = path.resolve(srcDir, "pages/noc");
-  const wallboardPagesDir = path.resolve(srcDir, "pages/wallboard");
-  const tvComponentsDir = path.resolve(srcDir, "components/tv");
   const telemetryComponentsDir = path.resolve(srcDir, "components/telemetry");
   const layoutComponentsDir = path.resolve(srcDir, "components/layout");
 
@@ -85,11 +83,9 @@ describe("Diretriz Arquitetural Anti-Mock (P2 - CI & Contratos Reais)", () => {
     }
   });
 
-  it("módulos de NOC, TV Wallboard, Layout e Telemetria não devem importar da pasta mocks", () => {
+  it("módulos de NOC, Layout e Telemetria não devem importar da pasta mocks", () => {
     const operationalFiles = [
       ...scanFiles(nocPagesDir),
-      ...scanFiles(wallboardPagesDir),
-      ...scanFiles(tvComponentsDir),
       ...scanFiles(telemetryComponentsDir),
       ...scanFiles(layoutComponentsDir),
     ];
@@ -105,9 +101,8 @@ describe("Diretriz Arquitetural Anti-Mock (P2 - CI & Contratos Reais)", () => {
   it("telas e layouts de produção não devem referenciar constantes legadas de mock", () => {
     const appLayoutPath = path.resolve(layoutComponentsDir, "AppLayout.tsx");
     const nocPath = path.resolve(nocPagesDir, "NocDashboardPage.tsx");
-    const tvPath = path.resolve(wallboardPagesDir, "TvWallboardPage.tsx");
 
-    for (const file of [appLayoutPath, nocPath, tvPath]) {
+    for (const file of [appLayoutPath, nocPath]) {
       if (fs.existsSync(file)) {
         const content = fs.readFileSync(file, "utf-8");
         expect(content).not.toMatch(/INITIAL_MOCK_DEVICES/);

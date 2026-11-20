@@ -14,7 +14,6 @@ import { AccessDeniedPage } from "../pages/error/AccessDeniedPage";
 import { NotFoundPage } from "../pages/error/NotFoundPage";
 import { NocDashboardPage } from "../pages/noc/NocDashboardPage";
 import { ClientPortalPage } from "../pages/client/ClientPortalPage";
-import { TvWallboardPage } from "../pages/wallboard/TvWallboardPage";
 import { IncidentManagement } from "../pages/IncidentManagement";
 import { DeviceListPage } from "../pages/inventory/DeviceListPage";
 import { DeviceDetailPage } from "../pages/inventory/DeviceDetailPage";
@@ -58,19 +57,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 
         {/* ================================================================= */}
-        {/* 2. MODO TV WALLBOARD (Protegido, sem Moldura Lateral da Shell)    */}
-        {/* ================================================================= */}
-        <Route
-          path="/tv"
-          element={
-            <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR"]}>
-              <TvWallboardPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ================================================================= */}
-        {/* 3. ROTAS PROTEGIDAS DENTRO DO SHELL APPLAYOUT                     */}
+        {/* 2. ROTAS PROTEGIDAS DENTRO DO SHELL APPLAYOUT                     */}
         {/* ================================================================= */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>

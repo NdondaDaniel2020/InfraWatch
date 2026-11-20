@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, Menu, Search, Tv } from "lucide-react";
+import { LogOut, Menu, Search } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { notificationsApi } from "../../services/notificationsApi";
@@ -153,7 +153,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      {/* Direita: Busca Global, UTC, SSE, Modo TV e Perfil */}
+      {/* Direita: Busca Global, UTC, SSE e Perfil */}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -195,20 +195,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="tracking-wide">SSE LIVE</span>
           </div>
-        )}
-
-        {/* Modo TV (Exclusivo Operadores) */}
-        {isOperator && (
-          <Link
-            to="/tv"
-            data-testid="tv-mode-link"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-slate-300 hover:text-white text-xs font-medium transition-colors no-underline"
-            title="Visualizar em Modo Wallboard TV 16:9"
-            aria-label="Abrir modo TV operacional"
-          >
-            <Tv size={15} className="text-slate-400" />
-            <span className="hidden sm:inline">Modo TV</span>
-          </Link>
         )}
 
         {/* Central de Notificações Global In-App */}
