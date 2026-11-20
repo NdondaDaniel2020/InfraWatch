@@ -411,7 +411,7 @@ export const DeviceDetailPage: React.FC = () => {
     );
   }
 
-  if (!device || !metrics || !metrics.buckets || metrics.buckets.length === 0) {
+  if (!device || !metrics?.buckets || metrics.buckets.length === 0) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "24px" }}>
         <EmptyState onDiscover={handleTriggerProbe} />
