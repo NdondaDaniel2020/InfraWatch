@@ -413,7 +413,6 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
 
       expect(screen.getByTestId("app-header")).toBeInTheDocument();
       expect(screen.getByTestId("app-sidebar")).toBeInTheDocument();
-      expect(screen.getByTestId("status-ticker")).toBeInTheDocument();
       expect(screen.getByTestId("devices-page")).toBeInTheDocument();
     });
 

@@ -19,7 +19,6 @@ export interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   onOpenSearch,
-  ticker = { total: 0, up: 0, degraded: 0, down: 0, maintenance: 0 },
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -121,39 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
         </Link>
       </div>
 
-      {/* Centro: Status Ticker Global em Tempo Real (Apenas Operadores do Provedor) */}
-      {isOperator && (
-        <div
-          data-testid="status-ticker"
-          className="hidden xl:flex items-center gap-3 px-3 py-1 bg-obsidian-900 rounded-lg border border-obsidian-800 text-xs font-mono tabular-nums"
-        >
-          <span className="text-slate-400">
-            TOTAL: <strong className="text-white">{ticker.total ?? 0}</strong>
-          </span>
-          <span className="h-3 w-px bg-obsidian-800" />
-          <span className="flex items-center gap-1.5 text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> UP:{" "}
-            {ticker.up ?? 0}
-          </span>
-          <span className="h-3 w-px bg-obsidian-800" />
-          <span className="flex items-center gap-1.5 text-amber-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> DEG:{" "}
-            {ticker.degraded ?? 0}
-          </span>
-          <span className="h-3 w-px bg-obsidian-800" />
-          <span className="flex items-center gap-1.5 text-rose-400 font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />{" "}
-            DOWN: {ticker.down ?? 0}
-          </span>
-          <span className="h-3 w-px bg-obsidian-800" />
-          <span className="flex items-center gap-1.5 text-sky-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" /> MAINT:{" "}
-            {ticker.maintenance ?? 0}
-          </span>
-        </div>
-      )}
-
-      {/* Direita: Busca Global, UTC, SSE e Perfil */}
+      {/* Direita: Busca Global, UTC e Perfil */}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -186,16 +153,6 @@ export const Header: React.FC<HeaderProps> = ({
           </time>
         )}
 
-        {/* Live SSE Streaming Badge (Exclusivo Operadores) */}
-        {isOperator && (
-          <div
-            data-testid="sse-live-badge"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="tracking-wide">SSE LIVE</span>
-          </div>
-        )}
 
         {/* Central de Notificações Global In-App */}
         <NotificationCenter
