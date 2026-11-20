@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -29,6 +30,14 @@ class TopologyNodeResponse(BaseModel):
     position_x: float | None = None
     position_y: float | None = None
     device_status: str | None = None
+    model: str | None = None
+    vendor: str | None = None
+    latency_ms: float | None = None
+    packet_loss: float | None = None
+    cpu_usage: float | None = None
+    mem_usage: float | None = None
+    ports_active: int | None = None
+    ports_total: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -37,8 +46,11 @@ class TopologyNodeResponse(BaseModel):
         cls,
         node: TopologyNode,
         device_status: str | None = None,
+        enrichment: dict[str, Any] | None = None,
     ) -> TopologyNodeResponse:
         """Instancia o DTO a partir da entidade de domínio pura enriquecida com o status."""
+        extra = enrichment or {}
+        st = extra.get("status") if "status" in extra else device_status
         return cls(
             id=node.id,
             label=node.label,
@@ -49,7 +61,15 @@ class TopologyNodeResponse(BaseModel):
             cluster=node.cluster,
             position_x=node.position_x,
             position_y=node.position_y,
-            device_status=device_status,
+            device_status=st,
+            model=extra.get("model"),
+            vendor=extra.get("vendor"),
+            latency_ms=extra.get("latency_ms"),
+            packet_loss=extra.get("packet_loss"),
+            cpu_usage=extra.get("cpu_usage"),
+            mem_usage=extra.get("mem_usage"),
+            ports_active=extra.get("ports_active"),
+            ports_total=extra.get("ports_total"),
             created_at=node.created_at,
             updated_at=node.updated_at,
         )
@@ -103,17 +123,18 @@ class TopologyGraphResponse(BaseModel):
     def from_domain(
         cls,
         graph: TopologyGraph,
-        device_statuses: dict[UUID, str] | None = None,
+        device_statuses: dict[UUID, Any] | None = None,
     ) -> TopologyGraphResponse:
         """Monta a resposta completa a partir do agregador de domínio."""
         statuses = device_statuses or {}
-        nodes_dto = [
-            TopologyNodeResponse.from_domain(
-                node,
-                device_status=statuses.get(node.device_id) if node.device_id else None,
-            )
-            for node in graph.nodes
-        ]
+        nodes_dto: list[TopologyNodeResponse] = []
+        for node in graph.nodes:
+            val = statuses.get(node.device_id) if node.device_id else None
+            if isinstance(val, dict):
+                nodes_dto.append(TopologyNodeResponse.from_domain(node, enrichment=val))
+            else:
+                nodes_dto.append(TopologyNodeResponse.from_domain(node, device_status=val))
+
         edges_dto = [TopologyEdgeResponse.from_domain(edge) for edge in graph.edges]
         return cls(
             nodes=nodes_dto,
@@ -122,6 +143,14 @@ class TopologyGraphResponse(BaseModel):
             total_edges=graph.total_edges,
             cluster=graph.dominant_cluster,
         )
+
+
+class IsolateNodeResponse(BaseModel):
+    """Resposta imediata da solicitação de isolamento de nó."""
+
+    success: bool
+    message: str
+    node_id: str
 
 
 class ProbeDispatchResponse(BaseModel):

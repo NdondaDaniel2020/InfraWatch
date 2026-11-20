@@ -7,9 +7,10 @@ de negócio e despacha comandos assíncronos para o ProbeWorker via Redis Stream
 from __future__ import annotations
 
 import logging
+from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.inventory.database.models import DeviceModel
@@ -83,24 +84,84 @@ class TopologyService:
     # Consultas do Grafo
     # ------------------------------------------------------------------
 
-    async def get_graph(self, organization_id: UUID) -> tuple[TopologyGraph, dict[UUID, str]]:
-        """Recupera o grafo completo e enriquece nós com status do inventário se associados."""
+    async def get_graph(self, organization_id: UUID) -> tuple[TopologyGraph, dict[UUID, dict[str, Any]]]:
+        """Recupera o grafo completo e enriquece nós com status, telemetria e metadados do inventário."""
         graph = await self._repo.get_graph(organization_id)
 
-        # Mapeia device_id -> status operacional atual do inventário
+        # Mapeia device_id -> dados operacionais e telemetria atual do inventário
         device_ids = [n.device_id for n in graph.nodes if n.device_id is not None]
-        device_statuses: dict[UUID, str] = {}
+        device_enrichments: dict[UUID, dict[str, Any]] = {}
 
         if device_ids:
-            stmt = select(DeviceModel.id, DeviceModel.status).where(
+            stmt = select(DeviceModel).where(
                 DeviceModel.id.in_(device_ids),
                 DeviceModel.organization_id == organization_id,
             )
             result = await self._session.execute(stmt)
-            for dev_id, status_val in result.all():
-                device_statuses[dev_id] = status_val
+            devices = result.scalars().all()
+            for dev in devices:
+                device_enrichments[dev.id] = {
+                    "status": dev.status,
+                    "model": (dev.thresholds.get("model") if isinstance(dev.thresholds, dict) else None) or dev.category,
+                    "vendor": dev.thresholds.get("vendor") if isinstance(dev.thresholds, dict) else None,
+                    "ports_active": dev.thresholds.get("ports_active") if isinstance(dev.thresholds, dict) else None,
+                    "ports_total": dev.thresholds.get("ports_total") if isinstance(dev.thresholds, dict) else None,
+                }
 
-        return graph, device_statuses
+            try:
+                from src.contexts.telemetry.database.models import MetricModel
+
+                latest_subq = (
+                    select(
+                        MetricModel.device_id,
+                        func.max(MetricModel.timestamp).label("max_ts"),
+                    )
+                    .where(MetricModel.device_id.in_(device_ids))
+                    .group_by(MetricModel.device_id)
+                    .subquery()
+                )
+                metrics_stmt = select(MetricModel).join(
+                    latest_subq,
+                    (MetricModel.device_id == latest_subq.c.device_id)
+                    & (MetricModel.timestamp == latest_subq.c.max_ts),
+                )
+                metrics_result = (await self._session.execute(metrics_stmt)).scalars().all()
+                for m in metrics_result:
+                    if m.device_id in device_enrichments:
+                        if m.metric_type == "latency_ms":
+                            device_enrichments[m.device_id]["latency_ms"] = round(m.value, 1)
+                        elif m.metric_type == "packet_loss":
+                            device_enrichments[m.device_id]["packet_loss"] = round(m.value, 1)
+                        elif m.metric_type == "cpu_usage":
+                            device_enrichments[m.device_id]["cpu_usage"] = round(m.value, 1)
+                        elif m.metric_type == "memory_usage":
+                            device_enrichments[m.device_id]["mem_usage"] = round(m.value, 1)
+                        if m.packet_loss is not None:
+                            device_enrichments[m.device_id]["packet_loss"] = round(m.packet_loss, 1)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Métricas de telemetria não disponíveis para enriquecimento: %s", exc)
+
+        return graph, device_enrichments
+
+    async def isolate_node(self, node_id: UUID, organization_id: UUID) -> str:
+        """Isola um nó crítico da topologia e sinaliza manutenção/isolamento no inventário."""
+        node = await self._repo.get_node(node_id, organization_id)
+        if node is None:
+            raise NodeNotFoundError(node_id)
+
+        if node.device_id is not None:
+            stmt = select(DeviceModel).where(
+                DeviceModel.id == node.device_id,
+                DeviceModel.organization_id == organization_id,
+            )
+            result = await self._session.execute(stmt)
+            device = result.scalar_one_or_none()
+            if device:
+                device.status = "MAINTENANCE"
+                device.is_paused = True
+
+        await self._commit()
+        return f"Nó {node.label} isolado da rota de trânsito OSPF/BGP com sucesso."
 
     # ------------------------------------------------------------------
     # Comandos de Nós

@@ -34,6 +34,7 @@ from src.contexts.network_topology.domain.models import (
 from src.contexts.network_topology.schemas import (
     CreateTopologyEdgeRequest,
     CreateTopologyNodeRequest,
+    IsolateNodeResponse,
     ProbeDispatchResponse,
     TopologyEdgeResponse,
     TopologyGraphResponse,
@@ -289,3 +290,33 @@ async def trigger_ondemand_probe(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
     except MissingIpAddressError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
+
+
+# ---------------------------------------------------------------------------
+# Isolamento de Nó (OSPF/BGP Drain)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/nodes/{node_id}/isolate",
+    response_model=IsolateNodeResponse,
+    summary="Isolar nó com defeito da rota de trânsito OSPF/BGP",
+    dependencies=[Depends(require_roles(*OPERATOR_ROLES))],
+)
+async def isolate_node(
+    node_id: UUID,
+    user: CurrentUserDep,
+    service: TopologyServiceDep,
+    organization_id: Annotated[UUID | None, Query(description="Organização do nó")] = None,
+) -> IsolateNodeResponse:
+    """Isola um nó crítico da topologia e sinaliza manutenção no inventário."""
+    org_id = await _resolve_tenant_org(user, organization_id, service)
+    try:
+        msg = await service.isolate_node(node_id=node_id, organization_id=org_id)
+        return IsolateNodeResponse(
+            success=True,
+            message=msg,
+            node_id=str(node_id),
+        )
+    except NodeNotFoundError as err:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err

@@ -18,6 +18,14 @@ export interface BackendTopologyNode {
   position_x?: number | null;
   position_y?: number | null;
   device_status?: string | null;
+  model?: string | null;
+  vendor?: string | null;
+  latency_ms?: number | null;
+  packet_loss?: number | null;
+  cpu_usage?: number | null;
+  mem_usage?: number | null;
+  ports_active?: number | null;
+  ports_total?: number | null;
 }
 
 export interface BackendTopologyEdge {
@@ -91,6 +99,12 @@ export const topologyApi = {
       ip: n.ip_address ?? undefined,
       positionX: n.position_x ?? undefined,
       positionY: n.position_y ?? undefined,
+      model: n.model ?? undefined,
+      latencyMs: typeof n.latency_ms === "number" ? n.latency_ms : undefined,
+      cpuUsage: typeof n.cpu_usage === "number" ? Math.round(n.cpu_usage) : undefined,
+      memUsage: typeof n.mem_usage === "number" ? Math.round(n.mem_usage) : undefined,
+      portsActiveCount: n.ports_active ?? undefined,
+      portsTotalCount: n.ports_total ?? undefined,
     }));
 
     const mappedEdges: TopologyEdgeData[] = data.edges.map((e) => {
@@ -143,13 +157,14 @@ export const topologyApi = {
 
   /**
    * Isola um nó com defeito da rota de trânsito OSPF/BGP.
+   * Conecta ao endpoint real do backend (/api/v1/topology/nodes/{nodeId}/isolate).
    */
   isolateNode: async (
     nodeId: string
-  ): Promise<{ success: boolean; message: string }> => {
-    return {
-      success: true,
-      message: `Nó ${nodeId} isolado da rota de trânsito OSPF/BGP com sucesso.`,
-    };
+  ): Promise<{ success: boolean; message: string; nodeId?: string }> => {
+    return apiClient.post<{ success: boolean; message: string; nodeId?: string }>(
+      `/api/v1/topology/nodes/${nodeId}/isolate`,
+      {}
+    );
   },
 };
