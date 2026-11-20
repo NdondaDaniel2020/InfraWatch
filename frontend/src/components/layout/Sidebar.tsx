@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Sliders,
   Terminal,
+  Tv,
   Users,
   Wrench,
   X,
@@ -36,6 +37,14 @@ export const NAV_ITEMS: NavItemConfig[] = [
     label: "Cockpit NOC",
     icon: <LayoutDashboard size={18} />,
     allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR"],
+  },
+  {
+    to: "/tv",
+    label: "Telão TV",
+    icon: <Tv size={18} />,
+    allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR"],
+    badge: "16:9",
+    badgeVariant: "neutral",
   },
   {
     to: "/devices",

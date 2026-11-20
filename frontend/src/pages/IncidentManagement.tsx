@@ -37,6 +37,15 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
   const [selectedSeverity, setSelectedSeverity] = useState<"all" | IncidentSeverity>("all");
   const [selectedOrg, setSelectedOrg] = useState("all");
 
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset da página ao alterar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedSeverity, selectedOrg]);
+
   // Se o usuário for ORG_ADMIN, restringe os incidentes aos do seu tenant/organização
   const tenantFilteredIncidents = useMemo(() => {
     if (user?.role === "ORG_ADMIN" && user.organization_name) {
@@ -119,6 +128,14 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
 
     return result;
   }, [tenantFilteredIncidents, selectedSeverity, searchQuery, selectedOrg]);
+
+  // Paginação dos incidentes filtrados
+  const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / pageSize));
+  const safeCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
+  const paginatedIncidents = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredIncidents.slice(start, start + pageSize);
+  }, [filteredIncidents, safeCurrentPage, pageSize]);
 
   // Contadores para pills de severidade
   const counts = useMemo(() => {
@@ -306,7 +323,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
 
       {/* 5. Tabela de Incidentes com estados canônicos integrados */}
       <IncidentTable
-        incidents={filteredIncidents}
+        incidents={paginatedIncidents}
         selectedIds={selectedIds}
         allFilteredSelected={allFilteredSelected}
         onToggleSelectAll={handleToggleSelectAll}
@@ -321,6 +338,11 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
         isOpeningGlpiId={isOpeningGlpiId}
         viewState={viewState}
         onResetEmptyState={handleResetEmptyState}
+        currentPage={safeCurrentPage}
+        pageSize={pageSize}
+        totalItems={filteredIncidents.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
       />
 
       {/* MODAL 1: Confirmação de Acknowledge */}

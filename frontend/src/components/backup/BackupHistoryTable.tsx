@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BackupHistoryItem, BackupTargetStatus } from "../../types/backup";
+import { Pagination } from "../common";
 
 interface BackupHistoryTableProps {
   items: BackupHistoryItem[];
@@ -25,6 +26,16 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
   onRefresh,
 }) => {
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedItems = items.slice(
+    (safeCurrentPage - 1) * pageSize,
+    safeCurrentPage * pageSize
+  );
 
   const handleCopyHash = (hash: string) => {
     navigator.clipboard.writeText(hash);
@@ -128,7 +139,7 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
                 </td>
               </tr>
             ) : (
-              items.map((item) => {
+              paginatedItems.map((item) => {
                 const isCopied = copiedHash === item.sha256;
 
                 return (
@@ -241,6 +252,24 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Paginação de Snapshots */}
+      {items.length > 0 && (
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={items.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[5, 10, 20, 50]}
+          itemLabel="backups"
+          testIdPrefix="backup-history-pagination"
+        />
+      )}
     </div>
   );
 };

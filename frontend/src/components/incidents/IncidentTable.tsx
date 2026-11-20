@@ -3,6 +3,7 @@ import { AlertTriangle, Check, CheckCircle2, ChevronRight } from "lucide-react";
 import { IncidentItem } from "../../services/incidentsApi";
 import { GlpiBadge } from "./GlpiBadge";
 import { ViewState } from "./IncidentHeader";
+import { Pagination } from "../common";
 
 export interface IncidentTableProps {
   incidents: IncidentItem[];
@@ -18,6 +19,11 @@ export interface IncidentTableProps {
   isOpeningGlpiId: string | null;
   viewState: ViewState;
   onResetEmptyState: () => void;
+  currentPage?: number;
+  pageSize?: number;
+  totalItems?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 /**
@@ -38,6 +44,11 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
   isOpeningGlpiId,
   viewState,
   onResetEmptyState,
+  currentPage,
+  pageSize = 10,
+  totalItems,
+  onPageChange,
+  onPageSizeChange,
 }) => {
   return (
     <section
@@ -295,6 +306,19 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
             </tbody>
           </table>
         </div>
+      )}
+
+      {currentPage !== undefined && onPageChange && viewState === "nominal" && incidents.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={Math.max(1, Math.ceil((totalItems ?? incidents.length) / pageSize))}
+          totalItems={totalItems ?? incidents.length}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+          itemLabel="incidentes"
+          testIdPrefix="incidents-pagination"
+        />
       )}
     </section>
   );
