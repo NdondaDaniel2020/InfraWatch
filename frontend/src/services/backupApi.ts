@@ -3,6 +3,7 @@ import {
   BackupHistoryResponse,
   BackupMetricsSummary,
   BackupProgressEvent,
+  BackupStorageResponse,
   BackupTriggerRequest,
   BackupTriggerResponse,
   GDriveAuthUrlResponse,
@@ -106,6 +107,13 @@ export const backupApi = {
    */
   getGDriveStatus: async (): Promise<GDriveStatusResponse> => {
     return apiClient.get<GDriveStatusResponse>(`${BASE_URL}/gdrive/status`);
+  },
+
+  /**
+   * Obtém status de capacidade e retenção dos 3 destinos de backup (ADR-032).
+   */
+  getBackupStorage: async (): Promise<BackupStorageResponse> => {
+    return apiClient.get<BackupStorageResponse>(`${BASE_URL}/storage`);
   },
 
   /**

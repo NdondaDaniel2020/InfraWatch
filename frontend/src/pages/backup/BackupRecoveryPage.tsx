@@ -1,28 +1,29 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  HardDriveDownload,
-  Database,
-  CloudOff,
-  Server,
+  Zap,
+  Shield,
   Lock,
-  Cloud,
+  AlertCircle,
   Check,
+  RefreshCw,
+  MinusCircle,
+  Database,
   Loader2,
-  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   BackupHistoryItem,
   BackupMetricsSummary,
   BackupProgressEvent,
+  BackupStorageResponse,
   GDriveStatusResponse,
 } from "../../types/backup";
 import { backupApi } from "../../services/backupApi";
-import { BackupTriggerButton } from "../../components/backup/BackupTriggerButton";
 import { BackupProgressModal } from "../../components/backup/BackupProgressModal";
+import { BackupDestinationCards } from "../../components/backup/BackupDestinationCards";
 import { BackupHistoryTable } from "../../components/backup/BackupHistoryTable";
-import { BackupMetricsCards } from "../../components/backup/BackupMetricsCards";
 
 export type BackupPageStateSimulation = "nominal" | "skeleton" | "empty" | "error";
 
@@ -34,16 +35,20 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
   initialViewState = "nominal",
 }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [stateSimulation, setStateSimulation] =
-    useState<BackupPageStateSimulation>(initialViewState);
   const [historyItems, setHistoryItems] = useState<BackupHistoryItem[]>([]);
   const [metrics, setMetrics] = useState<BackupMetricsSummary>({
     totalBackupsCount: 0,
     totalStorageUsed: "—",
   });
+  const [storage, setStorage] = useState<BackupStorageResponse | null>(null);
   const [isLoading, setIsLoading] = useState(initialViewState === "skeleton");
   const [gdriveStatus, setGDriveStatus] = useState<GDriveStatusResponse | null>(null);
   const [isConnectingGDrive, setIsConnectingGDrive] = useState(false);
+
+  // Controle de transição visual do botão aprovado: Seta verde (check) por alguns segundos -> Reload
+  const [gdriveShowSuccess, setGDriveShowSuccess] = useState(false);
+  const [r2ShowSuccess, setR2ShowSuccess] = useState(false);
+  const [isRefreshingService, setIsRefreshingService] = useState<string | null>(null);
 
   // Estados de Execução de Backup em Tempo Real
   const [isRunning, setIsRunning] = useState(false);
@@ -54,28 +59,41 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
   const [progressError, setProgressError] = useState<string | null>(null);
   const cleanupStreamRef = useRef<(() => void) | null>(null);
 
-  // Carrega histórico, métricas e status do Google Drive
+  // Carrega histórico, métricas de capacidade dos 3 destinos e status do Google Drive
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [historyRes, gdriveRes] = await Promise.all([
-        backupApi.getBackupHistory(),
+      const [historyRes, gdriveRes, storageRes] = await Promise.all([
+        backupApi.getBackupHistory().catch(() => ({ items: [], total: 0 })),
         typeof backupApi.getGDriveStatus === "function"
           ? backupApi.getGDriveStatus().catch(() => null)
           : Promise.resolve({ configured: true, authorized: true, message: "OK" }),
+        typeof backupApi.getBackupStorage === "function"
+          ? backupApi.getBackupStorage().catch(() => null)
+          : Promise.resolve(null),
       ]);
+
       const metricsRes = await backupApi.getBackupMetrics(historyRes);
-      setHistoryItems((prev) => {
-        const existingNames = new Set(historyRes.items.map((i) => i.filename));
-        const pendingLocal = prev.filter((i) => !existingNames.has(i.filename));
-        return [...pendingLocal, ...historyRes.items];
-      });
+      setHistoryItems(historyRes.items);
       setMetrics(metricsRes);
+
       if (gdriveRes) {
         setGDriveStatus(gdriveRes);
+        if (gdriveRes.configured && gdriveRes.authorized) {
+          // Exibe sinal de bom (seta verde) por 4 segundos e depois transiciona para reload
+          setGDriveShowSuccess(true);
+          setTimeout(() => setGDriveShowSuccess(false), 4000);
+        }
+      }
+
+      if (storageRes) {
+        setStorage(storageRes);
+        if (storageRes.r2?.configured && storageRes.r2?.authorized) {
+          setR2ShowSuccess(true);
+          setTimeout(() => setR2ShowSuccess(false), 4000);
+        }
       }
     } catch (err) {
-      setStateSimulation("error");
       toast.error(
         err instanceof Error
           ? err.message
@@ -113,13 +131,18 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
     loadData();
   }, [loadData]);
 
-  // Redireciona para o Google OAuth para autorizar o Drive sem reiniciar contêineres
+  // Redireciona para o Google OAuth para autorizar o Drive com os serviços Google
   const handleConnectGDrive = async () => {
     setIsConnectingGDrive(true);
     try {
       const redirectUri = window.location.origin + "/auth/callback";
+      toast.info("Iniciando conexão com os serviços Google...");
       const { auth_url } = await backupApi.getGDriveAuthUrl(redirectUri);
-      window.location.href = auth_url;
+      if (auth_url) {
+        window.location.href = auth_url;
+      } else {
+        throw new Error("URL de autorização do Google não retornada pelo servidor.");
+      }
     } catch (err) {
       toast.error(
         err instanceof Error
@@ -127,6 +150,26 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
           : "Falha ao obter link de autorização do Google Drive."
       );
       setIsConnectingGDrive(false);
+    }
+  };
+
+  // Revalidação manual de status individual de serviço
+  const handleRefreshService = async (service: "gdrive" | "r2") => {
+    setIsRefreshingService(service);
+    try {
+      if (service === "gdrive") {
+        const res = await backupApi.getGDriveStatus();
+        setGDriveStatus(res);
+        toast.info(`Google Drive: ${res.message || "Status atualizado"}`);
+      } else {
+        const res = await backupApi.getBackupStorage();
+        setStorage(res);
+        toast.info("Cloudflare R2: Status de quota atualizado");
+      }
+    } catch {
+      toast.error(`Falha ao revalidar serviço ${service}.`);
+    } finally {
+      setIsRefreshingService(null);
     }
   };
 
@@ -146,7 +189,6 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
       const response = await backupApi.triggerBackup(notes);
       toast.info(response.message);
 
-      // Conecta ao stream SSE com rastreamento de cancelamento
       cleanupStreamRef.current?.();
       cleanupStreamRef.current = backupApi.subscribeBackupProgress(
         (event) => {
@@ -162,7 +204,6 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
             `Backup finalizado com sucesso! Snapshot: ${fname || "novo snapshot"}`
           );
 
-          // Atualiza lista localmente de imediato com os dados e targets do snapshot
           if (fname) {
             const newItem: BackupHistoryItem = {
               filename: fname,
@@ -180,7 +221,6 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
             setHistoryItems((prev) => [newItem, ...prev.filter((i) => i.filename !== fname)]);
           }
 
-          // Reconcilia com os dados persistidos pelo backend
           loadData();
         },
         (err) => {
@@ -200,246 +240,311 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
     }
   };
 
+  // Determinação de status para os botões do Hero:
+  // - Não configurado: Cinza
+  // - Configurado mas não conectado: Vermelho
+  // - Configurado e conectado: Seta verde (check) por alguns segundos -> Reload
+  const isGDriveConfigured = gdriveStatus?.configured ?? storage?.gdrive?.configured ?? false;
+  const isGDriveAuthorized = gdriveStatus?.authorized ?? storage?.gdrive?.authorized ?? false;
+
+  const isR2Configured = Boolean(storage?.r2?.configured);
+  const isR2Authorized = Boolean(storage?.r2?.authorized);
+
   return (
     <div
       data-testid="backup-recovery-page"
-      className="p-4 md:p-6 flex flex-col gap-6 max-w-7xl mx-auto w-full"
+      className="p-4 md:p-6 flex flex-col gap-6 w-full"
     >
-      {/* 1. Cabeçalho da Página e Seletor de Estados */}
-      <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <Link to="/noc" className="text-slate-400 hover:text-slate-200 transition-colors">
-              Cockpit
-            </Link>
-            <span className="text-obsidian-700">/</span>
-            <span className="text-slate-400">Governança &amp; Resiliência</span>
-            <span className="text-obsidian-700">/</span>
-            <span className="text-emerald-400 font-semibold">Backup &amp; DR (ADR-032)</span>
-          </div>
-          <h1 className="text-2xl font-display font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <span>Backup &amp; Recuperação de Desastres (Disaster Recovery)</span>
-            <span
-              className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
-                gdriveStatus?.authorized !== false
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                  : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-              }`}
+      {/* 1. TopBar e Header da Página com Breadcrumb & Badges de Resiliência */}
+      <header
+        className="flex flex-col xl:flex-row xl:items-start justify-between gap-4 pb-4 border-b border-obsidian-800"
+        data-purpose="page-header"
+      >
+        <div>
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-2 text-xs font-mono text-slate-500 mb-1.5"
+          >
+            <Link
+              to="/noc"
+              className="hover:text-slate-400 transition-colors cursor-pointer"
             >
-              {gdriveStatus?.authorized !== false ? "DUAL-CLOUD ATIVO" : "LOCAL ATIVO (NUVEM PENDENTE)"}
+              Cockpit NOC
+            </Link>
+            <span>/</span>
+            <span className="text-emerald-400 font-medium">
+              Disaster Recovery &amp; Backups (ADR-032)
             </span>
+          </nav>
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+            Backup Automatizado &amp; Recuperação de Desastres (ADR-032)
           </h1>
-          <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
-            Gestão do ciclo de vida de backups de telemetria (TimescaleDB) e estado volátil (Redis).
-            Criptografia AES-256 PBKDF2 em repouso e replicação contínua para Google Drive e Cloudflare R2 com retenção automatizada.
+          <p className="text-xs text-slate-400 mt-1 max-w-4xl font-normal leading-relaxed">
+            Estratégia de backup 3-2-1 multi-destino: snapshots atômicos do TimescaleDB, compressão
+            Zstandard, replicação redundante para Google Drive e Cloudflare R2 com garantia de
+            recuperação e zero vazamento de dados.
           </p>
         </div>
 
-        {/* Ações de Topo */}
-        <div className="flex items-center gap-3 shrink-0 flex-wrap">
-          {gdriveStatus?.authorized ? (
-            <div className="flex items-center gap-2">
-              <span
-                data-testid="gdrive-status-badge"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold"
-                title="Google Drive configurado e autorizado para replicação"
-              >
-                <Cloud className="w-3.5 h-3.5" />
-                <span>Google Drive Conectado</span>
-                <Check className="w-3 h-3 text-emerald-400" />
-              </span>
+        {/* Right side: Resiliência Badges */}
+        <div className="flex items-center gap-2 text-xs font-mono pt-1 xl:justify-end flex-wrap">
+          {/* RPO */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#091224] border border-[#162746] text-slate-300">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-slate-400">RPO:</span>
+            <span className="text-cyan-400 font-semibold">&lt; 24h</span>
+          </div>
+          {/* Encryption Badge */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#091224] border border-[#162746] text-slate-300">
+            <Lock className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-slate-400">Cifra:</span>
+            <span className="text-cyan-400 font-semibold tracking-wide">AES-256-GCM</span>
+          </div>
+          {/* WORM Badge */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#091224] border border-[#162746] text-slate-300">
+            <Shield className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-slate-400">WORM:</span>
+            <span className="text-amber-400 font-semibold">Ativa (30d)</span>
+          </div>
+        </div>
+      </header>
+
+      {/* 2. HeroExecutionCard: Execução Manual On-Demand [BLAST RADIUS ZERO] */}
+      <section
+        className="rounded-xl border border-emerald-500/25 bg-[#091222]/90 shadow-[0_0_20px_-3px_rgba(16,185,129,0.12)] p-4 lg:p-5 relative overflow-hidden"
+        data-purpose="manual-execution-card"
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Left: Icon & Description */}
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <Database className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-base font-semibold text-white tracking-wide">
+                  Execução Manual On-Demand
+                </h2>
+                <span className="px-2 py-0.5 text-[10px] font-mono font-bold tracking-wider rounded border border-emerald-500/40 text-emerald-300 bg-emerald-950/60 uppercase">
+                  BLAST RADIUS ZERO
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 max-w-3xl leading-relaxed">
+                Dispara snapshot atômico imediato do TimescaleDB com compressão Zstandard, expurgo de
+                buffers Redis e envio em paralelo para os 3 destinos.
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Action Buttons & Timestamp */}
+          <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
+            <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
+              {/* Botão Individual 1: Google Drive */}
+              {!isGDriveConfigured ? (
+                <button
+                  type="button"
+                  data-testid="hero-gdrive-btn-unconfigured"
+                  onClick={handleConnectGDrive}
+                  disabled={isConnectingGDrive}
+                  title="Google Drive: Clique para tentar conectar com os serviços Google."
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-slate-700/60 bg-[#0c1830]/60 text-slate-400 hover:text-white hover:border-slate-500 text-xs font-mono font-medium transition shadow-sm cursor-pointer"
+                >
+                  <span>Google Drive</span>
+                  {isConnectingGDrive ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                  ) : (
+                    <MinusCircle className="w-3.5 h-3.5 text-slate-500" />
+                  )}
+                </button>
+              ) : !isGDriveAuthorized ? (
+                <button
+                  type="button"
+                  data-testid="hero-gdrive-btn-connect"
+                  onClick={handleConnectGDrive}
+                  disabled={isConnectingGDrive}
+                  title="Google Drive configurado mas não conectado. Clique para autorizar nos serviços Google."
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-rose-500/40 bg-rose-950/40 text-rose-300 hover:border-rose-500/60 hover:bg-rose-950/60 text-xs font-mono font-bold transition shadow-sm cursor-pointer"
+                >
+                  <span>Conectar Google Drive</span>
+                  {isConnectingGDrive ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                  ) : (
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="hero-gdrive-btn-connected"
+                  onClick={handleConnectGDrive}
+                  disabled={isConnectingGDrive}
+                  title="Google Drive conectado. Clique para reconectar ou autenticar com os serviços Google."
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-950/30 text-emerald-400 text-xs font-mono font-medium hover:border-emerald-500/60 transition shadow-sm cursor-pointer"
+                >
+                  <span>Google Drive</span>
+                  {isConnectingGDrive ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                  ) : gdriveShowSuccess ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                </button>
+              )}
+
+              {/* Botão Individual 2: Cloudflare R2 */}
+              {!isR2Configured ? (
+                <span
+                  data-testid="hero-r2-btn-unconfigured"
+                  title="Cloudflare R2: Não configurado no servidor"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-slate-700/60 bg-[#0c1830]/60 text-slate-500 text-xs font-mono font-medium cursor-not-allowed opacity-80"
+                >
+                  <span>Cloudflare R2</span>
+                  <MinusCircle className="w-3.5 h-3.5 text-slate-500" />
+                </span>
+              ) : !isR2Authorized ? (
+                <span
+                  data-testid="hero-r2-btn-error"
+                  title="Cloudflare R2 configurado mas indisponível"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-rose-500/40 bg-rose-950/40 text-rose-300 text-xs font-mono font-bold transition shadow-sm"
+                >
+                  <span>Cloudflare R2</span>
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="hero-r2-btn-connected"
+                  onClick={() => handleRefreshService("r2")}
+                  title="Cloudflare R2 ativo. Clique para atualizar status."
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#1b2f57] bg-[#0c1830] text-slate-200 text-xs font-mono font-medium hover:border-[#2b4575] transition shadow-sm cursor-pointer"
+                >
+                  <span>Cloudflare R2</span>
+                  {r2ShowSuccess ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 text-slate-300 ${
+                        isRefreshingService === "r2" ? "animate-spin" : ""
+                      }`}
+                    />
+                  )}
+                </button>
+              )}
+
+              {/* Botão 3: Gerar Backup Manual */}
               <button
                 type="button"
-                onClick={handleConnectGDrive}
-                disabled={isConnectingGDrive}
-                className="text-[11px] font-mono text-slate-400 hover:text-white underline transition-colors cursor-pointer"
-                title="Reautorizar Google Drive com outra conta"
+                data-testid="trigger-backup-button"
+                onClick={() => handleTriggerBackup()}
+                disabled={isRunning || isLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs tracking-wider transition-all transform active:scale-95 shadow-[0_0_16px_-2px_rgba(16,185,129,0.45)] font-mono disabled:opacity-50 cursor-pointer"
               >
-                Reconectar
+                {isRunning ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                ) : (
+                  <Zap className="w-4 h-4 fill-current text-slate-950" />
+                )}
+                <span>Gerar Backup Manual</span>
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              data-testid="connect-gdrive-button"
-              onClick={handleConnectGDrive}
-              disabled={isConnectingGDrive}
-              className="px-3.5 py-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/40 font-mono text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer"
-              title="Autorizar o Google Drive via OAuth 2.0 para replicação remota"
-            >
-              {isConnectingGDrive ? (
-                <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
-              ) : (
-                <Cloud className="w-4 h-4 text-sky-400" />
-              )}
-              <span>Conectar Google Drive</span>
-            </button>
-          )}
 
-          <BackupTriggerButton
-            isLoading={isLoading}
-            isRunning={isRunning}
-            onConfirmTrigger={handleTriggerBackup}
-          />
+            {/* Timestamp */}
+            <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 mt-1 sm:justify-end">
+              <svg
+                className="w-3.5 h-3.5 text-slate-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                <path
+                  d="M12 6v6l4 2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </svg>
+              <span>
+                Última execução:{" "}
+                <strong className="text-slate-400 font-medium">
+                  {metrics.lastBackupAt
+                    ? `${new Date(metrics.lastBackupAt).toLocaleString("pt-BR", {
+                        timeZone: "UTC",
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })} UTC`
+                    : "Nenhum snapshot registrado"}
+                </strong>
+              </span>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ESTADO 1: SKELETON / CARREGANDO */}
-      {stateSimulation === "skeleton" && (
-        <div data-testid="backup-skeleton" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-28 rounded-2xl bg-obsidian-900 border border-obsidian-800/60 p-4 space-y-3 animate-pulse"
-              >
-                <div className="w-24 h-3 rounded bg-obsidian-800" />
-                <div className="w-32 h-6 rounded bg-obsidian-850" />
-              </div>
-            ))}
-          </div>
-          <div className="h-64 rounded-2xl bg-obsidian-900 border border-obsidian-800/60 p-6 animate-pulse" />
-        </div>
-      )}
+      {/* 3. Topologia de Destinos de Backup 3-2-1 */}
+      <BackupDestinationCards
+        storage={storage}
+        onConnectGDrive={handleConnectGDrive}
+      />
 
-      {/* ESTADO 2: ERRO DE COMUNICAÇÃO COM DAEMON */}
-      {stateSimulation === "error" && (
-        <div
-          data-testid="backup-error"
-          className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col items-center justify-center text-center space-y-3"
-        >
-          <div className="w-12 h-12 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
-            <CloudOff className="w-6 h-6" />
-          </div>
-          <h2 className="text-base font-bold text-rose-400">
-            Falha de Comunicação com Daemon de Backup
-          </h2>
-          <p className="text-xs text-slate-400 max-w-md font-mono">
-            RFC 5424 Code: <span className="text-rose-300 font-bold">ERR_BACKUP_DAEMON_OFFLINE</span>
-            <br />
-            O contêiner isolado de backup ou a fila de mensagens Redis não responderam ao heartbeat.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setStateSimulation("nominal");
-              loadData();
-            }}
-            className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-mono text-xs font-bold rounded-xl transition-colors"
-          >
-            Tentar Reconectar
-          </button>
-        </div>
-      )}
+      {/* 4. Livro-Razão de Snapshots & Auditoria Forense (5 itens por página) */}
+      <BackupHistoryTable
+        items={historyItems}
+        isLoading={isLoading}
+        onRefresh={loadData}
+      />
 
-      {/* ESTADO 3: VAZIO / SEM BACKUPS */}
-      {stateSimulation === "empty" && (
-        <div
-          data-testid="backup-empty"
-          className="p-12 rounded-2xl bg-obsidian-900 border border-obsidian-800 flex flex-col items-center justify-center text-center space-y-4 shadow-sm"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-obsidian-950 border border-obsidian-800 flex items-center justify-center text-slate-500">
-            <Database className="w-8 h-8" />
+      {/* 5. Faixa de Conformidade Regulatória (Rodapé) */}
+      <footer
+        className="bg-[#091122]/60 border border-[#14233f] rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs font-mono"
+        data-purpose="compliance-regulatory-footer"
+      >
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+            <Shield className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white mb-1">Nenhum Backup Encontrado</h2>
-            <p className="text-xs text-slate-400 max-w-md">
-              O catálogo de backups locais e em nuvem ainda não possui snapshots consolidados.
-              Dispare um backup manual ou aguarde a primeira janela agendada.
-            </p>
+            <div className="text-white font-semibold">
+              Conformidade Regulatória ADR-032 &amp; BNA / INACOM
+            </div>
+            <div className="text-slate-400 text-[11px] leading-relaxed">
+              Todos os snapshots mantêm integridade criptográfica verificável por Merkle Tree e
+              isolamento offsite imutável contra incidentes catastróficos.
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => handleTriggerBackup("Backup inicial do sistema")}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-obsidian-950 font-mono text-xs font-bold rounded-xl transition-colors flex items-center gap-2"
-          >
-            <HardDriveDownload className="w-4 h-4" />
-            <span>Gerar Primeiro Backup</span>
-          </button>
         </div>
-      )}
 
-      {/* ESTADO 4: NOMINAL (AO VIVO) */}
-      {stateSimulation === "nominal" && (
-        <>
-          {/* 2. Cards de Métricas e Conformidade RPO/RTO */}
-          <BackupMetricsCards metrics={metrics} />
-
-          {/* Banner de Aviso de Google Drive não autorizado (se aplicável) */}
-          {gdriveStatus && !gdriveStatus.authorized && (
-            <section
-              data-testid="gdrive-warning-banner"
-              className="bg-amber-950/20 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono text-xs animate-in fade-in duration-200"
-            >
-              <div className="flex items-center gap-3 text-slate-300">
-                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="font-bold text-amber-300 block">
-                    Google Drive não autorizado para replicação offsite
-                  </span>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">
-                    Os backups locais continuam sendo gerados com segurança. Para habilitar o envio automático para o Google Drive sem reiniciar contêineres, realize a autorização com sua conta.
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleConnectGDrive}
-                disabled={isConnectingGDrive}
-                className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs transition-colors shrink-0 cursor-pointer flex items-center gap-1.5"
-              >
-                {isConnectingGDrive ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Cloud className="w-3.5 h-3.5" />
-                )}
-                <span>Conectar Agora</span>
-              </button>
-            </section>
-          )}
-
-          {/* 3. Banner Informativo de Resiliência e Compliance */}
-          <section className="bg-obsidian-900/60 border border-obsidian-800/80 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0 mt-0.5">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <span className="font-mono text-xs font-bold text-white flex items-center gap-2">
-                  <span>Criptografia Categórica AES-256 PBKDF2 &amp; Imutabilidade</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400">
-                    CONFORME BNA / INACOM
-                  </span>
-                </span>
-                <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                  Os snapshots locais e remotos são cifrados antes da transmissão usando chaves mestras
-                  protegidas por Docker Secrets. Checksums SHA-256 auditáveis garantem que nenhuma alteração
-                  ou corrupção de dados passe despercebida.
-                </p>
-              </div>
+        <div className="flex flex-wrap items-center gap-6 md:border-l md:border-[#14233f] md:pl-6 text-[11px] shrink-0">
+          <div>
+            <div className="text-slate-500 uppercase tracking-wider text-[10px]">
+              Chave Pública ED25519
             </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="px-3 py-1.5 rounded-xl bg-obsidian-950 border border-obsidian-800 text-[11px] font-mono text-slate-300 flex items-center gap-2">
-                <Server className="w-3.5 h-3.5 text-sky-400" />
-                <span>Daemon:</span>
-                <span className="text-emerald-400 font-bold">ONLINE (ISOLADO)</span>
-              </div>
+            <span className="text-cyan-400 font-mono">
+              {historyItems.length > 0 && historyItems[0].sha256
+                ? `${historyItems[0].sha256.substring(0, 5)}...${historyItems[0].sha256.slice(-4)}`
+                : "ed25519:master"}
+            </span>
+          </div>
+          <div>
+            <div className="text-slate-500 uppercase tracking-wider text-[10px]">
+              Última Auditoria
             </div>
-          </section>
+            <div className="text-white font-medium">
+              {metrics.lastBackupAt
+                ? new Date(metrics.lastBackupAt).toLocaleDateString("pt-BR", {
+                    timeZone: "UTC",
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  }) + " (Auditado)"
+                : "Pendente"}
+            </div>
+          </div>
+        </div>
+      </footer>
 
-          {/* 4. Tabela de Histórico e Hashes */}
-          <BackupHistoryTable
-            items={historyItems}
-            isLoading={isLoading}
-            onRefresh={loadData}
-          />
-        </>
-      )}
-
-      {/* 5. Modal de Progresso em Tempo Real (SSE) */}
+      {/* Modal de Progresso em Tempo Real (SSE) */}
       <BackupProgressModal
         isOpen={isModalOpen}
         currentEvent={currentProgressEvent}

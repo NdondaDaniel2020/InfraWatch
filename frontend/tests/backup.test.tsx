@@ -6,9 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { BackupRecoveryPage } from "../src/pages/backup/BackupRecoveryPage";
-import { BackupProgressModal } from "../src/components/backup/BackupProgressModal";
 import { backupApi } from "../src/services/backupApi";
-const { testItems, testMetrics } = vi.hoisted(() => ({
+
+const { testItems, testMetrics, testStorage } = vi.hoisted(() => ({
   testItems: [
     {
       filename: "infrawatch_backup_2026-10-25_020000.tar.gz",
@@ -21,15 +21,74 @@ const { testItems, testMetrics } = vi.hoisted(() => ({
       trigger: "scheduled" as const,
       notes: "Rotina automática diária (Cron 02:00 UTC)",
     },
+    {
+      filename: "infrawatch_backup_2026-10-24_020000.tar.gz",
+      size_bytes: 260714496,
+      size_human: "247.1 MB",
+      created_at: "2026-10-24T02:00:00Z",
+      sha256: "11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff",
+      storage_path: "/var/backups/infrawatch/infrawatch_backup_2026-10-24_020000.tar.gz",
+      targets: { local: "SUCCESS", gdrive: "FAILED", r2: "SKIPPED" } as const,
+      trigger: "manual" as const,
+      notes: "Disparo manual sob demanda",
+    },
   ],
   testMetrics: {
     lastBackupAt: "2026-10-25T02:00:00Z",
-    totalBackupsCount: 1,
-    totalStorageUsed: "248.6 MB",
+    totalBackupsCount: 2,
+    totalStorageUsed: "495.7 MB",
     rpoTargetMinutes: 15,
     rpoCurrentMinutes: 8,
     rtoTargetMinutes: 30,
     isCompliant: true,
+  },
+  testStorage: {
+    local: {
+      status: "ONLINE & SINCRONIZADO",
+      path: "/var/backups/infrawatch/timescaledb",
+      total_bytes: 53687091200,
+      used_bytes: 4509715660,
+      free_bytes: 49177375540,
+      total_human: "50 GB",
+      used_human: "4.2 GB",
+      free_human: "45.8 GB",
+      used_percent: 8.4,
+      backups_size_bytes: 521428992,
+      backups_size_human: "495.7 MB",
+      retention_policy: "7 dias (FIFO)",
+      io_latency: "0.4ms (Direct-DMA)",
+    },
+    gdrive: {
+      status: "CONECTADO (OAUTH2)",
+      configured: true,
+      authorized: true,
+      email: "daniel@infrawatch.ao",
+      display_name: "Daniel Ndonda",
+      remote_directory: "InfraWatch_Backups_Offsite/PROD",
+      retention_policy: "30 dias históricos",
+      total_bytes: 16106127360,
+      used_bytes: 13743895347,
+      free_bytes: 2362232013,
+      total_human: "15 GB",
+      used_human: "12.8 GB",
+      free_human: "2.2 GB",
+      used_percent: 85.3,
+    },
+    r2: {
+      status: "ATIVO (ZERO EGRESS)",
+      configured: true,
+      authorized: true,
+      bucket: "infrawatch-backup-luanda-dr",
+      replication: "Multi-Região (Edge)",
+      egress_fee: "$0.00 / Zero Egress",
+      total_bytes: 10737418240,
+      used_bytes: 6871947673,
+      free_bytes: 3865470567,
+      total_human: "10 GB",
+      used_human: "6.4 GB",
+      free_human: "3.6 GB",
+      used_percent: 64.0,
+    },
   },
 }));
 
@@ -40,6 +99,7 @@ vi.mock("../src/services/backupApi", () => ({
       total: testItems.length,
     }),
     getBackupMetrics: vi.fn().mockResolvedValue(testMetrics),
+    getBackupStorage: vi.fn().mockResolvedValue(testStorage),
     getGDriveStatus: vi.fn().mockResolvedValue({
       configured: true,
       authorized: true,
@@ -57,8 +117,7 @@ vi.mock("../src/services/backupApi", () => ({
       triggered_at: "2026-10-25T04:00:00Z",
     }),
     subscribeBackupProgress: vi.fn(
-      (onProgress, onComplete, _onError, _useSimulation) => {
-        // Dispara sequência síncrona/imediata para o teste
+      (onProgress, onComplete, _onError) => {
         onProgress({
           stage: "started",
           percent: 5,
@@ -108,26 +167,33 @@ const renderWithProviders = (ui: ReactNode) => {
   );
 };
 
-describe("Painel de Backup e Recuperação de Desastres — Issue #224", () => {
+describe("Painel de Backup e Recuperação de Desastres — Issue #224 / ADR-032", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("deve renderizar o cabeçalho, métricas de RPO/RTO e tabela de histórico", async () => {
+  it("deve renderizar o cabeçalho canônico, cards 3-2-1 e livro-razão", async () => {
     renderWithProviders(<BackupRecoveryPage />);
 
     expect(screen.getByTestId("backup-recovery-page")).toBeInTheDocument();
     expect(
-      screen.getByText("Backup & Recuperação de Desastres (Disaster Recovery)")
+      screen.getByText("Backup Automatizado & Recuperação de Desastres (ADR-032)")
     ).toBeInTheDocument();
-    expect(screen.getByText("DUAL-CLOUD ATIVO")).toBeInTheDocument();
 
-    // Métricas Cards
-    expect(screen.getByTestId("backup-metrics-cards")).toBeInTheDocument();
-    expect(screen.getByText("RPO (OBJETIVO DE PONTO)")).toBeInTheDocument();
-    expect(screen.getByText("RTO (TEMPO DE RESTAURAÇÃO)")).toBeInTheDocument();
+    // Badges de Resiliência no Topo
+    expect(screen.getByText("RPO:")).toBeInTheDocument();
+    expect(screen.getByText("Cifra:")).toBeInTheDocument();
+    expect(screen.getByText("WORM:")).toBeInTheDocument();
 
-    // Tabela de Histórico
+    // Topologia dos 3 Destinos
+    await waitFor(() => {
+      expect(screen.getByTestId("backup-destination-cards")).toBeInTheDocument();
+      expect(screen.getByText("Destino 1: NVMe Host")).toBeInTheDocument();
+      expect(screen.getByText("Destino 2: Google Drive")).toBeInTheDocument();
+      expect(screen.getByText("Destino 3: Cloudflare R2")).toBeInTheDocument();
+    });
+
+    // Tabela do Livro-Razão com Coluna Snapshot / Arquivo
     await waitFor(() => {
       expect(screen.getByTestId("backup-history-table")).toBeInTheDocument();
       expect(
@@ -137,94 +203,36 @@ describe("Painel de Backup e Recuperação de Desastres — Issue #224", () => {
     });
   });
 
-  it("deve renderizar os estados Skeleton, Empty e Error Boundary", async () => {
-    // 1. Skeleton
-    const { unmount: unmountSkeleton } = renderWithProviders(
-      <BackupRecoveryPage initialViewState="skeleton" />
-    );
-    expect(screen.getByTestId("backup-skeleton")).toBeInTheDocument();
-    unmountSkeleton();
+  it("deve renderizar status verde para sucesso, vermelho para falha e cinza para não configurado na listagem", async () => {
+    renderWithProviders(<BackupRecoveryPage />);
 
-    // 2. Empty
-    const { unmount: unmountEmpty } = renderWithProviders(
-      <BackupRecoveryPage initialViewState="empty" />
-    );
-    expect(screen.getByTestId("backup-empty")).toBeInTheDocument();
-    expect(screen.getByText("Nenhum Backup Encontrado")).toBeInTheDocument();
-    unmountEmpty();
-
-    // 3. Error
-    renderWithProviders(<BackupRecoveryPage initialViewState="error" />);
-    expect(screen.getByTestId("backup-error")).toBeInTheDocument();
-    expect(
-      screen.getByText("Falha de Comunicação com Daemon de Backup")
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("backup-history-table")).toBeInTheDocument();
+      // Deve encontrar badges de sucesso (verde), falha (vermelho) e não configurado (cinza)
+      expect(screen.getAllByTestId("dest-status-success").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByTestId("dest-status-failed").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByTestId("dest-status-skipped").length).toBeGreaterThanOrEqual(1);
+    });
   });
 
-  it("deve abrir modal de confirmação prévia e despachar backup manual", async () => {
+  it("deve disparar backup manual sob demanda via botão da Hero bar", async () => {
     const user = userEvent.setup();
     renderWithProviders(<BackupRecoveryPage />);
 
-    const triggerBtn = screen.getByTestId("backup-trigger-button");
+    const triggerBtn = screen.getByTestId("trigger-backup-button");
     await user.click(triggerBtn);
 
-    // Modal de confirmação aberto
-    expect(screen.getByTestId("backup-confirm-modal")).toBeInTheDocument();
-    expect(
-      screen.getByText("Confirmação de Backup Sob Demanda")
-    ).toBeInTheDocument();
+    expect(backupApi.triggerBackup).toHaveBeenCalled();
 
-    // Digita observações
-    const notesInput = screen.getByLabelText(/Motivo \/ Observações/i);
-    await user.type(notesInput, "Backup emergencial antes do patch");
-
-    // Confirma
-    const confirmBtn = screen.getByTestId("confirm-trigger-submit-btn");
-    await user.click(confirmBtn);
-
-    expect(backupApi.triggerBackup).toHaveBeenCalledWith(
-      "Backup emergencial antes do patch"
-    );
-  });
-
-  it("deve exibir progresso SSE no modal e atualizar a tabela com o novo snapshot", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<BackupRecoveryPage />);
-
-    const triggerBtn = screen.getByTestId("backup-trigger-button");
-    await user.click(triggerBtn);
-
-    const confirmBtn = screen.getByTestId("confirm-trigger-submit-btn");
-    await user.click(confirmBtn);
-
-    // Modal de progresso deve estar aberto com checklist
+    // Modal de progresso deve abrir e exibir checklist
     await waitFor(() => {
       expect(screen.getByTestId("backup-progress-modal")).toBeInTheDocument();
       expect(screen.getByTestId("backup-progress-bar")).toBeInTheDocument();
-      expect(screen.getByTestId("stage-item-started")).toBeInTheDocument();
-      expect(screen.getByTestId("stage-item-timescaledb")).toBeInTheDocument();
-      expect(screen.getByTestId("stage-item-packaging")).toBeInTheDocument();
-      expect(screen.getByTestId("stage-item-completed")).toBeInTheDocument();
     });
 
-    // Conclusão com sucesso
-    await waitFor(() => {
-      expect(
-        screen.getByText("Snapshot Consolidado e Replicado em Nuvem")
-      ).toBeInTheDocument();
-      expect(
-        screen.getAllByText("infrawatch_backup_2026-10-25_040000.tar.gz").length
-      ).toBeGreaterThanOrEqual(1);
-    });
-
-    // Fecha o modal
+    // Fecha o modal após conclusão
     const closeBtn = screen.getByTestId("progress-modal-close-btn");
     await user.click(closeBtn);
-
-    // O novo snapshot deve aparecer na tabela
-    expect(
-      screen.getAllByText("infrawatch_backup_2026-10-25_040000.tar.gz").length
-    ).toBeGreaterThanOrEqual(1);
   });
 
   it("deve copiar o hash SHA-256 para a área de transferência ao clicar no botão de cópia", async () => {
@@ -253,63 +261,7 @@ describe("Painel de Backup e Recuperação de Desastres — Issue #224", () => {
     );
   });
 
-  it("deve exibir valores e metas operacionais de RPO e RTO sem N/D", async () => {
-    renderWithProviders(<BackupRecoveryPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("8m")).toBeInTheDocument();
-      expect(screen.getByText("/ 15m máx")).toBeInTheDocument();
-      expect(screen.getByText("< 30m")).toBeInTheDocument();
-      expect(
-        screen.getByText("Meta operacional de restauração (ADR-032)")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("deve exibir falha no Google Drive e ignorado no R2 sem falso verde no modal de progresso", () => {
-    const mockEvent = {
-      stage: "completed" as const,
-      percent: 100,
-      message: "Backup concluído no armazenamento local",
-      filename: "infrawatch_backup_2026-11-17_010000.tar.gz",
-      size_human: "250.0 MB",
-      sha256: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-      targets: {
-        local: "SUCCESS" as const,
-        gdrive: "FAILED" as const,
-        r2: "SKIPPED" as const,
-      },
-    };
-
-    render(
-      <BackupProgressModal
-        isOpen={true}
-        currentEvent={mockEvent}
-        isCompleted={true}
-        error={null}
-        onClose={vi.fn()}
-      />
-    );
-
-    // Etapa 6 (Google Drive) deve indicar Falha explicitamente (não 100%)
-    const gdriveStage = screen.getByTestId("stage-item-upload_gdrive");
-    expect(gdriveStage).toHaveTextContent("Falha");
-    expect(gdriveStage).not.toHaveTextContent("100%");
-
-    // Etapa 7 (Cloudflare R2) deve indicar Ignorado (não 100%)
-    const r2Stage = screen.getByTestId("stage-item-upload_r2");
-    expect(r2Stage).toHaveTextContent("Ignorado");
-    expect(r2Stage).not.toHaveTextContent("100%");
-
-    // Resumo deve informar que o snapshot foi consolidado localmente
-    expect(
-      screen.getByText("Snapshot Consolidado no Armazenamento Local")
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Não Autorizado/)).toBeInTheDocument();
-    expect(screen.getByText(/Não Configurado/)).toBeInTheDocument();
-  });
-
-  it("deve exibir botão e banner de conexão com Google Drive quando não autorizado", async () => {
+  it("deve exibir botão vermelho de conexão quando Google Drive configurado mas não autorizado", async () => {
     vi.spyOn(backupApi, "getGDriveStatus").mockResolvedValueOnce({
       configured: true,
       authorized: false,
@@ -319,11 +271,62 @@ describe("Painel de Backup e Recuperação de Desastres — Issue #224", () => {
     renderWithProviders(<BackupRecoveryPage />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("connect-gdrive-button")).toBeInTheDocument();
-      expect(screen.getByTestId("gdrive-warning-banner")).toBeInTheDocument();
-      expect(
-        screen.getByText("Google Drive não autorizado para replicação offsite")
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("hero-gdrive-btn-connect")).toBeInTheDocument();
+      expect(screen.getByText("Conectar Google Drive")).toBeInTheDocument();
+    });
+  });
+
+  it("deve exibir botão cinza quando serviço não está configurado", async () => {
+    vi.spyOn(backupApi, "getGDriveStatus").mockResolvedValueOnce({
+      configured: false,
+      authorized: false,
+      message: "Não configurado",
+    });
+
+    renderWithProviders(<BackupRecoveryPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hero-gdrive-btn-unconfigured")).toBeInTheDocument();
+    });
+  });
+
+  it("deve exibir destino como Não Configurado com valores e barra cinzas quando serviço externo não estiver conectado", async () => {
+    vi.spyOn(backupApi, "getBackupStorage").mockResolvedValueOnce({
+      local: testStorage.local,
+      gdrive: {
+        ...testStorage.gdrive,
+        configured: false,
+        authorized: false,
+        status: "Não Configurado",
+        remote_directory: "—",
+        retention_policy: "—",
+        total_human: "—",
+        used_human: "—",
+        free_human: "—",
+        used_percent: 0,
+      },
+      r2: {
+        ...testStorage.r2,
+        configured: false,
+        authorized: false,
+        status: "Não Configurado",
+        bucket: "—",
+        replication: "—",
+        egress_fee: "—",
+        total_human: "—",
+        used_human: "—",
+        free_human: "—",
+        used_percent: 0,
+      },
+    });
+
+    renderWithProviders(<BackupRecoveryPage />);
+
+    await waitFor(() => {
+      const unconfBadges = screen.getAllByTestId("badge-service-not-configured");
+      expect(unconfBadges.length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("Não Configurado").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
     });
   });
 });

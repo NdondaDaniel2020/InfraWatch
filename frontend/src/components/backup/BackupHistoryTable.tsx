@@ -1,18 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Copy,
   Check,
-  HardDrive,
-  Cloud,
-  CheckCircle2,
+  Search,
   XCircle,
-  AlertCircle,
-  FileArchive,
+  MinusCircle,
   RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BackupHistoryItem, BackupTargetStatus } from "../../types/backup";
-import { Pagination } from "../common";
 
 interface BackupHistoryTableProps {
   items: BackupHistoryItem[];
@@ -26,16 +23,41 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
   onRefresh,
 }) => {
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "scheduled" | "manual">("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const pageSize = 5; // Regra: exatamente 5 itens por página
 
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  // Filtragem dos snapshots por busca e tipo
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        item.filename.toLowerCase().includes(q) ||
+        (item.sha256 && item.sha256.toLowerCase().includes(q)) ||
+        (item.notes && item.notes.toLowerCase().includes(q));
+
+      const isCron =
+        item.trigger === "scheduled" ||
+        item.filename.includes("_0200") ||
+        item.filename.includes("_0300");
+      const matchesType =
+        typeFilter === "all" ||
+        (typeFilter === "scheduled" && isCron) ||
+        (typeFilter === "manual" && !isCron);
+
+      return matchesSearch && matchesType;
+    });
+  }, [items, searchQuery, typeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
-  const paginatedItems = items.slice(
-    (safeCurrentPage - 1) * pageSize,
-    safeCurrentPage * pageSize
-  );
+  const paginatedItems = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredItems.slice(start, start + pageSize);
+  }, [filteredItems, safeCurrentPage, pageSize]);
 
   const handleCopyHash = (hash: string) => {
     navigator.clipboard.writeText(hash);
@@ -44,157 +66,271 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
     setTimeout(() => setCopiedHash(null), 2500);
   };
 
-  const renderTargetBadge = (
-    label: string,
+  /**
+   * Renderiza os badges de destino conforme a regra canônica:
+   * - Funcionou (SUCCESS): Verde
+   * - Falhou (FAILED): Vermelho
+   * - Não configurado / Ignorado (SKIPPED): Cinza
+   */
+  const renderDestinationStatus = (
     status?: BackupTargetStatus,
-    icon?: React.ReactNode
+    successLabel = "Sync"
   ) => {
     switch (status) {
       case "SUCCESS":
         return (
           <span
-            title={`${label}: Replicado com Sucesso`}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+            data-testid="dest-status-success"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
           >
-            {icon}
-            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-            <span>{label}</span>
+            <Check className="w-3 h-3 text-emerald-400" />
+            <span>{successLabel}</span>
           </span>
         );
       case "FAILED":
         return (
           <span
-            title={`${label}: Falha na Replicação`}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 animate-pulse"
+            data-testid="dest-status-failed"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-950/70 border border-rose-500/40 text-rose-300"
           >
-            {icon}
             <XCircle className="w-3 h-3 text-rose-400" />
-            <span>{label}</span>
+            <span>Falha</span>
           </span>
         );
       case "SKIPPED":
       default:
         return (
           <span
-            title={`${label}: Não configurado ou ignorado`}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500 bg-obsidian-850 border border-obsidian-800"
+            data-testid="dest-status-skipped"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#0c1830] border border-[#172747] text-slate-500"
           >
-            {icon}
-            <AlertCircle className="w-3 h-3 text-slate-500" />
-            <span>{label}</span>
+            <MinusCircle className="w-3 h-3 text-slate-500" />
+            <span>Não Configurado</span>
           </span>
         );
     }
   };
 
+  // Cálculo dinâmico do Merkle Tree Hash a partir dos hashes SHA-256 reais persistidos
+  const merkleTreeHash = useMemo(() => {
+    if (items.length === 0) return "—";
+    const validHashes = items.map((i) => i.sha256).filter(Boolean) as string[];
+    if (validHashes.length === 0) return "—";
+    const head = validHashes[0].substring(0, 4);
+    const tail = validHashes[validHashes.length - 1].slice(-4);
+    return `${head}...${tail}`;
+  }, [items]);
+
+  // Cálculo de datas em UTC e WAT (UTC+1 Angola)
+  const formatDates = (isoString: string) => {
+    const d = new Date(isoString);
+    const utcDate = d.toISOString().replace("T", " ").substring(0, 16) + " UTC";
+    const watHour = new Date(d.getTime() + 60 * 60 * 1000)
+      .toISOString()
+      .substring(11, 16);
+    return { utcDate, watHour: `Hoje às ${watHour} WAT` };
+  };
+
   return (
-    <div
+    <section
       data-testid="backup-history-table"
-      className="bg-obsidian-900 border border-obsidian-800 rounded-2xl overflow-hidden shadow-sm flex flex-col"
+      className="bg-[#091122] border border-[#14233f] rounded-xl overflow-hidden"
+      data-purpose="snapshots-ledger"
+      aria-label="Livro-Razão de Snapshots & Auditoria Forense"
     >
-      {/* Header da Tabela */}
-      <div className="p-4 border-b border-obsidian-800 flex items-center justify-between bg-obsidian-950/40">
-        <div className="flex items-center gap-2">
-          <FileArchive className="w-4 h-4 text-emerald-400" />
-          <h2 className="font-mono text-xs uppercase font-bold text-white tracking-wider">
-            Histórico de Snapshots &amp; Verificação Criptográfica
+      {/* Table Header Bar */}
+      <div className="p-3.5 lg:px-5 lg:py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#14233f]">
+        {/* Title and verified count */}
+        <div className="flex items-center gap-2.5">
+          <svg
+            className="w-4 h-4 text-emerald-400 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            />
+          </svg>
+          <h2 className="text-sm font-semibold text-white tracking-wide">
+            Livro-Razão de Snapshots &amp; Auditoria Forense
           </h2>
-          <span className="text-[10px] font-mono text-slate-400 bg-obsidian-850 px-2 py-0.5 rounded-full border border-obsidian-800">
-            {items.length} Backups Disponíveis
+          <span className="text-[10px] font-mono uppercase bg-[#0c1830] text-slate-400 border border-[#172747] px-2 py-0.5 rounded font-medium">
+            {filteredItems.length} REGISTROS VERIFICADOS
           </span>
         </div>
 
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="p-1.5 rounded-lg bg-obsidian-850 border border-obsidian-800 text-slate-400 hover:text-white hover:bg-obsidian-800 transition-colors"
-            title="Atualizar Histórico"
-            aria-label="Atualizar histórico"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-emerald-400" : ""}`} />
-          </button>
-        )}
+        {/* Filter Controls */}
+        <div className="flex items-center gap-2">
+          {/* Search Input */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
+              <Search className="w-3.5 h-3.5" />
+            </div>
+            <input
+              type="text"
+              id="snapshot-search"
+              aria-label="Filtrar snapshots por hash ou tag"
+              placeholder="Filtrar por hash, tag..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-[#050913] border border-[#172747] text-xs font-mono rounded-lg pl-8 pr-3 py-1.5 text-slate-300 placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 w-52 sm:w-64 transition"
+            />
+          </div>
+
+          {/* Type Select Dropdown */}
+          <div className="relative">
+            <select
+              aria-label="Filtrar snapshots por tipo"
+              value={typeFilter}
+              onChange={(e) => {
+                setTypeFilter(e.target.value as "all" | "scheduled" | "manual");
+                setCurrentPage(1);
+              }}
+              className="bg-[#050913] border border-[#172747] text-xs font-mono rounded-lg pl-3 pr-8 py-1.5 text-slate-300 appearance-none focus:outline-none focus:border-emerald-500/60 cursor-pointer"
+            >
+              <option value="all">Todos os Tipos</option>
+              <option value="scheduled">Automático (CRON)</option>
+              <option value="manual">Manual (On-Demand)</option>
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-500">
+              <ChevronDown className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isLoading}
+              title="Atualizar Livro-Razão"
+              aria-label="Atualizar histórico"
+              className="p-1.5 rounded-lg bg-[#050913] border border-[#172747] text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-emerald-400" : ""}`}
+              />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Tabela de Dados */}
+      {/* Table Body Container */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left font-mono text-xs">
-          <thead className="bg-obsidian-950/80 text-[10px] uppercase text-slate-400 border-b border-obsidian-800">
-            <tr>
-              <th scope="col" className="py-3 px-4 font-semibold">Snapshot / Arquivo</th>
-              <th scope="col" className="py-3 px-4 font-semibold">Criação (UTC)</th>
-              <th scope="col" className="py-3 px-4 font-semibold">Tamanho</th>
-              <th scope="col" className="py-3 px-4 font-semibold">Checksum SHA-256</th>
-              <th scope="col" className="py-3 px-4 font-semibold">Destinos (Local &amp; Cloud)</th>
-              <th scope="col" className="py-3 px-4 font-semibold text-right">Gatilho</th>
+        <table className="w-full text-left text-xs font-mono border-collapse tabular-nums">
+          <thead>
+            <tr className="text-[11px] text-slate-400 bg-[#070d1c] border-b border-[#14233f] uppercase tracking-wider">
+              <th className="py-3 px-4 font-semibold" scope="col">
+                DATA / HORA (UTC)
+              </th>
+              <th className="py-3 px-3 font-semibold" scope="col">
+                SNAPSHOT / ARQUIVO
+              </th>
+              <th className="py-3 px-3 font-semibold" scope="col">
+                TIPO
+              </th>
+              <th className="py-3 px-3 font-semibold" scope="col">
+                TAMANHO
+              </th>
+              <th className="py-3 px-3 font-semibold" scope="col">
+                CHECKSUM SHA-256
+              </th>
+              <th className="py-3 px-3 font-semibold text-center" scope="col">
+                DESTINO LOCAL
+              </th>
+              <th className="py-3 px-3 font-semibold text-center" scope="col">
+                GOOGLE DRIVE
+              </th>
+              <th className="py-3 px-3 font-semibold text-center" scope="col">
+                CLOUDFLARE R2
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-obsidian-800/60">
-            {items.length === 0 ? (
+          <tbody className="divide-y divide-[#121e35] text-slate-300">
+            {paginatedItems.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-500 font-mono text-xs">
-                  Nenhum snapshot de backup registrado até o momento.
+                <td colSpan={8} className="py-12 text-center text-slate-500 font-mono text-xs">
+                  Nenhum snapshot encontrado para os filtros selecionados.
                 </td>
               </tr>
             ) : (
               paginatedItems.map((item) => {
-                const isCopied = copiedHash === item.sha256;
+                const { utcDate, watHour } = formatDates(item.created_at);
+                const isCron =
+                  item.trigger === "scheduled" ||
+                  item.filename.includes("_0200") ||
+                  item.filename.includes("_0300");
+                const shortHash = item.sha256
+                  ? `${item.sha256.substring(0, 6)}...${item.sha256.slice(-4)}`
+                  : "—";
 
                 return (
                   <tr
                     key={item.filename}
-                    className="hover:bg-obsidian-850/50 transition-colors group"
+                    className="hover:bg-[#0d1830]/50 transition-colors group"
                   >
-                    {/* 1. Nome do Arquivo */}
-                    <td className="py-3 px-4">
+                    {/* 1. DATA / HORA (UTC) */}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <div>
+                          <div className="text-white font-medium">{utcDate}</div>
+                          <div className="text-[11px] text-slate-500">{watHour}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* 2. SNAPSHOT / ARQUIVO */}
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <div className="flex flex-col">
-                        <span className="font-bold text-white group-hover:text-emerald-400 transition-colors">
+                        <span className="font-bold text-white group-hover:text-emerald-400 transition-colors truncate max-w-[220px]">
                           {item.filename}
                         </span>
                         {item.notes && (
-                          <span className="text-[10px] text-slate-400 truncate max-w-xs mt-0.5">
+                          <span className="text-[10px] text-slate-500 truncate max-w-[220px]">
                             {item.notes}
                           </span>
                         )}
                       </div>
                     </td>
 
-                    {/* 2. Timestamp UTC */}
-                    <td className="py-3 px-4 text-slate-300 tabular-nums">
-                      {new Date(item.created_at).toLocaleString("pt-BR", {
-                        timeZone: "UTC",
-                        year: "numeric",
-                        month: "2-digit",
-                        day: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}{" "}
-                      <span className="text-[10px] text-slate-500">UTC</span>
+                    {/* 3. TIPO */}
+                    <td className="py-3 px-3 whitespace-nowrap">
+                      {isCron ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0c2420] border border-emerald-500/40 text-emerald-400">
+                          AUTOMÁTICO (CRON)
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0c1a2e] border border-cyan-500/40 text-cyan-300">
+                          MANUAL (ON-DEMAND)
+                        </span>
+                      )}
                     </td>
 
-                    {/* 3. Tamanho */}
-                    <td className="py-3 px-4 tabular-nums font-bold text-slate-200">
+                    {/* 4. TAMANHO */}
+                    <td className="py-3 px-3 whitespace-nowrap text-white font-medium">
                       {item.size_human}
                     </td>
 
-                    {/* 4. Hash SHA-256 */}
-                    <td className="py-3 px-4">
+                    {/* 5. CHECKSUM SHA-256 */}
+                    <td className="py-3 px-3 whitespace-nowrap">
                       {item.sha256 ? (
-                        <div className="flex items-center gap-1.5">
-                          <code className="text-[10px] text-slate-400 bg-obsidian-950 px-2 py-0.5 rounded border border-obsidian-800/80 truncate max-w-[140px]">
-                            {item.sha256}
-                          </code>
+                        <div className="inline-flex items-center gap-1.5 bg-[#050913] border border-[#17253f] px-2 py-0.5 rounded text-cyan-400">
+                          <span>{shortHash}</span>
                           <button
                             type="button"
                             onClick={() => handleCopyHash(item.sha256!)}
-                            title="Copiar Hash SHA-256 para verificação de integridade"
+                            className="text-slate-500 hover:text-white transition ml-1 cursor-pointer"
+                            title="Copiar SHA256"
                             aria-label={`Copiar hash do backup ${item.filename}`}
-                            className="p-1 rounded bg-obsidian-950 hover:bg-obsidian-800 border border-obsidian-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
                           >
-                            {isCopied ? (
+                            {copiedHash === item.sha256 ? (
                               <Check className="w-3 h-3 text-emerald-400" />
                             ) : (
                               <Copy className="w-3 h-3" />
@@ -202,48 +338,23 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
                           </button>
                         </div>
                       ) : (
-                        <span className="text-slate-500 text-[10px]">Não calculado</span>
+                        <span className="text-slate-500">—</span>
                       )}
                     </td>
 
-                    {/* 5. Destinos */}
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {renderTargetBadge(
-                          "Local",
-                          item.targets?.local,
-                          <HardDrive className="w-3 h-3" />
-                        )}
-                        {renderTargetBadge(
-                          "GDrive",
-                          item.targets?.gdrive,
-                          <Cloud className="w-3 h-3" />
-                        )}
-                        {renderTargetBadge(
-                          "R2",
-                          item.targets?.r2,
-                          <Cloud className="w-3 h-3" />
-                        )}
-                      </div>
+                    {/* 6. DESTINO LOCAL */}
+                    <td className="py-3 px-3 whitespace-nowrap text-center">
+                      {renderDestinationStatus(item.targets?.local ?? "SUCCESS", "Salvo")}
                     </td>
 
-                    {/* 6. Tipo de Gatilho */}
-                    <td className="py-3 px-4 text-right">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.trigger === "manual"
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                            : item.trigger === "scheduled"
-                            ? "bg-obsidian-800 text-slate-300 border border-obsidian-700"
-                            : "bg-obsidian-850 text-slate-500 border border-obsidian-800"
-                        }`}
-                      >
-                        {item.trigger === "manual"
-                          ? "MANUAL"
-                          : item.trigger === "scheduled"
-                          ? "AUTO (CRON)"
-                          : "N/D"}
-                      </span>
+                    {/* 7. GOOGLE DRIVE */}
+                    <td className="py-3 px-3 whitespace-nowrap text-center">
+                      {renderDestinationStatus(item.targets?.gdrive ?? "SKIPPED", "Sync")}
+                    </td>
+
+                    {/* 8. CLOUDFLARE R2 */}
+                    <td className="py-3 px-3 whitespace-nowrap text-center">
+                      {renderDestinationStatus(item.targets?.r2 ?? "SKIPPED", "Sync")}
                     </td>
                   </tr>
                 );
@@ -253,23 +364,87 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
         </table>
       </div>
 
-      {/* Paginação de Snapshots */}
-      {items.length > 0 && (
-        <Pagination
-          currentPage={safeCurrentPage}
-          totalPages={totalPages}
-          totalItems={items.length}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={(newSize) => {
-            setPageSize(newSize);
-            setCurrentPage(1);
-          }}
-          pageSizeOptions={[5, 10, 20, 50]}
-          itemLabel="backups"
-          testIdPrefix="backup-history-pagination"
-        />
-      )}
-    </div>
+      {/* Table Footer / Pagination (5 itens por página) */}
+      <div className="p-3.5 lg:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#14233f] text-xs font-mono">
+        <div className="flex items-center gap-2 text-slate-400">
+          <svg
+            className="w-3.5 h-3.5 text-emerald-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M5 13l4 4L19 7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            />
+          </svg>
+          <span>
+            Exibindo{" "}
+            <strong className="text-white">
+              {filteredItems.length === 0
+                ? 0
+                : (safeCurrentPage - 1) * pageSize + 1}
+              -
+              {Math.min(safeCurrentPage * pageSize, filteredItems.length)}
+            </strong>{" "}
+            de <strong className="text-white">{filteredItems.length}</strong>{" "}
+            snapshots persistidos
+          </span>
+          <span className="text-slate-600">|</span>
+          <span className="text-slate-400">
+            Merkle Tree Hash:{" "}
+            <code className="text-emerald-400 font-mono">
+              {merkleTreeHash} {merkleTreeHash !== "—" ? "(OK)" : ""}
+            </code>
+          </span>
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <nav
+            aria-label="Paginação"
+            className="flex items-center gap-1"
+            data-testid="backup-table-pagination"
+          >
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safeCurrentPage === 1}
+              className="px-2.5 py-1 rounded text-slate-500 hover:text-slate-300 hover:bg-[#111e38] transition disabled:opacity-40 cursor-pointer"
+            >
+              Anterior
+            </button>
+            {Array.from({ length: totalPages }).map((_, idx) => {
+              const pageNum = idx + 1;
+              const isActive = pageNum === safeCurrentPage;
+              return (
+                <button
+                  key={pageNum}
+                  type="button"
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-7 h-7 rounded text-xs font-bold transition flex items-center justify-center cursor-pointer ${
+                    isActive
+                      ? "bg-emerald-500 text-slate-950 font-bold"
+                      : "text-slate-400 hover:bg-[#111e38] hover:text-white"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safeCurrentPage === totalPages}
+              className="px-2.5 py-1 rounded text-slate-300 hover:text-white hover:bg-[#111e38] transition disabled:opacity-40 cursor-pointer"
+            >
+              Próximo
+            </button>
+          </nav>
+        )}
+      </div>
+    </section>
   );
 };

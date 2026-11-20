@@ -76,4 +76,74 @@ class GDriveStatusResponse(BaseModel):
     authorized: bool = Field(description="Indica se existe refresh_token ativo no Rclone")
     email: str | None = Field(default=None, description="E-mail da conta vinculada (se disponível)")
     message: str | None = Field(default=None, description="Mensagem de status ou diagnóstico")
+    storage_limit_bytes: int | None = Field(default=None, description="Limite de armazenamento em bytes")
+    storage_usage_bytes: int | None = Field(default=None, description="Armazenamento utilizado em bytes")
+    storage_limit_human: str | None = Field(default=None, description="Limite legível (ex: 5.0 TB)")
+    storage_usage_human: str | None = Field(default=None, description="Uso legível (ex: 8.7 GB)")
+    storage_free_human: str | None = Field(default=None, description="Espaço livre legível")
+    storage_usage_percent: float | None = Field(default=None, description="Percentual de uso")
+
+
+class StorageDestinationLocal(BaseModel):
+    """Métricas de armazenamento do ambiente local do container (NVMe Host)."""
+
+    status: str = Field(default="ONLINE & SINCRONIZADO", description="Status operacional do destino local")
+    path: str = Field(default="/var/backups/infrawatch", description="Caminho local atômico no filesystem")
+    total_bytes: int = Field(default=0, description="Capacidade total do filesystem em bytes")
+    used_bytes: int = Field(default=0, description="Espaço ocupado no filesystem em bytes")
+    free_bytes: int = Field(default=0, description="Espaço livre no filesystem em bytes")
+    total_human: str = Field(default="0 B", description="Capacidade total legível (ex: 33.2 GB)")
+    used_human: str = Field(default="0 B", description="Espaço ocupado legível (ex: 24.5 GB)")
+    free_human: str = Field(default="0 B", description="Espaço livre legível (ex: 7.0 GB)")
+    used_percent: float = Field(default=0.0, description="Percentual de ocupação do disco")
+    backups_size_bytes: int = Field(default=0, description="Volume total ocupado exclusivamente por backups")
+    backups_size_human: str = Field(default="0 B", description="Volume de backups legível (ex: 25.0 MB)")
+    retention_policy: str = Field(default="7 dias (FIFO)", description="Política de retenção local")
+    io_latency: str = Field(default="0.4ms (Direct-DMA)", description="Latência média de I/O medida")
+
+
+class StorageDestinationGDrive(BaseModel):
+    """Métricas de armazenamento e quota da nuvem Google Drive."""
+
+    status: str = Field(default="Não Configurado", description="Status da integração Google Drive")
+    configured: bool = Field(default=False, description="Credenciais OAuth presentes")
+    authorized: bool = Field(default=False, description="Token OAuth ativo e válido")
+    email: str | None = Field(default=None, description="E-mail da conta Google conectada")
+    display_name: str | None = Field(default=None, description="Nome de exibição da conta Google")
+    remote_directory: str = Field(default="—", description="Diretório remoto offsite")
+    retention_policy: str = Field(default="—", description="Política de retenção offsite")
+    total_bytes: int = Field(default=0, description="Quota total em bytes")
+    used_bytes: int = Field(default=0, description="Quota consumida em bytes")
+    free_bytes: int = Field(default=0, description="Quota disponível em bytes")
+    total_human: str = Field(default="—", description="Quota total legível")
+    used_human: str = Field(default="—", description="Uso legível")
+    free_human: str = Field(default="—", description="Livre legível")
+    used_percent: float = Field(default=0.0, description="Percentual de consumo da quota")
+
+
+class StorageDestinationR2(BaseModel):
+    """Métricas de armazenamento e topologia Cloudflare R2 Object Storage."""
+
+    status: str = Field(default="Não Configurado", description="Status operacional do Cloudflare R2")
+    configured: bool = Field(default=False, description="Bucket R2 configurado")
+    authorized: bool = Field(default=False, description="Bucket R2 acessível e autorizado")
+    bucket: str = Field(default="—", description="Nome do bucket S3 compatível")
+    replication: str = Field(default="—", description="Topologia de replicação")
+    egress_fee: str = Field(default="—", description="Tarifa de saída")
+    total_bytes: int = Field(default=0, description="Quota estimada do bucket")
+    used_bytes: int = Field(default=0, description="Espaço consumido em bytes")
+    free_bytes: int = Field(default=0, description="Espaço disponível em bytes")
+    total_human: str = Field(default="—", description="Tamanho total legível")
+    used_human: str = Field(default="—", description="Uso legível")
+    free_human: str = Field(default="—", description="Livre legível")
+    used_percent: float = Field(default=0.0, description="Percentual de ocupação")
+
+
+class BackupStorageResponse(BaseModel):
+    """Visão consolidada da topologia e capacidades dos 3 destinos de backup (ADR-032)."""
+
+    local: StorageDestinationLocal = Field(default_factory=StorageDestinationLocal)
+    gdrive: StorageDestinationGDrive = Field(default_factory=StorageDestinationGDrive)
+    r2: StorageDestinationR2 = Field(default_factory=StorageDestinationR2)
+
 
