@@ -250,3 +250,70 @@ async def test_gdrive_callback_api(
             assert data["configured"] is True
             assert data["authorized"] is True
 
+
+@pytest.mark.asyncio
+async def test_get_backup_storage_success(
+    backup_test_app: FastAPI,
+    admin_token: str,
+) -> None:
+    """Valida retorno do endpoint /storage com capacidades e métricas dos 3 destinos."""
+    from src.contexts.system.schemas.backup import (
+        BackupStorageResponse,
+        StorageDestinationGDrive,
+        StorageDestinationLocal,
+        StorageDestinationR2,
+    )
+
+    mock_resp = BackupStorageResponse(
+        local=StorageDestinationLocal(
+            status="ONLINE & SINCRONIZADO",
+            path="/var/backups/infrawatch",
+            total_bytes=35651584000,
+            used_bytes=26306560000,
+            free_bytes=7515024000,
+            total_human="33.2 GB",
+            used_human="24.5 GB",
+            free_human="7.0 GB",
+            used_percent=73.8,
+        ),
+        gdrive=StorageDestinationGDrive(
+            status="CONECTADO (OAUTH2)",
+            configured=True,
+            authorized=True,
+            email="ndondadaniel2020@gmail.com",
+            total_human="5.0 TB",
+            used_human="8.7 GB",
+            free_human="4.99 TB",
+            used_percent=0.2,
+        ),
+        r2=StorageDestinationR2(
+            status="ATIVO (ZERO EGRESS)",
+            configured=True,
+            bucket="infrawatch-backup-luanda-dr",
+            total_human="10 GB",
+            used_human="6.4 GB",
+            free_human="3.6 GB",
+            used_percent=64.0,
+        ),
+    )
+
+    with patch(
+        "src.contexts.system.api.routes.backup.BackupService.get_storage_status",
+        new=AsyncMock(return_value=mock_resp),
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=backup_test_app),
+            base_url="http://test",
+        ) as client:
+            resp = await client.get(
+                "/api/v1/system/backup/storage",
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+            assert resp.status_code == status.HTTP_200_OK
+            data = resp.json()
+            assert data["local"]["total_human"] == "33.2 GB"
+            assert data["local"]["used_percent"] == 73.8
+            assert data["gdrive"]["email"] == "ndondadaniel2020@gmail.com"
+            assert data["r2"]["bucket"] == "infrawatch-backup-luanda-dr"
+
+

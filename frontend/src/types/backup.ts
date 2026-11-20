@@ -97,6 +97,62 @@ export interface BackupMetricsSummary {
   isCompliant?: boolean;
 }
 
+export interface StorageDestinationLocal {
+  status: string;
+  path: string;
+  total_bytes: number;
+  used_bytes: number;
+  free_bytes: number;
+  total_human: string;
+  used_human: string;
+  free_human: string;
+  used_percent: number;
+  backups_size_bytes: number;
+  backups_size_human: string;
+  retention_policy: string;
+  io_latency: string;
+}
+
+export interface StorageDestinationGDrive {
+  status: string;
+  configured: boolean;
+  authorized: boolean;
+  email?: string | null;
+  display_name?: string | null;
+  remote_directory: string;
+  retention_policy: string;
+  total_bytes: number;
+  used_bytes: number;
+  free_bytes: number;
+  total_human: string;
+  used_human: string;
+  free_human: string;
+  used_percent: number;
+}
+
+export interface StorageDestinationR2 {
+  status: string;
+  configured: boolean;
+  authorized: boolean;
+  bucket: string;
+  replication: string;
+  egress_fee: string;
+  total_bytes: number;
+  used_bytes: number;
+  free_bytes: number;
+  total_human: string;
+  used_human: string;
+  free_human: string;
+  used_percent: number;
+}
+
+export interface BackupStorageResponse {
+  local: StorageDestinationLocal;
+  gdrive: StorageDestinationGDrive;
+  r2: StorageDestinationR2;
+}
+
+
 export interface PipelineStageConfig {
   id: BackupStage;
   order: number;

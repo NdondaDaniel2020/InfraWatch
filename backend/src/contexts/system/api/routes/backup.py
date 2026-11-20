@@ -14,6 +14,7 @@ from src.contexts.system.api.dependencies import (
 )
 from src.contexts.system.schemas.backup import (
     BackupHistoryResponse,
+    BackupStorageResponse,
     BackupTriggerRequest,
     BackupTriggerResponse,
     GDriveAuthUrlResponse,
@@ -89,6 +90,19 @@ async def list_backup_history(
 ) -> BackupHistoryResponse:
     """Retorna listagem dos backups disponíveis no volume local com tamanhos e hashes SHA-256."""
     return await service.get_backup_history()
+
+
+@router.get(
+    "/storage",
+    response_model=BackupStorageResponse,
+    summary="Obter métricas e capacidade de armazenamento dos 3 destinos de backup",
+)
+async def get_backup_storage(
+    service: BackupServiceDep,
+) -> BackupStorageResponse:
+    """Retorna espaço total, usado e livre no host local (NVMe), Google Drive e Cloudflare R2."""
+    return await service.get_storage_status()
+
 
 
 @router.get(
