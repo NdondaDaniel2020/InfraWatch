@@ -138,6 +138,11 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     });
   }, [devices, severityFilter, tenantFilter]);
 
+  // Exibe no máximo 4 ativos em destaque no Cockpit NOC
+  const displayedDevices = useMemo(() => {
+    return filteredDevices.slice(0, 4);
+  }, [filteredDevices]);
+
   // Contadores para o Ticker e Toolbar
   const stats = useMemo(() => {
     const total = devices.length;
@@ -369,14 +374,14 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
                   </Link>
                 </div>
 
-                {/* Grade de Dispositivos Monitorados */}
+                {/* Grade de Dispositivos Monitorados (4 ativos em destaque no Cockpit) */}
                 <div
                   data-testid="devices-grid"
                   aria-label="Dispositivos Monitorados"
                   className="grid grid-cols-1 md:grid-cols-2 gap-4"
                 >
-                  {filteredDevices.length > 0 ? (
-                    filteredDevices.map((device) => (
+                  {displayedDevices.length > 0 ? (
+                    displayedDevices.map((device) => (
                       <DeviceCard
                         key={device.device_id}
                         device={device}
