@@ -274,7 +274,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
               size="sm"
               icon={<PlusCircle size={16} />}
             >
-              + Agendar Nova Parada Técnica
+              Agendar Nova Parada Técnica
             </Button>
           )}
         </div>
