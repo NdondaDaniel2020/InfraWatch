@@ -43,7 +43,7 @@ export const SecuritySettingsPage: React.FC = () => {
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [sessionPage, setSessionPage] = useState(1);
-  const [sessionPageSize, setSessionPageSize] = useState(10);
+  const [sessionPageSize, setSessionPageSize] = useState(5);
   const [feedbackMessage, setFeedbackMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -415,7 +415,7 @@ export const SecuritySettingsPage: React.FC = () => {
                 pageSize={sessionPageSize}
                 onPageChange={setSessionPage}
                 onPageSizeChange={handleSessionPageSizeChange}
-                pageSizeOptions={[5, 10, 20, 50]}
+                pageSizeOptions={[5]}
                 itemLabel="sessões"
                 testIdPrefix="sessions-pagination"
                 className="rounded-xl border border-white/5 mt-2"

@@ -423,12 +423,12 @@ describe("Módulo de Autenticação, IAM & Segurança (Issue #216)", () => {
         </AuthProvider>
       );
 
-      // Página 1: dispositivos 1 a 10 visíveis, dispositivo 11 não visível
+      // Página 1: dispositivos 1 a 5 visíveis, dispositivo 6 não visível
       expect(await screen.findByText("Dispositivo #1")).toBeInTheDocument();
-      expect(screen.getByText("Dispositivo #10")).toBeInTheDocument();
-      expect(screen.queryByText("Dispositivo #11")).not.toBeInTheDocument();
+      expect(screen.getByText("Dispositivo #5")).toBeInTheDocument();
+      expect(screen.queryByText("Dispositivo #6")).not.toBeInTheDocument();
 
-      // Paginação informando 1 a 10 de 15
+      // Paginação informando 1 a 5 de 15
       expect(screen.getByTestId("sessions-pagination-container")).toBeInTheDocument();
       expect(screen.getByText(/mostrando/i)).toBeInTheDocument();
 
@@ -436,9 +436,9 @@ describe("Módulo de Autenticação, IAM & Segurança (Issue #216)", () => {
       const nextBtn = screen.getByTestId("sessions-pagination-next");
       await user.click(nextBtn);
 
-      // Página 2: dispositivos 11 a 15 visíveis, dispositivo 1 não visível
-      expect(await screen.findByText("Dispositivo #11")).toBeInTheDocument();
-      expect(screen.getByText("Dispositivo #15")).toBeInTheDocument();
+      // Página 2: dispositivos 6 a 10 visíveis, dispositivo 1 não visível
+      expect(await screen.findByText("Dispositivo #6")).toBeInTheDocument();
+      expect(screen.getByText("Dispositivo #10")).toBeInTheDocument();
       expect(screen.queryByText("Dispositivo #1")).not.toBeInTheDocument();
     });
 
