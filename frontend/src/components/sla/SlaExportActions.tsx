@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { FileSpreadsheet, Code2, Loader2 } from "lucide-react";
-import { Button } from "../ui";
 import type { SlaExportFormat, SlaMetricOverview, SlaDeviceBreakdown } from "../../types/sla";
 import { toast } from "sonner";
 
@@ -38,7 +37,6 @@ export const SlaExportActions: React.FC<SlaExportActionsProps> = ({
       const filename = `relatorio-sla-${tenantId}-${timestamp}.${format}`;
 
       if (format === "csv") {
-        // Gerar CSV analítico com cabeçalhos padrão
         const headers = [
           "Ativo",
           "IP",
@@ -81,7 +79,6 @@ export const SlaExportActions: React.FC<SlaExportActionsProps> = ({
 
         downloadFile(csvContent, filename, "text/csv;charset=utf-8;");
       } else {
-        // Gerar JSON estruturado
         const jsonPayload = {
           reportTitle: `Relatório Analítico de SLA - ${tenantName}`,
           tenantId,
@@ -106,40 +103,34 @@ export const SlaExportActions: React.FC<SlaExportActionsProps> = ({
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      <Button
+    <div className="flex items-center gap-2">
+      <button
         type="button"
         onClick={() => handleExport("csv")}
         disabled={isExporting !== null}
-        variant="ghost"
-        size="sm"
-        icon={
-          isExporting === "csv" ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <FileSpreadsheet size={14} />
-          )
-        }
+        className="h-9 px-3 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-50"
       >
-        CSV
-      </Button>
+        {isExporting === "csv" ? (
+          <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+        ) : (
+          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+        )}
+        <span>CSV</span>
+      </button>
 
-      <Button
+      <button
         type="button"
         onClick={() => handleExport("json")}
         disabled={isExporting !== null}
-        variant="ghost"
-        size="sm"
-        icon={
-          isExporting === "json" ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Code2 size={14} />
-          )
-        }
+        className="h-9 px-3 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-50"
       >
-        JSON
-      </Button>
+        {isExporting === "json" ? (
+          <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+        ) : (
+          <Code2 className="w-4 h-4 text-sky-400" />
+        )}
+        <span>JSON</span>
+      </button>
     </div>
   );
 };

@@ -10,11 +10,12 @@ export interface SlaEndpointsTableProps {
 
 export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
   endpoints,
-  targetSlaPct = 99.50,
+  targetSlaPct = 99.5,
   itemsPerPage = 5,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(itemsPerPage);
 
   const filteredEndpoints = useMemo(() => {
     if (!searchTerm.trim()) return endpoints;
@@ -27,70 +28,75 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
     );
   }, [endpoints, searchTerm]);
 
-  // Reset page when search term changes
   React.useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredEndpoints.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(filteredEndpoints.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
   const paginatedEndpoints = useMemo(() => {
-    const startIndex = (safeCurrentPage - 1) * itemsPerPage;
-    return filteredEndpoints.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredEndpoints, safeCurrentPage, itemsPerPage]);
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return filteredEndpoints.slice(startIndex, startIndex + pageSize);
+  }, [filteredEndpoints, safeCurrentPage, pageSize]);
+
+  const startRecord = filteredEndpoints.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
+  const endRecord = Math.min(safeCurrentPage * pageSize, filteredEndpoints.length);
 
   return (
     <section
       data-testid="sla-endpoints-table"
       aria-label="Detalhamento de SLA dos Endpoints Sanitizados"
-      className="p-5 sm:p-6 rounded-2xl bg-[#0d1424] border border-white/10 flex flex-col gap-4 shadow-sm"
+      className="bg-obsidian-900 border border-obsidian-800 rounded-xl overflow-hidden shadow-lg flex flex-col gap-0"
     >
       {/* Cabeçalho da Tabela e Barra de Busca */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+      <div className="p-4 border-b border-obsidian-800 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-obsidian-900">
         <div className="flex items-center gap-2">
-          <Globe size={18} className="text-emerald-400" />
-          <h3 className="text-sm font-bold text-white m-0">
+          <Globe className="w-5 h-5 text-emerald-400 shrink-0" />
+          <h2 className="text-sm md:text-base font-display font-bold text-white">
             Detalhamento de SLA por Endpoint Contratado
-          </h3>
+          </h2>
         </div>
 
         {/* Campo de Busca */}
-        <div className="relative w-full sm:w-64">
-          <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
-          <input
-            type="text"
-            data-testid="sla-endpoint-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar endpoint, serviço ou DC..."
-            className="w-full bg-[#080c14] border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              data-testid="sla-endpoint-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar endpoint, serviço ou DC..."
+              className="bg-obsidian-950 border border-obsidian-800 rounded-lg pl-8 pr-3 py-1.5 font-mono text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 w-full"
+            />
+          </div>
+          <span className="text-xs font-mono text-slate-400 whitespace-nowrap shrink-0">
+            Endpoints: <strong className="text-white">{filteredEndpoints.length}</strong>
+            {filteredEndpoints.length !== endpoints.length && ` de ${endpoints.length}`}
+          </span>
         </div>
       </div>
 
       {/* Tabela de Dados */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
+        <table className="w-full text-left border-collapse text-xs" id="sla-endpoints-table-body">
           <thead>
-            <tr className="border-b border-white/10 font-mono text-slate-400 uppercase text-[10.5px]">
-              <th className="py-2.5 px-3">Endpoint / FQDN</th>
-              <th className="py-2.5 px-3">Serviço Contratado</th>
-              <th className="py-2.5 px-3">Protocolo</th>
-              <th className="py-2.5 px-3 text-center">Status Atual</th>
-              <th className="py-2.5 px-3 text-right">SLA no Período</th>
-              <th className="py-2.5 px-3 text-right">Latência Média</th>
-              <th className="py-2.5 px-3">Região / DC</th>
-              <th className="py-2.5 px-3 text-right">Conformidade</th>
+            <tr className="bg-obsidian-950/60 border-b border-obsidian-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+              <th className="py-3 px-4">ENDPOINT / FQDN</th>
+              <th className="py-3 px-4">SERVIÇO CONTRATADO</th>
+              <th className="py-3 px-4">PROTOCOLO</th>
+              <th className="py-3 px-4 text-center">STATUS ATUAL</th>
+              <th className="py-3 px-4 text-center">SLA NO PERÍODO</th>
+              <th className="py-3 px-4 text-center">LATÊNCIA MÉDIA</th>
+              <th className="py-3 px-4">REGIÃO / DC</th>
+              <th className="py-3 px-4 text-right">CONFORMIDADE</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 font-mono">
+          <tbody className="divide-y divide-obsidian-800/80 font-mono">
             {paginatedEndpoints.length === 0 ? (
               <tr>
-                <td
-                  colSpan={8}
-                  className="py-8 text-center text-slate-400 font-sans"
-                >
+                <td colSpan={8} className="py-8 text-center text-slate-500 font-sans">
                   Nenhum endpoint encontrado para o termo pesquisado.
                 </td>
               </tr>
@@ -104,18 +110,18 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
                   <tr
                     key={ep.id}
                     data-testid={`sla-endpoint-row-${ep.id}`}
-                    className="hover:bg-white/5 transition-colors"
+                    className="hover:bg-obsidian-850/50 transition-colors"
                   >
-                    <td className="py-3 px-3 font-bold text-white">
+                    <td className="py-3 px-4 font-bold text-white font-mono">
                       {ep.domainName}
                     </td>
-                    <td className="py-3 px-3 text-slate-300 font-sans">
+                    <td className="py-3 px-4 text-slate-300 font-sans">
                       {ep.serviceType}
                     </td>
-                    <td className="py-3 px-3 text-slate-400">{ep.protocol}</td>
-                    <td className="py-3 px-3 text-center">
+                    <td className="py-3 px-4 text-slate-400">{ep.protocol}</td>
+                    <td className="py-3 px-4 text-center">
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold ${
                           isUp
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                             : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
@@ -126,7 +132,7 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
                       </span>
                     </td>
                     <td
-                      className={`py-3 px-3 text-right tabular-nums font-bold ${
+                      className={`py-3 px-4 text-center tabular-nums font-bold ${
                         !hasSla
                           ? "text-slate-400"
                           : isCompliant
@@ -136,25 +142,34 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
                     >
                       {hasSla ? `${ep.sla30dPct!.toFixed(2)}%` : "N/D"}
                     </td>
-                    <td className="py-3 px-3 text-right tabular-nums text-slate-200">
+                    <td className="py-3 px-4 text-center tabular-nums text-slate-200">
                       {typeof ep.latencyAvgMs === "number"
                         ? `${ep.latencyAvgMs.toFixed(1)} ms`
                         : "N/D"}
                     </td>
-                    <td className="py-3 px-3 text-slate-400 font-sans">
+                    <td className="py-3 px-4 text-slate-400 font-sans">
                       {ep.datacenterRegion ?? "N/D"}
                     </td>
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-3 px-4 text-right">
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                           !hasSla
                             ? "bg-slate-500/10 text-slate-400 border border-slate-500/20"
                             : isCompliant
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                            : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
                         }`}
                       >
-                        {!hasSla ? "N/D" : isCompliant ? "CONFORME" : "VIOLADO"}
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            !hasSla
+                              ? "bg-slate-400"
+                              : isCompliant
+                              ? "bg-emerald-400"
+                              : "bg-rose-400"
+                          }`}
+                        ></span>
+                        <span>{!hasSla ? "N/D" : isCompliant ? "CONFORME" : "VIOLADO"}</span>
                       </span>
                     </td>
                   </tr>
@@ -166,28 +181,46 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
       </div>
 
       {/* Paginação */}
-      {filteredEndpoints.length > 0 && (
-        <div
-          data-testid="sla-endpoints-pagination"
-          className="flex justify-between items-center pt-3 border-t border-white/10 text-xs font-mono text-slate-400"
-        >
-          <span>
-            Mostrando <strong>{paginatedEndpoints.length}</strong> de <strong>{filteredEndpoints.length}</strong> endpoints
-          </span>
+      <div
+        data-testid="sla-endpoints-pagination"
+        className="px-4 py-3 bg-obsidian-950/60 border-t border-obsidian-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-slate-400"
+      >
+        <span>
+          Mostrando <strong>{startRecord}</strong> a <strong>{endRecord}</strong> de{" "}
+          <strong>{filteredEndpoints.length}</strong> endpoints
+        </span>
 
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-slate-500">Exibir:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-obsidian-900 border border-obsidian-800 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none"
+            >
+              <option value={5}>5 / pág</option>
+              <option value={10}>10 / pág</option>
+              <option value={20}>20 / pág</option>
+              <option value={50}>50 / pág</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               data-testid="pagination-prev"
               disabled={safeCurrentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#080c14] border border-white/10 text-xs text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-obsidian-900 border border-obsidian-800 text-xs text-slate-300 hover:text-white hover:bg-obsidian-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft className="w-3.5 h-3.5" />
               <span>Anterior</span>
             </button>
 
-            <span>
+            <span className="px-2 text-slate-300">
               Página <strong>{safeCurrentPage}</strong> de <strong>{totalPages}</strong>
             </span>
 
@@ -196,14 +229,14 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
               data-testid="pagination-next"
               disabled={safeCurrentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#080c14] border border-white/10 text-xs text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-obsidian-900 border border-obsidian-800 text-xs text-slate-300 hover:text-white hover:bg-obsidian-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <span>Próxima</span>
-              <ChevronRight size={14} />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-      )}
+      </div>
     </section>
   );
 };
