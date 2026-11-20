@@ -27,13 +27,14 @@ const protocolIcons: Record<ProberProtocol, string> = {
   SNMP: "📊",
 };
 
-const categoryOptions: { value: DeviceCategory; label: string }[] = [
+const categoryOptions: { value: DeviceCategory | "CONTAINER"; label: string }[] = [
   { value: "ROUTER", label: "Roteador" },
   { value: "SWITCH", label: "Switch" },
   { value: "FIREWALL", label: "Firewall" },
   { value: "SERVER", label: "Servidor" },
   { value: "DATABASE", label: "Banco de Dados" },
   { value: "LOAD_BALANCER", label: "Load Balancer" },
+  { value: "CONTAINER", label: "Container" },
   { value: "OTHER", label: "Outro" },
 ];
 
@@ -149,7 +150,7 @@ export const DeviceListPage: React.FC = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<DeviceFilters>({
     page: 1,
-    pageSize: 20,
+    pageSize: 10,
     search: "",
     category: undefined,
     healthStatus: undefined,
@@ -242,19 +243,20 @@ export const DeviceListPage: React.FC = () => {
   }, []);
 
   const handleCategoryChange = useCallback((category: DeviceCategory | undefined) => {
-    setFilters((prev) => ({ ...prev, category, page: 1 }));
+    setFilters((prev) => ({ ...prev, category: category || undefined, page: 1 }));
   }, []);
 
   const handleCategoryChangeFromEvent = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    handleCategoryChange(e.target.value as DeviceCategory | undefined);
-  }, []);
+    const val = e.target.value.trim();
+    handleCategoryChange(val ? (val as DeviceCategory) : undefined);
+  }, [handleCategoryChange]);
 
   const handleStatusChange = useCallback((healthStatus: DeviceHealthStatus | undefined) => {
-    setFilters((prev) => ({ ...prev, healthStatus, page: 1 }));
+    setFilters((prev) => ({ ...prev, healthStatus: healthStatus || undefined, page: 1 }));
   }, []);
 
   const handleProtocolChange = useCallback((protocol: ProberProtocol | undefined) => {
-    setFilters((prev) => ({ ...prev, protocol, page: 1 }));
+    setFilters((prev) => ({ ...prev, protocol: protocol || undefined, page: 1 }));
   }, []);
 
   const handleSearchChange = useCallback((value: string) => {
@@ -268,7 +270,7 @@ export const DeviceListPage: React.FC = () => {
   const totalItems = data?.total ?? 0;
   const totalPages = data?.totalPages ?? 1;
   const currentPage = data?.page ?? 1;
-  const pageSize = data?.pageSize ?? 20;
+  const pageSize = data?.pageSize ?? 10;
   const devices = data?.items ?? [];
 
   return (
@@ -363,7 +365,10 @@ export const DeviceListPage: React.FC = () => {
             <select
               id="device-status-filter"
               value={filters.healthStatus || ""}
-              onChange={(e) => handleStatusChange(e.target.value as DeviceHealthStatus | undefined)}
+              onChange={(e) => {
+                const val = e.target.value.trim();
+                handleStatusChange(val ? (val as DeviceHealthStatus) : undefined);
+              }}
               style={{
                 padding: "10px 12px",
                 backgroundColor: "var(--color-surface-elevated)",
@@ -390,7 +395,10 @@ export const DeviceListPage: React.FC = () => {
             <select
               id="device-protocol-filter"
               value={filters.protocol || ""}
-              onChange={(e) => handleProtocolChange(e.target.value as ProberProtocol | undefined)}
+              onChange={(e) => {
+                const val = e.target.value.trim();
+                handleProtocolChange(val ? (val as ProberProtocol) : undefined);
+              }}
               style={{
                 padding: "10px 12px",
                 backgroundColor: "var(--color-surface-elevated)",
@@ -479,7 +487,7 @@ export const DeviceListPage: React.FC = () => {
                   }}
                   data-testid="page-size-select"
                 >
-                  {[10, 20, 50, 100].map((size) => (
+                  {[10].map((size) => (
                     <option key={size} value={size}>{size} por página</option>
                   ))}
                 </select>

@@ -156,11 +156,11 @@ describe("Inventory Management — Issue #217", () => {
       expect(screen.getByRole("combobox", { name: /itens por página/i })).toBeInTheDocument();
 
       const pageSizeSelect = screen.getByRole("combobox", { name: /itens por página/i });
-      fireEvent.change(pageSizeSelect, { target: { value: "50" } });
+      fireEvent.change(pageSizeSelect, { target: { value: "10" } });
 
       await waitFor(() => {
         expect(devicesApi.listDevices).toHaveBeenCalledWith(
-          expect.objectContaining({ pageSize: 50, page: 1 })
+          expect.objectContaining({ pageSize: 10, page: 1 })
         );
       });
     });

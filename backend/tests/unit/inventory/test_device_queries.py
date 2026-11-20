@@ -67,9 +67,20 @@ def test_sanitize_detail():
 
 
 def test_device_filters_creation():
-    f = DeviceFilters(status="UP", category="ROUTER", protocol="snmp", is_paused=False)
+    f = DeviceFilters(
+        status="UP",
+        health_status="DOWN",
+        category="ROUTER",
+        protocol="snmp",
+        is_paused=False,
+        search="gateway",
+        q="router-01",
+    )
     assert f.status == "UP"
+    assert f.health_status == "DOWN"
     assert f.category == "ROUTER"
+    assert f.search == "gateway"
+    assert f.q == "router-01"
 
 
 def test_pagination_params():

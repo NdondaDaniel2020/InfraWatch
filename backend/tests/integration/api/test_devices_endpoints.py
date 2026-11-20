@@ -108,6 +108,51 @@ async def test_create_and_list_device(override_get_db):
 
 
 @pytest.mark.asyncio
+async def test_list_devices_with_filters(override_get_db):
+    org_id = str(uuid4())
+    token = generate_token("ORG_ADMIN", org_id)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # Create 2 devices
+        await client.post(
+            "/api/v1/devices/",
+            json={"name": "Core-Router", "ip_address": "10.0.1.1", "port": 0, "protocol": "icmp", "category": "ROUTER"},
+            headers=headers,
+        )
+        await client.post(
+            "/api/v1/devices/",
+            json={"name": "App-Server", "ip_address": "192.168.1.50", "port": 80, "protocol": "http", "category": "SERVER"},
+            headers=headers,
+        )
+
+        # 1. Search by name/IP
+        resp_search = await client.get("/api/v1/devices/?search=Core", headers=headers)
+        assert resp_search.status_code == status.HTTP_200_OK
+        assert resp_search.json()["total"] == 1
+        assert resp_search.json()["items"][0]["name"] == "Core-Router"
+
+        # 2. Protocol case-insensitive (ICMP uppercase should match icmp)
+        resp_proto = await client.get("/api/v1/devices/?protocol=ICMP", headers=headers)
+        assert resp_proto.status_code == status.HTTP_200_OK
+        assert resp_proto.json()["total"] == 1
+        assert resp_proto.json()["items"][0]["name"] == "Core-Router"
+
+        # 3. Category case-insensitive
+        resp_cat = await client.get("/api/v1/devices/?category=server", headers=headers)
+        assert resp_cat.status_code == status.HTTP_200_OK
+        assert resp_cat.json()["total"] == 1
+        assert resp_cat.json()["items"][0]["name"] == "App-Server"
+
+        # 4. Health status alias (health_status=UP)
+        resp_status = await client.get("/api/v1/devices/?health_status=UP", headers=headers)
+        assert resp_status.status_code == status.HTTP_200_OK
+        assert resp_status.json()["total"] == 2
+
+
+@pytest.mark.asyncio
 async def test_search_device(override_get_db):
     org_id = str(uuid4())
     token = generate_token("NOC_OPERATOR", org_id)

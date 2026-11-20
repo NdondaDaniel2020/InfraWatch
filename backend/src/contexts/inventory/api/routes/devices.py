@@ -143,7 +143,8 @@ async def list_devices(
     org_id: UUID | None = None,
 ):
     """Lista dispositivos da organização com filtros e paginação."""
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
     is_viewer = user.role == UserRole.CLIENT_VIEWER.value
 
     return await query_service.list_devices(
@@ -163,7 +164,8 @@ async def search_devices(
     org_id: UUID | None = None,
 ):
     """Busca Full-Text por dispositivos na organização."""
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
     is_viewer = user.role == UserRole.CLIENT_VIEWER.value
 
     return await query_service.search_devices(
@@ -182,7 +184,8 @@ async def get_device(
     org_id: UUID | None = None,
 ):
     """Obtém os detalhes de um dispositivo."""
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
     is_viewer = user.role == UserRole.CLIENT_VIEWER.value
 
     device = await query_service.get_device_detail(target_org, device_id, is_viewer=is_viewer)
@@ -203,7 +206,8 @@ async def update_device(
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Atualiza propriedades de um dispositivo."""
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
 
     await command_service.update_device(
         cmd=payload,
@@ -228,7 +232,8 @@ async def pause_device(
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Pausa o monitoramento de um dispositivo."""
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
 
     await command_service.pause_device(
         cmd=payload,
@@ -253,7 +258,8 @@ async def resume_device(
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Retoma o monitoramento de um dispositivo pausado."""
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
 
     await command_service.resume_device(
         cmd=payload,
@@ -278,7 +284,8 @@ async def set_maintenance(
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Agenda janela de manutenção para um dispositivo."""
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
 
     await command_service.set_maintenance(
         cmd=payload,
@@ -332,7 +339,8 @@ async def probe_device(
     from src.workers.probers.executor import ProbeExecutor
     from src.workers.scheduler.in_memory_inventory import ProbeTarget
 
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
     device = await query_service.get_device_detail(target_org, device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
@@ -377,7 +385,8 @@ async def get_device_interfaces(
     org_id: UUID | None = None,
 ):
     """Retorna a matriz de interfaces de rede do dispositivo."""
-    target_org = UUID(enforce_tenant_scope(org_id, user))
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
     device = await query_service.get_device_detail(target_org, device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Dispositivo não encontrado")

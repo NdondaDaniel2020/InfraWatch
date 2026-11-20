@@ -49,7 +49,7 @@ export function normalizeDeviceListItem(raw: any): DeviceListItem {
 
 function normalizePaginatedDevices(res: any): PaginatedResponse<DeviceListItem> {
   const rawItems = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
-  const pageSize = res?.pageSize ?? res?.page_size ?? 20;
+  const pageSize = res?.pageSize ?? res?.page_size ?? 10;
   const total = res?.total ?? rawItems.length;
   const totalPages = res?.totalPages ?? res?.total_pages ?? Math.max(1, Math.ceil(total / (pageSize || 1)));
 
@@ -76,9 +76,10 @@ export const devicesApi = {
   async listDevices(filters: DeviceFilters = {}): Promise<PaginatedResponse<DeviceListItem>> {
     const query = buildQueryString({
       page: filters.page ?? 1,
-      page_size: filters.pageSize ?? 20,
+      page_size: filters.pageSize ?? 10,
       search: filters.search,
       category: filters.category,
+      status: filters.healthStatus,
       health_status: filters.healthStatus,
       protocol: filters.protocol,
       sort_by: filters.sortBy,
