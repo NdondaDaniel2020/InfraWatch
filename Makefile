@@ -314,15 +314,19 @@ front-build:
 	cd frontend && npm run build
 	@if docker ps -q -f name=infrawatch-frontend | grep -q .; then \
 		echo "Sincronizando dist para o container infrawatch-frontend..."; \
+		docker exec infrawatch-frontend sh -c "rm -rf /usr/share/nginx/html/*" 2>/dev/null || true; \
 		docker cp frontend/dist/. infrawatch-frontend:/usr/share/nginx/html/; \
-		echo "Volume compartilhado frontend_dist atualizado com sucesso."; \
+		docker compose exec -T infrawatch-gateway nginx -s reload 2>/dev/null || true; \
+		echo "Volume compartilhado frontend_dist atualizado e Nginx Gateway recarregado com sucesso."; \
 	fi
 
 front-sync:
 	@if docker ps -q -f name=infrawatch-frontend | grep -q .; then \
 		echo "Sincronizando dist para o container infrawatch-frontend..."; \
+		docker exec infrawatch-frontend sh -c "rm -rf /usr/share/nginx/html/*" 2>/dev/null || true; \
 		docker cp frontend/dist/. infrawatch-frontend:/usr/share/nginx/html/; \
-		echo "Volume compartilhado frontend_dist atualizado com sucesso."; \
+		docker compose exec -T infrawatch-gateway nginx -s reload 2>/dev/null || true; \
+		echo "Volume compartilhado frontend_dist atualizado e Nginx Gateway recarregado com sucesso."; \
 	else \
 		echo "Container infrawatch-frontend não está em execução."; \
 	fi
