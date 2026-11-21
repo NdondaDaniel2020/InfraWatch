@@ -151,6 +151,7 @@ build:
 
 up: secrets-init certs
 	docker compose up -d
+	@docker compose exec -T infrawatch-gateway nginx -s reload 2>/dev/null || true
 
 down:
 	docker compose --profile whatsapp down
@@ -242,6 +243,7 @@ test-notif:
 	@cd backend && .venv/bin/python ../scripts/test_notifications.py $(ARGS)
 
 integration-up: up glpi-up zabbix-up bootstrap-integrations
+	@docker compose exec -T infrawatch-gateway nginx -s reload 2>/dev/null || true
 
 integration-down: down glpi-down zabbix-down
 
