@@ -15,7 +15,18 @@ from uuid import UUID
 # Enums de Domínio
 # ---------------------------------------------------------------------------
 
-VALID_NODE_TYPES = frozenset({"device", "service", "external", "cluster"})
+VALID_NODE_TYPES = frozenset({
+    "device",
+    "service",
+    "external",
+    "cluster",
+    "router",
+    "switch",
+    "server",
+    "database",
+    "workload",
+    "container",
+})
 VALID_LINK_TYPES = frozenset({"fiber", "ethernet", "vpn", "logical", "wireless"})
 
 
@@ -123,8 +134,10 @@ class TopologyNode:
     def _validate(self) -> None:
         if not self.label or not self.label.strip():
             raise TopologyDomainError("O campo 'label' do nó não pode ser vazio.")
-        if self.node_type not in VALID_NODE_TYPES:
+        normalized_type = self.node_type.strip().lower() if self.node_type else ""
+        if normalized_type not in VALID_NODE_TYPES:
             raise InvalidNodeTypeError(self.node_type)
+        self.node_type = normalized_type
 
     def update_position(self, x: float, y: float) -> None:
         """Atualiza as coordenadas visuais do nó no canvas."""
@@ -178,8 +191,10 @@ class TopologyEdge:
     def _validate(self) -> None:
         if self.source_node_id == self.target_node_id:
             raise SelfLoopEdgeError(self.source_node_id)
-        if self.link_type not in VALID_LINK_TYPES:
+        normalized_link = self.link_type.strip().lower() if self.link_type else ""
+        if normalized_link not in VALID_LINK_TYPES:
             raise InvalidLinkTypeError(self.link_type)
+        self.link_type = normalized_link
         if self.bandwidth_gbps is not None and self.bandwidth_gbps <= 0:
             raise TopologyDomainError(
                 f"bandwidth_gbps deve ser positivo, recebido: {self.bandwidth_gbps}"

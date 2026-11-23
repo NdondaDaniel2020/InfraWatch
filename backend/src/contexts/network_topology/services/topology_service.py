@@ -83,7 +83,7 @@ class TopologyService:
         device_enrichments: dict[UUID, dict[str, Any]] = {}
 
         if device_ids:
-            devices = await self._device_repo.find_by_ids(device_ids, organization_id)
+            devices = await self._device_repo.find_by_ids(device_ids)
             for dev in devices:
                 device_enrichments[dev.id] = {
                     "status": dev.status,

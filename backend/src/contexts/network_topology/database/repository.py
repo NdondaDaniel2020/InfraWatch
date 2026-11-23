@@ -33,7 +33,11 @@ class TopologyRepository:
         """Retorna o grafo completo (nós + enlaces) de uma organização."""
         nodes = await self.list_nodes(organization_id)
         edges = await self.list_edges(organization_id)
-        return TopologyGraph(nodes=nodes, edges=edges)
+        node_ids = {n.id for n in nodes}
+        valid_edges = [
+            e for e in edges if e.source_node_id in node_ids and e.target_node_id in node_ids
+        ]
+        return TopologyGraph(nodes=nodes, edges=valid_edges)
 
     async def get_default_organization_id(self) -> UUID | None:
         """Retorna o ID da primeira organização com nós no grafo topológico."""

@@ -161,7 +161,11 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
     if (categoryFilter === "all") return sourceNodes;
     return sourceNodes.filter((n) => {
       const devData = n.data as unknown as TopologyDeviceData;
-      return devData.category === categoryFilter;
+      const cat = (devData.category || "").toLowerCase();
+      if (categoryFilter === "workload") {
+        return cat === "workload" || cat === "server" || cat === "database";
+      }
+      return cat === categoryFilter;
     });
   }, [nodes, initialNodes, categoryFilter]);
 
@@ -276,7 +280,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
               fitViewOptions={{ padding: 0.15 }}
               minZoom={0.2}
               maxZoom={2.5}
-              className="bg-obsidian-950"
+              className="w-full h-full bg-obsidian-950"
               proOptions={{ hideAttribution: true }}
             >
               <Background color="#2a395e" gap={24} size={1} />
