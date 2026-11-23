@@ -37,7 +37,6 @@ export const SlaReportsPage: React.FC = () => {
     isGlobalOperator ? "devices" : "endpoints"
   );
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [forcedState, setForcedState] = useState<"nominal" | "skeleton" | "empty" | "error" | null>(null);
 
   const {
     data: organizationsData,
@@ -98,7 +97,7 @@ export const SlaReportsPage: React.FC = () => {
       (!isGlobalOperator || tableViewMode === "endpoints"),
   });
 
-  const detectedState =
+  const currentState =
     (isGlobalOperator && isLoadingOrganizations) || isOverviewLoading
       ? "skeleton"
       : (isGlobalOperator && isOrganizationsError) || isError
@@ -106,8 +105,6 @@ export const SlaReportsPage: React.FC = () => {
       : !overview
       ? "empty"
       : "nominal";
-
-  const currentState = forcedState ?? detectedState;
 
   const errorMessage =
     error?.message ||
@@ -199,59 +196,8 @@ export const SlaReportsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Ações de Estado & Exportação */}
+        {/* Ações de Exportação */}
         <div className="flex items-center flex-wrap gap-2.5 shrink-0">
-          {/* Seletor Interativo de Estados (Nominal / Skeleton / Vazio / Erro Calc) */}
-          <div className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-lg border border-obsidian-800 text-xs font-mono">
-            <span className="text-slate-500 px-2 text-[11px] uppercase tracking-wider font-semibold">
-              Estado:
-            </span>
-            <button
-              type="button"
-              onClick={() => setForcedState(null)}
-              className={`px-2 py-1 rounded font-semibold transition-colors cursor-pointer ${
-                currentState === "nominal"
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                  : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-              }`}
-            >
-              Nominal
-            </button>
-            <button
-              type="button"
-              onClick={() => setForcedState("skeleton")}
-              className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-                currentState === "skeleton"
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"
-                  : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-              }`}
-            >
-              Skeleton
-            </button>
-            <button
-              type="button"
-              onClick={() => setForcedState("empty")}
-              className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-                currentState === "empty"
-                  ? "bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold"
-                  : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-              }`}
-            >
-              Vazio
-            </button>
-            <button
-              type="button"
-              onClick={() => setForcedState("error")}
-              className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-                currentState === "error"
-                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold"
-                  : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-              }`}
-            >
-              Erro Calc
-            </button>
-          </div>
-
           {/* Exportações CSV / JSON e PDF Executivo */}
           {overview && effectiveTenantId && (
             <>
@@ -298,7 +244,6 @@ export const SlaReportsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setForcedState(null);
               if (isGlobalOperator) refetchOrganizations();
               refetch();
             }}
@@ -424,7 +369,6 @@ export const SlaReportsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setForcedState(null);
                 refetch();
               }}
               className="px-4 py-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 text-slate-200 text-xs font-mono transition-colors cursor-pointer"
