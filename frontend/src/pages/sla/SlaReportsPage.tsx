@@ -97,6 +97,15 @@ export const SlaReportsPage: React.FC = () => {
       (!isGlobalOperator || tableViewMode === "endpoints"),
   });
 
+  const {
+    data: dailySlaData,
+    isLoading: isDailyLoading,
+  } = useQuery({
+    queryKey: ["slaDaily", effectiveTenantId, selectedPeriod],
+    queryFn: () => slaApi.getDailySla(effectiveTenantId!, selectedPeriod),
+    enabled: Boolean(effectiveTenantId),
+  });
+
   const currentState =
     (isGlobalOperator && isLoadingOrganizations) || isOverviewLoading
       ? "skeleton"
@@ -387,6 +396,8 @@ export const SlaReportsPage: React.FC = () => {
 
           {/* Gráfico Histograma Diário de SLA (31 Dias com Linha de Corte 99.50%) */}
           <SlaDailyHistogram
+            data={dailySlaData}
+            isLoading={isDailyLoading}
             targetSlaPct={overview.targetSlaPct}
             periodLabel={overview.periodLabel || "Mês Vigente"}
           />

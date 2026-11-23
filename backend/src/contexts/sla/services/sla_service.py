@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 import html
 import logging
@@ -26,6 +27,8 @@ from src.contexts.sla.schemas.requests import (
 from src.contexts.sla.schemas.responses import (
     MaintenanceKpiSummaryResponse,
     MaintenanceWindowResponse,
+    OrganizationDailySlaItem,
+    OrganizationDailySlaResponse,
     OrganizationSlaHistoryItem,
     OrganizationSlaHistoryResponse,
     OrganizationSlaReportDetailsResponse,
@@ -737,4 +740,232 @@ class SlaService:
             glpi_ticket_id=glpi_ticket_id,
             message=success_msg,
         )
+
+    async def get_organization_daily_sla(
+        self,
+        organization_id: UUID,
+        year: int | None = None,
+        month: int | None = None,
+        target_pct: float = 99.50,
+    ) -> OrganizationDailySlaResponse:
+        """Gera a série analítica diária de disponibilidade (01 a 31) para o histograma de SLA."""
+        now = datetime.now(UTC)
+        calc_year = year or now.year
+        calc_month = month or now.month
+
+        if not (1 <= calc_month <= 12):
+            raise ValueError(f"Mês inválido: {calc_month}. Deve estar entre 1 e 12.")
+
+        # 1. Recupera Organização
+        org_stmt = select(OrganizationModel).where(OrganizationModel.id == organization_id)
+        org_res = await self._session.execute(org_stmt)
+        org = org_res.scalar_one_or_none()
+        org_name = org.name if org else "Organização"
+
+        # 2. Recupera Dispositivos da Organização
+        dev_stmt = (
+            select(DeviceModel)
+            .where(DeviceModel.organization_id == organization_id)
+            .order_by(DeviceModel.name)
+        )
+        dev_res = await self._session.execute(dev_stmt)
+        devices = dev_res.scalars().all()
+        device_ids = [d.id for d in devices]
+
+        # 3. Calcula total de dias e limites do mês avaliado
+        _, total_days = calendar.monthrange(calc_year, calc_month)
+        month_start = datetime(calc_year, calc_month, 1, 0, 0, 0, tzinfo=UTC)
+        if calc_month == 12:
+            month_end = datetime(calc_year + 1, 1, 1, 0, 0, 0, tzinfo=UTC)
+        else:
+            month_end = datetime(calc_year, calc_month + 1, 1, 0, 0, 0, tzinfo=UTC)
+
+        # 4. Busca em lote todos os incidentes relevantes do mês para os dispositivos
+        all_incidents: list[IncidentModel] = []
+        if device_ids:
+            inc_stmt = (
+                select(IncidentModel)
+                .where(IncidentModel.device_id.in_(device_ids))
+                .where(IncidentModel.started_at < month_end)
+                .where(
+                    or_(
+                        IncidentModel.resolved_at.is_(None),
+                        IncidentModel.resolved_at > month_start,
+                    )
+                )
+            )
+            inc_res = await self._session.execute(inc_stmt)
+            all_incidents = list(inc_res.scalars().all())
+
+        # 5. Busca em lote todas as janelas de manutenção aprovadas do mês
+        mw_conditions = [
+            MaintenanceWindowModel.is_approved.is_(True),
+            MaintenanceWindowModel.start_time < month_end,
+            MaintenanceWindowModel.end_time > month_start,
+        ]
+        org_mw_filter = [MaintenanceWindowModel.organization_id == organization_id]
+        if device_ids:
+            org_mw_filter.append(MaintenanceWindowModel.device_id.in_(device_ids))
+
+        mw_stmt = (
+            select(MaintenanceWindowModel)
+            .where(*mw_conditions)
+            .where(or_(*org_mw_filter))
+        )
+        mw_res = await self._session.execute(mw_stmt)
+        approved_windows = list(mw_res.scalars().all())
+
+        domain_windows: list[MaintenanceWindow] = []
+        for w in approved_windows:
+            s_time = _ensure_utc(w.start_time) or w.start_time
+            e_time = _ensure_utc(w.end_time) or w.end_time
+            if e_time > s_time:
+                domain_windows.append(
+                    MaintenanceWindow(
+                        id=w.id,
+                        device_id=w.device_id,
+                        organization_id=w.organization_id,
+                        start_time=s_time,
+                        end_time=e_time,
+                        is_approved=w.is_approved,
+                        description=w.description,
+                    )
+                )
+
+        meses_extenso = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ]
+        period_label = f"{meses_extenso[calc_month - 1]} {calc_year}"
+        is_current_month = (calc_year == now.year and calc_month == now.month)
+        current_day_number = (
+            now.day
+            if is_current_month
+            else (total_days if (calc_year, calc_month) < (now.year, now.month) else 0)
+        )
+
+        daily_items: list[OrganizationDailySlaItem] = []
+
+        for d in range(1, total_days + 1):
+            day_str = f"{d:02d}"
+            date_str = f"{calc_year:04d}-{calc_month:02d}-{d:02d}"
+            day_start = datetime(calc_year, calc_month, d, 0, 0, 0, tzinfo=UTC)
+            day_end = datetime(calc_year, calc_month, d, 23, 59, 59, 999999, tzinfo=UTC)
+
+            # Dia futuro no mês atual
+            if is_current_month and d > now.day:
+                future_windows = [
+                    w for w in approved_windows
+                    if (_ensure_utc(w.start_time) or w.start_time) < day_end
+                    and (_ensure_utc(w.end_time) or w.end_time) > day_start
+                ]
+                note = (
+                    f"Janela RFC-{str(future_windows[0].id)[:8].upper()} Agendada"
+                    if future_windows
+                    else f"Dia {day_str} (Planejado)"
+                )
+                daily_items.append(
+                    OrganizationDailySlaItem(
+                        day=day_str,
+                        date=date_str,
+                        uptime_pct=None,
+                        type="future",
+                        note=note,
+                        incidents_count=0,
+                        maintenance_count=len(future_windows),
+                    )
+                )
+                continue
+
+            eval_end = min(day_end, now) if is_current_month and d == now.day else day_end
+
+            day_incidents = [
+                inc for inc in all_incidents
+                if (_ensure_utc(inc.started_at) or inc.started_at) < eval_end
+                and (
+                    inc.resolved_at is None
+                    or (_ensure_utc(inc.resolved_at) or inc.resolved_at) > day_start
+                )
+            ]
+
+            day_windows = [
+                w for w in domain_windows
+                if w.start_time < eval_end and w.end_time > day_start
+            ]
+
+            dev_uptimes: list[float] = []
+            dev_unplanned_mins: float = 0.0
+            dev_exempted_mins: float = 0.0
+
+            if not devices:
+                day_uptime_avg = 100.0
+            else:
+                for dev in devices:
+                    dev_incs = [inc for inc in day_incidents if inc.device_id == dev.id]
+                    downtime_periods = [
+                        DowntimePeriod(
+                            start_time=max(_ensure_utc(inc.started_at) or inc.started_at, day_start),
+                            end_time=min(_ensure_utc(inc.resolved_at) or eval_end, eval_end),
+                            incident_id=inc.id,
+                        )
+                        for inc in dev_incs
+                    ]
+                    calc_res = calculate_sla(
+                        start_period=day_start,
+                        end_period=eval_end,
+                        downtime_periods=downtime_periods,
+                        maintenance_windows=day_windows,
+                        device_id=dev.id,
+                    )
+                    dev_uptimes.append(calc_res.uptime_percentage)
+                    dev_unplanned_mins += calc_res.unplanned_downtime_minutes
+                    dev_exempted_mins += calc_res.exempted_downtime_minutes
+
+                day_uptime_avg = round(sum(dev_uptimes) / len(dev_uptimes), 2)
+
+            is_today = is_current_month and (d == now.day)
+            incidents_count = len(day_incidents)
+            maint_count = len(day_windows)
+
+            if incidents_count > 0 and day_uptime_avg < target_pct:
+                item_type = "incident"
+                mins = int(dev_unplanned_mins)
+                secs = int(round((dev_unplanned_mins - mins) * 60))
+                note = f"Incidente registrado • Downtime: {mins}m {secs:02d}s"
+            elif maint_count > 0:
+                item_type = "maint"
+                first_w = day_windows[0]
+                rfc = f"RFC-{str(first_w.id)[:8].upper()}"
+                note = f"Janela {rfc} Isenta (ADR-009)"
+            elif is_today:
+                item_type = "today"
+                note = "Operação nominal em tempo real"
+            else:
+                item_type = "nominal"
+                note = "Nominal • 0 incidentes"
+
+            daily_items.append(
+                OrganizationDailySlaItem(
+                    day=day_str,
+                    date=date_str,
+                    uptime_pct=day_uptime_avg,
+                    type=item_type,
+                    note=note,
+                    incidents_count=incidents_count,
+                    maintenance_count=maint_count,
+                )
+            )
+
+        return OrganizationDailySlaResponse(
+            tenant_id=str(organization_id),
+            tenant_name=org_name,
+            year=calc_year,
+            month=calc_month,
+            period_label=period_label,
+            target_pct=target_pct,
+            total_days=total_days,
+            current_day=current_day_number,
+            days=daily_items,
+        )
+
 

@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient";
+import type { DailySlaPoint, OrganizationDailySlaData } from "../types/sla";
 import type {
   ClientSlaSummary,
   ClientServiceItem,
@@ -367,5 +368,52 @@ export const clientPortalApi = {
         datacenterRegion: dcRegion,
       };
     });
+  },
+
+  /**
+   * Obtém a série analítica de disponibilidade diária (01 a 31) para o histograma de SLA.
+   */
+  async getDailySla(
+    organizationId?: string,
+    options?: { year?: number; month?: number }
+  ): Promise<OrganizationDailySlaData> {
+    const params = new URLSearchParams();
+    if (options?.year) params.set("year", String(options.year));
+    if (options?.month) params.set("month", String(options.month));
+    const query = params.toString() ? `?${params.toString()}` : "";
+
+    const url = organizationId
+      ? `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/daily-availability${query}`
+      : `/api/v1/sla/daily-availability${query}`;
+
+    const res = await apiClient.get<any>(url);
+    if (!res || !Array.isArray(res.days)) {
+      throw new Error("Resposta inválida do backend para a disponibilidade diária de SLA.");
+    }
+
+    return {
+      tenantId: String(res.tenant_id ?? res.tenantId ?? ""),
+      tenantName: String(res.tenant_name ?? res.tenantName ?? "Organização"),
+      year: Number(res.year ?? new Date().getFullYear()),
+      month: Number(res.month ?? new Date().getMonth() + 1),
+      periodLabel: String(res.period_label ?? res.periodLabel ?? "Mês Vigente"),
+      targetPct: Number(res.target_pct ?? res.targetPct ?? 99.5),
+      totalDays: Number(res.total_days ?? res.totalDays ?? res.days.length),
+      currentDay: Number(res.current_day ?? res.currentDay ?? new Date().getDate()),
+      days: res.days.map((d: any): DailySlaPoint => ({
+        day: String(d.day),
+        date: String(d.date),
+        uptimePct:
+          typeof d.uptime_pct === "number"
+            ? d.uptime_pct
+            : typeof d.uptimePct === "number"
+            ? d.uptimePct
+            : null,
+        type: d.type,
+        note: String(d.note ?? ""),
+        incidentsCount: d.incidents_count ?? d.incidentsCount,
+        maintenanceCount: d.maintenance_count ?? d.maintenanceCount,
+      })),
+    };
   },
 };

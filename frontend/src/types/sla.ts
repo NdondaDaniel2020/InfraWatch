@@ -132,3 +132,26 @@ export interface NocSlaReportExportPayload {
   digitalSignature?: string;
 }
 
+export interface DailySlaPoint {
+  day: string;
+  date: string;
+  uptimePct: number | null;
+  type: "nominal" | "maint" | "incident" | "today" | "future";
+  note: string;
+  incidentsCount?: number;
+  maintenanceCount?: number;
+}
+
+export interface OrganizationDailySlaData {
+  tenantId: string;
+  tenantName: string;
+  year: number;
+  month: number;
+  periodLabel: string;
+  targetPct: number;
+  totalDays: number;
+  currentDay: number;
+  days: DailySlaPoint[];
+}
+
+

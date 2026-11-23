@@ -1,49 +1,69 @@
 import React from "react";
+import type { OrganizationDailySlaData } from "../../types/sla";
 
 interface SlaDailyHistogramProps {
+  data?: OrganizationDailySlaData | null;
+  isLoading?: boolean;
   targetSlaPct?: number;
   periodLabel?: string;
 }
 
+interface RenderDayItem {
+  day: string;
+  pct: number | null;
+  height: number;
+  type: "nominal" | "maint" | "incident" | "today" | "future";
+  note: string;
+}
+
+/**
+ * Mapeia o percentual apurado para a altura da barra em %, alinhando a meta (ex: 99.50%)
+ * com a linha tracejada no topo do container (top-14 / ~65% de altura).
+ */
+function computeBarHeight(pct: number | null, targetPct = 99.5): number {
+  if (pct === null) return 75; // Dias futuros planejados (barras translúcidas)
+  if (pct >= 100.0) return 98; // 100% nominal
+  if (pct >= targetPct) {
+    // Escala linear suave entre a linha mandatória (~65%) e o topo 100% (~98%)
+    const ratio = (pct - targetPct) / Math.max(0.001, 100.0 - targetPct);
+    return Math.min(98, Math.max(65, Math.round(65 + ratio * (98 - 65))));
+  }
+  // Penalidade por incidente abaixo da meta (entre 15% e 65%)
+  const diff = targetPct - pct;
+  const height = 65 - (diff / 0.5) * 50;
+  return Math.min(65, Math.max(15, Math.round(height)));
+}
+
 export const SlaDailyHistogram: React.FC<SlaDailyHistogramProps> = ({
+  data,
+  isLoading = false,
   targetSlaPct = 99.5,
   periodLabel = "Mês Vigente",
 }) => {
-  // Dados representativos dos 31 dias para o histograma com base na especificação de telemetria
-  const daysData = [
-    { day: "01", pct: 100.0, height: 98, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "02", pct: 100.0, height: 97, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "03", pct: 100.0, height: 99, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "04", pct: 100.0, height: 96, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "05", pct: 99.85, height: 94, type: "maint", note: "Janela RFC-2026-04 Isenta (ADR-009)" },
-    { day: "06", pct: 100.0, height: 98, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "07", pct: 100.0, height: 99, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "08", pct: 100.0, height: 97, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "09", pct: 100.0, height: 98, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "10", pct: 100.0, height: 99, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "11", pct: 100.0, height: 96, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "12", pct: 99.88, height: 95, type: "maint", note: "Upgrade Core Router RFC-08 Isento" },
-    { day: "13", pct: 100.0, height: 98, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "14", pct: 100.0, height: 99, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "15", pct: 100.0, height: 97, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "16", pct: 100.0, height: 98, type: "nominal", note: "Nominal • 0 incidentes" },
-    { day: "17", pct: 99.45, height: 58, type: "incident", note: "Incidente mitigado em 8m 12s" },
-    { day: "18", pct: 99.98, height: 97, type: "today", note: "Operação nominal em tempo real" },
-    // Dias 19 a 31: Futuros planejados
-    { day: "19", pct: null, height: 75, type: "future", note: "Dia 19 (Planejado)" },
-    { day: "20", pct: null, height: 75, type: "future", note: "Dia 20 (Planejado)" },
-    { day: "21", pct: null, height: 75, type: "future", note: "Dia 21 (Planejado)" },
-    { day: "22", pct: null, height: 75, type: "future", note: "Dia 22 (Planejado)" },
-    { day: "23", pct: null, height: 75, type: "future", note: "Dia 23 (Planejado)" },
-    { day: "24", pct: null, height: 75, type: "future", note: "Dia 24 (Planejado)" },
-    { day: "25", pct: null, height: 75, type: "future", note: "Dia 25 (Planejado)" },
-    { day: "26", pct: null, height: 75, type: "future", note: "Dia 26 (Planejado)" },
-    { day: "27", pct: null, height: 75, type: "future", note: "Dia 27 (Planejado)" },
-    { day: "28", pct: null, height: 75, type: "future", note: "Dia 28 (Planejado)" },
-    { day: "29", pct: null, height: 75, type: "future", note: "Dia 29 (Planejado)" },
-    { day: "30", pct: null, height: 75, type: "future", note: "Dia 30 (Planejado)" },
-    { day: "31", pct: null, height: 75, type: "future", note: "Dia 31 (Planejado)" },
-  ];
+  const effectiveTarget = data?.targetPct ?? targetSlaPct;
+  const effectivePeriodLabel = data?.periodLabel || periodLabel;
+  const totalDays = data?.totalDays ?? (data?.days ? data.days.length : 31);
+
+  // Mapeia os dias vindos da API com cálculo analítico de altura
+  const daysData: RenderDayItem[] = data?.days
+    ? data.days.map((d) => ({
+        day: d.day,
+        pct: d.uptimePct,
+        height: computeBarHeight(d.uptimePct, effectiveTarget),
+        type: d.type,
+        note: d.note,
+      }))
+    : Array.from({ length: 31 }, (_, i) => {
+        const dayNum = i + 1;
+        const dayStr = dayNum < 10 ? `0${dayNum}` : `${dayNum}`;
+        return {
+          day: dayStr,
+          pct: null,
+          height: 75,
+          type: "future" as const,
+          note: `Dia ${dayStr} (Aguardando telemetria)`,
+        };
+      });
 
   return (
     <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-5 flex flex-col gap-4 shadow-lg">
@@ -51,14 +71,19 @@ export const SlaDailyHistogram: React.FC<SlaDailyHistogramProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-base font-display font-bold text-white">
-              Disponibilidade Diária — {periodLabel}
+              Disponibilidade Diária — {effectivePeriodLabel}
             </h2>
             <span className="text-xs font-mono px-2 py-0.5 rounded bg-obsidian-950 text-slate-400 border border-obsidian-800">
-              31 DIAS CALENDÁRIO
+              {totalDays} DIAS CALENDÁRIO
             </span>
+            {isLoading && (
+              <span className="text-[11px] font-mono text-emerald-400 animate-pulse">
+                Sincronizando telemetria...
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Acompanhamento diário contínuo com linha mandatória de corte SLA a {targetSlaPct.toFixed(3)}%.
+            Acompanhamento diário contínuo com linha mandatória de corte SLA a {effectiveTarget.toFixed(3)}%.
           </p>
         </div>
 
@@ -66,7 +91,7 @@ export const SlaDailyHistogram: React.FC<SlaDailyHistogramProps> = ({
         <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-sm bg-emerald-500"></span>
-            <span>Conforme (≥{targetSlaPct.toFixed(2)}%)</span>
+            <span>Conforme (≥{effectiveTarget.toFixed(2)}%)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-sm bg-amber-400"></span>
@@ -78,7 +103,7 @@ export const SlaDailyHistogram: React.FC<SlaDailyHistogramProps> = ({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-4 h-0.5 bg-rose-500"></span>
-            <span>Meta Contratual ({targetSlaPct.toFixed(2)}%)</span>
+            <span>Meta Contratual ({effectiveTarget.toFixed(2)}%)</span>
           </div>
         </div>
       </div>
@@ -90,10 +115,10 @@ export const SlaDailyHistogram: React.FC<SlaDailyHistogramProps> = ({
             {/* Linha Tracejada de Corte 99.50% */}
             <div className="absolute left-0 right-0 top-14 border-t border-dashed border-rose-500/80 flex items-center justify-between pointer-events-none z-10">
               <span className="font-mono text-[10px] bg-rose-950 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded shadow">
-                Linha de Corte Mandatória SLA: {targetSlaPct.toFixed(2)}%
+                Linha de Corte Mandatória SLA: {effectiveTarget.toFixed(2)}%
               </span>
               <span className="font-mono text-[11px] text-rose-400 font-bold pr-2">
-                {targetSlaPct.toFixed(3)}%
+                {effectiveTarget.toFixed(3)}%
               </span>
             </div>
 
@@ -107,8 +132,8 @@ export const SlaDailyHistogram: React.FC<SlaDailyHistogramProps> = ({
               <span className="font-mono text-[10px] text-slate-500 pr-2">99.00%</span>
             </div>
 
-            {/* Grid com 31 Barras em Flexbox */}
-            <div className="flex items-end gap-1 w-full h-full relative z-0 pt-4">
+            {/* Grid com Barras em Flexbox */}
+            <div className={`flex items-end gap-1 w-full h-full relative z-0 pt-4 ${isLoading ? "animate-pulse opacity-60" : ""}`}>
               {daysData.map((d) => {
                 if (d.type === "future") {
                   return (
@@ -175,7 +200,7 @@ export const SlaDailyHistogram: React.FC<SlaDailyHistogramProps> = ({
             </div>
           </div>
 
-          {/* Rótulos dos Dias 01 a 31 */}
+          {/* Rótulos dos Dias */}
           <div className="flex gap-1 w-full pt-2 border-t border-obsidian-800 text-center font-mono text-[10px] text-slate-400">
             {daysData.map((d) => (
               <span

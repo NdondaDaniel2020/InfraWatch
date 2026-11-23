@@ -16,6 +16,7 @@ from src.contexts.sla.api.dependencies import SlaServiceDep
 from src.contexts.sla.api.presenters.csv_presenter import SlaCsvPresenter
 from src.contexts.sla.schemas.requests import CreateSupportTicketRequest
 from src.contexts.sla.schemas.responses import (
+    OrganizationDailySlaResponse,
     OrganizationSlaHistoryResponse,
     OrganizationSlaReportDetailsResponse,
     OrganizationSlaSummaryResponse,
@@ -238,6 +239,80 @@ async def get_current_user_sla_summary(
             detail="Usuário não possui organização vinculada.",
         )
     return await service.get_organization_sla_summary(UUID(org_id_str))
+
+
+@router.get(
+    "/daily-availability",
+    response_model=OrganizationDailySlaResponse,
+    summary="Disponibilidade diária de SLA da organização do usuário logado",
+)
+async def get_current_user_daily_sla(
+    user: CurrentUserDep,
+    service: SlaServiceDep,
+    year: Annotated[int | None, Query(ge=2020, le=2100, description="Ano do ciclo")] = None,
+    month: Annotated[int | None, Query(ge=1, le=12, description="Mês do ciclo (1-12)")] = None,
+    target: Annotated[float, Query(ge=0.0, le=100.0, description="Meta SLA (%)")] = 99.50,
+    _: object = Depends(require_roles(*READ_ROLES)),
+) -> OrganizationDailySlaResponse:
+    """Retorna a série analítica diária de SLA da organização vinculada ao usuário logado."""
+    org_id_str = user.organization_id
+    if not org_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Usuário não possui organização vinculada.",
+        )
+    try:
+        return await service.get_organization_daily_sla(
+            organization_id=UUID(org_id_str),
+            year=year,
+            month=month,
+            target_pct=target,
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        ) from err
+
+
+@router.get(
+    "/organizations/{organization_id}/daily-availability",
+    response_model=OrganizationDailySlaResponse,
+    summary="Disponibilidade diária de SLA da organização para o histograma",
+)
+async def get_organization_daily_sla(
+    organization_id: UUID,
+    user: CurrentUserDep,
+    service: SlaServiceDep,
+    year: Annotated[int | None, Query(ge=2020, le=2100, description="Ano do ciclo")] = None,
+    month: Annotated[int | None, Query(ge=1, le=12, description="Mês do ciclo (1-12)")] = None,
+    target: Annotated[float, Query(ge=0.0, le=100.0, description="Meta SLA (%)")] = 99.50,
+    _: object = Depends(require_roles(*READ_ROLES)),
+) -> OrganizationDailySlaResponse:
+    """Retorna a série analítica diária de SLA (01 a 31) da organização."""
+    if (
+        user.role in {UserRole.CLIENT_VIEWER, UserRole.ORG_ADMIN}
+        and user.organization_id
+        and user.organization_id != str(organization_id)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso não autorizado aos dados desta organização.",
+        )
+
+    try:
+        return await service.get_organization_daily_sla(
+            organization_id=organization_id,
+            year=year,
+            month=month,
+            target_pct=target,
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        ) from err
+
 
 
 @router.get(

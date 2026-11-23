@@ -194,3 +194,34 @@ class SupportTicketResponse(BaseModel):
     glpi_ticket_id: int | None = None
     message: str
 
+
+class OrganizationDailySlaItem(BaseModel):
+    """Representação analítica de disponibilidade de um dia do mês."""
+
+    day: str = Field(..., description="Dia do mês com 2 dígitos ('01', '02', ..., '31')")
+    date: str = Field(..., description="Data no formato ISO YYYY-MM-DD")
+    uptime_pct: float | None = Field(
+        None, description="Disponibilidade líquida apurada em % ou None para dias futuros"
+    )
+    type: str = Field(
+        ..., description="Tipo/Estado: 'nominal' | 'maint' | 'incident' | 'today' | 'future'"
+    )
+    note: str = Field(..., description="Descrição resumida amigável para tooltip")
+    incidents_count: int = Field(default=0, description="Quantidade de incidentes no dia")
+    maintenance_count: int = Field(default=0, description="Quantidade de janelas RFC no dia")
+
+
+class OrganizationDailySlaResponse(BaseModel):
+    """Resposta consolidada de disponibilidade diária da organização no ciclo mensal."""
+
+    tenant_id: str
+    tenant_name: str
+    year: int
+    month: int
+    period_label: str
+    target_pct: float = 99.50
+    total_days: int
+    current_day: int
+    days: list[OrganizationDailySlaItem]
+
+

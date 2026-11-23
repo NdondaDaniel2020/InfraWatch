@@ -9,6 +9,7 @@ import type {
   SlaDeviceBreakdown,
   SlaExportFormat,
   SlaReportingPeriod,
+  OrganizationDailySlaData,
 } from "../types/sla";
 import type {
   ClientSlaSummary,
@@ -233,5 +234,15 @@ export const slaApi = {
 
   async getDeviceSla(deviceId: string): Promise<any> {
     return apiClient.get(`${BASE_PATH_SLA}/devices/${encodeURIComponent(deviceId)}`);
+  },
+
+  async getDailySla(
+    organizationId: string,
+    _period?: SlaReportingPeriod
+  ): Promise<OrganizationDailySlaData> {
+    if (!organizationId) {
+      throw new Error("Organização não identificada para consultar o SLA diário.");
+    }
+    return clientPortalApi.getDailySla(organizationId);
   },
 };
