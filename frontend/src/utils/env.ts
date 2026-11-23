@@ -26,8 +26,16 @@ function ensureLeadingSlash(endpoint: string): string {
 const rawApiUrl = (import.meta.env?.VITE_API_URL ?? "").trim();
 const rawSseUrl = (import.meta.env?.VITE_SSE_URL ?? "").trim();
 const rawWsUrl = (import.meta.env?.VITE_WS_BASE_URL ?? "").trim();
+const rawGlpiUiUrl = (
+  import.meta.env?.VITE_GLPI_UI_URL ??
+  import.meta.env?.VITE_GLPI_BASE_URL ??
+  ""
+).trim();
 
 const normalizedApiBase = rawApiUrl ? stripTrailingSlash(rawApiUrl) : "";
+const normalizedGlpiBase = rawGlpiUiUrl
+  ? rawGlpiUiUrl.replace(/\/apirest\.php\/?$/, "").replace(/\/+$/, "")
+  : "";
 
 export const ENV = {
   /** Ambiente de execução (development, production, test) */
@@ -67,6 +75,12 @@ export const ENV = {
     : host
     ? `${wsProto}//${host}`
     : "",
+
+  /**
+   * URL Base da interface Web do GLPI (acesso humano/navegador).
+   * Configurável via VITE_GLPI_UI_URL no .env.
+   */
+  GLPI_UI_URL: normalizedGlpiBase || "https://glpi.infrawatch.ao",
 } as const;
 
 /**

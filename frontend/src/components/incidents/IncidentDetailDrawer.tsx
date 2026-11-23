@@ -120,6 +120,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 
             <GlpiBadge
               ticketId={incident.glpi_ticket_id}
+              glpiUrl={incident.glpi_url}
               incidentId={incident.id}
               onOpenTicket={onOpenGlpiTicket}
               isOpening={isOpeningGlpiId === incident.id}

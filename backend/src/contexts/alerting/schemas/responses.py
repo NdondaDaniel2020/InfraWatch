@@ -23,6 +23,7 @@ class IncidentResponse(BaseModel):
     severity: str
     status: str
     glpi_ticket_id: int | None = None
+    glpi_url: str | None = None
     root_cause: str | None = None
     started_at: datetime
     acknowledged_at: datetime | None = None
@@ -32,6 +33,22 @@ class IncidentResponse(BaseModel):
     @classmethod
     def from_domain(cls, incident: Incident) -> IncidentResponse:
         """Constrói o DTO de resposta a partir da entidade de domínio Incident."""
+        glpi_url: str | None = None
+        if incident.glpi_ticket_id:
+            try:
+                from src.core.config import get_settings
+
+                settings = get_settings()
+                base_ui = (
+                    settings.GLPI_PUBLIC_URL.strip().rstrip("/")
+                    if getattr(settings, "GLPI_PUBLIC_URL", "")
+                    else getattr(settings, "GLPI_BASE_URL", "").replace("/apirest.php", "").rstrip("/")
+                )
+                if base_ui:
+                    glpi_url = f"{base_ui}/front/ticket.form.php?id={incident.glpi_ticket_id}"
+            except Exception:
+                pass
+
         return cls(
             id=incident.id,
             device_id=incident.device_id,
@@ -41,6 +58,7 @@ class IncidentResponse(BaseModel):
             severity=incident.severity,
             status=incident.status.value,
             glpi_ticket_id=incident.glpi_ticket_id,
+            glpi_url=glpi_url,
             root_cause=incident.root_cause,
             started_at=incident.started_at,
             acknowledged_at=incident.acknowledged_at,

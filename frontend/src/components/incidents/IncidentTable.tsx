@@ -225,6 +225,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                     <td className="py-3.5 px-4">
                       <GlpiBadge
                         ticketId={incident.glpi_ticket_id}
+                        glpiUrl={incident.glpi_url}
                         incidentId={incident.id}
                         onOpenTicket={onOpenGlpiTicket}
                         isOpening={isOpeningGlpiId === incident.id}

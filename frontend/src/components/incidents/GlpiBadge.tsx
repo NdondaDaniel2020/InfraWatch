@@ -1,9 +1,12 @@
 import React from "react";
 import { ArrowUpRight, CheckCircle2, PlusCircle } from "lucide-react";
+import { getGlpiTicketUrl } from "../../utils/glpi";
 
 export interface GlpiBadgeProps {
   /** Número identificador do ticket no GLPI (ex: 8492) */
   ticketId?: number | null;
+  /** URL direta do chamado retornada pela API (opcional) */
+  glpiUrl?: string | null;
   /** Identificador único do incidente associado */
   incidentId: string;
   /** Callback para abertura manual em 1 clique */
@@ -18,11 +21,12 @@ export interface GlpiBadgeProps {
 
 /**
  * Componente canônico GlpiBadge (Issue #32).
- * Exibe link seguro para o Helpdesk GLPI v9.5.7 quando o chamado existe,
+ * Exibe link seguro para o Helpdesk GLPI quando o chamado existe,
  * ou botão de ação rápida 1-click para abertura imediata quando ainda não criado.
  */
 export const GlpiBadge: React.FC<GlpiBadgeProps> = ({
   ticketId,
+  glpiUrl,
   incidentId,
   onOpenTicket,
   isOpening = false,
@@ -31,7 +35,7 @@ export const GlpiBadge: React.FC<GlpiBadgeProps> = ({
 }) => {
   // Se houver ticket vinculado, exibe link seguro para o GLPI
   if (ticketId) {
-    const glpiUrl = `https://glpi.infrawatch.ao/front/ticket.form.php?id=${ticketId}`;
+    const resolvedUrl = getGlpiTicketUrl(ticketId, glpiUrl);
 
     if (isClosed) {
       return (
@@ -47,7 +51,7 @@ export const GlpiBadge: React.FC<GlpiBadgeProps> = ({
 
     return (
       <a
-        href={glpiUrl}
+        href={resolvedUrl}
         target="_blank"
         rel="noopener noreferrer"
         data-testid={`glpi-ticket-link-${incidentId}`}

@@ -1,5 +1,6 @@
 import React from "react";
 import { Download, ExternalLink } from "lucide-react";
+import { getGlpiHelpdeskUrl } from "../../utils/glpi";
 
 export type ViewState = "nominal" | "skeleton" | "empty" | "error";
 
@@ -46,7 +47,7 @@ export const IncidentHeader: React.FC<IncidentHeaderProps> = ({
         </button>
 
         <a
-          href="https://glpi.infrawatch.ao/front/ticket.php"
+          href={getGlpiHelpdeskUrl()}
           target="_blank"
           rel="noopener noreferrer"
           data-testid="btn-glpi-helpdesk-external"
