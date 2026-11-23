@@ -26,6 +26,13 @@ interface TopologyInspectorDrawerProps {
   onIsolateNode: (deviceId: string) => void;
   isEditMode?: boolean;
   onDeleteNode?: (deviceId: string) => void;
+  isPinging?: boolean;
+  probeResult?: {
+    rttMs: number;
+    packetLossPct: number;
+    status: string;
+    timestamp?: string;
+  } | null;
 }
 
 export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = ({
@@ -36,6 +43,8 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
   onIsolateNode,
   isEditMode = false,
   onDeleteNode,
+  isPinging = false,
+  probeResult = null,
 }) => {
   const [selectedPortId, setSelectedPortId] = useState<number>(1);
   const [alertsPaused, setAlertsPaused] = useState(false);
@@ -76,6 +85,26 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
       toast.success(`Monitoramento de alertas reativado para o nó ${device.label}.`);
     }
   };
+
+  const probeStatus = probeResult?.status || device.statusText || device.status;
+  const isProbeDown =
+    probeStatus === "CRITICAL_DOWN" ||
+    probeStatus === "DOWN" ||
+    (probeResult != null && probeResult.packetLossPct === 100);
+  const isProbeDeg = probeStatus === "DEGRADED" || probeStatus === "DEG";
+  const displayLoss =
+    probeResult?.packetLossPct ??
+    (device.status === "CRITICAL_DOWN" ? 100 : 0);
+  const displayLatency =
+    probeResult?.rttMs != null && probeResult.rttMs > 0
+      ? `${probeResult.rttMs.toFixed(1)}ms`
+      : device.latencyMs != null && device.latencyMs > 0
+      ? `${device.latencyMs.toFixed(1)}ms`
+      : isProbeDown
+      ? "--"
+      : "Pronto p/ testar";
+  const probeStatusLabel =
+    probeResult?.status || (isProbeDown ? "DOWN" : isProbeDeg ? "DEGRADED" : "UP");
 
   return (
     <aside
@@ -197,6 +226,71 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
               <span className="text-slate-400 block text-[10px]">UPTIME</span>
               <span className="text-slate-200 block">{device.uptime || "—"}</span>
             </div>
+          </div>
+        </section>
+
+        {/* Diagnóstico Telemétrico & Sonda */}
+        <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Activity size={13} className="text-emerald-400" />
+              <span className="font-mono text-[10px] uppercase text-slate-400 font-semibold tracking-wider">
+                DIAGNÓSTICO & SONDA EM TEMPO REAL
+              </span>
+            </div>
+            {probeResult?.timestamp ? (
+              <span className="font-mono text-[9px] text-emerald-400 font-semibold">
+                Sonda: {probeResult.timestamp}
+              </span>
+            ) : (
+              <span className="font-mono text-[9px] text-slate-500">
+                Sonda Integrada
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 font-mono tabular-nums text-xs">
+            <div className="p-2 rounded-lg bg-obsidian-950 border border-obsidian-800/80">
+              <span className="text-slate-400 block text-[10px] mb-0.5">LATÊNCIA RTT</span>
+              <span
+                className={`text-sm font-bold ${
+                  isProbeDown ? "text-rose-400" : "text-emerald-400"
+                }`}
+              >
+                {isProbeDown ? "--" : displayLatency}
+              </span>
+            </div>
+
+            <div className="p-2 rounded-lg bg-obsidian-950 border border-obsidian-800/80">
+              <span className="text-slate-400 block text-[10px] mb-0.5">PERDA DE PACOTES</span>
+              <span
+                className={`text-sm font-bold ${
+                  displayLoss > 0 ? "text-rose-400" : "text-emerald-400"
+                }`}
+              >
+                {displayLoss}%
+              </span>
+            </div>
+          </div>
+
+          <div className="p-2 rounded-lg bg-obsidian-950 border border-obsidian-800/80 flex items-center justify-between text-[11px] font-mono">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-slate-400">Endpoint:</span>
+              <span className="text-slate-200 font-semibold truncate">
+                {device.ip || device.label}
+              </span>
+            </div>
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                isProbeDown
+                  ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                  : isProbeDeg
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                  : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+              }`}
+            >
+              {probeStatusLabel}
+            </span>
           </div>
         </section>
 
@@ -327,11 +421,13 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
+            disabled={isPinging}
             onClick={() => onRunPingTrace(device.id)}
-            className="px-2.5 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-200 font-mono text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+            className="px-2.5 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-200 font-mono text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+            title="Disparar sonda de teste ICMP/HTTP em tempo real"
           >
-            <Activity size={14} className="text-emerald-400" />
-            <span>Ping / Trace</span>
+            <Activity size={14} className={`text-emerald-400 ${isPinging ? "animate-spin" : ""}`} />
+            <span>{isPinging ? "Sondando..." : "Ping / Trace"}</span>
           </button>
 
           <Link
