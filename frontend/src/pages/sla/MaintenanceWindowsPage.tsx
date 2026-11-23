@@ -267,14 +267,14 @@ export const MaintenanceWindowsPage: React.FC = () => {
   return (
     <main
       data-testid="maintenance-windows-page"
-      className="p-6 max-w-7xl mx-auto space-y-6 text-slate-100 font-sans"
+      className="p-4 md:p-6 flex flex-col gap-6 w-full text-slate-100 font-sans"
       role="main"
     >
       {/* CABEÇALHO DA PÁGINA COM BREADCRUMB E AÇÕES PRINCIPAIS */}
       <section className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 text-xs font-mono">
-            <Link to="/" className="text-slate-400 hover:text-slate-200 transition-colors">
+            <Link to="/noc" className="text-slate-400 hover:text-slate-200 transition-colors">
               Cockpit NOC
             </Link>
             <span className="text-obsidian-700">/</span>
