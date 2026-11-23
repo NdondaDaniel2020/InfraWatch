@@ -14,7 +14,6 @@ from src.contexts.alerting.schemas.zabbix_webhook import (
     ZabbixWebhookPayload,
     ZabbixWebhookResponse,
 )
-from src.core.config import get_settings
 
 router = APIRouter(prefix="/api/v1/integrations/zabbix", tags=["Alerting - Zabbix Ingestion"])
 
@@ -42,7 +41,6 @@ __all__ = [
     "AuthTokenDep",
     "ZabbixWebhookAuthDep",
     "ZabbixWebhookServiceDep",
-    "get_settings",
     "handle_zabbix_webhook",
     "router",
     "verify_zabbix_webhook_token",

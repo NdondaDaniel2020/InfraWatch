@@ -23,12 +23,7 @@ def verify_zabbix_webhook_token(
     ] = None,
 ) -> str:
     """Valida o token do webhook em tempo constante para mitigar timing attacks."""
-    try:
-        from src.contexts.alerting.api.routes import zabbix_webhook as _zw_route
-
-        settings = _zw_route.get_settings()
-    except (AttributeError, TypeError, RuntimeError):
-        settings = get_settings()
+    settings = get_settings()
 
     expected_secret = settings.ZABBIX_WEBHOOK_SECRET
 
