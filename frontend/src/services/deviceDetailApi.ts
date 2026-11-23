@@ -6,6 +6,7 @@ import type {
   TimescalePeriod,
   OpticalInterfaceItem,
   TimescaleMetricsBucket,
+  DeviceSyntheticProbe,
 } from "../types/deviceDetail";
 
 const BASE_PATH = "/api/v1/devices";
@@ -223,5 +224,17 @@ export const deviceDetailApi = {
 
   async getDeviceInterfaces(id: string): Promise<OpticalInterfaceItem[]> {
     return apiClient.get<OpticalInterfaceItem[]>(`${BASE_PATH}/${id}/interfaces`);
+  },
+
+  async getDeviceProbes(id: string): Promise<DeviceSyntheticProbe[]> {
+    try {
+      const res = await apiClient.get<DeviceSyntheticProbe[]>(`${BASE_PATH}/${id}/probes`);
+      if (Array.isArray(res) && res.length > 0) {
+        return res;
+      }
+    } catch {
+      // Fallback gracioso caso endpoint falhe
+    }
+    return [];
   },
 };

@@ -20,6 +20,7 @@ vi.mock("../src/services/deviceDetailApi", () => ({
     getTimescaleMetrics: vi.fn(),
     triggerManualProbe: vi.fn(),
     getDeviceInterfaces: vi.fn(),
+    getDeviceProbes: vi.fn().mockResolvedValue([]),
   },
 }));
 

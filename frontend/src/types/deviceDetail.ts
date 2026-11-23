@@ -85,4 +85,14 @@ export interface ManualProbeResult {
   timestamp: string;
 }
 
+export interface DeviceSyntheticProbe {
+  id: string;
+  protocol: string;
+  endpoint: string;
+  interval: string;
+  latency: string;
+  status: string;
+  badgeVariant: "healthy" | "degraded" | "critical";
+}
+
 export type TimescalePeriod = "1h" | "24h" | "7d" | "30d";

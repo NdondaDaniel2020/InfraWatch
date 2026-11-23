@@ -95,6 +95,13 @@ export const DeviceDetailPage: React.FC = () => {
     enabled: !!id,
   });
 
+  const { data: serverProbes } = useQuery({
+    queryKey: ["deviceProbes", id],
+    queryFn: () => deviceDetailApi.getDeviceProbes(id!),
+    enabled: !!id,
+    retry: false,
+  });
+
   const { data: deviceSla } = useQuery({
     queryKey: ["deviceSla", id],
     queryFn: () => slaApi.getDeviceSla(id!),
@@ -144,6 +151,103 @@ export const DeviceDetailPage: React.FC = () => {
     return "nominal";
   }, [manualViewState, deviceLoading, metricsLoading, deviceError, device, metrics]);
 
+  const fallbackDevice: DeviceDetail = useMemo(
+    () => ({
+      id: id || "dev-1",
+      name: "SW-CORE-LUANDA-01",
+      hostname: "sw-core-luanda-01.ao.infrawatch",
+      category: "SWITCH",
+      vendor: "Huawei",
+      model: "CloudEngine 6800",
+      ipAddress: "10.0.1.1",
+      macAddress: "70:7B:E8:4A:12:00",
+      firmwareVersion: "V200R021C00",
+      protocol: "SNMP",
+      healthStatus: "UP",
+      uptimeSeconds: 15943500,
+      uptimeDisplay: "184d 12h 45m",
+      location: "Datacenter Luanda Sul (Rack 04 - U12)",
+      rack: "Rack 04 - U12",
+      tags: ["CORE", "DC-LUANDA", "PROD"],
+      lastCheckAt: new Date().toISOString(),
+      nextCheckAt: new Date(Date.now() + 60000).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }),
+    [id]
+  );
+
+  const effectiveDevice: DeviceDetail = device || fallbackDevice;
+
+  const baseLatency = metrics?.summary?.p95Ms ?? metrics?.summary?.minMs ?? 2.1;
+
+  const activeProbes = useMemo(() => {
+    if (serverProbes && serverProbes.length > 0) {
+      return serverProbes.map((p) => ({
+        id: p.id,
+        protocol: p.protocol,
+        endpoint: p.endpoint,
+        interval: p.interval,
+        latency: p.latency,
+        status: p.status,
+        badgeColor:
+          p.badgeVariant === "healthy"
+            ? "bg-emerald-500/20 text-emerald-400"
+            : p.badgeVariant === "critical"
+            ? "bg-rose-500/20 text-rose-400"
+            : "bg-amber-500/20 text-amber-400",
+        dotColor:
+          p.badgeVariant === "healthy"
+            ? "bg-emerald-400"
+            : p.badgeVariant === "critical"
+            ? "bg-rose-400"
+            : "bg-amber-400",
+      }));
+    }
+    return [
+      {
+        id: "probe-icmp",
+        protocol: "ICMP Echo",
+        endpoint: effectiveDevice.ipAddress,
+        interval: `${effectiveDevice.intervalSeconds || 15}s`,
+        latency: `${baseLatency.toFixed(1)}ms`,
+        status: "NOMINAL",
+        badgeColor: "bg-emerald-500/20 text-emerald-400",
+        dotColor: "bg-emerald-400",
+      },
+      {
+        id: "probe-snmp",
+        protocol: "SNMP v3 Engine",
+        endpoint: `${effectiveDevice.ipAddress}:161`,
+        interval: "30s",
+        latency: `${(baseLatency * 1.8).toFixed(1)}ms`,
+        status: "SINCRONIZADO",
+        badgeColor: "bg-emerald-500/20 text-emerald-400",
+        dotColor: "bg-emerald-400",
+      },
+      {
+        id: "probe-bgp",
+        protocol: "BGP Peer Session",
+        endpoint: "AS37153 (RT-EDGE-01)",
+        interval: "Contínuo",
+        latency: "1.2ms",
+        status: "ESTABLISHED",
+        badgeColor: "bg-emerald-500/20 text-emerald-400",
+        dotColor: "bg-emerald-400",
+      },
+      {
+        id: "probe-ssh",
+        protocol: "SSH / mTLS Auth",
+        endpoint: `${effectiveDevice.ipAddress}:${effectiveDevice.port && effectiveDevice.port > 0 ? effectiveDevice.port : 8443}`,
+        interval: "60s",
+        latency: "5.4ms",
+        status: "PROTEGIDO",
+        badgeColor: "bg-emerald-500/20 text-emerald-400",
+        dotColor: "bg-emerald-400",
+      },
+    ];
+  }, [serverProbes, effectiveDevice, baseLatency]);
+
   // Se estiver carregando inicialmente e não houver manualViewState
   if (currentViewState === "skeleton" && !device) {
     return (
@@ -191,85 +295,15 @@ export const DeviceDetailPage: React.FC = () => {
     );
   }
 
-  const fallbackDevice: DeviceDetail = {
-    id: id || "dev-1",
-    name: "SW-CORE-LUANDA-01",
-    hostname: "sw-core-luanda-01.ao.infrawatch",
-    category: "SWITCH",
-    vendor: "Huawei",
-    model: "CloudEngine 6800",
-    ipAddress: "10.0.1.1",
-    macAddress: "70:7B:E8:4A:12:00",
-    firmwareVersion: "V200R021C00",
-    protocol: "SNMP",
-    healthStatus: "UP",
-    uptimeSeconds: 15943500,
-    uptimeDisplay: "184d 12h 45m",
-    location: "Datacenter Luanda Sul (Rack 04 - U12)",
-    rack: "Rack 04 - U12",
-    tags: ["CORE", "DC-LUANDA", "PROD"],
-    lastCheckAt: new Date().toISOString(),
-    nextCheckAt: new Date(Date.now() + 60000).toISOString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const effectiveDevice: DeviceDetail = device || fallbackDevice;
-
-  const slaPercentage = deviceSla?.uptime_percentage ?? 99.98;
-  const slaTarget = deviceSla?.sla_target ?? 99.50;
+  const slaPercentage = deviceSla?.uptime_percentage ?? deviceSla?.uptimePercentage ?? 99.98;
+  const slaTarget = deviceSla?.sla_target ?? deviceSla?.slaTarget ?? 99.50;
   const slaMargin = slaPercentage - slaTarget;
-  const isSlaHealthy = slaPercentage >= slaTarget;
+  const isSlaHealthy = deviceSla?.sla_met ?? (slaPercentage >= slaTarget);
   const circumference = 2 * Math.PI * 40;
   const strokeOffset = circumference - (slaPercentage / 100) * circumference;
 
-  const mttrMinutes = deviceSla?.mttr_minutes ?? 8.2333;
-  const mtbfHours = deviceSla?.mtbf_hours ?? 418;
-
-  const baseLatency = metrics?.summary?.p95Ms ?? metrics?.summary?.minMs ?? 2.1;
-
-  const activeProbes = [
-    {
-      id: "probe-icmp",
-      protocol: "ICMP Echo",
-      endpoint: effectiveDevice.ipAddress,
-      interval: "15s",
-      latency: `${baseLatency.toFixed(1)}ms`,
-      status: "NOMINAL",
-      badgeColor: "bg-emerald-500/20 text-emerald-400",
-      dotColor: "bg-emerald-400",
-    },
-    {
-      id: "probe-snmp",
-      protocol: "SNMP v3 Engine",
-      endpoint: `${effectiveDevice.ipAddress}:161`,
-      interval: "30s",
-      latency: `${(baseLatency * 1.8).toFixed(1)}ms`,
-      status: "SINCRONIZADO",
-      badgeColor: "bg-emerald-500/20 text-emerald-400",
-      dotColor: "bg-emerald-400",
-    },
-    {
-      id: "probe-bgp",
-      protocol: "BGP Peer Session",
-      endpoint: "AS37153 (RT-EDGE-01)",
-      interval: "Contínuo",
-      latency: "1.2ms",
-      status: "ESTABLISHED",
-      badgeColor: "bg-emerald-500/20 text-emerald-400",
-      dotColor: "bg-emerald-400",
-    },
-    {
-      id: "probe-ssh",
-      protocol: "SSH / mTLS Auth",
-      endpoint: `${effectiveDevice.ipAddress}:8443`,
-      interval: "60s",
-      latency: "5.4ms",
-      status: "PROTEGIDO",
-      badgeColor: "bg-emerald-500/20 text-emerald-400",
-      dotColor: "bg-emerald-400",
-    },
-  ];
+  const mttrMinutes = deviceSla?.mttr_minutes ?? deviceSla?.mttrMinutes ?? 8.2333;
+  const mtbfHours = deviceSla?.mtbf_hours ?? deviceSla?.mtbfHours ?? 418;
 
   return (
     <div className="min-h-screen bg-obsidian-950 text-slate-100 flex flex-col pb-16">
