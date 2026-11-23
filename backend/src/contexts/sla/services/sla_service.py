@@ -632,6 +632,7 @@ class SlaService:
         organization_id: UUID,
         payload: CreateSupportTicketRequest,
         user_email: str,
+        content_formatter: Any | None = None,
     ) -> SupportTicketResponse:
         """Registra a abertura de um chamado de suporte técnico pelo cliente no GLPI."""
         now = datetime.now(UTC)
@@ -657,12 +658,8 @@ class SlaService:
         org = (await self._session.execute(stmt_org)).scalar_one_or_none()
         org_name = org.name if org else str(organization_id)
 
-        # 3. Sanitização contra Stored XSS
+        # 3. Sanitização contra Stored XSS do título
         safe_title = html.escape(payload.title.strip())
-        safe_description = html.escape(payload.description.strip()).replace("\n", "<br/>")
-        safe_email = html.escape(user_email.strip())
-        safe_device = html.escape(device_info)
-        safe_org = html.escape(org_name)
 
         # 4. Mapeamento de severidade para urgência e impacto no GLPI
         severity_upper = payload.severity.upper()
@@ -683,24 +680,31 @@ class SlaService:
             impact = GlpiImpact.MEDIUM
             priority = GlpiPriority.MEDIUM
 
-        # 5. Formatação do conteúdo HTML do chamado
-        ticket_html = (
-            '<div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.5; color: #1e293b;">'
-            '<h3 style="color: #0284c7; margin-bottom: 8px;">🎫 Chamado Aberto via Portal do Cliente</h3>'
-            f'<p style="margin: 4px 0;"><strong>Organização:</strong> {safe_org} (ID: {organization_id})</p>'
-            f'<p style="margin: 4px 0;"><strong>Solicitante:</strong> {safe_email}</p>'
-            f'<p style="margin: 4px 0;"><strong>Severidade:</strong> {html.escape(payload.severity)}</p>'
-            f'<p style="margin: 4px 0;"><strong>Ativo Afetado:</strong> {safe_device}</p>'
-            '<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0;" />'
-            '<h4 style="margin: 0 0 6px 0; color: #334155;">Descrição Detalhada:</h4>'
-            '<div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px;">'
-            f"{safe_description}"
-            "</div>"
-            '<p style="font-size: 11px; color: #64748b; margin-top: 12px;">'
-            f'Protocolo de Atendimento InfraWatch: <strong>{protocol}</strong> | Registrado em {now.strftime("%d/%m/%Y %H:%M:%S UTC")}'
-            "</p>"
-            "</div>"
-        )
+        # 5. Formatação do conteúdo HTML do chamado via Presenter
+        if content_formatter is not None:
+            ticket_html = content_formatter(
+                organization_name=org_name,
+                organization_id=organization_id,
+                requester_email=user_email,
+                severity=payload.severity,
+                device_info=device_info,
+                description=payload.description,
+                protocol=protocol,
+                created_at=now,
+            )
+        else:
+            from src.contexts.sla.api.presenters.support_ticket_presenter import format_support_ticket_html
+
+            ticket_html = format_support_ticket_html(
+                organization_name=org_name,
+                organization_id=organization_id,
+                requester_email=user_email,
+                severity=payload.severity,
+                device_info=device_info,
+                description=payload.description,
+                protocol=protocol,
+                created_at=now,
+            )
 
         ticket_payload = GlpiTicketCreate(
             name=f"[Portal Cliente - {org_name}] {safe_title}",

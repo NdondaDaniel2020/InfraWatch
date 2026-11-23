@@ -14,6 +14,7 @@ from src.contexts.iam.api.dependencies import CurrentUserDep, require_roles
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.sla.api.dependencies import SlaServiceDep
 from src.contexts.sla.api.presenters.csv_presenter import SlaCsvPresenter
+from src.contexts.sla.api.presenters.support_ticket_presenter import format_support_ticket_html
 from src.contexts.sla.schemas.requests import CreateSupportTicketRequest
 from src.contexts.sla.schemas.responses import (
     OrganizationDailySlaResponse,
@@ -403,6 +404,7 @@ async def create_client_support_ticket(
             organization_id=organization_id,
             payload=payload,
             user_email=user.email,
+            content_formatter=format_support_ticket_html,
         )
     except ValueError as err:
         raise HTTPException(
