@@ -1035,7 +1035,7 @@ async def seed_topology(
             "cluster": "CLUSTER LUANDA-01",
             "position_x": 650.0,
             "position_y": 450.0,
-            "org_id": banco_org_id,
+            "org_id": unitel_org_id,
         },
     ]
 
