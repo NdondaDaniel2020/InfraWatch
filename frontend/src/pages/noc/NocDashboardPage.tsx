@@ -135,7 +135,6 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
   // Estados locais da tela
   const [severityFilter, setSeverityFilter] = useState<SeverityFilterType>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
-  const [showAllDevices, setShowAllDevices] = useState(false);
   const [viewState, setViewState] = useState<DashboardViewMode>(initialViewState);
   const [selectedDevice, setSelectedDevice] = useState<MonitoredDevice | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -362,11 +361,10 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     });
   }, [devices, severityFilter, tenantFilter]);
 
-  // Exibe ativos filtrados (com opção de expandir todos)
+  // Exibe no máximo 4 ativos em destaque no Cockpit NOC
   const displayedDevices = useMemo(() => {
-    if (showAllDevices) return filteredDevices;
-    return filteredDevices.slice(0, 8);
-  }, [filteredDevices, showAllDevices]);
+    return filteredDevices.slice(0, 4);
+  }, [filteredDevices]);
 
   // Gráfico 24h: usa os dados fornecidos, ou fallback para baseline canônico
   const trafficData = useMemo(() => {
@@ -670,20 +668,6 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
                   ) : (
                     <div className="col-span-full py-12 text-center text-slate-500 font-mono text-xs border border-dashed border-obsidian-800 rounded-xl">
                       Nenhum ativo monitorado encontrado para os filtros selecionados.
-                    </div>
-                  )}
-
-                  {filteredDevices.length > 8 && (
-                    <div className="col-span-full pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowAllDevices((prev) => !prev)}
-                        className="w-full py-2 bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 hover:text-white rounded-lg text-xs font-mono font-medium border border-obsidian-800 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        {showAllDevices
-                          ? "Mostrar Menos (Recolher Grade)"
-                          : `Ver Todos os ${filteredDevices.length} Ativos Monitorados no Cockpit`}
-                      </button>
                     </div>
                   )}
                 </div>
