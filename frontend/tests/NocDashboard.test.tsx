@@ -75,7 +75,7 @@ describe("NOC Cockpit Dashboard — Telas Mockups & Obsidian Telemetry (Issue #2
       expect(screen.getByText("Fibra Rompida — RT-BENGUELA")).toBeInTheDocument();
     });
 
-    it("deve limitar o feed de incidentes a no máximo 3 cards em exibição", () => {
+    it("deve limitar o feed de incidentes a no máximo 2 cards em exibição", () => {
       const fiveIncidents = [
         { id: "1", ticketId: "1", priorityLabel: "P1", severity: "critical" as const, title: "Incidente Alpha", timeAgo: "1m", description: "Desc 1", slaOrStatusText: "SLA", actionType: "ack_resolve" as const },
         { id: "2", ticketId: "2", priorityLabel: "P1", severity: "critical" as const, title: "Incidente Beta", timeAgo: "2m", description: "Desc 2", slaOrStatusText: "SLA", actionType: "ack_resolve" as const },
@@ -87,7 +87,7 @@ describe("NOC Cockpit Dashboard — Telas Mockups & Obsidian Telemetry (Issue #2
 
       expect(screen.getByText("Incidente Alpha")).toBeInTheDocument();
       expect(screen.getByText("Incidente Beta")).toBeInTheDocument();
-      expect(screen.getByText("Incidente Gamma")).toBeInTheDocument();
+      expect(screen.queryByText("Incidente Gamma")).not.toBeInTheDocument();
       expect(screen.queryByText("Incidente Delta")).not.toBeInTheDocument();
       expect(screen.queryByText("Incidente Epsilon")).not.toBeInTheDocument();
     });

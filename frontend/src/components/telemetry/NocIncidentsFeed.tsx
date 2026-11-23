@@ -13,12 +13,12 @@ export interface NocIncidentsFeedProps {
 /**
  * Container do Feed de Incidentes em Tempo Real.
  * Orquestra a listagem e delega cada incidente para o componente individual IncidentCard.
- * Exibe por padrão no máximo 3 cards em destaque no feed operacional.
+ * Exibe por padrão no máximo 2 cards em destaque no feed operacional.
  */
 export const NocIncidentsFeed: React.FC<NocIncidentsFeedProps> = ({
   incidents = [],
   onShowToast,
-  maxItems = 3,
+  maxItems = 2,
 }) => {
   const p1Count = incidents.filter((i) => i.severity === "critical").length;
   const displayedIncidents = incidents.slice(0, maxItems);

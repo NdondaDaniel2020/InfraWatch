@@ -914,10 +914,10 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
             {/* COLUNA DIREITA (4 colunas): Incident Feed, Topologia & SLA       */}
             {/* =============================================================== */}
             <div className="lg:col-span-4 flex flex-col gap-6">
-              {/* CARD: INCIDENT FEED EM TEMPO REAL COM SLA COUNTDOWN (MÁXIMO 3 CARDS) */}
+              {/* CARD: INCIDENT FEED EM TEMPO REAL COM SLA COUNTDOWN (MÁXIMO 2 CARDS) */}
               <NocIncidentsFeed
                 incidents={backendIncidents || initialIncidents || []}
-                maxItems={3}
+                maxItems={2}
                 onShowToast={showToast}
               />
 
