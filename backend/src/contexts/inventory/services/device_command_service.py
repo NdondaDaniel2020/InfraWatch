@@ -460,15 +460,24 @@ class DeviceCommandService:
                     "message": f"Diagnóstico Zabbix indisponível: {exc!s}",
                 }
 
+        if success:
+            detail_msg = f"Sonda concluída com status {result.status}. Latência média: {round(result.latency_ms, 2)} ms."
+        elif result.error_message:
+            detail_msg = result.error_message
+        elif result.packet_loss_pct == 100.0:
+            detail_msg = f"Host inalcançável: 100% de perda de pacotes para o IP {device.ip_address} (sem resposta ICMP)."
+        else:
+            detail_msg = f"Sonda finalizada com status {result.status} (perda de {result.packet_loss_pct}%)."
+
         return DeviceManualProbeResult(
             success=success,
             rtt_ms=round(result.latency_ms, 2),
             packet_loss_pct=round(result.packet_loss_pct, 1),
             packets_sent=5,
-            packets_received=5 if success else 0,
+            packets_received=round(5 * (1 - result.packet_loss_pct / 100.0)),
             timestamp=now_iso,
             status=result.status,
-            message=f"Sonda concluída com status {result.status}" if success else (result.error_message or "Falha na sondagem"),
+            message=detail_msg,
             protocol=device.protocol.upper(),
             target_ip=device.ip_address,
             zabbix_status=zabbix_status,
