@@ -32,6 +32,10 @@ class TopologyNodeResponse(BaseModel):
     device_status: str | None = None
     model: str | None = None
     vendor: str | None = None
+    serial_number: str | None = None
+    firmware: str | None = None
+    temperature: str | None = None
+    uptime: str | None = None
     latency_ms: float | None = None
     packet_loss: float | None = None
     cpu_usage: float | None = None
@@ -64,6 +68,10 @@ class TopologyNodeResponse(BaseModel):
             device_status=st,
             model=extra.get("model"),
             vendor=extra.get("vendor"),
+            serial_number=extra.get("serial_number"),
+            firmware=extra.get("firmware"),
+            temperature=extra.get("temperature"),
+            uptime=extra.get("uptime"),
             latency_ms=extra.get("latency_ms"),
             packet_loss=extra.get("packet_loss"),
             cpu_usage=extra.get("cpu_usage"),

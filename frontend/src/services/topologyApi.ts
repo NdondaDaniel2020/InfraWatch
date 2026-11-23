@@ -24,6 +24,10 @@ export interface BackendTopologyNode {
   device_status?: string | null;
   model?: string | null;
   vendor?: string | null;
+  serial_number?: string | null;
+  firmware?: string | null;
+  temperature?: string | null;
+  uptime?: string | null;
   latency_ms?: number | null;
   packet_loss?: number | null;
   cpu_usage?: number | null;
@@ -105,6 +109,10 @@ export const topologyApi = {
       positionX: n.position_x ?? undefined,
       positionY: n.position_y ?? undefined,
       model: n.model ?? undefined,
+      serialNumber: n.serial_number ?? undefined,
+      firmware: n.firmware ?? undefined,
+      temperature: n.temperature ?? undefined,
+      uptime: n.uptime ?? undefined,
       latencyMs: typeof n.latency_ms === "number" ? n.latency_ms : undefined,
       cpuUsage: typeof n.cpu_usage === "number" ? Math.round(n.cpu_usage) : undefined,
       memUsage: typeof n.mem_usage === "number" ? Math.round(n.mem_usage) : undefined,

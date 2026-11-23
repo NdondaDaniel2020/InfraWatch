@@ -85,12 +85,17 @@ class TopologyService:
         if device_ids:
             devices = await self._device_repo.find_by_ids(device_ids)
             for dev in devices:
+                th = dev.thresholds if isinstance(dev.thresholds, dict) else {}
                 device_enrichments[dev.id] = {
                     "status": dev.status,
-                    "model": (dev.thresholds.get("model") if isinstance(dev.thresholds, dict) else None) or dev.category,
-                    "vendor": dev.thresholds.get("vendor") if isinstance(dev.thresholds, dict) else None,
-                    "ports_active": dev.thresholds.get("ports_active") if isinstance(dev.thresholds, dict) else None,
-                    "ports_total": dev.thresholds.get("ports_total") if isinstance(dev.thresholds, dict) else None,
+                    "model": th.get("model") or dev.category,
+                    "vendor": th.get("vendor"),
+                    "serial_number": th.get("serial_number"),
+                    "firmware": th.get("firmware"),
+                    "temperature": th.get("temperature"),
+                    "uptime": th.get("uptime"),
+                    "ports_active": th.get("ports_active"),
+                    "ports_total": th.get("ports_total"),
                 }
 
             try:
