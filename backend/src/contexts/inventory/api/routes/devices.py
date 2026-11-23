@@ -1,9 +1,6 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
 
 from src.contexts.iam.api.dependencies import (
     AuthenticatedUser,
@@ -19,8 +16,11 @@ from src.contexts.inventory.api.dependencies import (
 )
 from src.contexts.inventory.schemas.device_schemas import (
     DeviceDetail,
+    DeviceInterfaceResponse,
     DeviceListItem,
+    DeviceManualProbeResult,
     DeviceSearchResult,
+    DeviceTimescaleMetricsResponse,
 )
 from src.contexts.inventory.schemas.filters import DeviceFilters
 from src.contexts.inventory.schemas.requests import (
@@ -88,50 +88,12 @@ async def create_device(
 async def test_probe(
     payload: TestProbeRequest,
     user: CurrentUserDep,
+    command_service: DeviceCommandServiceDep,
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Executa sonda preliminar sob demanda para testar conectividade com o alvo."""
-    from uuid import uuid4
-
-    from src.workers.probers.executor import ProbeExecutor
-    from src.workers.scheduler.in_memory_inventory import ProbeTarget
-
-    resolved_port = payload.port
-    if resolved_port == 0 and payload.protocol.upper() == "SNMP":
-        resolved_port = 161
-
-    target = ProbeTarget(
-        device_id=uuid4(),
-        organization_id=UUID(user.organization_id) if user.organization_id else uuid4(),
-        name=f"Pre-Check-{payload.ip_address}",
-        ip_address=payload.ip_address,
-        port=resolved_port,
-        protocol=payload.protocol,
-        category="PRE_CHECK",
-        interval_seconds=60,
-    )
-
-    executor = ProbeExecutor(max_concurrent=10)
-    result = await executor.execute(target, timeout_ms=payload.timeout_ms)
-
-    success = result.status in ("UP", "DEGRADED")
-    if success:
-        message = (
-            f"Conexão validada com sucesso! RTT: {result.latency_ms:.2f}ms"
-            if result.latency_ms > 0
-            else f"Conexão validada com sucesso! Status: {result.status}"
-        )
-    else:
-        message = result.error_message or f"Falha na sondagem: {result.status}"
-
-    return TestProbeResponse(
-        status=result.status,
-        latency_ms=result.latency_ms,
-        packet_loss_pct=result.packet_loss_pct,
-        message=message,
-        success=success,
-        error_message=result.error_message,
-    )
+    org_id = UUID(user.organization_id) if user.organization_id else None
+    return await command_service.execute_pre_check_probe(payload, org_id)
 
 
 @router.get("/", response_model=PaginatedResponse[DeviceListItem])
@@ -298,122 +260,22 @@ async def set_maintenance(
     return await query_service.get_device_detail(target_org, device_id)
 
 
-class DeviceManualProbeResult(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    success: bool
-    rtt_ms: float
-    packet_loss_pct: float
-    packets_sent: int
-    packets_received: int
-    timestamp: str
-    status: str
-    message: str
-
-
-class DeviceMetricBucket(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    timestamp: str
-    rtt_min_ms: float
-    rtt_p95_ms: float
-    rtt_max_ms: float
-    packet_loss_pct: float
-
-
-class DeviceMetricSummary(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    min_ms: float
-    p95_ms: float
-    max_ms: float
-    avg_loss_pct: float
-
-
-class DeviceTimescaleMetricsResponse(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    buckets: list[DeviceMetricBucket]
-    period: str
-    summary: DeviceMetricSummary
-
-
-class DeviceInterfaceResponse(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    port_number: int
-    port_name: str
-    speed: str
-    status: str
-    description: str
-    rx_power_dbm: str
-    tx_power_dbm: str
-    crc_errors_per_min: int
-    packet_loss_pct: float
-    mtu: int
-    duplex: str
-
-
-class DeviceSyntheticProbeResponse(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    id: str
-    protocol: str
-    endpoint: str
-    interval: str
-    latency: str
-    status: str
-    badge_variant: str
-
-
 @router.post("/{device_id}/probe", response_model=DeviceManualProbeResult)
 async def probe_device(
     device_id: UUID,
     user: CurrentUserDep,
-    query_service: DeviceQueryServiceDep,
+    command_service: DeviceCommandServiceDep,
     org_id: UUID | None = None,
     _: AuthenticatedUser = Depends(require_roles(*WRITE_ROLES)),
 ):
     """Executa sonda on-demand no dispositivo cadastrado com base em seus atributos reais."""
-    from src.workers.probers.executor import ProbeExecutor
-    from src.workers.scheduler.in_memory_inventory import ProbeTarget
-
     target_org_str = enforce_tenant_scope(org_id, user)
     target_org = UUID(target_org_str) if target_org_str else None
-    device = await query_service.get_device_detail(target_org, device_id)
-    if not device:
+
+    result = await command_service.execute_on_demand_probe(device_id, target_org)
+    if not result:
         raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
-
-    resolved_port = device.port
-    if resolved_port == 0 and device.protocol.upper() == "SNMP":
-        resolved_port = 161
-
-    target = ProbeTarget(
-        device_id=device.id,
-        organization_id=device.organization_id,
-        name=device.name,
-        ip_address=device.ip_address,
-        port=resolved_port,
-        protocol=device.protocol,
-        category=device.category,
-        interval_seconds=device.interval_seconds,
-    )
-
-    executor = ProbeExecutor(max_concurrent=10)
-    result = await executor.execute(target, timeout_ms=3000)
-
-    success = result.status in ("UP", "DEGRADED")
-    now_iso = datetime.now(timezone.utc).isoformat()
-    return DeviceManualProbeResult(
-        success=success,
-        rtt_ms=round(result.latency_ms, 2),
-        packet_loss_pct=round(result.packet_loss_pct, 1),
-        packets_sent=5,
-        packets_received=5 if success else 0,
-        timestamp=now_iso,
-        status=result.status,
-        message=f"Sonda concluída com status {result.status}" if success else (result.error_message or "Falha na sondagem"),
-    )
+    return result
 
 
 @router.get("/{device_id}/interfaces", response_model=list[DeviceInterfaceResponse])
@@ -426,178 +288,11 @@ async def get_device_interfaces(
     """Retorna a matriz de interfaces de rede do dispositivo."""
     target_org_str = enforce_tenant_scope(org_id, user)
     target_org = UUID(target_org_str) if target_org_str else None
-    device = await query_service.get_device_detail(target_org, device_id)
-    if not device:
+
+    interfaces = await query_service.get_device_interfaces(target_org, device_id)
+    if interfaces is None:
         raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
-
-    # Se for um SWITCH de rede ou o ativo analisado 01a1da45-d1de-721b-b5e8-1ef12b8a7dcf, expõe a matriz de portas ópticas SFP28
-    if device.category.upper() == "SWITCH" or str(device.id) == "01a1da45-d1de-721b-b5e8-1ef12b8a7dcf":
-        port_descriptions = {
-            1: "Uplink RT-EDGE-01 (100GE LACP Trunk)",
-            2: "Uplink Redundante RT-EDGE-01",
-            3: "Distribuição SW-DIST-01",
-            4: "Distribuição SW-DIST-02",
-            5: "Cluster Local DC Luanda",
-            6: "Cluster Local DC Luanda",
-            7: "VLAN 10 Gestão mTLS",
-            8: "VLAN 20 Telemetria SSE",
-            9: "VLAN 30 DMZ / Ingress",
-            10: "Mirror Wireshark Probe",
-            11: "Storage NVMe-oF Primário",
-            12: "Storage NVMe-oF Secundário",
-            13: "VLAN 40 Voz & Telefonia",
-            14: "VLAN 50 Backup Replication",
-            15: "Cluster K8s Worker 01",
-            16: "Cluster K8s Worker 02",
-            17: "Cluster K8s Worker 03",
-            18: "Enlace Secundário Luanda",
-            19: "Alerta CRC: Taxa de Erro Elevada (142 erros/min)",
-            20: "Porta SFP28 disponível para alocação",
-            21: "Porta SFP28 disponível para alocação",
-            22: "Porta SFP28 disponível para alocação",
-            23: "Porta SFP28 disponível para alocação",
-            24: "Porta SFP28 disponível para alocação",
-        }
-        interfaces = []
-        for port in range(1, 25):
-            if port <= 18:
-                interfaces.append(
-                    DeviceInterfaceResponse(
-                        port_number=port,
-                        port_name=f"100GE0/0/{port}",
-                        speed="25GE SFP28" if port <= 20 else "100GE QSFP28",
-                        status="UP",
-                        description=port_descriptions.get(port, f"Acesso {port}"),
-                        rx_power_dbm=f"-{3.0 + (port % 6) * 0.1:.1f} dBm",
-                        tx_power_dbm="-2.1 dBm",
-                        crc_errors_per_min=0,
-                        packet_loss_pct=0.0,
-                        mtu=9216 if port <= 4 else 1500,
-                        duplex="Full",
-                    )
-                )
-            elif port == 19:
-                interfaces.append(
-                    DeviceInterfaceResponse(
-                        port_number=19,
-                        port_name="100GE0/0/19",
-                        speed="25GE SFP28",
-                        status="DEG",
-                        description="Alerta CRC: Taxa de Erro Elevada (142 erros/min)",
-                        rx_power_dbm="-11.4 dBm",
-                        tx_power_dbm="-2.1 dBm",
-                        crc_errors_per_min=142,
-                        packet_loss_pct=1.4,
-                        mtu=1500,
-                        duplex="Full",
-                    )
-                )
-            else:
-                interfaces.append(
-                    DeviceInterfaceResponse(
-                        port_number=port,
-                        port_name=f"100GE0/0/{port}",
-                        speed="25GE SFP28",
-                        status="FREE",
-                        description="Porta SFP28 disponível para alocação",
-                        rx_power_dbm="N/A",
-                        tx_power_dbm="N/A",
-                        crc_errors_per_min=0,
-                        packet_loss_pct=0.0,
-                        mtu=1500,
-                        duplex="Auto",
-                    )
-                )
-        return interfaces
-
-    # Para servidores, containers ou bancos de dados, retorna as interfaces virtuais conectadas
-    return [
-        DeviceInterfaceResponse(
-            port_number=1,
-            port_name="eth0",
-            speed="10GbE Virtual" if device.category.upper() in ("SERVER", "DATABASE") else "Bridge veth",
-            status="UP" if device.status == "UP" else "DOWN",
-            description=f"Interface primária conectada ({device.ip_address})",
-            rx_power_dbm="N/A",
-            tx_power_dbm="N/A",
-            crc_errors_per_min=0,
-            packet_loss_pct=0.0,
-            mtu=1500,
-            duplex="Full",
-        )
-    ]
-
-
-@router.get("/{device_id}/probes", response_model=list[DeviceSyntheticProbeResponse])
-async def get_device_probes(
-    device_id: UUID,
-    user: CurrentUserDep,
-    query_service: DeviceQueryServiceDep,
-    org_id: UUID | None = None,
-):
-    """Retorna as sondas sintéticas ativas de monitoramento do ativo."""
-    from sqlalchemy import text
-    from src.core.database.session import get_session_factory
-
-    target_org_str = enforce_tenant_scope(org_id, user)
-    target_org = UUID(target_org_str) if target_org_str else None
-    device = await query_service.get_device_detail(target_org, device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
-
-    factory = get_session_factory()
-    rtt_ms = 2.1
-    async with factory() as session:
-        query_sql = """
-            SELECT AVG(value) as avg_rtt
-            FROM metrics
-            WHERE device_id = :dev_id AND metric_type = 'latency_ms'
-            AND timestamp >= NOW() - INTERVAL '1 hour';
-        """
-        result = await session.execute(text(query_sql), {"dev_id": device_id})
-        row = result.fetchone()
-        if row and row.avg_rtt is not None:
-            rtt_ms = round(float(row.avg_rtt), 1)
-
-    is_up = device.status.upper() == "UP"
-    return [
-        DeviceSyntheticProbeResponse(
-            id="probe-icmp",
-            protocol="ICMP Echo",
-            endpoint=device.ip_address,
-            interval=f"{device.interval_seconds or 15}s",
-            latency=f"{rtt_ms}ms",
-            status="NOMINAL" if is_up else "DOWN",
-            badge_variant="healthy" if is_up else "critical",
-        ),
-        DeviceSyntheticProbeResponse(
-            id="probe-snmp",
-            protocol="SNMP v3 Engine",
-            endpoint=f"{device.ip_address}:161",
-            interval="30s",
-            latency=f"{round(rtt_ms * 1.8, 1)}ms",
-            status="SINCRONIZADO" if is_up else "TIMEOUT",
-            badge_variant="healthy" if is_up else "critical",
-        ),
-        DeviceSyntheticProbeResponse(
-            id="probe-bgp",
-            protocol="BGP Peer Session",
-            endpoint="AS37153 (RT-EDGE-01)",
-            interval="Contínuo",
-            latency="1.2ms",
-            status="ESTABLISHED",
-            badge_variant="healthy",
-        ),
-        DeviceSyntheticProbeResponse(
-            id="probe-mtls",
-            protocol="SSH / mTLS Auth",
-            endpoint=f"{device.ip_address}:{device.port if device.port and device.port > 0 else 8443}",
-            interval="60s",
-            latency="5.4ms",
-            status="PROTEGIDO",
-            badge_variant="healthy",
-        ),
-    ]
+    return interfaces
 
 
 @router.get("/{device_id}/metrics", response_model=DeviceTimescaleMetricsResponse)
@@ -609,91 +304,10 @@ async def get_device_metrics(
     org_id: UUID | None = None,
 ):
     """Retorna série temporal de métricas agregadas por time_bucket do TimescaleDB."""
-    from sqlalchemy import text
-    from src.core.database.session import get_session_factory
-
     target_org_str = enforce_tenant_scope(org_id, user)
     target_org = UUID(target_org_str) if target_org_str else None
-    device = await query_service.get_device_detail(target_org, device_id)
-    if not device:
+
+    metrics = await query_service.get_device_timescale_metrics(target_org, device_id, period)
+    if metrics is None:
         raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
-
-    interval_sql = "INTERVAL '10 minutes'"
-    limit_buckets = 60
-    if period == "1h":
-        interval_sql = "INTERVAL '1 minute'"
-        limit_buckets = 60
-    elif period == "7d":
-        interval_sql = "INTERVAL '1 hour'"
-        limit_buckets = 168
-    elif period == "30d":
-        interval_sql = "INTERVAL '4 hours'"
-        limit_buckets = 180
-
-    factory = get_session_factory()
-    async with factory() as session:
-        query_sql = f"""
-            SELECT 
-                time_bucket({interval_sql}, timestamp) AS bucket,
-                MIN(value) as min_rtt,
-                AVG(value) as avg_rtt,
-                MAX(value) as max_rtt,
-                AVG(packet_loss) as avg_loss
-            FROM metrics
-            WHERE device_id = :dev_id AND metric_type = 'latency_ms'
-            GROUP BY bucket
-            ORDER BY bucket DESC
-            LIMIT :limit_b;
-        """
-        result = await session.execute(text(query_sql), {
-            "dev_id": device_id,
-            "limit_b": limit_buckets,
-        })
-        rows = list(reversed(result.fetchall()))
-
-    if not rows:
-        return DeviceTimescaleMetricsResponse(
-            buckets=[],
-            period=period,
-            summary=DeviceMetricSummary(min_ms=0.0, p95_ms=0.0, max_ms=0.0, avg_loss_pct=0.0),
-        )
-
-    buckets: list[DeviceMetricBucket] = []
-    rtt_values: list[float] = []
-    loss_values: list[float] = []
-
-    for r in rows:
-        min_v = round(float(r.min_rtt or 0.0), 2)
-        avg_v = round(float(r.avg_rtt or 0.0), 2)
-        max_v = round(float(r.max_rtt or 0.0), 2)
-        loss_v = round(float(r.avg_loss or 0.0), 2)
-
-        buckets.append(
-            DeviceMetricBucket(
-                timestamp=r.bucket.isoformat() if hasattr(r.bucket, "isoformat") else str(r.bucket),
-                rtt_min_ms=min_v,
-                rtt_p95_ms=avg_v,
-                rtt_max_ms=max_v,
-                packet_loss_pct=loss_v,
-            )
-        )
-        rtt_values.append(avg_v)
-        loss_values.append(loss_v)
-
-    sorted_rtt = sorted(rtt_values)
-    p95_idx = min(len(sorted_rtt) - 1, int(len(sorted_rtt) * 0.95))
-    p95_v = sorted_rtt[p95_idx] if sorted_rtt else 0.0
-    min_v = min(rtt_values) if rtt_values else 0.0
-    max_v = max(rtt_values) if rtt_values else 0.0
-    avg_loss = round(sum(loss_values) / len(loss_values), 2) if loss_values else 0.0
-
-    return DeviceTimescaleMetricsResponse(
-        buckets=buckets,
-        period=period,
-        summary=DeviceMetricSummary(
-            min_ms=round(min_v, 2),
-            p95_ms=round(p95_v, 2),
-            max_ms=round(max_v, 2),
-            avg_loss_pct=avg_loss,
-        ),
-    )
+    return metrics

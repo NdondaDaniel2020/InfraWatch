@@ -350,3 +350,32 @@ async def test_get_device_interfaces_endpoint(override_get_db):
         server_interfaces = server_interfaces_resp.json()
         assert len(server_interfaces) == 1
         assert server_interfaces[0]["portName"] == "eth0"
+
+
+@pytest.mark.asyncio
+async def test_get_device_metrics_endpoint(override_get_db):
+    """Valida o endpoint GET /api/v1/devices/{device_id}/metrics."""
+    org_id = str(uuid4())
+    token = generate_token("ORG_ADMIN", org_id)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        server_payload = {
+            "name": "Metrics Node",
+            "ipAddress": "192.168.10.15",
+            "protocol": "ICMP",
+            "category": "SERVER",
+            "intervalSeconds": 30,
+        }
+        resp = await client.post("/api/v1/devices/", json=server_payload, headers=headers)
+        assert resp.status_code == status.HTTP_201_CREATED
+        device_id = resp.json()["id"]
+
+        metrics_resp = await client.get(f"/api/v1/devices/{device_id}/metrics?period=24h", headers=headers)
+        assert metrics_resp.status_code == status.HTTP_200_OK
+        metrics = metrics_resp.json()
+        assert metrics["period"] == "24h"
+        assert "buckets" in metrics
+        assert "summary" in metrics
