@@ -159,6 +159,7 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
     expect(screen.getByText("TOPOLOGIA")).toBeInTheDocument();
     expect(screen.getByText("Grafo Interativo de Enlaces & Tráfego")).toBeInTheDocument();
     expect(screen.getByText("LLDP/CDP Sincronizado")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Redefinir zoom para 100%/i })).toHaveTextContent("100%");
 
     // Nós no canvas
     await waitFor(
