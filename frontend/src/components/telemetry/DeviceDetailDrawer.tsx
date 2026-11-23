@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { RefreshCw, Wrench, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ExternalLink, RefreshCw, Wrench, X } from "lucide-react";
 import type { MonitoredDevice } from "../../types/telemetry";
 import { Sparkline } from "./Sparkline";
 import { UptimeHistory90d } from "./UptimeHistory90d";
@@ -65,11 +66,14 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
               <StatusBadge status={device.status} severity={device.severity} />
             </div>
 
-            <h2
-              id="drawer-device-title"
-              className="text-lg font-bold font-mono text-white mt-2 mb-0.5"
-            >
-              {device.name}
+            <h2 id="drawer-device-title" className="text-lg font-bold font-mono text-white mt-2 mb-0.5">
+              <Link
+                to={`/devices/${device.device_id}`}
+                className="hover:text-emerald-400 hover:underline transition-colors"
+                title="Abrir página de detalhes do ativo"
+              >
+                {device.name}
+              </Link>
             </h2>
             <p className="text-xs text-slate-400 m-0">
               {device.model_description || "Ativo de Rede Monitorado"} • {device.location || "DC Luanda"}
@@ -192,6 +196,15 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
                 <span>Ping Teste</span>
               </button>
             )}
+
+            <Link
+              to={`/devices/${device.device_id}`}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 text-xs font-mono font-semibold transition-colors"
+              title="Acessar telemetria 360° e sondas do ativo"
+            >
+              <ExternalLink size={14} />
+              <span>Visão 360°</span>
+            </Link>
 
             <button
               type="button"

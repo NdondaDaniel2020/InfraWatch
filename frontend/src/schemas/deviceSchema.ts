@@ -15,7 +15,11 @@ export const hostnameOrContainerRegex =
   /^[a-zA-Z0-9][-a-zA-Z0-9_.]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
 
 export const isValidIpAddress = (val: string): boolean => {
-  return ipv4Regex.test(val) || ipv6Regex.test(val) || hostnameOrContainerRegex.test(val);
+  return ipv4Regex.test(val) || ipv6Regex.test(val);
+};
+
+export const isValidHostOrIp = (val: string): boolean => {
+  return isValidIpAddress(val) || hostnameOrContainerRegex.test(val);
 };
 
 export const baseDeviceSchema = z.object({
@@ -31,7 +35,7 @@ export const baseDeviceSchema = z.object({
     .string()
     .min(1, "IP/Endereço é obrigatório")
     .max(255)
-    .refine(isValidIpAddress, "Formato de IP inválido (IPv4 ou IPv6)"),
+    .refine(isValidHostOrIp, "Formato de IP ou Hostname inválido"),
   port: z
     .number()
     .int()
