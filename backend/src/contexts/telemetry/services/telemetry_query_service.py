@@ -9,7 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.iam.domain.authenticated_user import AuthenticatedUser
-from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.inventory.repositories.device_repository import DeviceRepository
+from src.contexts.network_topology.database.repository import TopologyRepository
 from src.contexts.telemetry.database.models import MetricModel
 from src.contexts.telemetry.schemas.telemetry import (
     MonitoredDeviceDetail,
@@ -26,8 +27,15 @@ class TelemetryDeviceNotFoundError(Exception):
 class TelemetryQueryService:
     """Serviço de aplicação para consultas analíticas de telemetria e monitoramento passivo."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        device_repo: DeviceRepository | None = None,
+        topology_repo: TopologyRepository | None = None,
+    ) -> None:
         self._session = session
+        self._device_repo = device_repo or DeviceRepository(session)
+        self._topology_repo = topology_repo or TopologyRepository(session)
 
     async def get_latest_metrics_for_devices(
         self, device_ids: list[UUID]
@@ -78,25 +86,21 @@ class TelemetryQueryService:
         offset: int = 0,
     ) -> MonitoredDevicesResponse:
         """Consulta os ativos sob monitoramento com sua telemetria mais recente."""
-        stmt = select(DeviceModel)
-
         # Isolamento multitenancy: usuários regulares acessam apenas a sua própria organização
         if not current_user.is_global_operator:
             if current_user.organization_id:
-                stmt = stmt.where(DeviceModel.organization_id == UUID(current_user.organization_id))
+                org_filter = UUID(current_user.organization_id)
             else:
                 return MonitoredDevicesResponse(total=0, items=[])
-        elif organization_id:
-            stmt = stmt.where(DeviceModel.organization_id == organization_id)
+        else:
+            org_filter = organization_id
 
-        if status_filter:
-            stmt = stmt.where(DeviceModel.status == status_filter.upper())
-
-        count_stmt = select(func.count()).select_from(stmt.subquery())
-        total_count = (await self._session.execute(count_stmt)).scalar_one() or 0
-
-        stmt = stmt.order_by(DeviceModel.name.asc()).offset(offset).limit(limit)
-        devices = (await self._session.execute(stmt)).scalars().all()
+        devices, total_count = await self._device_repo.list_devices(
+            organization_id=org_filter,
+            status_filter=status_filter,
+            limit=limit,
+            offset=offset,
+        )
 
         if not devices:
             return MonitoredDevicesResponse(total=total_count, items=[])
@@ -127,19 +131,11 @@ class TelemetryQueryService:
 
         # Mapeamento de cluster da topologia para identificação de Região / DC
         cluster_by_dev: dict[UUID, str] = {}
-        try:
-            from src.contexts.network_topology.database.models import TopologyNodeModel
-
-            topo_stmt = select(TopologyNodeModel.device_id, TopologyNodeModel.cluster).where(
-                TopologyNodeModel.device_id.in_(device_ids),
-                TopologyNodeModel.cluster.isnot(None),
-            )
-            topo_res = (await self._session.execute(topo_stmt)).all()
-            for t_dev_id, t_cluster in topo_res:
-                if t_dev_id and t_cluster:
-                    cluster_by_dev[t_dev_id] = t_cluster
-        except Exception:
-            pass
+        if self._topology_repo is not None:
+            try:
+                cluster_by_dev = await self._topology_repo.get_clusters_by_device_ids(device_ids)
+            except Exception:
+                pass
 
         for m in metrics_result:
             timestamps_by_dev[m.device_id] = m.timestamp
@@ -202,8 +198,7 @@ class TelemetryQueryService:
         metric_limit: int = 50,
     ) -> MonitoredDeviceDetail:
         """Consulta os detalhes cadastrais e série histórica recente de métricas por ativo."""
-        stmt = select(DeviceModel).where(DeviceModel.id == device_id)
-        device = (await self._session.execute(stmt)).scalar_one_or_none()
+        device = await self._device_repo.find_by_id(device_id)
 
         if not device:
             raise TelemetryDeviceNotFoundError("Dispositivo não encontrado")

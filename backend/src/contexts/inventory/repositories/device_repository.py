@@ -56,6 +56,38 @@ class DeviceRepository:
         result = await self.session.execute(stmt)
         return [self._to_domain(m) for m in result.scalars().all()]
 
+    async def find_by_organization(self, organization_id: UUID) -> list[Device]:
+        """Busca todos os dispositivos pertencentes a uma organização ordenados por nome."""
+        stmt = (
+            select(DeviceModel)
+            .where(DeviceModel.organization_id == organization_id)
+            .order_by(DeviceModel.name.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [self._to_domain(m) for m in result.scalars().all()]
+
+    async def list_devices(
+        self,
+        organization_id: UUID | None = None,
+        status_filter: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Device], int]:
+        """Consulta paginada de dispositivos para integração e consultas analíticas."""
+        stmt = select(DeviceModel)
+        if organization_id is not None:
+            stmt = stmt.where(DeviceModel.organization_id == organization_id)
+        if status_filter:
+            stmt = stmt.where(DeviceModel.status == status_filter.upper())
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await self.session.execute(count_stmt)).scalar_one() or 0
+
+        stmt = stmt.order_by(DeviceModel.name.asc()).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        models = result.scalars().all()
+        return [self._to_domain(m) for m in models], total
+
     async def save(self, device: Any) -> DeviceModel:
         """Persiste ou atualiza a entidade de domínio ou modelo de dispositivo na sessão ativa."""
         model = await self.get_by_id(device.id)

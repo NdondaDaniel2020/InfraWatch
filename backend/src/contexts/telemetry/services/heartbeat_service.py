@@ -39,7 +39,7 @@ class HeartbeatService:
         signal: HeartbeatSignalRequest | None = None,
     ) -> HeartbeatResponse:
         """Processa e persiste o sinal de batimento cardíaco para rotinas batch e cronjobs."""
-        device = await self._device_repo.get_by_id(device_id)
+        device = await self._device_repo.find_by_id(device_id)
         if device is None:
             raise DeviceNotFoundError(
                 f"Dispositivo com id '{device_id}' não encontrado para recepção de heartbeat."
@@ -62,10 +62,10 @@ class HeartbeatService:
         )
         self._session.add(metric)
 
-        # 2. Atualiza estado e timestamp do dispositivo no inventário
+        # 2. Atualiza estado e timestamp do dispositivo no inventário via repositório
         device.status = metric_status
         device.updated_at = now
-        self._session.add(device)
+        await self._device_repo.save(device)
 
         await self._session.commit()
 

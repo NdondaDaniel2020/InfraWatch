@@ -99,6 +99,17 @@ class TopologyRepository:
         rowcount = getattr(result, "rowcount", 0)
         return bool(rowcount > 0)
 
+    async def get_clusters_by_device_ids(self, device_ids: list[UUID]) -> dict[UUID, str]:
+        """Recupera mapeamento de device_id para cluster topológico."""
+        if not device_ids:
+            return {}
+        stmt = select(TopologyNodeModel.device_id, TopologyNodeModel.cluster).where(
+            TopologyNodeModel.device_id.in_(device_ids),
+            TopologyNodeModel.cluster.isnot(None),
+        )
+        result = await self._session.execute(stmt)
+        return {dev_id: cluster for dev_id, cluster in result.all() if dev_id and cluster}
+
     # ------------------------------------------------------------------
     # Enlaces (TopologyEdge)
     # ------------------------------------------------------------------
