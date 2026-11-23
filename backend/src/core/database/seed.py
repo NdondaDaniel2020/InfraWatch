@@ -995,8 +995,11 @@ async def seed_topology(
 
     unitel_org_id = orgs_map.get("unitel-angola", default_org)
     banco_org_id = orgs_map.get("banco-sol", default_org)
+    lab_org_id = orgs_map.get("infrawatch-lab", default_org)
+    sonangol_org_id = orgs_map.get("sonangol", default_org)
 
     nodes_data: list[dict[str, Any]] = [
+        # --- UNITEL ANGOLA ---
         {
             "label": "RT-EDGE-01",
             "node_type": "router",
@@ -1013,7 +1016,17 @@ async def seed_topology(
             "device_name": "SW-CORE-LUANDA-01",
             "ip_address": "10.0.1.1",
             "cluster": "CLUSTER LUANDA-01",
-            "position_x": 400.0,
+            "position_x": 300.0,
+            "position_y": 280.0,
+            "org_id": unitel_org_id,
+        },
+        {
+            "label": "SW-CORE-LUANDA-02",
+            "node_type": "switch",
+            "device_name": "SW-CORE-LUANDA-02",
+            "ip_address": "10.0.1.2",
+            "cluster": "CLUSTER LUANDA-01",
+            "position_x": 550.0,
             "position_y": 280.0,
             "org_id": unitel_org_id,
         },
@@ -1027,19 +1040,92 @@ async def seed_topology(
             "position_y": 450.0,
             "org_id": unitel_org_id,
         },
+        # --- BANCO SOL S.A. ---
         {
             "label": "API-GATEWAY-PROD",
             "node_type": "server",
             "device_name": "API-GATEWAY-PROD",
             "ip_address": "10.0.2.15",
-            "cluster": "CLUSTER LUANDA-01",
-            "position_x": 650.0,
-            "position_y": 450.0,
-            "org_id": unitel_org_id,
+            "cluster": "CLUSTER BANCO SOL",
+            "position_x": 400.0,
+            "position_y": 150.0,
+            "org_id": banco_org_id,
+        },
+        {
+            "label": "DB-REPLICA-02",
+            "node_type": "database",
+            "device_name": "DB-REPLICA-02",
+            "ip_address": "10.0.2.20",
+            "cluster": "CLUSTER BANCO SOL",
+            "position_x": 400.0,
+            "position_y": 380.0,
+            "org_id": banco_org_id,
+        },
+        # --- INFRAWATCH LAB DEMO ---
+        {
+            "label": "Router FRR",
+            "node_type": "router",
+            "device_name": "Router FRR (Core Router)",
+            "ip_address": "172.28.0.10",
+            "cluster": "LAB DEMO",
+            "position_x": 400.0,
+            "position_y": 80.0,
+            "org_id": lab_org_id,
+        },
+        {
+            "label": "Web Server 01",
+            "node_type": "server",
+            "device_name": "Web Server 01 (Nginx)",
+            "ip_address": "172.28.0.21",
+            "cluster": "LAB DEMO",
+            "position_x": 250.0,
+            "position_y": 260.0,
+            "org_id": lab_org_id,
+        },
+        {
+            "label": "Web Server 02",
+            "node_type": "server",
+            "device_name": "Web Server 02 (Nginx)",
+            "ip_address": "172.28.0.22",
+            "cluster": "LAB DEMO",
+            "position_x": 550.0,
+            "position_y": 260.0,
+            "org_id": lab_org_id,
+        },
+        {
+            "label": "PostgreSQL Database",
+            "node_type": "database",
+            "device_name": "PostgreSQL Database",
+            "ip_address": "postgres",
+            "cluster": "LAB DEMO",
+            "position_x": 250.0,
+            "position_y": 460.0,
+            "org_id": lab_org_id,
+        },
+        {
+            "label": "Redis Cache",
+            "node_type": "database",
+            "device_name": "Redis Cache & Streams",
+            "ip_address": "redis",
+            "cluster": "LAB DEMO",
+            "position_x": 550.0,
+            "position_y": 460.0,
+            "org_id": lab_org_id,
+        },
+        # --- SONANGOL LOGISTICS ---
+        {
+            "label": "DWDM-TALATONA-01",
+            "node_type": "router",
+            "device_name": "DWDM-TALATONA-01",
+            "ip_address": "10.0.3.50",
+            "cluster": "SONANGOL TALATONA",
+            "position_x": 400.0,
+            "position_y": 200.0,
+            "org_id": sonangol_org_id,
         },
     ]
 
-    nodes_map: dict[str, TopologyNodeModel] = {}
+    nodes_map: dict[tuple[UUID, str], TopologyNodeModel] = {}
     for item in nodes_data:
         dev = devices.get(str(item["device_name"]))
         label_str = str(item["label"])
@@ -1055,7 +1141,7 @@ async def seed_topology(
             existing.position_y = float(item["position_y"]) if item["position_y"] is not None else None
             if dev:
                 existing.device_id = dev.id
-            nodes_map[label_str] = existing
+            nodes_map[(item["org_id"], label_str)] = existing
         else:
             node = TopologyNodeModel(
                 id=generate_uuid7(),
@@ -1069,11 +1155,12 @@ async def seed_topology(
                 position_y=float(item["position_y"]) if item["position_y"] is not None else None,
             )
             session.add(node)
-            nodes_map[label_str] = node
+            nodes_map[(item["org_id"], label_str)] = node
 
     await session.flush()
 
     edges_data: list[dict[str, Any]] = [
+        # --- UNITEL ANGOLA ---
         {
             "src": "RT-EDGE-01",
             "dst": "SW-CORE-LUANDA-01",
@@ -1085,6 +1172,15 @@ async def seed_topology(
         },
         {
             "src": "SW-CORE-LUANDA-01",
+            "dst": "SW-CORE-LUANDA-02",
+            "link_type": "fiber",
+            "bandwidth_gbps": 100.0,
+            "port_src": "100GE 1/0/2",
+            "port_dst": "100GE 1/0/2",
+            "org_id": unitel_org_id,
+        },
+        {
+            "src": "SW-CORE-LUANDA-01",
             "dst": "RT-BRANCH-BENGUELA",
             "link_type": "fiber",
             "bandwidth_gbps": 10.0,
@@ -1092,20 +1188,58 @@ async def seed_topology(
             "port_dst": "sfp-sfpplus1",
             "org_id": unitel_org_id,
         },
+        # --- BANCO SOL S.A. ---
         {
-            "src": "SW-CORE-LUANDA-01",
-            "dst": "API-GATEWAY-PROD",
+            "src": "API-GATEWAY-PROD",
+            "dst": "DB-REPLICA-02",
             "link_type": "ethernet",
             "bandwidth_gbps": 10.0,
-            "port_src": "100GE 1/0/9",
+            "port_src": "eth0",
             "port_dst": "eth0",
-            "org_id": unitel_org_id,
+            "org_id": banco_org_id,
+        },
+        # --- INFRAWATCH LAB DEMO ---
+        {
+            "src": "Router FRR",
+            "dst": "Web Server 01",
+            "link_type": "ethernet",
+            "bandwidth_gbps": 10.0,
+            "port_src": "eth1",
+            "port_dst": "eth0",
+            "org_id": lab_org_id,
+        },
+        {
+            "src": "Router FRR",
+            "dst": "Web Server 02",
+            "link_type": "ethernet",
+            "bandwidth_gbps": 10.0,
+            "port_src": "eth2",
+            "port_dst": "eth0",
+            "org_id": lab_org_id,
+        },
+        {
+            "src": "Web Server 01",
+            "dst": "PostgreSQL Database",
+            "link_type": "ethernet",
+            "bandwidth_gbps": 10.0,
+            "port_src": "eth0",
+            "port_dst": "eth0",
+            "org_id": lab_org_id,
+        },
+        {
+            "src": "Web Server 01",
+            "dst": "Redis Cache",
+            "link_type": "ethernet",
+            "bandwidth_gbps": 10.0,
+            "port_src": "eth0",
+            "port_dst": "eth0",
+            "org_id": lab_org_id,
         },
     ]
 
     for item in edges_data:
-        src_node = nodes_map.get(str(item["src"]))
-        dst_node = nodes_map.get(str(item["dst"]))
+        src_node = nodes_map.get((item["org_id"], str(item["src"])))
+        dst_node = nodes_map.get((item["org_id"], str(item["dst"])))
         if not src_node or not dst_node:
             continue
 

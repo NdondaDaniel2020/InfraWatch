@@ -27,6 +27,32 @@ vi.mock("../src/context/TelemetryContext", () => ({
   }),
 }));
 
+vi.mock("../src/services/adminApi", () => ({
+  adminApi: {
+    listOrganizations: vi.fn().mockResolvedValue({
+      items: [
+        { id: "org-unitel", name: "Unitel Angola" },
+        { id: "org-banco-sol", name: "Banco Sol S.A." },
+      ],
+      total: 2,
+      page: 1,
+      size: 100,
+    }),
+  },
+}));
+
+vi.mock("../src/context/AuthContext", () => ({
+  useAuth: () => ({
+    user: {
+      id: "u-1",
+      email: "admin@infrawatch.ao",
+      role: "SUPER_ADMIN",
+      organization_name: "InfraWatch Global Core",
+    },
+    isAuthenticated: true,
+  }),
+}));
+
 const renderWithProviders = (ui: ReactNode) => {
   const client = new QueryClient({
     defaultOptions: {
@@ -196,5 +222,31 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
 
     const link360 = screen.getByRole("link", { name: /Visão 360°/i });
     expect(link360).toHaveAttribute("href", "/devices/device-uuid-999");
+  });
+
+  it("deve renderizar o seletor de organizações e alternar a topologia ao selecionar outro tenant", async () => {
+    (topologyApi.getTopologyGraph as any).mockResolvedValue({
+      nodes: mockTopologyNodes,
+      edges: mockTopologyEdges,
+      totalNodes: mockTopologyNodes.length,
+      totalEdges: mockTopologyEdges.length,
+      cluster: "LUANDA-CORE",
+    });
+
+    renderWithProviders(<TopologyMapPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("topology-org-select")).toBeInTheDocument();
+    });
+
+    const select = screen.getByTestId("topology-org-select") as HTMLSelectElement;
+    expect(select.value).toBe("org-unitel");
+
+    fireEvent.change(select, { target: { value: "org-banco-sol" } });
+    expect(select.value).toBe("org-banco-sol");
+
+    await waitFor(() => {
+      expect(topologyApi.getTopologyGraph).toHaveBeenCalledWith("org-banco-sol");
+    });
   });
 });
