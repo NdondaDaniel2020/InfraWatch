@@ -406,8 +406,15 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
 
   const handleFitView = () => {
     if (reactFlowInstance) {
-      reactFlowInstance.fitView({ padding: 0.2 });
+      reactFlowInstance.fitView({ padding: 0.2, maxZoom: 1.0 });
       setZoomLevel(reactFlowInstance.getZoom());
+    }
+  };
+
+  const handleResetZoom = () => {
+    if (reactFlowInstance) {
+      reactFlowInstance.zoomTo(1);
+      setZoomLevel(1);
     }
   };
 
@@ -539,6 +546,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onFitView={handleFitView}
+        onResetZoom={handleResetZoom}
         zoomLevel={zoomLevel}
         isInspectorOpen={isInspectorOpen}
         onToggleInspector={() => setIsInspectorOpen(!isInspectorOpen)}
@@ -588,10 +596,14 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
               edgeTypes={edgeTypes}
               onInit={(instance) => {
                 setReactFlowInstance(instance);
+                instance.fitView({ padding: 0.15, maxZoom: 1.0 });
                 setZoomLevel(instance.getZoom());
               }}
+              onMoveEnd={(_, viewport) => {
+                setZoomLevel(viewport.zoom);
+              }}
               fitView
-              fitViewOptions={{ padding: 0.15 }}
+              fitViewOptions={{ padding: 0.15, maxZoom: 1.0 }}
               minZoom={0.2}
               maxZoom={2.5}
               className="w-full h-full bg-obsidian-950"

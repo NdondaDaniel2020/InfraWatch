@@ -32,6 +32,7 @@ interface TopologyToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitView: () => void;
+  onResetZoom?: () => void;
   zoomLevel: number;
   isInspectorOpen: boolean;
   onToggleInspector: () => void;
@@ -54,6 +55,7 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
   onZoomIn,
   onZoomOut,
   onFitView,
+  onResetZoom,
   zoomLevel,
   isInspectorOpen,
   onToggleInspector,
@@ -218,9 +220,15 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
           >
             <ZoomOut size={16} />
           </button>
-          <span className="text-xs font-mono text-slate-300 px-1 font-semibold tabular-nums">
+          <button
+            type="button"
+            onClick={onResetZoom}
+            aria-label="Redefinir zoom para 100%"
+            title="Clique para redefinir o zoom para 100%"
+            className="text-xs font-mono text-slate-300 hover:text-white px-1 font-semibold tabular-nums cursor-pointer transition-colors"
+          >
             {Math.round(zoomLevel * 100)}%
-          </span>
+          </button>
           <button
             type="button"
             onClick={onZoomIn}
