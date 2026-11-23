@@ -191,6 +191,7 @@ class Settings(BaseSettings):
     GLPI_ENABLED: bool = Field(default=False, alias="GLPI_ENABLED")
     GLPI_NOTIFY_STARTUP: bool = Field(default=False, alias="GLPI_NOTIFY_STARTUP")
     GLPI_BASE_URL: str = Field(default="http://localhost:8080/apirest.php", alias="GLPI_BASE_URL")
+    GLPI_PUBLIC_URL: str = Field(default="", alias="GLPI_PUBLIC_URL")
     GLPI_APP_TOKEN: str = Field(default="", alias="GLPI_APP_TOKEN")
     GLPI_USER_TOKEN: str = Field(default="", alias="GLPI_USER_TOKEN")
     GLPI_TIMEOUT_SECONDS: float = Field(default=10.0, alias="GLPI_TIMEOUT_SECONDS")

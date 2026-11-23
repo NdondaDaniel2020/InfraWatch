@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from "./apiClient";
+import { getGlpiTicketUrl } from "../utils/glpi";
 import type {
   IncidentSeverity,
   IncidentStatus,
@@ -104,7 +105,7 @@ export function dtoToIncidentItem(dto: any): IncidentItem {
     glpi_ticket_id: glpiId,
     glpi_url:
       dto.glpi_url ||
-      (glpiId ? `https://glpi.infrawatch.ao/front/ticket.form.php?id=${glpiId}` : undefined),
+      (glpiId ? getGlpiTicketUrl(glpiId) : undefined),
     priority_label: priorityLabel,
     assigned_operator: assignedOp,
     root_cause: dto.root_cause || undefined,

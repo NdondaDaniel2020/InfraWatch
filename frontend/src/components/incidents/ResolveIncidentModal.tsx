@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { IncidentItem, FailureCategory } from "../../services/incidentsApi";
+import { getGlpiTicketUrl } from "../../utils/glpi";
 
 export interface ResolveIncidentModalProps {
   isOpen: boolean;
@@ -156,9 +157,15 @@ export const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
           <div>
             <span className="text-slate-500 block text-[11px]">Chamado GLPI</span>
             {incident.glpi_ticket_id ? (
-              <span className="text-sky-400 font-semibold block mt-0.5">
+              <a
+                href={getGlpiTicketUrl(incident.glpi_ticket_id, incident.glpi_url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sky-400 hover:underline font-semibold block mt-0.5"
+                title="Abrir chamado no GLPI em nova aba"
+              >
                 Ticket #{incident.glpi_ticket_id} ↗
-              </span>
+              </a>
             ) : (
               <span className="text-slate-400 italic block mt-0.5">Sem chamado</span>
             )}

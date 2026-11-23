@@ -22,6 +22,7 @@ import { deviceDetailApi } from "../../services/deviceDetailApi";
 import { devicesApi } from "../../services/devicesApi";
 import { slaApi } from "../../services/slaApi";
 import { incidentsApi } from "../../services/incidentsApi";
+import { getGlpiTicketUrl } from "../../utils/glpi";
 import type { TimescalePeriod, DeviceDetail, ManualProbeResult } from "../../types/deviceDetail";
 import type { CreateDeviceRequest, ProberProtocol, DeviceCategory } from "../../types/inventory";
 import { toast } from "sonner";
@@ -600,7 +601,7 @@ export const DeviceDetailPage: React.FC = () => {
                           <span>Duração: {incident.duration_str}</span>
                           {incident.glpi_ticket_id ? (
                             <a
-                              href={`https://glpi.infrawatch.ao/front/ticket.form.php?id=${incident.glpi_ticket_id}`}
+                              href={getGlpiTicketUrl(incident.glpi_ticket_id, (incident as any).glpi_url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-sky-400 hover:underline flex items-center gap-1"
