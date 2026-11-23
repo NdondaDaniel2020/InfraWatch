@@ -550,7 +550,9 @@ export const DeviceDetailPage: React.FC = () => {
                     </h3>
                   </div>
                   <span className="text-xs font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/30">
-                    {deviceIncidents.length > 0 ? `${deviceIncidents.length} Chamados` : "2 Chamados"}
+                    {deviceIncidents.length === 1
+                      ? "1 Chamado"
+                      : `${deviceIncidents.length} Chamados`}
                   </span>
                 </div>
 
@@ -566,42 +568,28 @@ export const DeviceDetailPage: React.FC = () => {
                         </div>
                         <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-obsidian-800/60 mt-1">
                           <span>Duração: {incident.duration_str}</span>
-                          <a
-                            href={`https://glpi.infrawatch.ao/front/ticket.form.php?id=${incident.glpi_ticket_id || 8493}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sky-400 hover:underline flex items-center gap-1"
-                          >
-                            <span>GLPI #{incident.glpi_ticket_id || 8493}</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
+                          {incident.glpi_ticket_id ? (
+                            <a
+                              href={`https://glpi.infrawatch.ao/front/ticket.form.php?id=${incident.glpi_ticket_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sky-400 hover:underline flex items-center gap-1"
+                            >
+                              <span>GLPI #{incident.glpi_ticket_id}</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          ) : (
+                            <span className="text-slate-500">Sem ticket GLPI</span>
+                          )}
                         </div>
                       </div>
                     ))
                   ) : (
-                    <>
-                      <div className="bg-obsidian-950 p-3 rounded-lg border border-obsidian-800 flex flex-col gap-1">
-                        <div className="flex items-start justify-between text-xs">
-                          <span className="font-bold text-slate-200">Atenuação Óptica Porta 19</span>
-                          <span className="text-[11px] text-amber-400">Em Análise</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-obsidian-800/60 mt-1">
-                          <span>Duração: 28m</span>
-                          <a href="#" className="text-sky-400 hover:underline">GLPI #8493 ↗</a>
-                        </div>
-                      </div>
-
-                      <div className="bg-obsidian-950 p-3 rounded-lg border border-obsidian-800 flex flex-col gap-1">
-                        <div className="flex items-start justify-between text-xs">
-                          <span className="font-bold text-slate-200">Manutenção Firmware V200</span>
-                          <span className="text-[11px] text-emerald-400">Resolvido</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-obsidian-800/60 mt-1">
-                          <span>Duração: 14m 12s</span>
-                          <a href="#" className="text-sky-400 hover:underline">GLPI #8115 ↗</a>
-                        </div>
-                      </div>
-                    </>
+                    <div className="py-6 px-4 text-center rounded-lg bg-obsidian-950/60 border border-obsidian-800/60 flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                      <CheckCircle className="w-5 h-5 text-emerald-400/80 mb-0.5" />
+                      <span className="text-xs font-semibold text-slate-300">Nenhum chamado GLPI registrado</span>
+                      <span className="text-[11px] text-slate-500">Este ativo opera sem incidentes abertos ou pendentes.</span>
+                    </div>
                   )}
                 </div>
 

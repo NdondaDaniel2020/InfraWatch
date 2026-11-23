@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import { DeviceDetailPage } from "../src/pages/inventory/DeviceDetailPage";
 import { DeviceMetricsTimescaleChart } from "../src/components/device/DeviceMetricsTimescaleChart";
 import { deviceDetailApi } from "../src/services/deviceDetailApi";
+import { incidentsApi } from "../src/services/incidentsApi";
 import {
   createMockDeviceDetail,
   createMockTimescaleMetrics,
@@ -49,7 +50,7 @@ vi.mock("../src/services/incidentsApi", () => ({
       {
         id: "inc-2",
         title: "Manutenção Firmware V200",
-        status: "RESOLVIDO",
+        status: "RESOLVED",
         duration_str: "14h 12m",
         glpi_ticket_id: 8115,
       },
@@ -401,6 +402,22 @@ describe("DeviceDetailPage — Cockpit 360° do Dispositivo (Issue #244)", () =>
     it("deve listar incidentes recentes com links", async () => {
       (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(mockDevice);
       (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue(mockMetrics);
+      (incidentsApi.listIncidents as Mock).mockResolvedValue([
+        {
+          id: "inc-1",
+          title: "Atenuação Óptica Porta 19",
+          status: "TRIGGERED",
+          duration_str: "28m",
+          glpi_ticket_id: 8493,
+        },
+        {
+          id: "inc-2",
+          title: "Manutenção Firmware V200",
+          status: "RESOLVIDO",
+          duration_str: "14h 12m",
+          glpi_ticket_id: 8115,
+        },
+      ]);
 
       renderWithProviders(<DeviceDetailPage />);
 
@@ -409,6 +426,19 @@ describe("DeviceDetailPage — Cockpit 360° do Dispositivo (Issue #244)", () =>
       expect(screen.getByText("Atenuação Óptica Porta 19")).toBeInTheDocument();
       expect(screen.getByText("Manutenção Firmware V200")).toBeInTheDocument();
       expect(screen.getByText("GLPI #8493")).toBeInTheDocument();
+    });
+
+    it("deve exibir estado vazio quando ativo não possui chamados GLPI", async () => {
+      (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(mockDevice);
+      (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue(mockMetrics);
+      (incidentsApi.listIncidents as Mock).mockResolvedValue([]);
+
+      renderWithProviders(<DeviceDetailPage />);
+
+      await waitFor(() => expect(screen.getAllByText("SW-CORE-LUANDA-01").length).toBeGreaterThanOrEqual(1));
+
+      expect(screen.getByText("Nenhum chamado GLPI registrado")).toBeInTheDocument();
+      expect(screen.getByText("0 Chamados")).toBeInTheDocument();
     });
   });
 
