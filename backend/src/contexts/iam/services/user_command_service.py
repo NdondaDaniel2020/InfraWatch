@@ -190,7 +190,9 @@ class UserCommandService:
 
         changed_fields: list[str] = []
         if target_name is not None and user.full_name != target_name.strip():
-            user.full_name = target_name.strip()
+            user_aggregate = self.user_repo._to_domain(user)
+            user_aggregate.update_profile(target_name)
+            user.full_name = user_aggregate.full_name
             changed_fields.append("Nome Completo")
 
         await self.session.flush()
@@ -223,8 +225,10 @@ class UserCommandService:
         if not user:
             raise NotFoundError("Usuário não encontrado.")
 
-        role_str = str(target_role.value if isinstance(target_role, UserRole) else target_role)
-        old_role = str(user.role)
+        user_aggregate = self.user_repo._to_domain(user)
+        old_role = str(user_aggregate.role)
+        user_aggregate.change_role(target_role)
+        role_str = str(user_aggregate.role)
         user.role = role_str
         await self.session.flush()
         await self.session.refresh(user)
@@ -253,7 +257,9 @@ class UserCommandService:
         if not user:
             raise NotFoundError("Usuário não encontrado.")
 
-        user.is_active = True
+        user_aggregate = self.user_repo._to_domain(user)
+        user_aggregate.activate()
+        user.is_active = user_aggregate.is_active
         await self.session.flush()
         await self.session.refresh(user)
         await self.uow.commit()
@@ -274,7 +280,9 @@ class UserCommandService:
         if not user:
             raise NotFoundError("Usuário não encontrado.")
 
-        user.is_active = False
+        user_aggregate = self.user_repo._to_domain(user)
+        user_aggregate.deactivate()
+        user.is_active = user_aggregate.is_active
         await self.refresh_token_repo.revoke_other_sessions(user_id)
         event = AccountDeactivatedEvent(
             aggregate_id=user.id,
@@ -301,8 +309,10 @@ class UserCommandService:
         if method:
             await self.mfa_repo.deactivate_method(method)
 
-        user.mfa_enabled = False
-        user.mfa_type = None
+        user_aggregate = self.user_repo._to_domain(user)
+        user_aggregate.disable_mfa()
+        user.mfa_enabled = user_aggregate.mfa_enabled
+        user.mfa_type = user_aggregate.mfa_type
         await self.session.flush()
         await self.session.refresh(user)
         await self.uow.commit()

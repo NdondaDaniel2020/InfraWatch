@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.contexts.iam.database.models import UserModel
+from src.contexts.iam.domain.aggregate import User
 from src.contexts.iam.domain.enums import UserRole
 
 
@@ -17,6 +18,33 @@ class UserRepository:
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    def _to_domain(self, model: UserModel) -> User:
+        """Converte o modelo ORM UserModel no agregado de domínio User."""
+        return User(
+            id=model.id,
+            email=model.email,
+            hashed_password=model.hashed_password or "",
+            full_name=model.full_name,
+            role=model.role,
+            organization_id=model.organization_id,
+            is_active=model.is_active,
+            is_verified=model.is_verified,
+            mfa_enabled=getattr(model, "mfa_enabled", False),
+            mfa_type=getattr(model, "mfa_type", None),
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
+
+    async def find_by_id(self, user_id: UUID) -> User | None:
+        """Busca usuário por identificador único e retorna a entidade de domínio User."""
+        model = await self.get_by_id(user_id)
+        return self._to_domain(model) if model else None
+
+    async def find_by_email(self, email: str) -> User | None:
+        """Busca usuário por e-mail e retorna a entidade de domínio User."""
+        model = await self.get_by_email(email)
+        return self._to_domain(model) if model else None
 
     async def get_by_id(self, user_id: UUID) -> UserModel | None:
         """Busca usuário por identificador único com carregamento antecipado de organização."""
@@ -48,8 +76,36 @@ class UserRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def save(self, user: UserModel) -> UserModel:
-        """Persiste ou atualiza um usuário na sessão ativa."""
+    async def save(self, user: User | UserModel) -> UserModel:
+        """Persiste ou atualiza uma entidade de domínio User ou UserModel na sessão ativa."""
+        if isinstance(user, User):
+            model = await self.get_by_id(user.id)
+            if not model:
+                model = UserModel(
+                    id=user.id,
+                    email=user.email,
+                    hashed_password=user.hashed_password,
+                    full_name=user.full_name,
+                    role=user.role,
+                    organization_id=user.organization_id,
+                    is_active=user.is_active,
+                    is_verified=user.is_verified,
+                )
+                self.session.add(model)
+            else:
+                model.email = user.email
+                model.hashed_password = user.hashed_password
+                model.full_name = user.full_name
+                model.role = user.role
+                model.organization_id = user.organization_id
+                model.is_active = user.is_active
+                model.is_verified = user.is_verified
+                model.mfa_enabled = user.mfa_enabled
+                model.mfa_type = user.mfa_type
+                model.updated_at = user.updated_at
+            await self.session.flush()
+            return model
+
         self.session.add(user)
         await self.session.flush()
         return user
