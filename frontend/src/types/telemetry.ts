@@ -115,6 +115,7 @@ export interface IncidentItem {
   slaOrStatusText: string;
   actionType: "ack_resolve" | "timeline";
   operatorName?: string;
+  downtimeMinutes?: number;
 }
 
 export type ToastType = "success" | "warning" | "info" | "error";
