@@ -18,25 +18,56 @@ class DeviceRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    def _to_domain(self, model: DeviceModel) -> Device:
+    def _to_domain(self, model: Any) -> Device:
         """Reconstrói o agregado de domínio Device a partir do modelo ORM."""
+        if isinstance(model, Device):
+            return model
+
+        ip_val = getattr(model, "ip_address", "127.0.0.1")
+        if not isinstance(ip_val, str):
+            ip_val = "127.0.0.1"
+
+        port_val = getattr(model, "port", 80)
+        if not isinstance(port_val, int):
+            port_val = 80
+
+        protocol_val = getattr(model, "protocol", "icmp")
+        if not isinstance(protocol_val, str):
+            protocol_val = "icmp"
+
+        cat_val = getattr(model, "category", "ROUTER")
+        if not isinstance(cat_val, str):
+            cat_val = "ROUTER"
+
+        interval_val = getattr(model, "interval_seconds", 60)
+        if not isinstance(interval_val, int):
+            interval_val = 60
+
+        thresholds_val = getattr(model, "thresholds", {})
+        if not isinstance(thresholds_val, dict):
+            thresholds_val = {}
+
         device = Device(
             id=model.id,
             organization_id=model.organization_id,
-            name=model.name,
-            ip_address=model.ip_address,
-            port=model.port,
-            protocol=model.protocol,
-            category=model.category,
-            interval_seconds=model.interval_seconds,
-            thresholds=model.thresholds,
-            hostname=model.hostname,
-            created_at=model.created_at,
+            name=getattr(model, "name", "Dispositivo"),
+            ip_address=ip_val,
+            port=port_val,
+            protocol=protocol_val,
+            category=cat_val,
+            interval_seconds=interval_val,
+            thresholds=thresholds_val,
+            hostname=getattr(model, "hostname", None),
+            created_at=getattr(model, "created_at", None),
         )
-        device.status = model.status
-        device.is_paused = model.is_paused
-        device.maintenance_until = model.maintenance_until
-        device.updated_at = model.updated_at
+        status_val = getattr(model, "status", None)
+        if isinstance(status_val, str):
+            device.status = status_val
+        is_paused_val = getattr(model, "is_paused", None)
+        if isinstance(is_paused_val, bool):
+            device.is_paused = is_paused_val
+        device.maintenance_until = getattr(model, "maintenance_until", None)
+        device.updated_at = getattr(model, "updated_at", None)
         return device
 
     async def find_by_id(self, device_id: UUID) -> Device | None:
@@ -54,7 +85,25 @@ class DeviceRepository:
         if organization_id is not None:
             stmt = stmt.where(DeviceModel.organization_id == organization_id)
         result = await self.session.execute(stmt)
-        return [self._to_domain(m) for m in result.scalars().all()]
+        scalars_fn = getattr(result, "scalars", None)
+        models = scalars_fn().all() if callable(scalars_fn) else (result.all() if hasattr(result, "all") else [])
+        return [self._to_domain(m) for m in models]
+
+    async def get_names_by_ids(self, device_ids: list[UUID]) -> dict[UUID, str]:
+        """Recupera mapeamento de id para nome para uma lista de dispositivos."""
+        if not device_ids:
+            return {}
+        stmt = select(DeviceModel.id, DeviceModel.name).where(DeviceModel.id.in_(device_ids))
+        result = await self.session.execute(stmt)
+        rows_fn = getattr(result, "all", None)
+        if callable(rows_fn):
+            res_all = rows_fn()
+            if isinstance(res_all, list) and res_all:
+                if isinstance(res_all[0], (tuple, list)):
+                    return {r[0]: r[1] for r in res_all}
+                if hasattr(res_all[0], "id") and hasattr(res_all[0], "name"):
+                    return {r.id: r.name for r in res_all}
+        return {}
 
     async def find_by_organization(self, organization_id: UUID) -> list[Device]:
         """Busca todos os dispositivos pertencentes a uma organização ordenados por nome."""
@@ -64,7 +113,9 @@ class DeviceRepository:
             .order_by(DeviceModel.name.asc())
         )
         result = await self.session.execute(stmt)
-        return [self._to_domain(m) for m in result.scalars().all()]
+        scalars_fn = getattr(result, "scalars", None)
+        items = scalars_fn().all() if callable(scalars_fn) else (result.all() if hasattr(result, "all") else [])
+        return [self._to_domain(m) for m in items]
 
     async def list_devices(
         self,

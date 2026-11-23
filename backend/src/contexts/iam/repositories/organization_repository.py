@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import Decimal
 from uuid import UUID
 
@@ -10,6 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.iam.database.models import OrganizationModel, UserModel
 from src.contexts.iam.domain.enums import OrgTier
+
+
+@dataclass(frozen=True)
+class OrganizationInfo:
+    """Visão de domínio para integração entre contextos sem vazamento de ORM."""
+
+    id: UUID
+    name: str
+    slug: str
+    sla_target_default: Decimal
+    is_active: bool
 
 
 class OrganizationRepository:
@@ -86,5 +98,51 @@ class OrganizationRepository:
         result = await self.session.execute(query)
         return {org_id: int(count) for org_id, count in result.all() if org_id is not None}
 
+    async def get_name_by_id(self, organization_id: UUID) -> str | None:
+        """Recupera o nome da organização pelo seu ID."""
+        stmt = select(OrganizationModel.name).where(OrganizationModel.id == organization_id)
+        result = await self.session.execute(stmt)
+        val = result.scalar_one_or_none()
+        if val is None:
+            return None
+        if isinstance(val, str):
+            return val
+        if hasattr(val, "name"):
+            name_attr = getattr(val, "name")
+            if isinstance(name_attr, str):
+                return name_attr
+        return None
 
-__all__ = ["OrganizationRepository"]
+    async def get_names_by_ids(self, organization_ids: list[UUID]) -> dict[UUID, str]:
+        """Recupera mapeamento de id para nome para uma lista de organizações."""
+        if not organization_ids:
+            return {}
+        stmt = select(OrganizationModel.id, OrganizationModel.name).where(
+            OrganizationModel.id.in_(organization_ids)
+        )
+        result = await self.session.execute(stmt)
+        rows_fn = getattr(result, "all", None)
+        if callable(rows_fn):
+            res_all = rows_fn()
+            if isinstance(res_all, list) and res_all:
+                if isinstance(res_all[0], (tuple, list)):
+                    return {r[0]: r[1] for r in res_all}
+                if hasattr(res_all[0], "id") and hasattr(res_all[0], "name"):
+                    return {r.id: r.name for r in res_all}
+        return {}
+
+    async def get_info_by_id(self, organization_id: UUID) -> OrganizationInfo | None:
+        """Recupera dados cadastrais essenciais da organização de forma desacoplada do ORM."""
+        model = await self.get_by_id(organization_id)
+        if not model:
+            return None
+        return OrganizationInfo(
+            id=model.id,
+            name=model.name,
+            slug=model.slug,
+            sla_target_default=model.sla_target_default,
+            is_active=model.is_active,
+        )
+
+
+__all__ = ["OrganizationInfo", "OrganizationRepository"]

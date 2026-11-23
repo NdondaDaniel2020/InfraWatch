@@ -12,9 +12,11 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.alerting.database.models import IncidentModel
-from src.contexts.iam.database.models import OrganizationModel
-from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.alerting.database.repository import IncidentRepository
+from src.contexts.alerting.domain.incident import Incident
+from src.contexts.iam.repositories.organization_repository import OrganizationRepository
+from src.contexts.inventory.domain.aggregate import Device
+from src.contexts.inventory.repositories.device_repository import DeviceRepository
 from src.contexts.sla.database.models import MaintenanceWindowModel
 from src.contexts.sla.database.repository import MaintenanceWindowRepository
 from src.contexts.sla.domain.calculator import calculate_sla
@@ -62,6 +64,10 @@ class SlaService:
         self,
         uow_or_session: AbstractUnitOfWork | AsyncSession,
         glpi_client: GlpiClient | None = None,
+        repository: MaintenanceWindowRepository | None = None,
+        org_repo: OrganizationRepository | None = None,
+        device_repo: DeviceRepository | None = None,
+        incident_repo: IncidentRepository | None = None,
     ) -> None:
         if isinstance(uow_or_session, AbstractUnitOfWork):
             self._uow: AbstractUnitOfWork | None = uow_or_session
@@ -70,7 +76,10 @@ class SlaService:
             self._uow = None
             self._session = uow_or_session
 
-        self._repo = MaintenanceWindowRepository(self._session)
+        self._repo = repository or MaintenanceWindowRepository(self._session)
+        self._org_repo = org_repo or OrganizationRepository(self._session)
+        self._device_repo = device_repo or DeviceRepository(self._session)
+        self._incident_repo = incident_repo or IncidentRepository(self._session)
         self._glpi_client = glpi_client
 
     async def _commit(self) -> None:
@@ -96,19 +105,11 @@ class SlaService:
             raise ValueError("O horário final do período deve ser posterior ao horário inicial.")
 
         # 1. Recupera ocorrências de indisponibilidade (incidentes) que intersectam o intervalo
-        stmt = (
-            select(IncidentModel)
-            .where(IncidentModel.device_id == device_id)
-            .where(IncidentModel.started_at < end_utc)
-            .where(
-                or_(
-                    IncidentModel.resolved_at.is_(None),
-                    IncidentModel.resolved_at > start_utc,
-                )
-            )
+        incidents = await self._incident_repo.list_for_sla(
+            device_ids=[device_id],
+            start_period=start_utc,
+            end_period=end_utc,
         )
-        res = await self._session.execute(stmt)
-        incidents = res.scalars().all()
 
         downtime_periods: list[DowntimePeriod] = []
         for inc in incidents:
@@ -147,12 +148,9 @@ class SlaService:
         """Cadastra uma nova janela de manutenção programada."""
         org_id = req.organization_id
         if req.device_id and not org_id:
-            dev_res = await self._session.execute(
-                select(DeviceModel.organization_id).where(DeviceModel.id == req.device_id)
-            )
-            dev_org_id = dev_res.scalar_one_or_none()
-            if dev_org_id:
-                org_id = dev_org_id
+            device = await self._device_repo.find_by_id(req.device_id)
+            if device:
+                org_id = device.organization_id
 
         window = MaintenanceWindow(
             start_time=req.start_time,
@@ -252,17 +250,11 @@ class SlaService:
 
         devices_map: dict[UUID, str] = {}
         if device_ids:
-            dev_res = await self._session.execute(
-                select(DeviceModel.id, DeviceModel.name).where(DeviceModel.id.in_(device_ids))
-            )
-            devices_map = {row[0]: row[1] for row in dev_res.all()}
+            devices_map = await self._device_repo.get_names_by_ids(list(device_ids))
 
         orgs_map: dict[UUID, str] = {}
         if org_ids:
-            org_res = await self._session.execute(
-                select(OrganizationModel.id, OrganizationModel.name).where(OrganizationModel.id.in_(org_ids))
-            )
-            orgs_map = {row[0]: row[1] for row in org_res.all()}
+            orgs_map = await self._org_repo.get_names_by_ids(list(org_ids))
 
         items: list[MaintenanceWindowResponse] = []
         for w in windows:
@@ -345,10 +337,9 @@ class SlaService:
         start_period: datetime | None = None,
         end_period: datetime | None = None,
         sla_target: float = 99.50,
-    ) -> tuple[DeviceModel, SlaReportResponse]:
+    ) -> tuple[Device, SlaReportResponse]:
         """Recupera o dispositivo e calcula seu relatório analítico de SLA."""
-        res = await self._session.execute(select(DeviceModel).where(DeviceModel.id == device_id))
-        device = res.scalar_one_or_none()
+        device = await self._device_repo.find_by_id(device_id)
         if device is None:
             raise ValueError(f"Dispositivo com id '{device_id}' não encontrado.")
 
@@ -366,17 +357,11 @@ class SlaService:
         start_period: datetime | None = None,
         end_period: datetime | None = None,
         default_target: float = 99.50,
-    ) -> list[tuple[DeviceModel, SlaReportResponse]]:
+    ) -> list[tuple[Device, SlaReportResponse]]:
         """Calcula o relatório analítico de SLA para todos os dispositivos de uma organização."""
-        stmt = (
-            select(DeviceModel)
-            .where(DeviceModel.organization_id == organization_id)
-            .order_by(DeviceModel.name)
-        )
-        res = await self._session.execute(stmt)
-        devices = res.scalars().all()
+        devices = await self._device_repo.find_by_organization(organization_id)
 
-        results: list[tuple[DeviceModel, SlaReportResponse]] = []
+        results: list[tuple[Device, SlaReportResponse]] = []
         for dev in devices:
             target = getattr(dev, "sla_target", None) or default_target
             report = await self.calculate_device_sla(
@@ -394,10 +379,7 @@ class SlaService:
         organization_id: UUID,
     ) -> OrganizationSlaSummaryResponse:
         """Calcula o resumo consolidado de SLA da organização para o portal do cliente."""
-        org_stmt = select(OrganizationModel).where(OrganizationModel.id == organization_id)
-        org_res = await self._session.execute(org_stmt)
-        org = org_res.scalar_one_or_none()
-        org_name = org.name if org else "Organização"
+        org_name = await self._org_repo.get_name_by_id(organization_id) or "Organização"
 
         now = datetime.now(UTC)
         start_of_month = datetime(now.year, now.month, 1, tzinfo=UTC)
@@ -466,10 +448,7 @@ class SlaService:
         months_count: int = 6,
     ) -> OrganizationSlaHistoryResponse:
         """Gera o histórico mensal de conformidade de SLA da organização."""
-        org_stmt = select(OrganizationModel).where(OrganizationModel.id == organization_id)
-        org_res = await self._session.execute(org_stmt)
-        org = org_res.scalar_one_or_none()
-        org_name = org.name if org else "Organização"
+        org_name = await self._org_repo.get_name_by_id(organization_id) or "Organização"
 
         now = datetime.now(UTC)
         meses = [
@@ -546,10 +525,7 @@ class SlaService:
         target: float = 99.50,
     ) -> OrganizationSlaReportDetailsResponse:
         """Compila o relatório executivo completo de SLA com dados de todos os ativos."""
-        org_stmt = select(OrganizationModel).where(OrganizationModel.id == organization_id)
-        org_res = await self._session.execute(org_stmt)
-        org = org_res.scalar_one_or_none()
-        org_name = org.name if org else "Organização"
+        org_name = await self._org_repo.get_name_by_id(organization_id) or "Organização"
 
         now = datetime.now(UTC)
         start_p = start_period or datetime(now.year, now.month, 1, tzinfo=UTC)
@@ -642,21 +618,15 @@ class SlaService:
         # 1. Validação de isolamento multitenant no dispositivo afetado (anti-IDOR)
         device_info = "Geral / Infraestrutura Contratada"
         if payload.device_id is not None:
-            stmt = select(DeviceModel).where(
-                DeviceModel.id == payload.device_id,
-                DeviceModel.organization_id == organization_id,
-            )
-            device = (await self._session.execute(stmt)).scalar_one_or_none()
-            if device is None:
+            device = await self._device_repo.find_by_id(payload.device_id)
+            if device is None or device.organization_id != organization_id:
                 raise ValueError(
                     "Dispositivo informado não encontrado ou não pertence à sua organização."
                 )
             device_info = f"{device.name} ({device.ip_address} • {device.protocol})"
 
         # 2. Obter nome da organização para identificação no chamado
-        stmt_org = select(OrganizationModel).where(OrganizationModel.id == organization_id)
-        org = (await self._session.execute(stmt_org)).scalar_one_or_none()
-        org_name = org.name if org else str(organization_id)
+        org_name = await self._org_repo.get_name_by_id(organization_id) or str(organization_id)
 
         # 3. Sanitização contra Stored XSS do título
         safe_title = html.escape(payload.title.strip())
@@ -761,19 +731,10 @@ class SlaService:
             raise ValueError(f"Mês inválido: {calc_month}. Deve estar entre 1 e 12.")
 
         # 1. Recupera Organização
-        org_stmt = select(OrganizationModel).where(OrganizationModel.id == organization_id)
-        org_res = await self._session.execute(org_stmt)
-        org = org_res.scalar_one_or_none()
-        org_name = org.name if org else "Organização"
+        org_name = await self._org_repo.get_name_by_id(organization_id) or "Organização"
 
         # 2. Recupera Dispositivos da Organização
-        dev_stmt = (
-            select(DeviceModel)
-            .where(DeviceModel.organization_id == organization_id)
-            .order_by(DeviceModel.name)
-        )
-        dev_res = await self._session.execute(dev_stmt)
-        devices = dev_res.scalars().all()
+        devices = await self._device_repo.find_by_organization(organization_id)
         device_ids = [d.id for d in devices]
 
         # 3. Calcula total de dias e limites do mês avaliado
@@ -785,21 +746,13 @@ class SlaService:
             month_end = datetime(calc_year, calc_month + 1, 1, 0, 0, 0, tzinfo=UTC)
 
         # 4. Busca em lote todos os incidentes relevantes do mês para os dispositivos
-        all_incidents: list[IncidentModel] = []
+        all_incidents: list[Incident] = []
         if device_ids:
-            inc_stmt = (
-                select(IncidentModel)
-                .where(IncidentModel.device_id.in_(device_ids))
-                .where(IncidentModel.started_at < month_end)
-                .where(
-                    or_(
-                        IncidentModel.resolved_at.is_(None),
-                        IncidentModel.resolved_at > month_start,
-                    )
-                )
+            all_incidents = await self._incident_repo.list_for_sla(
+                device_ids=device_ids,
+                start_period=month_start,
+                end_period=month_end,
             )
-            inc_res = await self._session.execute(inc_stmt)
-            all_incidents = list(inc_res.scalars().all())
 
         # 5. Busca em lote todas as janelas de manutenção aprovadas do mês
         mw_conditions = [

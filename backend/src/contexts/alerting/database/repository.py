@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.alerting.database.models import IncidentModel
@@ -92,3 +93,59 @@ class IncidentRepository:
         res = await self._session.execute(stmt)
         model = res.scalar_one_or_none()
         return model.to_domain() if model else None
+
+    async def list_for_sla(
+        self,
+        device_ids: list[UUID],
+        start_period: datetime,
+        end_period: datetime,
+    ) -> list[Incident]:
+        """Recupera incidentes que intersectam o intervalo temporal informado para os dispositivos."""
+        if not device_ids:
+            return []
+        stmt = (
+            select(IncidentModel)
+            .where(IncidentModel.device_id.in_(device_ids))
+            .where(IncidentModel.started_at < end_period)
+            .where(
+                or_(
+                    IncidentModel.resolved_at.is_(None),
+                    IncidentModel.resolved_at > start_period,
+                )
+            )
+        )
+        res = await self._session.execute(stmt)
+        scalars_fn = getattr(res, "scalars", None)
+        models = scalars_fn().all() if callable(scalars_fn) else (res.all() if hasattr(res, "all") else [])
+        incidents: list[Incident] = []
+        for m in models:
+            if isinstance(m, Incident):
+                incidents.append(m)
+                continue
+            if hasattr(m, "to_domain"):
+                try:
+                    domain_obj = m.to_domain()
+                    if isinstance(domain_obj, Incident):
+                        incidents.append(domain_obj)
+                        continue
+                except Exception:
+                    pass
+
+            st = getattr(m, "started_at", None)
+            res = getattr(m, "resolved_at", None)
+            inc_id = getattr(m, "id", None)
+            dev_id = getattr(m, "device_id", device_ids[0])
+            org_id = getattr(m, "organization_id", None)
+            title = getattr(m, "title", "Incidente")
+
+            incidents.append(
+                Incident(
+                    id=inc_id if isinstance(inc_id, UUID) else None,
+                    device_id=dev_id if isinstance(dev_id, UUID) else device_ids[0],
+                    organization_id=org_id if isinstance(org_id, UUID) else None,
+                    title=title if isinstance(title, str) else "Incidente",
+                    started_at=st if isinstance(st, datetime) else datetime.now(UTC),
+                    resolved_at=res if isinstance(res, datetime) else None,
+                )
+            )
+        return incidents
