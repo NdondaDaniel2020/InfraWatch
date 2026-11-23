@@ -562,6 +562,11 @@ class ZabbixSyncWorker:
                 ip_address=ip_address,
             )
             async with client:
+                is_network_device = any(
+                    k in name.lower() for k in ("router", "switch", "dwdm", "cisco", "sw-", "rt-")
+                )
+                target_template_id = "10226" if is_network_device else "10248"
+
                 if zabbix_host_id:
                     # Atualiza host existente
                     await client.call(
@@ -585,8 +590,7 @@ class ZabbixSyncWorker:
                             "interfaces": [interface_details],
                             "groups": [{"groupid": "2"}],  # Linux servers group (default)
                             "templates": [
-                                {"templateid": "10001"},  # Template OS Linux SNMP
-                                {"templateid": "10002"},  # Template Network Device SNMP
+                                {"templateid": target_template_id},
                             ],
                         },
                     )

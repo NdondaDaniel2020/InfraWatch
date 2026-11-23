@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -45,6 +46,7 @@ from src.contexts.telemetry.database.models import MetricModel
 from src.core.config import get_settings
 from src.core.database.session import get_session_factory
 from src.core.domain.entity import generate_uuid7
+from src.core.infrastructure.redis import get_redis_client
 from src.core.security.audit import compute_audit_hash
 
 logger = logging.getLogger("infrawatch.seed")
@@ -196,11 +198,28 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "name": "SNMP Simulator Gateway",
         "hostname": "snmpsim",
         "ip_address": "172.28.0.11",
-        "port": 0,
-        "protocol": "icmp",
+        "port": 161,
+        "protocol": "snmp",
         "category": "ROUTER",
         "interval_seconds": 10,
-        "thresholds": {"max_latency_ms": 10.0, "max_loss_percent": 0.0, "zabbix_host_id": "10683"},
+        "thresholds": {
+            "max_latency_ms": 10.0,
+            "max_loss_percent": 0.0,
+            "zabbix_host_id": "10683",
+            "model": "Net-SNMP Linux Simulator",
+            "vendor": "Net-SNMP",
+            "serial_number": "SNMP-SIM-LAB01",
+            "firmware": "Linux 6.6 / Net-SNMP 5.9",
+            "temperature": "32°C",
+            "uptime": "21d 08h 14m",
+            "ports_active": 4,
+            "ports_total": 4,
+            "snmp_config": {
+                "version": "v2c",
+                "community": "public",
+                "port": 161,
+            },
+        },
     },
     {
         "name": "clab-router01-container",
@@ -251,7 +270,18 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "icmp",
         "category": "SERVER",
         "interval_seconds": 10,
-        "thresholds": {"max_latency_ms": 50.0, "max_loss_percent": 0.0},
+        "thresholds": {
+            "max_latency_ms": 50.0,
+            "max_loss_percent": 0.0,
+            "model": "Workstation HP ProDesk 600 G4",
+            "vendor": "HP Inc.",
+            "serial_number": "CZC9128KL9",
+            "firmware": "Windows 11 Pro / BIOS 02.14.01",
+            "temperature": "45°C",
+            "uptime": "0d 00h 08m",
+            "ports_active": 0,
+            "ports_total": 1,
+        },
     },
     {
         "name": "iPhone",
@@ -303,7 +333,18 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "icmp",
         "category": "SWITCH",
         "interval_seconds": 15,
-        "thresholds": {"max_latency_ms": 10.0, "max_loss_percent": 0.0},
+        "thresholds": {
+            "max_latency_ms": 10.0,
+            "max_loss_percent": 0.0,
+            "model": "Huawei CloudEngine 6857-48S6CQ",
+            "vendor": "Huawei Technologies",
+            "serial_number": "2102353GVL10N9000042",
+            "firmware": "VRP (R) Software, Version 8.210",
+            "temperature": "42°C",
+            "uptime": "182d 04h 10m",
+            "ports_active": 18,
+            "ports_total": 24,
+        },
         "org_slug": "unitel-angola",
     },
     {
@@ -314,7 +355,18 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "icmp",
         "category": "SWITCH",
         "interval_seconds": 15,
-        "thresholds": {"max_latency_ms": 10.0, "max_loss_percent": 0.0},
+        "thresholds": {
+            "max_latency_ms": 10.0,
+            "max_loss_percent": 0.0,
+            "model": "Huawei CloudEngine 6857-48S6CQ",
+            "vendor": "Huawei Technologies",
+            "serial_number": "2102353GVL10N9000043",
+            "firmware": "VRP (R) Software, Version 8.210",
+            "temperature": "41°C",
+            "uptime": "182d 04h 08m",
+            "ports_active": 16,
+            "ports_total": 24,
+        },
         "org_slug": "unitel-angola",
     },
     {
@@ -325,7 +377,18 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "icmp",
         "category": "ROUTER",
         "interval_seconds": 10,
-        "thresholds": {"max_latency_ms": 25.0, "max_loss_percent": 0.0},
+        "thresholds": {
+            "max_latency_ms": 25.0,
+            "max_loss_percent": 0.0,
+            "model": "Cisco ISR 4331 Router",
+            "vendor": "Cisco Systems",
+            "serial_number": "FOC2214300B",
+            "firmware": "Cisco IOS-XE 16.09.05",
+            "temperature": "37°C",
+            "uptime": "91d 12h 00m",
+            "ports_active": 3,
+            "ports_total": 6,
+        },
         "org_slug": "unitel-angola",
     },
     {
@@ -336,7 +399,18 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "icmp",
         "category": "ROUTER",
         "interval_seconds": 10,
-        "thresholds": {"max_latency_ms": 5.0, "max_loss_percent": 0.0},
+        "thresholds": {
+            "max_latency_ms": 5.0,
+            "max_loss_percent": 0.0,
+            "model": "Cisco ASR 1001-X Router",
+            "vendor": "Cisco Systems",
+            "serial_number": "FXS213401AZ",
+            "firmware": "Cisco IOS XE 17.06.01a",
+            "temperature": "36°C",
+            "uptime": "210d 11h 30m",
+            "ports_active": 4,
+            "ports_total": 8,
+        },
         "org_slug": "unitel-angola",
     },
     # Banco Sol (Canais Digitais & Core)
@@ -348,7 +422,18 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "http",
         "category": "SERVER",
         "interval_seconds": 10,
-        "thresholds": {"max_latency_ms": 100.0, "max_loss_percent": 0.0},
+        "thresholds": {
+            "max_latency_ms": 100.0,
+            "max_loss_percent": 0.0,
+            "model": "Dell PowerEdge R750xs (2x Xeon Gold)",
+            "vendor": "Dell EMC",
+            "serial_number": "7B2K9X3-PROD",
+            "firmware": "Ubuntu 22.04 LTS (Kernel 5.15.0-107)",
+            "temperature": "38°C",
+            "uptime": "94d 18h 45m",
+            "ports_active": 2,
+            "ports_total": 4,
+        },
         "org_slug": "banco-sol",
     },
     {
@@ -359,7 +444,18 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "tcp",
         "category": "DATABASE",
         "interval_seconds": 10,
-        "thresholds": {"max_latency_ms": 20.0, "max_loss_percent": 0.0},
+        "thresholds": {
+            "max_latency_ms": 20.0,
+            "max_loss_percent": 0.0,
+            "model": "Dell PowerEdge R750xd2",
+            "vendor": "Dell EMC",
+            "serial_number": "8X1M4Q2-PROD",
+            "firmware": "Red Hat Enterprise Linux 9.2",
+            "temperature": "40°C",
+            "uptime": "142d 08h 19m",
+            "ports_active": 2,
+            "ports_total": 4,
+        },
         "org_slug": "banco-sol",
     },
     # Sonangol Logistics
@@ -371,7 +467,18 @@ DEMO_DEVICES: list[dict[str, Any]] = [
         "protocol": "icmp",
         "category": "ROUTER",
         "interval_seconds": 15,
-        "thresholds": {"max_latency_ms": 15.0, "max_loss_percent": 0.0},
+        "thresholds": {
+            "max_latency_ms": 15.0,
+            "max_loss_percent": 0.0,
+            "model": "Ciena Waveserver 5 Transponder",
+            "vendor": "Ciena",
+            "serial_number": "CN-WS5-88310",
+            "firmware": "Waveserver OS 2.4",
+            "temperature": "39°C",
+            "uptime": "305d 14h 00m",
+            "ports_active": 8,
+            "ports_total": 16,
+        },
         "org_slug": "sonangol",
     },
 ]
@@ -923,8 +1030,19 @@ async def seed_metrics(
     key_device_names = [
         ("Router FRR (Core Router)", 4.2),
         ("Web Server 01 (Nginx)", 18.5),
+        ("Web Server 02 (Nginx)", 19.2),
         ("infrawatch-postgres", 1.8),
+        ("infrawatch-redis", 1.2),
         ("SW-CORE-LUANDA-01", 2.1),
+        ("SW-CORE-LUANDA-02", 2.3),
+        ("RTR-EDGE-LUANDA-01", 3.5),
+        ("API-GATEWAY-PROD", 14.8),
+        ("DB-REPLICA-02", 5.2),
+        ("SNMP Simulator Gateway", 8.4),
+        ("DWDM-TALATONA-01", 6.1),
+        ("spot", 12.0),
+        ("Play 5", 22.0),
+        ("vivo-Y55A", 35.0),
     ]
 
     inserted_count = 0
@@ -972,6 +1090,71 @@ async def seed_metrics(
             current_id += 1
             session.add(metric)
             inserted_count += 1
+
+        # Injeta métricas de hardware (CPU / RAM / Disco) para servidores e dispositivos SNMP
+        if dev.category in ("SERVER", "ROUTER", "SWITCH", "DATABASE") or str(dev.protocol).lower() == "snmp":
+            cpu_val = round(15.0 + (dev.id.int % 40) + (base_latency % 10), 1)
+            mem_val = round(35.0 + (dev.id.int % 30) + (base_latency % 8), 1)
+            disk_val = round(28.0 + (dev.id.int % 25), 1)
+
+            session.add(
+                MetricModel(
+                    id=current_id,
+                    device_id=dev.id,
+                    organization_id=target_org_id,
+                    metric_type="cpu_usage_pct",
+                    value=cpu_val,
+                    status="UP",
+                    timestamp=now,
+                )
+            )
+            current_id += 1
+
+            session.add(
+                MetricModel(
+                    id=current_id,
+                    device_id=dev.id,
+                    organization_id=target_org_id,
+                    metric_type="memory_usage_pct",
+                    value=mem_val,
+                    status="UP",
+                    timestamp=now,
+                )
+            )
+            current_id += 1
+
+            session.add(
+                MetricModel(
+                    id=current_id,
+                    device_id=dev.id,
+                    organization_id=target_org_id,
+                    metric_type="disk_usage_pct",
+                    value=disk_val,
+                    status="UP",
+                    timestamp=now,
+                )
+            )
+            current_id += 1
+            inserted_count += 3
+
+            # Atualiza cache Redis para o dashboard NOC e inspeção
+            try:
+                redis = get_redis_client()
+                if redis:
+                    cache_key = f"infrawatch:device:{dev.id}:hardware_telemetry"
+                    await redis.set(
+                        cache_key,
+                        json.dumps({
+                            "cpu_usage_pct": cpu_val,
+                            "memory_usage_pct": mem_val,
+                            "disk_usage_pct": disk_val,
+                            "collected_at": now.isoformat(),
+                            "zabbix_host_id": (dev.thresholds or {}).get("zabbix_host_id"),
+                        }),
+                        ex=86400,
+                    )
+            except Exception:
+                pass
 
     if inserted_count > 0:
         logger.info(
@@ -1112,6 +1295,16 @@ async def seed_topology(
             "position_y": 460.0,
             "org_id": lab_org_id,
         },
+        {
+            "label": "SNMP Simulator Gateway",
+            "node_type": "router",
+            "device_name": "SNMP Simulator Gateway",
+            "ip_address": "172.28.0.11",
+            "cluster": "LAB DEMO",
+            "position_x": 400.0,
+            "position_y": 600.0,
+            "org_id": lab_org_id,
+        },
         # --- SONANGOL LOGISTICS ---
         {
             "label": "DWDM-TALATONA-01",
@@ -1232,6 +1425,15 @@ async def seed_topology(
             "link_type": "ethernet",
             "bandwidth_gbps": 10.0,
             "port_src": "eth0",
+            "port_dst": "eth0",
+            "org_id": lab_org_id,
+        },
+        {
+            "src": "Router FRR",
+            "dst": "SNMP Simulator Gateway",
+            "link_type": "ethernet",
+            "bandwidth_gbps": 1.0,
+            "port_src": "eth3",
             "port_dst": "eth0",
             "org_id": lab_org_id,
         },
@@ -1403,6 +1605,101 @@ async def seed_audit_logs(
     logger.info("Cadeia criptográfica de auditoria inserida com sucesso (5 registros encadeados).")
 
 
+async def sync_zabbix_hosts_on_seed(
+    session: AsyncSession,
+    devices: dict[str, DeviceModel],
+) -> None:
+    """Registra e sincroniza dispositivos de demonstração no Zabbix Server em tempo de seed."""
+    settings = get_settings()
+    if not getattr(settings, "ZABBIX_ENABLED", False):
+        logger.info("Zabbix desativado (ZABBIX_ENABLED=False). Pulando provisionamento no Zabbix.")
+        return
+
+    try:
+        from src.integrations.zabbix.client import ZabbixClient
+        from src.workers.daemons.zabbix_sync_worker import build_zabbix_snmp_interface_details
+
+        api_url = settings.ZABBIX_API_URL
+        api_token = settings.ZABBIX_API_TOKEN
+        username = settings.ZABBIX_USER
+        password = settings.ZABBIX_PASSWORD
+
+        async with ZabbixClient(
+            api_url=api_url,
+            api_token=api_token,
+            username=username,
+            password=password,
+            timeout=5.0,
+        ) as client:
+            version = await client.get_api_version()
+            logger.info("Zabbix Server acessível para seed (Versão: %s)", version)
+
+            existing_hosts = await client.get_hosts()
+            existing_map = {h.host: h.hostid for h in existing_hosts}
+            existing_name_map = {h.name: h.hostid for h in existing_hosts}
+
+            for name, device in devices.items():
+                thresholds = dict(device.thresholds or {})
+                protocol = str(device.protocol).lower()
+                snmp_conf = thresholds.get("snmp_config") or thresholds.get("snmp")
+
+                if protocol == "snmp" or snmp_conf or "zabbix_host_id" in thresholds:
+                    host_key = device.hostname or name
+                    target_hostid = existing_map.get(host_key) or existing_name_map.get(name) or existing_map.get(name)
+
+                    interface_details = build_zabbix_snmp_interface_details(
+                        snmp_config=snmp_conf,
+                        port=device.port or 161,
+                        ip_address=device.ip_address,
+                    )
+
+                    is_network_device = any(
+                        k in name.lower() for k in ("router", "switch", "dwdm", "cisco", "sw-", "rt-")
+                    )
+                    template_id = "10226" if is_network_device else "10248"
+
+                    if target_hostid:
+                        try:
+                            await client.call(
+                                "host.update",
+                                params={
+                                    "hostid": str(target_hostid),
+                                    "host": host_key,
+                                    "name": name,
+                                    "interfaces": [interface_details],
+                                },
+                            )
+                            logger.info("Host Zabbix atualizado no seed: %s (hostid=%s)", name, target_hostid)
+                        except Exception as upd_err:
+                            logger.debug("Aviso ao atualizar host %s no Zabbix: %s", name, upd_err)
+                    else:
+                        try:
+                            res = await client.call(
+                                "host.create",
+                                params={
+                                    "host": host_key,
+                                    "name": name,
+                                    "interfaces": [interface_details],
+                                    "groups": [{"groupid": "2"}],
+                                    "templates": [{"templateid": template_id}],
+                                },
+                            )
+                            if res and isinstance(res, dict) and "hostids" in res and res["hostids"]:
+                                target_hostid = str(res["hostids"][0])
+                                logger.info("Host Zabbix criado com sucesso no seed: %s (hostid=%s)", name, target_hostid)
+                        except Exception as crt_err:
+                            logger.warning("Falha ao criar host %s no Zabbix: %s", name, crt_err)
+
+                    if target_hostid:
+                        thresholds["zabbix_host_id"] = str(target_hostid)
+                        device.thresholds = thresholds
+                        session.add(device)
+
+            await session.flush()
+    except Exception as exc:
+        logger.warning("Não foi possível sincronizar hosts com Zabbix durante o seed: %s", exc)
+
+
 async def seed_all() -> None:
     """Executa a carga completa e idempotente da base de demonstração."""
     session_factory = get_session_factory()
@@ -1437,6 +1734,9 @@ async def seed_all() -> None:
 
         # 9. Trilha criptográfica de auditoria
         await seed_audit_logs(session, orgs, users)
+
+        # 10. Provisionamento e Sincronização Zabbix JSON-RPC
+        await sync_zabbix_hosts_on_seed(session, devices)
 
         await session.commit()
         logger.info("Seed completo finalizado com sucesso e idempotência garantida!")

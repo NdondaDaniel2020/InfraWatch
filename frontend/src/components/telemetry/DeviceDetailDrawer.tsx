@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientContext, useQuery } from "@tanstack/react-query";
 import { ExternalLink, RefreshCw, Wrench, X } from "lucide-react";
+
+const fallbackQueryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
 import type { MonitoredDevice } from "../../types/telemetry";
 import { apiClient } from "../../services/apiClient";
 import { deviceDetailApi } from "../../services/deviceDetailApi";
@@ -43,50 +47,63 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Usa QueryClientContext com fallback seguro para testes e renderização isolada
+  const queryContext = React.useContext(QueryClientContext);
+  const activeQueryClient = queryContext || fallbackQueryClient;
+
   // Consulta SLA contratual e disponibilidade diária real do ativo
-  const { data: deviceSla } = useQuery({
-    queryKey: ["device-sla-drawer", device?.device_id],
-    queryFn: async () => {
-      try {
-        if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
-        return await apiClient.get<any>(`/api/v1/sla/devices/${device.device_id}`);
-      } catch {
-        return null;
-      }
+  const { data: deviceSla } = useQuery(
+    {
+      queryKey: ["device-sla-drawer", device?.device_id],
+      queryFn: async () => {
+        try {
+          if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
+          return await apiClient.get<any>(`/api/v1/sla/devices/${device.device_id}`);
+        } catch {
+          return null;
+        }
+      },
+      enabled: Boolean(isOpen && device?.device_id),
+      staleTime: 60000,
     },
-    enabled: Boolean(isOpen && device?.device_id),
-    staleTime: 60000,
-  });
+    activeQueryClient
+  );
 
   // Consulta série temporal real agregada de telemetria (TimescaleDB)
-  const { data: timescaleMetrics } = useQuery({
-    queryKey: ["device-timescale-metrics-drawer", device?.device_id],
-    queryFn: async () => {
-      try {
-        if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
-        return await deviceDetailApi.getTimescaleMetrics(device.device_id, "24h");
-      } catch {
-        return null;
-      }
+  const { data: timescaleMetrics } = useQuery(
+    {
+      queryKey: ["device-timescale-metrics-drawer", device?.device_id],
+      queryFn: async () => {
+        try {
+          if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
+          return await deviceDetailApi.getTimescaleMetrics(device.device_id, "24h");
+        } catch {
+          return null;
+        }
+      },
+      enabled: Boolean(isOpen && device?.device_id),
+      staleTime: 30000,
     },
-    enabled: Boolean(isOpen && device?.device_id),
-    staleTime: 30000,
-  });
+    activeQueryClient
+  );
 
   // Consulta interfaces ópticas e ethernet cadastradas no ativo
-  const { data: deviceInterfaces } = useQuery({
-    queryKey: ["device-interfaces-drawer", device?.device_id],
-    queryFn: async () => {
-      try {
-        if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
-        return await deviceDetailApi.getDeviceInterfaces(device.device_id);
-      } catch {
-        return null;
-      }
+  const { data: deviceInterfaces } = useQuery(
+    {
+      queryKey: ["device-interfaces-drawer", device?.device_id],
+      queryFn: async () => {
+        try {
+          if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
+          return await deviceDetailApi.getDeviceInterfaces(device.device_id);
+        } catch {
+          return null;
+        }
+      },
+      enabled: Boolean(isOpen && device?.device_id),
+      staleTime: 60000,
     },
-    enabled: Boolean(isOpen && device?.device_id),
-    staleTime: 60000,
-  });
+    activeQueryClient
+  );
 
   // Disponibilidade calculada a partir de dados reais
   const availabilityDisplay = useMemo(() => {
@@ -120,7 +137,6 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
 
   // Resumo dinâmico de portas / interfaces
   const interfacesSummary = useMemo(() => {
-    if (device?.ports_summary) return device.ports_summary;
     if (deviceInterfaces && Array.isArray(deviceInterfaces) && deviceInterfaces.length > 0) {
       const upCount = deviceInterfaces.filter(
         (i) => i.status === "UP"
@@ -128,6 +144,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
       const speedLabel = deviceInterfaces[0]?.speed || "Eth";
       return `${upCount}/${deviceInterfaces.length} UP (${speedLabel})`;
     }
+    if (device?.ports_summary) return device.ports_summary;
     if (device?.category === "SWITCH" || device?.category === "ROUTER") {
       return "Portas LACP Conectadas";
     }
@@ -282,7 +299,13 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Interfaces SFP+:</span>
+              <span className="text-slate-400">
+                {device.category === "SWITCH"
+                  ? "Portas / SFP+:"
+                  : device.category === "ROUTER"
+                    ? "Interfaces / Uplink:"
+                    : "Interface de Rede:"}
+              </span>
               <span className="text-sky-400 font-semibold">
                 {interfacesSummary}
               </span>
