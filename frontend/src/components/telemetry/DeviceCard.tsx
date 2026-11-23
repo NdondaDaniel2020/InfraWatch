@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Database, Radio, Network, Server, WifiOff } from "lucide-react";
 import type { MonitoredDevice } from "../../types/telemetry";
 import { getNormalizedStatus, type NormalizedStatus } from "./statusConfig";
@@ -166,6 +167,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   onSelect,
   onPing,
 }) => {
+  const navigate = useNavigate();
   const statusKey = getStatusKey(device);
   const visual = STATUS_VISUALS[statusKey];
 
@@ -174,7 +176,14 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
       data-testid={`device-card-${device.device_id}`}
       data-tenant={device.tenant_id}
       data-severity={device.severity}
-      className={`device-card bg-obsidian-900 rounded-xl p-4 flex flex-col justify-between transition-colors shadow-sm ${visual.cardBorder}`}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (device.device_id) {
+          navigate(`/devices/${device.device_id}`);
+        }
+      }}
+      title={`Duplo clique para abrir detalhes de ${device.name}`}
+      className={`device-card bg-obsidian-900 rounded-xl p-4 flex flex-col justify-between transition-colors shadow-sm cursor-pointer ${visual.cardBorder}`}
     >
       <div>
         {/* Cabeçalho do Card */}
