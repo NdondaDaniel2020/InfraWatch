@@ -24,6 +24,8 @@ import {
 import { TopologyInspectorDrawer } from "../../components/topology/TopologyInspectorDrawer";
 import { TopologyDeviceData } from "../../types/topology";
 import { topologyApi } from "../../services/topologyApi";
+import { useAuth } from "../../context/AuthContext";
+import { adminApi } from "../../services/adminApi";
 
 // Definição de Tipos Customizados para o React Flow
 const nodeTypes: NodeTypes = {
@@ -38,11 +40,19 @@ const edgeTypes: EdgeTypes = {
 const INITIAL_NODE_POSITIONS: Record<string, { x: number; y: number }> = {
   "RT-EDGE-01": { x: 380, y: 30 },
   "SW-CORE-LUANDA-01": { x: 380, y: 220 },
+  "SW-CORE-LUANDA-02": { x: 620, y: 220 },
   "SW-DIST-01": { x: 140, y: 390 },
   "SW-DIST-02": { x: 620, y: 390 },
-  "API-GATEWAY-PROD": { x: 140, y: 550 },
+  "API-GATEWAY-PROD": { x: 380, y: 150 },
+  "DB-REPLICA-02": { x: 380, y: 380 },
   "DB-TIMESCALEDB-PRIMARY": { x: 620, y: 550 },
   "RT-BRANCH-BENGUELA": { x: 880, y: 30 },
+  "DWDM-TALATONA-01": { x: 380, y: 200 },
+  "Router FRR": { x: 380, y: 50 },
+  "Web Server 01": { x: 200, y: 250 },
+  "Web Server 02": { x: 560, y: 250 },
+  "PostgreSQL Database": { x: 200, y: 450 },
+  "Redis Cache": { x: 560, y: 450 },
 };
 
 export interface TopologyMapPageProps {
@@ -52,6 +62,34 @@ export interface TopologyMapPageProps {
 export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   initialViewState = "nominal",
 }) => {
+  const { user } = useAuth();
+  const isGlobalOperator = user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR";
+
+  const {
+    data: organizationsData,
+    isLoading: isLoadingOrganizations,
+  } = useQuery({
+    queryKey: ["topologyOrganizations"],
+    queryFn: () => adminApi.listOrganizations({ size: 100 }),
+    enabled: isGlobalOperator,
+  });
+
+  const organizations = useMemo(
+    () =>
+      organizationsData?.items?.map((item) => ({
+        id: String(item.id),
+        name: String(item.name),
+        slug: item.slug ? String(item.slug) : undefined,
+      })) ?? [],
+    [organizationsData]
+  );
+
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+
+  const effectiveOrgId = isGlobalOperator
+    ? selectedOrgId ?? organizations[0]?.id ?? null
+    : user?.organization_id ?? null;
+
   const [stateSimulation, setStateSimulation] = useState<TopologyStateSimulation>(initialViewState);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -64,25 +102,28 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["topologyGraph"],
-    queryFn: () => topologyApi.getTopologyGraph(),
+    queryKey: ["topologyGraph", effectiveOrgId],
+    queryFn: () => topologyApi.getTopologyGraph(effectiveOrgId),
+    enabled: isGlobalOperator ? Boolean(effectiveOrgId || organizations.length === 0) : true,
     retry: false,
   });
 
   const rawNodes = topologyGraph?.nodes || [];
   const rawEdges = topologyGraph?.edges || [];
 
-  // Define automaticamente o nó ativo na inicialização (compatível com mocks e UUIDs reais)
+  // Define automaticamente o nó ativo na inicialização ou troca de organização
   useEffect(() => {
-    if (rawNodes.length > 0 && !selectedDeviceId) {
+    if (rawNodes.length > 0) {
       const preferred =
         rawNodes.find((n) => n.label === "SW-CORE-LUANDA-01" || n.id === "SW-CORE-LUANDA-01") ||
         rawNodes[0];
       if (preferred) {
         setSelectedDeviceId(preferred.id);
       }
+    } else {
+      setSelectedDeviceId(null);
     }
-  }, [rawNodes, selectedDeviceId]);
+  }, [rawNodes]);
 
   // Contagem dinâmica por categoria baseada nos nós reais retornados
   const categoryCounts = useMemo(() => {
@@ -254,6 +295,15 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
         isInspectorOpen={isInspectorOpen}
         onToggleInspector={() => setIsInspectorOpen(!isInspectorOpen)}
         categoryCounts={categoryCounts}
+        organizations={organizations}
+        selectedOrgId={effectiveOrgId}
+        onSelectOrgId={(id) => {
+          setSelectedOrgId(id);
+          setSelectedDeviceId(null);
+        }}
+        isGlobalOperator={isGlobalOperator}
+        userOrgName={user?.organization_name}
+        isLoadingOrganizations={isLoadingOrganizations}
       />
 
       {/* 2. Área do Canvas & Drawer Lateral */}

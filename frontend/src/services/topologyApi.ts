@@ -86,8 +86,9 @@ export const topologyApi = {
    * Obtém a estrutura em grafo de nós e enlaces da topologia.
    * Conecta ao backend FastAPI (/api/v1/topology/graph).
    */
-  getTopologyGraph: async (): Promise<TopologyGraphResponse> => {
-    const data = await apiClient.get<BackendTopologyGraphResponse>("/api/v1/topology/graph");
+  getTopologyGraph: async (organizationId?: string | null): Promise<TopologyGraphResponse> => {
+    const params = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+    const data = await apiClient.get<BackendTopologyGraphResponse>(`/api/v1/topology/graph${params}`);
 
     const mappedNodes: TopologyDeviceData[] = data.nodes.map((n) => ({
       id: n.id,

@@ -5,6 +5,7 @@ import {
   Maximize2,
   PanelRightClose,
   PanelRightOpen,
+  Building2,
 } from "lucide-react";
 
 export type TopologyStateSimulation = "nominal" | "skeleton" | "empty" | "error";
@@ -14,6 +15,12 @@ export interface TopologyCategoryCounts {
   router: number;
   switch: number;
   workload: number;
+}
+
+export interface OrganizationOption {
+  id: string;
+  name: string;
+  slug?: string;
 }
 
 interface TopologyToolbarProps {
@@ -26,6 +33,12 @@ interface TopologyToolbarProps {
   isInspectorOpen: boolean;
   onToggleInspector: () => void;
   categoryCounts?: TopologyCategoryCounts;
+  organizations?: OrganizationOption[];
+  selectedOrgId?: string | null;
+  onSelectOrgId?: (orgId: string) => void;
+  isGlobalOperator?: boolean;
+  userOrgName?: string | null;
+  isLoadingOrganizations?: boolean;
 }
 
 export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
@@ -38,24 +51,59 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
   isInspectorOpen,
   onToggleInspector,
   categoryCounts,
+  organizations = [],
+  selectedOrgId,
+  onSelectOrgId,
+  isGlobalOperator = false,
+  userOrgName,
+  isLoadingOrganizations = false,
 }) => {
   return (
     <header
       data-testid="topology-toolbar"
       className="h-11 bg-obsidian-900/90 backdrop-blur border-b border-obsidian-800 px-4 flex items-center justify-between shrink-0 z-30 select-none"
     >
-      {/* Esquerda: Breadcrumb NOC */}
-      <div className="flex items-center gap-3">
+      {/* Esquerda: Breadcrumb NOC & Seletor de Organização */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
         <div className="flex items-center gap-1.5 text-xs font-mono text-slate-400">
           <span>NOC</span>
           <span className="text-slate-600">/</span>
           <span className="text-emerald-400 font-semibold">TOPOLOGIA</span>
         </div>
-        <span className="h-3.5 w-px bg-obsidian-800" />
+        <span className="h-3.5 w-px bg-obsidian-800 hidden sm:inline" />
         <span className="text-xs font-sans text-slate-300 font-medium hidden sm:inline">
           Grafo Interativo de Enlaces &amp; Tráfego
         </span>
-        <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+
+        {/* Seletor de Organização (Multi-Tenant) */}
+        {isGlobalOperator && organizations.length > 0 ? (
+          <div className="flex items-center gap-1.5 bg-obsidian-950 px-2 py-0.5 rounded border border-obsidian-800 hover:border-obsidian-700 transition-colors">
+            <Building2 size={13} className="text-emerald-400 shrink-0" />
+            <select
+              aria-label="Selecionar Organização"
+              data-testid="topology-org-select"
+              value={selectedOrgId || ""}
+              onChange={(e) => onSelectOrgId?.(e.target.value)}
+              disabled={isLoadingOrganizations}
+              className="bg-transparent text-slate-200 text-xs font-mono outline-none cursor-pointer max-w-[170px] sm:max-w-[210px] truncate"
+            >
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id} className="bg-obsidian-950 text-slate-200">
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs font-mono text-slate-300 bg-obsidian-950 px-2 py-0.5 rounded border border-obsidian-800">
+            <Building2 size={13} className="text-slate-400 shrink-0" />
+            <span className="font-semibold text-emerald-400 truncate max-w-[180px]">
+              {userOrgName || organizations[0]?.name || "Organização"}
+            </span>
+          </div>
+        )}
+
+        <span className="hidden xl:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           LLDP/CDP Sincronizado
         </span>
