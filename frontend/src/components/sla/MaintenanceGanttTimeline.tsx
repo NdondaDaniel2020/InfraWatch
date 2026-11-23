@@ -24,61 +24,25 @@ export const MaintenanceGanttTimeline: React.FC<MaintenanceGanttTimelineProps> =
   return (
     <section
       data-testid="maint-gantt-container"
-      style={{
-        backgroundColor: "var(--color-surface-card, #0d1424)",
-        border: "var(--border-subtle)",
-        borderRadius: "var(--radius-lg)",
-        padding: "20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-      }}
+      className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-5 space-y-4 shadow-md"
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderBottom: "var(--border-subtle)",
-          paddingBottom: "12px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Calendar size={18} className="text-sky-400" />
-          <h3 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
+      <div className="flex items-center justify-between border-b border-obsidian-800 pb-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-sky-400" />
+          <h3 className="font-display font-bold text-sm text-white">
             Linha do Tempo Gantt — 24 Horas
           </h3>
         </div>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.75rem",
-            color: "var(--color-text-muted)",
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-          }}
-        >
-          <Clock size={12} />
-          Fuso Horário: UTC / WAT (Luanda)
+        <span className="font-mono text-xs text-slate-400 flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5 text-slate-400" />
+          Fuso: Luanda (WAT / UTC+1)
         </span>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontFamily: "var(--font-mono)" }}>
+      <div className="space-y-3 font-mono text-xs">
         {/* Régua de Horas */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "140px repeat(12, 1fr)",
-            gap: "4px",
-            fontSize: "0.625rem",
-            color: "var(--color-text-muted)",
-            textAlign: "center",
-            borderBottom: "var(--border-subtle)",
-            paddingBottom: "6px",
-          }}
-        >
-          <div style={{ textAlign: "left" }}>Ativo / Host</div>
+        <div className="grid grid-cols-[160px_repeat(12,1fr)] gap-1 text-center text-[10px] text-slate-500 pb-1.5 border-b border-obsidian-800">
+          <div className="text-left font-semibold text-slate-400 pl-1">Ativo / Host</div>
           {hours.map((h) => (
             <div key={h}>{h}</div>
           ))}
@@ -86,7 +50,7 @@ export const MaintenanceGanttTimeline: React.FC<MaintenanceGanttTimelineProps> =
 
         {/* Trilhos por Ativo */}
         {trackDevices.length === 0 ? (
-          <div style={{ padding: "16px", textAlign: "center", color: "var(--color-text-muted)", fontSize: "0.75rem" }}>
+          <div className="py-8 text-center text-slate-500 text-xs">
             Nenhum ativo associado a paradas técnicas no período.
           </div>
         ) : (
@@ -98,79 +62,43 @@ export const MaintenanceGanttTimeline: React.FC<MaintenanceGanttTimelineProps> =
             return (
               <div
                 key={device}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "140px 1fr",
-                  alignItems: "center",
-                  gap: "12px",
-                }}
+                className="grid grid-cols-[160px_1fr] items-center gap-3"
               >
                 <span
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    color: "var(--color-text-primary)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
+                  className="text-xs font-semibold text-slate-300 truncate pl-1"
                   title={device}
                 >
                   {device}
                 </span>
 
-                <div
-                  style={{
-                    height: "32px",
-                    backgroundColor: "var(--color-bg-deep, #070a12)",
-                    borderRadius: "var(--radius-sm)",
-                    border: "var(--border-subtle)",
-                    position: "relative",
-                    overflow: "hidden",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
+                <div className="h-8 bg-obsidian-950 rounded-lg border border-obsidian-800 relative flex items-center overflow-hidden">
                   {relatedMaints.map((m) => {
                     const start = new Date(m.startTimeUtc).getUTCHours();
-                    const leftPct = (start / 24) * 100;
+                    const leftPct = Math.min(Math.max((start / 24) * 100, 0), 90);
                     const widthPct = Math.max((m.durationMinutes / 1440) * 100, 10);
+
+                    const styleConfig =
+                      m.status === "APPROVED"
+                        ? "bg-sky-500/20 border-sky-400 text-sky-300"
+                        : m.status === "PENDING_APPROVAL"
+                        ? "bg-amber-500/20 border-amber-400 text-amber-300"
+                        : m.status === "IN_PROGRESS"
+                        ? "bg-amber-500/30 border-amber-400 text-amber-300"
+                        : m.status === "COMPLETED"
+                        ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
+                        : "bg-rose-500/20 border-rose-400 text-rose-300";
 
                     return (
                       <div
                         key={m.id}
                         style={{
-                          position: "absolute",
                           left: `${leftPct}%`,
                           width: `${widthPct}%`,
-                          height: "24px",
-                          backgroundColor:
-                            m.status === "APPROVED"
-                              ? "rgba(56, 189, 248, 0.2)"
-                              : m.status === "PENDING_APPROVAL"
-                              ? "rgba(245, 158, 11, 0.2)"
-                              : "rgba(16, 185, 129, 0.2)",
-                          border: `1px solid ${
-                            m.status === "APPROVED"
-                              ? "var(--color-primary)"
-                              : m.status === "PENDING_APPROVAL"
-                              ? "var(--color-warning)"
-                              : "var(--color-healthy)"
-                          }`,
-                          borderRadius: "var(--radius-sm)",
-                          color: "var(--color-text-primary)",
-                          fontSize: "0.625rem",
-                          fontWeight: 700,
-                          padding: "0 6px",
-                          display: "flex",
-                          alignItems: "center",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
                         }}
+                        className={`absolute h-6 rounded border px-2 flex items-center text-[10px] font-bold truncate transition-all shadow-sm ${styleConfig}`}
                         title={`${m.rfcNumber}: ${m.title} (${m.durationMinutes}m)`}
                       >
-                        {m.rfcNumber}
+                        {m.rfcNumber} ({m.title})
                       </div>
                     );
                   })}
