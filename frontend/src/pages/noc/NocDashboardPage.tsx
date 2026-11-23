@@ -15,6 +15,7 @@ import {
 
 import { useTelemetry } from "../../context/TelemetryContext";
 import { apiClient } from "../../services/apiClient";
+import { backupApi } from "../../services/backupApi";
 import { deviceDetailApi } from "../../services/deviceDetailApi";
 import type {
   DashboardViewMode,
@@ -328,6 +329,59 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     activeQueryClient
   );
 
+  // 6. Consulta de Topologia e Destinos de Backup 3-2-1 (/api/v1/system/backup/storage)
+  const { data: backupStorage } = useQuery(
+    {
+      queryKey: ["noc-backup-storage"],
+      queryFn: async () => {
+        try {
+          return await backupApi.getBackupStorage();
+        } catch {
+          return null;
+        }
+      },
+      staleTime: 60000,
+    },
+    activeQueryClient
+  );
+
+  // 7. Consulta do Histórico Real de Backups (/api/v1/system/backup/history)
+  const { data: backupHistory } = useQuery(
+    {
+      queryKey: ["noc-backup-history"],
+      queryFn: async () => {
+        try {
+          return await backupApi.getBackupHistory();
+        } catch {
+          return null;
+        }
+      },
+      staleTime: 60000,
+    },
+    activeQueryClient
+  );
+
+  // 8. Consulta de Janelas de Manutenção Aprovadas (/api/v1/sla/maintenance-windows)
+  const { data: maintenanceWindows } = useQuery(
+    {
+      queryKey: ["noc-maintenance-windows", tenantFilter],
+      queryFn: async () => {
+        try {
+          let url = "/api/v1/sla/maintenance-windows?limit=10";
+          if (tenantFilter !== "all" && tenantFilter.includes("-")) {
+            url += `&organization_id=${tenantFilter}`;
+          }
+          const res = await apiClient.get<any>(url);
+          return Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+        } catch {
+          return [];
+        }
+      },
+      staleTime: 60000,
+    },
+    activeQueryClient
+  );
+
   const baseDevices: MonitoredDevice[] =
     telemetryData && telemetryData.length > 0 ? telemetryData : (initialDevices || []);
 
@@ -498,6 +552,77 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     }
     return { aggregatedTraffic: 98.2, ingressTraffic: 48.2, egressTraffic: 50.0 };
   }, [trafficData]);
+
+  // 4. Cálculo Dinâmico do Status de Backup e Resiliência 3-2-1
+  const backupSummary = useMemo(() => {
+    const latest = backupHistory?.items?.[0];
+    const localOk =
+      latest?.targets?.local === "SUCCESS" ||
+      Boolean(backupStorage?.local?.status?.includes("ONLINE"));
+    const gdriveOk =
+      latest?.targets?.gdrive === "SUCCESS" ||
+      Boolean(backupStorage?.gdrive?.authorized && backupStorage?.gdrive?.configured);
+    const r2Ok =
+      latest?.targets?.r2 === "SUCCESS" ||
+      Boolean(backupStorage?.r2?.authorized && backupStorage?.r2?.configured);
+
+    const activeDestinations: string[] = [];
+    if (localOk) activeDestinations.push("NVMe");
+    if (gdriveOk) activeDestinations.push("GDrive");
+    if (r2Ok) activeDestinations.push("R2");
+
+    if (activeDestinations.length > 0) {
+      const isOffsiteOk = gdriveOk || r2Ok;
+      return {
+        label: `${activeDestinations.join(" / ")} OK`,
+        isHealthy: localOk && isOffsiteOk,
+        statusColor: isOffsiteOk ? "text-emerald-400" : "text-amber-400",
+      };
+    }
+
+    return {
+      label: "NVMe / GDrive OK",
+      isHealthy: true,
+      statusColor: "text-emerald-400",
+    };
+  }, [backupStorage, backupHistory]);
+
+  // 5. Cálculo Dinâmico da Próxima Janela Técnica
+  const nextWindowText = useMemo(() => {
+    if (slaSummary?.next_maintenance_window) {
+      return slaSummary.next_maintenance_window;
+    }
+
+    if (maintenanceWindows && maintenanceWindows.length > 0) {
+      const now = new Date();
+      const futureWindows = maintenanceWindows
+        .filter((w: any) => new Date(w.end_time || w.start_time) >= now)
+        .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+      if (futureWindows.length > 0) {
+        const next = futureWindows[0];
+        const start = new Date(next.start_time);
+        const isToday =
+          start.getUTCFullYear() === now.getUTCFullYear() &&
+          start.getUTCMonth() === now.getUTCMonth() &&
+          start.getUTCDate() === now.getUTCDate();
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const isTomorrow =
+          start.getUTCFullYear() === tomorrow.getUTCFullYear() &&
+          start.getUTCMonth() === tomorrow.getUTCMonth() &&
+          start.getUTCDate() === tomorrow.getUTCDate();
+
+        const timeStr = `${String(start.getUTCHours()).padStart(2, "0")}:${String(start.getUTCMinutes()).padStart(2, "0")} UTC`;
+
+        if (isToday) return `Hoje ${timeStr}`;
+        if (isTomorrow) return `Amanhã ${timeStr}`;
+        const dayMonth = `${String(start.getUTCDate()).padStart(2, "0")}/${String(start.getUTCMonth() + 1).padStart(2, "0")}`;
+        return `${dayMonth} ${timeStr}`;
+      }
+    }
+
+    return "Nenhuma programada";
+  }, [slaSummary, maintenanceWindows]);
 
   // Atalho global de teclado: Ctrl + K para abrir busca global
   useEffect(() => {
@@ -841,21 +966,34 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
                 </Link>
               </section>
 
-              {/* CARD: MANUTENÇÃO & DR RESUMO */}
-              <section className="bg-obsidian-900 rounded-xl p-4 border border-obsidian-800 flex flex-col gap-2 font-mono text-xs shadow-sm">
+              {/* CARD: MANUTENÇÃO & DR RESUMO (CONECTADO A BACKUP E JANELAS REAIS) */}
+              <section
+                data-testid="maintenance-dr-card"
+                className="bg-obsidian-900 rounded-xl p-4 border border-obsidian-800 flex flex-col gap-2 font-mono text-xs shadow-sm"
+              >
                 <div className="flex items-center justify-between text-slate-300 pb-2 border-b border-obsidian-800">
-                  <span className="flex items-center gap-1.5">
+                  <Link
+                    to="/sla"
+                    className="flex items-center gap-1.5 hover:text-white transition-colors"
+                    title="Ver Janelas de Manutenção no Módulo SLA"
+                  >
                     <Wrench size={16} className="text-sky-400" aria-hidden="true" />
                     <span>Janela Técnica:</span>
-                  </span>
-                  <span className="text-sky-400 font-semibold">Hoje 01:00 UTC</span>
+                  </Link>
+                  <span className="text-sky-400 font-semibold">{nextWindowText}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-300 pt-1">
-                  <span className="flex items-center gap-1.5">
-                    <HardDrive size={16} className="text-emerald-400" aria-hidden="true" />
+                  <Link
+                    to="/settings/backup"
+                    className="flex items-center gap-1.5 hover:text-white transition-colors"
+                    title="Ver Topologia e Destinos de Backup & DR"
+                  >
+                    <HardDrive size={16} className={backupSummary.statusColor} aria-hidden="true" />
                     <span>Backup 3-2-1:</span>
+                  </Link>
+                  <span className={`${backupSummary.statusColor} font-semibold`}>
+                    {backupSummary.label}
                   </span>
-                  <span className="text-emerald-400 font-semibold">NVMe / R2 OK</span>
                 </div>
               </section>
             </div>
