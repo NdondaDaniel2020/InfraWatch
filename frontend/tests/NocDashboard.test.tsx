@@ -91,6 +91,14 @@ describe("NOC Cockpit Dashboard — Telas Mockups & Obsidian Telemetry (Issue #2
       expect(screen.queryByText("Incidente Delta")).not.toBeInTheDocument();
       expect(screen.queryByText("Incidente Epsilon")).not.toBeInTheDocument();
     });
+
+    it("deve renderizar o card de resiliência e DR com status de Backup e Janela Técnica", () => {
+      renderWithProviders(<NocDashboardPage />);
+
+      expect(screen.getByTestId("maintenance-dr-card")).toBeInTheDocument();
+      expect(screen.getByText(/Janela Técnica:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Backup 3-2-1:/i)).toBeInTheDocument();
+    });
   });
 
   describe("2. Grade de Dispositivos e Filtros Operacionais", () => {

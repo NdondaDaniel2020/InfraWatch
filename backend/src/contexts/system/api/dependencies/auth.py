@@ -12,8 +12,8 @@ from src.contexts.iam.domain.enums import UserRole
 
 
 def require_admin() -> Callable[[AuthenticatedUser], AuthenticatedUser]:
-    """Fábrica de dependência para autorização estrita de administradores globais."""
-    return require_roles(UserRole.SUPER_ADMIN)
+    """Fábrica de dependência para autorização de administradores globais e operadores NOC."""
+    return require_roles(UserRole.SUPER_ADMIN, UserRole.NOC_OPERATOR)
 
 
 AdminUserDep = Annotated[AuthenticatedUser, Depends(require_admin())]
