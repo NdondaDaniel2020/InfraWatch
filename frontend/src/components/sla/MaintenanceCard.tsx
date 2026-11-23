@@ -8,12 +8,10 @@ import {
   AlertTriangle,
   BellOff,
   Eye,
-  RotateCcw,
   ShieldCheck,
   FileText,
 } from "lucide-react";
 import type { MaintenanceWindow } from "../../types/sla";
-import { toast } from "sonner";
 
 interface MaintenanceCardProps {
   maintenance: MaintenanceWindow;
@@ -85,14 +83,6 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
     edgeClass: "bg-slate-500",
     label: maintenance.status,
     icon: <Calendar className="w-5 h-5 text-slate-400" />,
-  };
-
-  const handleRollbackClick = () => {
-    if (maintenance.rollbackPlan) {
-      toast.info(`Plano de Rollback (${maintenance.rfcNumber}): ${maintenance.rollbackPlan}`);
-    } else {
-      toast.info("Plano de contingência e rollback já pré-aprovado pelo CAB.");
-    }
   };
 
   const durationHours = Math.floor(maintenance.durationMinutes / 60);
@@ -292,16 +282,6 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
           >
             <Eye className="w-4 h-4" />
             <span>{isDossierOpen ? "Fechar Dossiê" : "Ver Dossiê"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleRollbackClick}
-            title={maintenance.rollbackPlan || "Plano de contingência e rollback pré-aprovado"}
-            className="w-full h-9 px-3.5 rounded-lg bg-obsidian-950 hover:bg-obsidian-850 text-slate-400 hover:text-slate-200 border border-obsidian-800 text-xs font-mono flex items-center justify-center gap-1 transition-colors cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Rollback Plan</span>
           </button>
         </div>
       </div>

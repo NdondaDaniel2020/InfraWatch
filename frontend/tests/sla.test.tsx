@@ -240,6 +240,46 @@ describe("Gestão de Janelas de Manutenção & SLA (Issue #218)", () => {
         expect(screen.getByText("Nenhuma Janela de Manutenção Programada")).toBeInTheDocument();
       });
     });
+
+    it("deve paginar a lista de cartões RFC quando houver mais de 5 registros e não renderizar botão de rollback avulso", async () => {
+      const user = userEvent.setup();
+      const sevenMaintenances = Array.from({ length: 7 }).map((_, idx) => ({
+        ...mockMaintenanceWindows[0],
+        id: `maint-${idx + 1}`,
+        rfcNumber: `RFC-2026-000${idx + 1}`,
+        title: `Manutenção Teste ${idx + 1}`,
+      }));
+
+      (slaApi.listMaintenanceWindows as Mock).mockResolvedValue(sevenMaintenances);
+      (slaApi.getMaintenanceKpiSummary as Mock).mockResolvedValue(mockMaintenanceKpiSummary);
+
+      renderWithProviders(<MaintenanceWindowsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("RFC-2026-0001")).toBeInTheDocument();
+      });
+
+      // 1ª página deve ter 5 itens
+      expect(screen.getByText("RFC-2026-0005")).toBeInTheDocument();
+      expect(screen.queryByText("RFC-2026-0006")).not.toBeInTheDocument();
+
+      // Botão avulso "Rollback Plan" foi removido
+      expect(screen.queryByRole("button", { name: /rollback plan/i })).not.toBeInTheDocument();
+
+      // Exibição da paginação
+      expect(screen.getByTestId("maint-pagination")).toHaveTextContent("Exibindo 1–5 de 7 registros RFC");
+
+      // Clicar em "Próximo"
+      const nextBtn = screen.getByRole("button", { name: /próximo/i });
+      await user.click(nextBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText("RFC-2026-0006")).toBeInTheDocument();
+        expect(screen.getByText("RFC-2026-0007")).toBeInTheDocument();
+        expect(screen.queryByText("RFC-2026-0001")).not.toBeInTheDocument();
+      });
+      expect(screen.getByTestId("maint-pagination")).toHaveTextContent("Exibindo 6–7 de 7 registros RFC");
+    });
   });
 
   describe("Painel de Relatórios Analíticos de SLA (/sla)", () => {

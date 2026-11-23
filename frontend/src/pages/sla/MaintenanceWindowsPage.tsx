@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -48,6 +48,8 @@ export const MaintenanceWindowsPage: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState("all");
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 5;
 
   const { data: organizationsData } = useQuery({
     queryKey: ["slaOrganizations"],
@@ -174,6 +176,17 @@ export const MaintenanceWindowsPage: React.FC = () => {
     });
   }, [safeMaintenances, activeTab, selectedClient, searchQuery]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedClient, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMaintenances.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedMaintenances = useMemo(() => {
+    const start = (safeCurrentPage - 1) * PAGE_SIZE;
+    return filteredMaintenances.slice(start, start + PAGE_SIZE);
+  }, [filteredMaintenances, safeCurrentPage]);
+
   const clientOptions = useMemo(() => {
     const fromMaintenances = safeMaintenances.map((m) => m.clientName);
     const fromOrgs = organizations.map((o) => o.name);
@@ -253,6 +266,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
     setSearchQuery("");
     setSelectedClient("all");
     setSelectedPeriod("month");
+    setCurrentPage(1);
   };
 
   const hoursExemptedInt = Math.floor(kpiSummary.exemptedHoursMonth);
@@ -663,7 +677,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
               data-testid="maint-cards-container"
               className="flex flex-col gap-4"
             >
-              {filteredMaintenances.map((maint) => (
+              {paginatedMaintenances.map((maint) => (
                 <MaintenanceCard
                   key={maint.id}
                   maintenance={maint}
@@ -671,6 +685,77 @@ export const MaintenanceWindowsPage: React.FC = () => {
                   canApprove={isOperator}
                 />
               ))}
+
+              {/* Barra de Paginação dos Cartões RFC */}
+              <div
+                data-testid="maint-pagination"
+                className="p-3.5 px-4 rounded-xl bg-obsidian-900 border border-obsidian-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono shadow-md mt-2"
+              >
+                <div className="flex items-center gap-2 text-slate-400">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-sky-400" />
+                  <span>
+                    Exibindo{" "}
+                    <strong className="text-white">
+                      {filteredMaintenances.length === 0
+                        ? 0
+                        : (safeCurrentPage - 1) * PAGE_SIZE + 1}
+                      –
+                      {Math.min(safeCurrentPage * PAGE_SIZE, filteredMaintenances.length)}
+                    </strong>{" "}
+                    de <strong className="text-white">{filteredMaintenances.length}</strong>{" "}
+                    registros RFC
+                  </span>
+                  <span className="text-obsidian-700 hidden sm:inline">|</span>
+                  <span className="text-slate-500 hidden sm:inline">
+                    Página {safeCurrentPage} de {totalPages}
+                  </span>
+                </div>
+
+                {totalPages > 1 && (
+                  <nav
+                    aria-label="Paginação de RFCs"
+                    className="flex items-center gap-1"
+                    data-testid="maint-cards-pagination"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safeCurrentPage <= 1}
+                      className="px-2.5 py-1 rounded bg-obsidian-950 border border-obsidian-800 text-slate-400 hover:text-white hover:bg-obsidian-850 transition disabled:opacity-30 disabled:pointer-events-none cursor-pointer text-xs"
+                    >
+                      Anterior
+                    </button>
+
+                    {Array.from({ length: totalPages }).map((_, idx) => {
+                      const pageNum = idx + 1;
+                      const isActive = pageNum === safeCurrentPage;
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`min-w-[28px] h-7 px-2 rounded text-xs font-semibold transition cursor-pointer flex items-center justify-center ${
+                            isActive
+                              ? "bg-sky-500 text-obsidian-950 font-bold shadow"
+                              : "bg-obsidian-950 border border-obsidian-800 text-slate-400 hover:text-white hover:bg-obsidian-850"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safeCurrentPage >= totalPages}
+                      className="px-2.5 py-1 rounded bg-obsidian-950 border border-obsidian-800 text-slate-300 hover:text-white hover:bg-obsidian-850 transition disabled:opacity-30 disabled:pointer-events-none cursor-pointer text-xs"
+                    >
+                      Próximo
+                    </button>
+                  </nav>
+                )}
+              </div>
             </section>
           )}
         </>
