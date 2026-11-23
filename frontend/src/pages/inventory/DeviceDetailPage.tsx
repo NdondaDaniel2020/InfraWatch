@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronRight,
   AlertCircle,
@@ -16,10 +16,13 @@ import {
 import { DeviceHeroHeader } from "../../components/device/DeviceHeroHeader";
 import { DeviceMetricsTimescaleChart } from "../../components/device/DeviceMetricsTimescaleChart";
 import { DeviceInterfacesTable } from "../../components/device/DeviceInterfacesTable";
+import { DeviceFormModal } from "../../components/inventory/DeviceFormModal";
 import { deviceDetailApi } from "../../services/deviceDetailApi";
+import { devicesApi } from "../../services/devicesApi";
 import { slaApi } from "../../services/slaApi";
 import { incidentsApi } from "../../services/incidentsApi";
 import type { TimescalePeriod, DeviceDetail } from "../../types/deviceDetail";
+import type { CreateDeviceRequest, ProberProtocol, DeviceCategory } from "../../types/inventory";
 import { toast } from "sonner";
 
 const EmptyState: React.FC<{ onDiscover: () => void }> = ({ onDiscover }) => (
@@ -72,9 +75,18 @@ const ErrorState: React.FC<{ onRetry: () => void; message: string }> = ({ onRetr
 
 export const DeviceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [period, setPeriod] = useState<TimescalePeriod>("24h");
   const [isProbing, setIsProbing] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(location.pathname.endsWith("/edit"));
+
+  useEffect(() => {
+    if (location.pathname.endsWith("/edit")) {
+      setIsEditModalOpen(true);
+    }
+  }, [location.pathname]);
 
   const { data: device, isLoading: deviceLoading, error: deviceError, refetch: refetchDevice } = useQuery({
     queryKey: ["deviceDetail", id],
@@ -119,16 +131,56 @@ export const DeviceDetailPage: React.FC = () => {
     mutationFn: () => deviceDetailApi.triggerManualProbe(id!),
     onSuccess: (result) => {
       setIsProbing(false);
-      toast.success(
-        `Sonda ICMP concluída: ${result.packetsReceived}/${result.packetsSent} pacotes recebidos (RTT avg: ${result.rttMs}ms, loss: ${result.packetLossPct}%)`
-      );
-      queryClient.invalidateQueries({ queryKey: ["deviceMetrics", id, period] });
+      if (result.success) {
+        toast.success(
+          `Sonda ICMP concluída: ${result.packetsReceived}/${result.packetsSent} pacotes recebidos (RTT avg: ${result.rttMs}ms, loss: ${result.packetLossPct}%)`
+        );
+      } else {
+        toast.warning(
+          `Sonda executada: host inalcançável ou sem resposta (loss: ${result.packetLossPct}%)`
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ["deviceMetrics", id] });
+      queryClient.invalidateQueries({ queryKey: ["deviceDetail", id] });
+      queryClient.invalidateQueries({ queryKey: ["deviceProbes", id] });
     },
     onError: (error: Error) => {
       setIsProbing(false);
       toast.error(error.message || "Erro ao disparar sonda ICMP");
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof devicesApi.updateDevice>[1]) =>
+      devicesApi.updateDevice(id!, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deviceDetail", id] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      toast.success("Ativo atualizado com sucesso");
+      setIsEditModalOpen(false);
+      if (location.pathname.endsWith("/edit")) {
+        navigate(`/devices/${id}`, { replace: true });
+      }
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Erro ao atualizar ativo");
+    },
+  });
+
+  const handleUpdateDevice = useCallback(
+    async (formData: CreateDeviceRequest) => {
+      await updateMutation.mutateAsync({
+        name: formData.name,
+        hostname: formData.hostname,
+        ipAddress: formData.ipAddress,
+        port: formData.port,
+        protocol: formData.protocol,
+        category: formData.category,
+        intervalSeconds: formData.intervalSeconds,
+      });
+    },
+    [updateMutation]
+  );
 
   const handleTriggerProbe = useCallback(() => {
     setIsProbing(true);
@@ -323,6 +375,7 @@ export const DeviceDetailPage: React.FC = () => {
           device={effectiveDevice}
           onTriggerProbe={handleTriggerProbe}
           isProbing={isProbing}
+          onEdit={() => setIsEditModalOpen(true)}
         />
 
         {/* CORPO DEPENDENTE DO ESTADO SELECIONADO */}
@@ -564,6 +617,32 @@ export const DeviceDetailPage: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* MODAL DE EDIÇÃO DO ATIVO */}
+      {effectiveDevice && (
+        <DeviceFormModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            if (location.pathname.endsWith("/edit")) {
+              navigate(`/devices/${id}`, { replace: true });
+            }
+          }}
+          onSubmit={handleUpdateDevice}
+          isLoading={updateMutation.isPending}
+          initialData={{
+            name: effectiveDevice.name,
+            hostname: effectiveDevice.hostname,
+            ipAddress: effectiveDevice.ipAddress,
+            port: effectiveDevice.port,
+            protocol: effectiveDevice.protocol as ProberProtocol,
+            category: effectiveDevice.category as DeviceCategory,
+            intervalSeconds: effectiveDevice.intervalSeconds,
+          }}
+          mode="edit"
+          data-testid="device-form-modal"
+        />
+      )}
 
       {/* FOOTER DA TELEMETRIA FIXO */}
       <footer className="w-full px-6 py-2.5 bg-obsidian-950 border-t border-obsidian-800 flex flex-wrap items-center justify-between text-xs font-mono fixed bottom-0 left-0 right-0 z-20">

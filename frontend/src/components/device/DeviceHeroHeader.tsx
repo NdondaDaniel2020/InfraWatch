@@ -8,12 +8,14 @@ interface DeviceHeroHeaderProps {
   device: DeviceDetail;
   onTriggerProbe: () => void;
   isProbing: boolean;
+  onEdit?: () => void;
 }
 
 export const DeviceHeroHeader: React.FC<DeviceHeroHeaderProps> = ({
   device,
   onTriggerProbe,
   isProbing,
+  onEdit,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -185,12 +187,18 @@ export const DeviceHeroHeader: React.FC<DeviceHeroHeaderProps> = ({
             className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-obsidian-950 font-bold text-xs rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 cursor-pointer shadow-sm disabled:opacity-50"
           >
             <Play className={`w-4 h-4 fill-current ${isProbing ? "animate-spin" : ""}`} />
-            <span>{isProbing ? "Disparando..." : "Disparar Ping / ICMP"}</span>
+            <span>{isProbing ? `Sondando ${device.ipAddress}…` : "Disparar Ping / ICMP"}</span>
           </button>
 
           <Link
             to={`/devices/${device.id}/edit`}
-            className="flex items-center gap-1.5 px-3 py-2 bg-obsidian-850 hover:bg-obsidian-800 text-slate-200 text-xs font-semibold rounded-lg border border-obsidian-800 transition-colors"
+            onClick={(e) => {
+              if (onEdit) {
+                e.preventDefault();
+                onEdit();
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-obsidian-850 hover:bg-obsidian-800 text-slate-200 text-xs font-semibold rounded-lg border border-obsidian-800 transition-colors cursor-pointer"
           >
             <Edit className="w-4 h-4 text-slate-400" />
             <span>Editar Ativo</span>

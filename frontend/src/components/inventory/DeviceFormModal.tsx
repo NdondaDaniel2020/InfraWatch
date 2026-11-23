@@ -48,6 +48,7 @@ interface DeviceFormModalProps {
   isLoading?: boolean;
   initialData?: Partial<DeviceFormData>;
   mode?: "create" | "edit";
+  "data-testid"?: string;
 }
 
 export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
@@ -57,6 +58,7 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
   isLoading = false,
   initialData,
   mode = "create",
+  "data-testid": testId,
 }) => {
   const [testingConn, setTestingConn] = useState(false);
   const [testConnMessage, setTestConnMessage] = useState<string | null>(null);
@@ -200,6 +202,7 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
+      data-testid={testId || "device-form-modal"}
       className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();

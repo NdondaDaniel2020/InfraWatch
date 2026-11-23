@@ -90,6 +90,14 @@ export const AppRoutes: React.FC = () => {
               }
             />
             <Route
+              path="/devices/:id/edit"
+              element={
+                <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"]}>
+                  <DeviceDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/incidents"
               element={
                 <ProtectedRoute allowedRoles={["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"]}>

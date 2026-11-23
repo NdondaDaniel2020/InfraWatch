@@ -261,6 +261,23 @@ describe("DeviceDetailPage — Cockpit 360° do Dispositivo (Issue #244)", () =>
       const editLink = screen.getByRole("link", { name: /editar ativo/i });
       expect(editLink).toHaveAttribute("href", "/devices/dev-1/edit");
     });
+
+    it("deve abrir o modal de edição ao clicar em Editar Ativo", async () => {
+      const user = userEvent.setup();
+      (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(mockDevice);
+      (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue(mockMetrics);
+
+      renderWithProviders(<DeviceDetailPage />);
+
+      await waitFor(() => expect(screen.getAllByText("SW-CORE-LUANDA-01").length).toBeGreaterThanOrEqual(1));
+
+      const editButton = screen.getByRole("link", { name: /editar ativo/i });
+      await user.click(editButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("device-form-modal")).toBeInTheDocument();
+      });
+    });
   });
 
   describe("Gráfico Timescale — Métricas de Latência", () => {

@@ -61,6 +61,8 @@ def enforce_tenant_scope(
         HTTPException(403): Se um usuário tentar acessar recursos de outro tenant.
     """
     if target_organization_id is None:
+        if current_user.is_super_admin or current_user.role == UserRole.NOC_OPERATOR:
+            return None
         return current_user.organization_id
 
     target_str = str(target_organization_id)
