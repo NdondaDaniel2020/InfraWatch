@@ -1,13 +1,12 @@
 import React, { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, AlertTriangle, Calendar, X } from "lucide-react";
+import { AlertTriangle, Calendar, X, AlertCircle } from "lucide-react";
 import type { CreateMaintenanceInput, MaintenanceWindow } from "../../types/sla";
 import {
   createMaintenanceSchema,
   type CreateMaintenanceFormData,
 } from "../../schemas/slaSchema";
-import { Button } from "../ui";
 
 interface DeviceOption {
   id: string;
@@ -62,7 +61,6 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
     register,
     handleSubmit,
     watch,
-    setValue,
     formState: { errors },
   } = useForm<CreateMaintenanceFormData>({
     resolver: zodResolver(createMaintenanceSchema),
@@ -145,12 +143,10 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
     });
   };
 
-  // Coleta qualquer erro geral de validação para exibir no banner superior
   const topErrorMessage =
     errors.title?.message ||
     errors.description?.message ||
     errors.targetDeviceInput?.message ||
-    errors.clientName?.message ||
     errors.startTime?.message ||
     errors.endTime?.message;
 
@@ -158,341 +154,166 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
-        backdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-        zIndex: 50,
-      }}
+      aria-labelledby="schedule-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
     >
-      <div
-        style={{
-          backgroundColor: "var(--color-surface-card, #0d1424)",
-          border: "var(--border-subtle)",
-          borderRadius: "var(--radius-lg)",
-          maxWidth: "600px",
-          width: "100%",
-          padding: "24px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "20px",
-          boxShadow: "var(--shadow-card)",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "var(--radius-md)",
-                backgroundColor: "rgba(56, 189, 248, 0.1)",
-                border: "1px solid rgba(56, 189, 248, 0.3)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--color-primary)",
-              }}
-            >
-              <Calendar size={20} />
+      <div className="bg-obsidian-900 border border-sky-500/30 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+              <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h2 id="modal-title" style={{ fontSize: "1rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
-                Agendar Nova Parada Técnica / RFC
+              <h2 id="schedule-modal-title" className="font-display font-bold text-base text-white">
+                Agendar Nova Parada Técnica
               </h2>
-              <span style={{ fontSize: "0.6875rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
-                Isenção formal de SLA & Supressão de Alarmes (ADR-009)
-              </span>
+              <p className="text-xs text-slate-400">
+                Criar RFC com supressão de alarmes e homologação de isenção de SLA (ADR-009)
+              </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Fechar modal de agendamento"
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--color-text-muted)",
-              cursor: "pointer",
-              padding: "4px",
-            }}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-obsidian-850 transition-colors"
+            aria-label="Fechar janela"
           >
-            <X size={18} />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Banner de erro de validação geral */}
         {topErrorMessage && (
-          <div
-            role="alert"
-            style={{
-              padding: "10px 14px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: "rgba(244, 63, 94, 0.1)",
-              border: "1px solid var(--color-critical-border)",
-              color: "var(--color-critical)",
-              fontSize: "0.75rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <AlertCircle size={16} />
+          <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{topErrorMessage}</span>
           </div>
         )}
 
-        {hasConflict && (
-          <div
-            data-testid="conflict-warning"
-            style={{
-              padding: "10px 14px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: "rgba(245, 158, 11, 0.1)",
-              border: "1px solid var(--color-warning-border)",
-              color: "var(--color-warning)",
-              fontSize: "0.75rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <AlertTriangle size={16} />
-            <span>
-              {conflictingMaintenance ? (
-                <>
-                  Atenção: Conflito operacional detectado com a RFC <strong>{conflictingMaintenance.rfcNumber}</strong> ({conflictingMaintenance.title}).
-                </>
-              ) : (
-                <>
-                  Atenção: O ativo <strong>{targetDeviceInput}</strong> é um nó core crítico de agregação. O tráfego redundante será automaticamente desviado.
-                </>
-              )}
-            </span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit(onFormSubmit)} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
-              Título da Mudança (RFC) *
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-3.5 pt-2">
+          {/* Título da RFC */}
+          <div className="space-y-1">
+            <label className="block text-[11px] font-mono text-slate-400 uppercase font-semibold">
+              Título da Intervenção *
             </label>
             <input
               type="text"
               {...register("title")}
-              placeholder="Ex: Atualização Crítica de Firmware Cisco IOS-XE"
+              placeholder="Atualização crítica de firmware em Core Switch..."
               aria-invalid={!!errors.title}
-              style={{
-                backgroundColor: "var(--color-bg-deep, #070a12)",
-                border: errors.title ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                borderRadius: "var(--radius-sm)",
-                padding: "8px 12px",
-                color: "var(--color-text-primary)",
-                fontSize: "0.75rem",
-                outline: "none",
-              }}
+              className={`w-full bg-obsidian-950 border ${
+                errors.title ? "border-rose-500" : "border-obsidian-800"
+              } rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:border-sky-500 focus:outline-none transition-colors`}
             />
             {errors.title && (
-              <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
-                {errors.title.message}
-              </span>
+              <span className="text-[11px] text-rose-400 block">{errors.title.message}</span>
             )}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                Ativo(s) Alvo (separados por vírgula) *
+          {/* Cliente e Ativo */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="block text-[11px] font-mono text-slate-400 uppercase font-semibold">
+                Contratante / Escopo *
               </label>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <input
-                  type="text"
-                  list="maint-devices-datalist"
-                  {...register("targetDeviceInput")}
-                  placeholder="Ex: SW-CORE-LUANDA-01, SW-CORE-LUANDA-02"
-                  aria-invalid={!!errors.targetDeviceInput}
-                  style={{
-                    flex: 1,
-                    backgroundColor: "var(--color-bg-deep, #070a12)",
-                    border: errors.targetDeviceInput ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                    borderRadius: "var(--radius-sm)",
-                    padding: "8px 12px",
-                    color: "var(--color-text-primary)",
-                    fontSize: "0.75rem",
-                    fontFamily: "var(--font-mono)",
-                    outline: "none",
-                  }}
-                />
-                {devices.length > 0 && (
-                  <select
-                    aria-label="Selecionar ativo do inventário"
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setValue("targetDeviceInput", e.target.value, { shouldValidate: true });
-                      }
-                    }}
-                    style={{
-                      maxWidth: "110px",
-                      backgroundColor: "var(--color-bg-deep, #070a12)",
-                      border: "var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "6px",
-                      color: "var(--color-text-muted)",
-                      fontSize: "0.7rem",
-                      outline: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <option value="">Ativos...</option>
-                    {devices.map((d) => (
-                      <option key={d.id} value={d.name}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
+              <select
+                {...register("clientName")}
+                aria-invalid={!!errors.clientName}
+                className="w-full bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-sky-500 focus:outline-none transition-colors"
+              >
+                {organizations.length > 0 ? (
+                  organizations.map((org) => (
+                    <option key={org.id} value={org.name}>
+                      {org.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Unitel Angola (Backbone Core)">Unitel Angola (Backbone Core)</option>
+                    <option value="Banco Sol (Internet Banking)">Banco Sol (Internet Banking)</option>
+                    <option value="Sonangol E.P. (Terminal Luanda)">Sonangol E.P. (Terminal Luanda)</option>
+                  </>
                 )}
-              </div>
-              <datalist id="maint-devices-datalist">
-                {devices.map((d) => (
-                  <option key={d.id} value={d.name}>
-                    {d.ipAddress ? `${d.ipAddress} (${d.category || "Ativo"})` : d.name}
-                  </option>
-                ))}
-              </datalist>
-              {errors.targetDeviceInput && (
-                <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
-                  {errors.targetDeviceInput.message}
-                </span>
+              </select>
+              {errors.clientName && (
+                <span className="text-[11px] text-rose-400 block">{errors.clientName.message}</span>
               )}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                Contratante / Cliente Afetado *
+            <div className="space-y-1">
+              <label className="block text-[11px] font-mono text-slate-400 uppercase font-semibold">
+                Ativo(s) Alvo *
               </label>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <input
-                  type="text"
-                  list="maint-orgs-datalist"
-                  {...register("clientName")}
-                  placeholder="Ex: Unitel Angola, Banco Sol..."
-                  aria-invalid={!!errors.clientName}
-                  style={{
-                    flex: 1,
-                    backgroundColor: "var(--color-bg-deep, #070a12)",
-                    border: errors.clientName ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                    borderRadius: "var(--radius-sm)",
-                    padding: "8px 12px",
-                    color: "var(--color-text-primary)",
-                    fontSize: "0.75rem",
-                    outline: "none",
-                  }}
-                />
-                {organizations.length > 0 && (
-                  <select
-                    aria-label="Selecionar contratante"
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setValue("clientName", e.target.value, { shouldValidate: true });
-                      }
-                    }}
-                    style={{
-                      maxWidth: "110px",
-                      backgroundColor: "var(--color-bg-deep, #070a12)",
-                      border: "var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "6px",
-                      color: "var(--color-text-muted)",
-                      fontSize: "0.7rem",
-                      outline: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <option value="">Clientes...</option>
-                    {organizations.map((org) => (
-                      <option key={org.id} value={org.name}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <datalist id="maint-orgs-datalist">
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.name} />
-                ))}
-              </datalist>
-              {errors.clientName && (
-                <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
-                  {errors.clientName.message}
-                </span>
+              <input
+                type="text"
+                {...register("targetDeviceInput")}
+                placeholder="Ex: SW-CORE-LUANDA-01, ROUTER-02"
+                aria-invalid={!!errors.targetDeviceInput}
+                className={`w-full bg-obsidian-950 border ${
+                  errors.targetDeviceInput ? "border-rose-500" : "border-obsidian-800"
+                } rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:border-sky-500 focus:outline-none transition-colors`}
+              />
+              {errors.targetDeviceInput && (
+                <span className="text-[11px] text-rose-400 block">{errors.targetDeviceInput.message}</span>
               )}
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                Início da Parada (UTC) *
+          {/* Aviso de Conflito em Tempo Real */}
+          {hasConflict && (
+            <div
+              data-testid="conflict-warning"
+              className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono flex items-center gap-2"
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                {conflictingMaintenance
+                  ? `Aviso de Conflito: O ativo digitado já possui janela agendada (${conflictingMaintenance.rfcNumber})!`
+                  : `Aviso de Conflito: O ativo digitado (${targetDeviceInput}) é um elemento crítico de Backbone Core.`}
+              </span>
+            </div>
+          )}
+
+          {/* Datas Início e Fim */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="block text-[11px] font-mono text-slate-400 uppercase font-semibold">
+                Início da Janela (WAT / UTC) *
               </label>
               <input
                 type="datetime-local"
                 {...register("startTime")}
                 aria-invalid={!!errors.startTime}
-                style={{
-                  backgroundColor: "var(--color-bg-deep, #070a12)",
-                  border: errors.startTime ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "8px 12px",
-                  color: "var(--color-text-primary)",
-                  fontSize: "0.75rem",
-                  fontFamily: "var(--font-mono)",
-                  outline: "none",
-                }}
+                className={`w-full bg-obsidian-950 border ${
+                  errors.startTime ? "border-rose-500" : "border-obsidian-800"
+                } rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-sky-500 focus:outline-none transition-colors`}
               />
               {errors.startTime && (
-                <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
-                  {errors.startTime.message}
-                </span>
+                <span className="text-[11px] text-rose-400 block">{errors.startTime.message}</span>
               )}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                Término Estimado (UTC) *
+            <div className="space-y-1">
+              <label className="block text-[11px] font-mono text-slate-400 uppercase font-semibold">
+                Término Estimado (WAT / UTC) *
               </label>
               <input
                 type="datetime-local"
                 {...register("endTime")}
                 aria-invalid={!!errors.endTime}
-                style={{
-                  backgroundColor: "var(--color-bg-deep, #070a12)",
-                  border: errors.endTime ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "8px 12px",
-                  color: "var(--color-text-primary)",
-                  fontSize: "0.75rem",
-                  fontFamily: "var(--font-mono)",
-                  outline: "none",
-                }}
+                className={`w-full bg-obsidian-950 border ${
+                  errors.endTime ? "border-rose-500" : "border-obsidian-800"
+                } rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-sky-500 focus:outline-none transition-colors`}
               />
               {errors.endTime && (
-                <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
-                  {errors.endTime.message}
-                </span>
+                <span className="text-[11px] text-rose-400 block">{errors.endTime.message}</span>
               )}
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+          {/* Descrição e Procedimento */}
+          <div className="space-y-1">
+            <label className="block text-[11px] font-mono text-slate-400 uppercase font-semibold">
               Escopo e Procedimento Técnico *
             </label>
             <textarea
@@ -500,85 +321,65 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
               {...register("description")}
               placeholder="Descreva o escopo da parada e impacto previsto na topologia..."
               aria-invalid={!!errors.description}
-              style={{
-                backgroundColor: "var(--color-bg-deep, #070a12)",
-                border: errors.description ? "1px solid var(--color-critical)" : "var(--border-subtle)",
-                borderRadius: "var(--radius-sm)",
-                padding: "8px 12px",
-                color: "var(--color-text-primary)",
-                fontSize: "0.75rem",
-                outline: "none",
-                resize: "vertical",
-              }}
+              className={`w-full bg-obsidian-950 border ${
+                errors.description ? "border-rose-500" : "border-obsidian-800"
+              } rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:border-sky-500 focus:outline-none transition-colors resize-vertical`}
             />
             {errors.description && (
-              <span style={{ fontSize: "0.6875rem", color: "var(--color-critical)" }}>
-                {errors.description.message}
-              </span>
+              <span className="text-[11px] text-rose-400 block">{errors.description.message}</span>
             )}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+          {/* Plano de Rollback */}
+          <div className="space-y-1">
+            <label className="block text-[11px] font-mono text-slate-400 uppercase font-semibold">
               Plano de Rollback / Contingência
             </label>
             <input
               type="text"
               {...register("rollbackPlan")}
               placeholder="Ex: Rollback de firmware para versão anterior em até 15 minutos"
-              style={{
-                backgroundColor: "var(--color-bg-deep, #070a12)",
-                border: "var(--border-subtle)",
-                borderRadius: "var(--radius-sm)",
-                padding: "8px 12px",
-                color: "var(--color-text-primary)",
-                fontSize: "0.75rem",
-                outline: "none",
-              }}
+              className="w-full bg-obsidian-950 border border-obsidian-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:border-sky-500 focus:outline-none transition-colors"
             />
           </div>
 
           {/* Opções de Governança e Supressão */}
-          <div
-            style={{
-              padding: "12px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: "var(--color-bg-deep, #070a12)",
-              border: "var(--border-subtle)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "10px",
-            }}
-          >
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
+          <div className="p-3 rounded-xl bg-obsidian-950 border border-obsidian-800 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
               <input
                 type="checkbox"
                 {...register("alarmSuppression")}
+                className="rounded border-obsidian-700 bg-obsidian-900 text-sky-500 focus:ring-sky-500"
               />
               <span>Ativar supressão automática de telemetria e alarmes durante a janela</span>
             </label>
 
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
               <input
                 type="checkbox"
                 {...register("slaExemption")}
+                className="rounded border-obsidian-700 bg-obsidian-900 text-sky-500 focus:ring-sky-500"
               />
               <span>Requerer homologação formal de Isenção de SLA (ADR-009 / BNA)</span>
             </label>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "10px", paddingTop: "8px" }}>
-            <Button type="button" onClick={onClose} variant="ghost" size="sm">
+          {/* Ações */}
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-obsidian-800">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-slate-400"
+            >
               Cancelar
-            </Button>
-            <Button
+            </button>
+            <button
               type="submit"
-              variant="primary"
-              size="sm"
               disabled={isSubmitting}
+              className="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-obsidian-950 text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-sky-400 shadow-md"
             >
               {isSubmitting ? "Submetendo..." : "Submeter Parada Programada"}
-            </Button>
+            </button>
           </div>
         </form>
       </div>

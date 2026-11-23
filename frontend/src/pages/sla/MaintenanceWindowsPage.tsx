@@ -9,10 +9,11 @@ import {
   Clock,
   List,
   CalendarDays,
-  AlertCircle,
+  AlertTriangle,
   FileText,
+  RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
-import { Button, Skeleton } from "../../components/ui";
 import { MaintenanceCard } from "../../components/sla/MaintenanceCard";
 import { MaintenanceGanttTimeline } from "../../components/sla/MaintenanceGanttTimeline";
 import { CreateMaintenanceModal } from "../../components/sla/CreateMaintenanceModal";
@@ -39,13 +40,13 @@ export const MaintenanceWindowsPage: React.FC = () => {
   const { user } = useAuth();
   const isOperator =
     user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR";
-  const canSchedule =
-    isOperator || user?.role === "ORG_ADMIN";
+  const canSchedule = isOperator || user?.role === "ORG_ADMIN";
 
   const [viewMode, setViewMode] = useState<"cards" | "gantt">("cards");
   const [activeTab, setActiveTab] = useState<MaintenanceStatus | "ALL">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClient, setSelectedClient] = useState("all");
+  const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: organizationsData } = useQuery({
@@ -71,6 +72,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
   });
 
   const devices = useMemo(() => devicesData ?? [], [devicesData]);
+
   const {
     data: maintenances = [],
     isLoading,
@@ -133,10 +135,19 @@ export const MaintenanceWindowsPage: React.FC = () => {
     [createMutation]
   );
 
-  // Filtros aplicados em memória (blindado contra dados nulos, undefined ou objetos)
   const safeMaintenances = useMemo(() => {
     return Array.isArray(maintenances) ? maintenances : [];
   }, [maintenances]);
+
+  const counts = useMemo(() => {
+    return {
+      all: safeMaintenances.length,
+      scheduled: safeMaintenances.filter((m) => m.status === "APPROVED").length,
+      inProgress: safeMaintenances.filter((m) => m.status === "IN_PROGRESS").length,
+      pending: safeMaintenances.filter((m) => m.status === "PENDING_APPROVAL").length,
+      completed: safeMaintenances.filter((m) => m.status === "COMPLETED").length,
+    };
+  }, [safeMaintenances]);
 
   const filteredMaintenances = useMemo(() => {
     return safeMaintenances.filter((m) => {
@@ -148,682 +159,509 @@ export const MaintenanceWindowsPage: React.FC = () => {
         if (!matchesClient) return false;
       }
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesText =
-          m.rfcNumber.toLowerCase().includes(q) ||
-          m.title.toLowerCase().includes(q) ||
-          m.targetDeviceNames.some((d) => d.toLowerCase().includes(q)) ||
-          m.clientName.toLowerCase().includes(q);
-        if (!matchesText) return false;
+        const q = searchQuery.toLowerCase().trim();
+        const matchesRfc = m.rfcNumber.toLowerCase().includes(q);
+        const matchesTitle = m.title.toLowerCase().includes(q);
+        const matchesClient = m.clientName.toLowerCase().includes(q);
+        const matchesDevice = m.targetDeviceNames.some((d) =>
+          d.toLowerCase().includes(q)
+        );
+        if (!matchesRfc && !matchesTitle && !matchesClient && !matchesDevice) {
+          return false;
+        }
       }
       return true;
     });
   }, [safeMaintenances, activeTab, selectedClient, searchQuery]);
 
   const clientOptions = useMemo(() => {
-    const names = new Set<string>();
-    organizations.forEach((org) => {
-      if (org.name) names.add(org.name);
-    });
-    safeMaintenances.forEach((m) => {
-      if (m.clientName && m.clientName !== "Organização") names.add(m.clientName);
-    });
-    return Array.from(names);
-  }, [organizations, safeMaintenances]);
+    const fromMaintenances = safeMaintenances.map((m) => m.clientName);
+    const fromOrgs = organizations.map((o) => o.name);
+    return Array.from(new Set([...fromMaintenances, ...fromOrgs])).filter(
+      Boolean
+    );
+  }, [safeMaintenances, organizations]);
 
-  const handleExportRfcs = useCallback(() => {
-    if (filteredMaintenances.length === 0) {
+  const nextScheduledText = useMemo(() => {
+    const upcoming = safeMaintenances
+      .filter((m) => m.status === "APPROVED")
+      .sort(
+        (a, b) =>
+          new Date(a.startTimeUtc).getTime() - new Date(b.startTimeUtc).getTime()
+      )[0];
+
+    if (!upcoming) return "Nenhuma parada iminente";
+    const d = new Date(upcoming.startTimeUtc);
+    const day = d.toLocaleDateString("pt-BR", { day: "2-digit" });
+    const month = d.toLocaleDateString("pt-BR", { month: "long" });
+    const hours = d.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `Próxima: ${day} de ${month} às ${hours} WAT`;
+  }, [safeMaintenances]);
+
+  const handleExportRfcs = () => {
+    toast.info("Exportando dossiê de RFCs e isenções em formato auditado…");
+    if (!filteredMaintenances.length) {
       toast.warning("Nenhuma RFC disponível para exportação com os filtros atuais.");
       return;
     }
+
     const headers = [
       "RFC",
       "Titulo",
-      "Contratante",
-      "Ativos",
-      "Inicio (UTC)",
-      "Termino (UTC)",
-      "Duracao (min)",
+      "Cliente",
       "Status",
-      "Isencao SLA",
-      "Supressao Alarmes",
-      "Descricao",
+      "Inicio_UTC",
+      "Fim_UTC",
+      "Duracao_Minutos",
+      "Isencao_SLA",
+      "Dispositivos",
     ];
+
     const rows = filteredMaintenances.map((m) => [
-      `"${m.rfcNumber}"`,
-      `"${(m.title || "").replace(/"/g, '""')}"`,
-      `"${(m.clientName || "").replace(/"/g, '""')}"`,
-      `"${m.targetDeviceNames.join(", ")}"`,
-      `"${m.startTimeUtc}"`,
-      `"${m.endTimeUtc}"`,
+      m.rfcNumber,
+      `"${m.title.replace(/"/g, '""')}"`,
+      `"${m.clientName.replace(/"/g, '""')}"`,
+      m.status,
+      m.startTimeUtc,
+      m.endTimeUtc,
       m.durationMinutes,
-      `"${m.status}"`,
       m.slaExemption ? "SIM" : "NAO",
-      m.alarmSuppression ? "SIM" : "NAO",
-      `"${(m.description || "").replace(/"/g, '""')}"`,
+      `"${(m.targetDeviceNames || []).join("; ")}"`,
     ]);
+
     const csvContent =
-      `# Dossie de Janelas de Manutencao e RFCs Homologadas\n` +
-      `# Extraido em: ${new Date().toISOString()}\n` +
-      `# Total de Registros: ${filteredMaintenances.length}\n\n` +
-      headers.join(";") +
-      "\n" +
-      rows.map((r) => r.join(";")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    if (typeof window !== "undefined" && typeof window.URL?.createObjectURL === "function") {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `dossie-rfcs-${new Date().toISOString().substring(0, 10)}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      if (typeof window.URL?.revokeObjectURL === "function") {
-        URL.revokeObjectURL(url);
-      }
-    }
-    toast.success("Dossiê de RFCs exportado em formato CSV com sucesso!");
-  }, [filteredMaintenances]);
-  // Decisão de renderização do estado
-  const currentState = isLoading
-    ? "skeleton"
-    : isError
-    ? "error"
-    : filteredMaintenances.length === 0
-    ? "empty"
-    : "nominal";
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `infrawatch_rfcs_manutencao_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleClearFilters = () => {
+    setActiveTab("ALL");
+    setSearchQuery("");
+    setSelectedClient("all");
+    setSelectedPeriod("month");
+  };
+
+  const hoursExemptedInt = Math.floor(kpiSummary.exemptedHoursMonth);
+  const minutesExemptedInt = Math.round((kpiSummary.exemptedHoursMonth % 1) * 60);
+  const exemptedPct = Math.min(
+    Math.round(
+      (kpiSummary.exemptedHoursMonth / (kpiSummary.contractualLimitHours || 8)) * 100
+    ),
+    100
+  );
 
   return (
     <main
-      role="main"
       data-testid="maintenance-windows-page"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "24px",
-        padding: "24px",
-        minHeight: "100%",
-        ["--color-surface-elevated" as string]: "var(--color-surface-card, #0d1424)",
-      }}
+      className="p-6 max-w-7xl mx-auto space-y-6 text-slate-100 font-sans"
+      role="main"
     >
-      {/* Breadcrumb e Cabeçalho */}
-      <section
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "16px",
-          borderBottom: "var(--border-subtle)",
-          paddingBottom: "16px",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <nav
-            aria-label="Breadcrumb"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "0.75rem",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            <Link
-              to="/noc"
-              style={{
-                color: "var(--color-text-muted)",
-                textDecoration: "none",
-              }}
-            >
+      {/* CABEÇALHO DA PÁGINA COM BREADCRUMB E AÇÕES PRINCIPAIS */}
+      <section className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <Link to="/" className="text-slate-400 hover:text-slate-200 transition-colors">
               Cockpit NOC
             </Link>
-            <span style={{ color: "var(--color-border-subtle)" }}>/</span>
-            <span
-              style={{ color: "var(--color-primary)", fontWeight: 700 }}
-            >
-              Janelas de Manutenção Programada
-            </span>
-          </nav>
-
-          <h1
-            style={{
-              fontSize: "1.5rem",
-              fontWeight: 800,
-              color: "var(--color-text-primary)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Janelas de Manutenção Programada & Isenções de SLA
+            <span className="text-obsidian-700">/</span>
+            <span className="text-sky-400 font-semibold">Janelas de Manutenção Programada</span>
+          </div>
+          <h1 className="text-2xl font-display font-extrabold text-white tracking-tight">
+            Janelas de Manutenção Programada &amp; Isenções de SLA
           </h1>
-          <p
-            style={{
-              fontSize: "0.75rem",
-              color: "var(--color-text-muted)",
-              maxWidth: "800px",
-              lineHeight: 1.5,
-            }}
-          >
-            Gestão de paradas técnicas com supressão automática de alarmes e
-            homologação de isenção contratual de SLA (ADR-009 / ADR-017) perante
-            o BNA e clientes enterprise.
+          <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
+            Gestão de paradas técnicas e intervenções de infraestrutura com supressão automática de alarmes e homologação de isenção contratual de SLA (ADR-009) perante o BNA e clientes enterprise.
           </p>
         </div>
 
-        {/* Depurador de Estado & Botão de Agendamento */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          <Button
+        {/* Ações do Topo */}
+        <div className="flex items-center flex-wrap gap-2.5 shrink-0">
+          <button
             type="button"
             onClick={handleExportRfcs}
-            variant="ghost"
-            size="sm"
-            icon={<FileText size={16} />}
+            className="h-9 px-3 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-sky-400"
           >
-            Exportar RFCs
-          </Button>
+            <FileText className="w-4 h-4 text-slate-400" />
+            <span>Exportar RFCs</span>
+          </button>
 
           {canSchedule && (
-            <Button
+            <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              variant="primary"
-              size="sm"
-              icon={<PlusCircle size={16} />}
+              className="h-9 px-4 rounded-lg bg-sky-500 hover:bg-sky-400 text-obsidian-950 text-xs font-bold flex items-center gap-2 transition-colors focus-visible:ring-2 focus-visible:ring-sky-400 shadow-lg"
             >
-              Agendar Nova Parada Técnica
-            </Button>
+              <PlusCircle className="w-4 h-4 text-obsidian-950" />
+              <span>+ Agendar Nova Parada Técnica</span>
+            </button>
           )}
         </div>
       </section>
 
-      {/* Overlay de Erro RFC */}
-      {currentState === "error" && (
+      {/* OVERLAY DE ERRO DE CONEXÃO RFC (Gerenciado automaticamente em background) */}
+      {isError && (
         <section
-          style={{
-            backgroundColor: "rgba(244, 63, 94, 0.1)",
-            border: "1px solid var(--color-critical-border)",
-            borderRadius: "var(--radius-lg)",
-            padding: "16px 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "16px",
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.75rem",
-          }}
+          data-testid="maint-error-overlay"
+          className="bg-rose-950/40 border border-rose-500/60 p-4 rounded-xl flex items-center justify-between gap-4 text-xs font-mono shadow-md"
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <AlertCircle size={24} style={{ color: "var(--color-critical)" }} />
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 animate-pulse" />
             <div>
-              <strong style={{ color: "var(--color-critical)", display: "block" }}>
-                FALHA NO SERVIÇO DE SINCRONIZAÇÃO DE RFCS
-              </strong>
-              <span style={{ color: "var(--color-text-muted)" }}>
-                {error?.message ||
-                  "Não foi possível consultar as janelas de manutenção no serviço de governança de SLA."}
-              </span>
+              <div className="font-bold text-rose-300">FALHA NO SERVIÇO DE SINCRONIZAÇÃO DE RFCS</div>
+              <div className="text-rose-400/80">
+                {error instanceof Error
+                  ? error.message
+                  : "Não foi possível consultar a fila de mudanças programadas no GLPI/ServiceNow. Tentando reconexão…"}
+              </div>
             </div>
           </div>
-          <Button
+          <button
             type="button"
-            onClick={() => {
-              refetch();
-            }}
-            variant="destructive"
-            size="sm"
+            onClick={() => refetch()}
+            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold transition-colors shrink-0"
           >
             Reconectar
-          </Button>
+          </button>
         </section>
       )}
 
-      {/* KPI Cards de Governança */}
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: "16px",
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: "var(--color-surface-card, #0d1424)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-lg)",
-            padding: "16px 20px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-text-muted)",
-                textTransform: "uppercase",
-                fontWeight: 600,
-              }}
-            >
+      {/* KPI METRIC CARDS (3 CARDS DE GOVERNANÇA) */}
+      <section id="kpi-section" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Card 1: Janelas Ativas Agora */}
+        <div className="p-4 rounded-xl bg-obsidian-900 border border-obsidian-800 flex flex-col justify-between gap-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
               Janelas Ativas Agora
             </span>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-healthy)",
-                backgroundColor: "rgba(16, 185, 129, 0.1)",
-                padding: "2px 8px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--color-healthy-border)",
-                fontWeight: 700,
-              }}
-            >
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               NOMINAL
-            </span>
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-            <span style={{ fontSize: "1.75rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--color-text-primary)" }}>
-              {kpiSummary.activeNowCount}
-            </span>
-            <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-              em andamento agora
-            </span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-mono font-bold text-white tabular-nums">
+                {kpiSummary.activeNowCount}
+              </span>
+              <span className="text-xs font-medium text-slate-400">em andamento agora</span>
+            </div>
+            <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1 font-mono">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>
+                {kpiSummary.activeNowCount === 0
+                  ? "Zero paradas ativas no ciclo de telemetria"
+                  : `${kpiSummary.activeNowCount} parada(s) em andamento no ciclo`}
+              </span>
+            </p>
           </div>
-          <p style={{ fontSize: "0.6875rem", color: "var(--color-healthy)", display: "flex", alignItems: "center", gap: "4px" }}>
-            <CheckCircle2 size={12} />
-            <span>
-              {kpiSummary.activeNowCount > 0
-                ? `${kpiSummary.activeNowCount} parada(s) em andamento no ciclo`
-                : "Zero paradas ativas no ciclo de telemetria"}
-            </span>
-          </p>
+          <div className="w-full bg-obsidian-950 h-1.5 rounded-full overflow-hidden border border-obsidian-800">
+            <div
+              className="bg-emerald-400 h-full rounded-full transition-all"
+              style={{ width: kpiSummary.activeNowCount > 0 ? "50%" : "100%" }}
+            />
+          </div>
         </div>
 
-        <div
-          style={{
-            backgroundColor: "var(--color-surface-card, #0d1424)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-lg)",
-            padding: "16px 20px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-text-muted)",
-                textTransform: "uppercase",
-                fontWeight: 600,
-              }}
-            >
+        {/* Card 2: Próximas Janelas Agendadas */}
+        <div className="p-4 rounded-xl bg-obsidian-900 border border-obsidian-800 flex flex-col justify-between gap-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
               Janelas Agendadas
             </span>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-primary)",
-                backgroundColor: "rgba(56, 189, 248, 0.1)",
-                padding: "2px 8px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid rgba(56, 189, 248, 0.3)",
-                fontWeight: 700,
-              }}
-            >
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-mono font-semibold">
+              <CalendarDays className="w-3.5 h-3.5 text-sky-400" />
               PLANEADO
-            </span>
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-            <span style={{ fontSize: "1.75rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--color-primary)" }}>
-              {kpiSummary.scheduledCount}
-            </span>
-            <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-              paradas programadas
-            </span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-mono font-bold text-sky-400 tabular-nums">
+                {kpiSummary.scheduledCount}
+              </span>
+              <span className="text-xs font-medium text-slate-400">paradas programadas</span>
+            </div>
+            <p className="text-xs font-mono text-slate-400 flex items-center gap-1.5 mt-1 truncate">
+              <Clock className="w-4 h-4 text-sky-400 shrink-0" />
+              <span className="truncate">{nextScheduledText}</span>
+            </p>
           </div>
-          <p style={{ fontSize: "0.6875rem", color: "var(--color-primary)", display: "flex", alignItems: "center", gap: "4px" }}>
-            <Clock size={12} />
-            <span>
-              {kpiSummary.scheduledCount > 0
-                ? `${kpiSummary.scheduledCount} parada(s) técnica(s) agendada(s)`
-                : "Nenhuma parada técnica pendente de execução"}
-            </span>
-          </p>
+          <div className="w-full bg-obsidian-950 h-1.5 rounded-full overflow-hidden border border-obsidian-800">
+            <div
+              className="bg-sky-400 h-full rounded-full transition-all"
+              style={{
+                width: kpiSummary.scheduledCount > 0 ? "66%" : "10%",
+              }}
+            />
+          </div>
         </div>
 
-        <div
-          style={{
-            backgroundColor: "var(--color-surface-card, #0d1424)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-lg)",
-            padding: "16px 20px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-text-muted)",
-                textTransform: "uppercase",
-                fontWeight: 600,
-              }}
-            >
+        {/* Card 3: Horas Isentas Acumuladas no Mês */}
+        <div className="p-4 rounded-xl bg-obsidian-900 border border-obsidian-800 flex flex-col justify-between gap-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
               Horas Isentas no Mês (SLA)
             </span>
-            <span
-              style={{
-                fontSize: "0.6875rem",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-healthy)",
-                backgroundColor: "rgba(16, 185, 129, 0.1)",
-                padding: "2px 8px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--color-healthy-border)",
-                fontWeight: 700,
-              }}
-            >
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-semibold">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               HOMOLOGADO
-            </span>
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-            <span style={{ fontSize: "1.75rem", fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--color-text-primary)" }}>
-              {String(kpiSummary?.exemptedHoursMonth ?? 0).padStart(2, "0")}h 00m
-            </span>
-            <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-              / {kpiSummary?.contractualLimitHours ?? 0}h teto contratual
-            </span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-mono font-bold text-white tabular-nums">
+                {String(hoursExemptedInt).padStart(2, "0")}h {String(minutesExemptedInt).padStart(2, "0")}m
+              </span>
+              <span className="text-xs font-mono text-slate-400">
+                / {kpiSummary.contractualLimitHours}h teto contratual
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1 font-mono">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Impacto 0.00% no SLA contratual • ADR-009</span>
+            </p>
           </div>
-          <p style={{ fontSize: "0.6875rem", color: "var(--color-healthy)", display: "flex", alignItems: "center", gap: "4px" }}>
-            <CheckCircle2 size={12} />
-            <span>Impacto 0.00% no SLA contratual • ADR-009</span>
-          </p>
+          <div className="w-full bg-obsidian-950 h-1.5 rounded-full overflow-hidden border border-obsidian-800">
+            <div
+              className="bg-sky-400 h-full rounded-full transition-all"
+              style={{ width: `${Math.max(exemptedPct, 5)}%` }}
+            />
+          </div>
         </div>
       </section>
 
-      {/* Barra de Filtros, Abas & Busca */}
-      <section
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px",
-          backgroundColor: "var(--color-surface-card, #0d1424)",
-          border: "var(--border-subtle)",
-          borderRadius: "var(--radius-lg)",
-          padding: "16px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-            borderBottom: "var(--border-subtle)",
-            paddingBottom: "12px",
-          }}
-        >
-          {/* Abas */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-            {(
-              [
-                { id: "ALL", label: "Todas as Janelas", count: safeMaintenances.length },
-                {
-                  id: "APPROVED",
-                  label: "Agendadas",
-                  count: safeMaintenances.filter((m) => m.status === "APPROVED").length,
-                },
-                {
-                  id: "PENDING_APPROVAL",
-                  label: "Pendentes",
-                  count: safeMaintenances.filter((m) => m.status === "PENDING_APPROVAL").length,
-                },
-                {
-                  id: "COMPLETED",
-                  label: "Concluídas",
-                  count: safeMaintenances.filter((m) => m.status === "COMPLETED").length,
-                },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "var(--radius-md)",
-                  border:
-                    activeTab === tab.id
-                      ? "1px solid var(--color-primary)"
-                      : "var(--border-subtle)",
-                  backgroundColor:
-                    activeTab === tab.id
-                      ? "rgba(56, 189, 248, 0.15)"
-                      : "transparent",
-                  color:
-                    activeTab === tab.id
-                      ? "var(--color-primary)"
-                      : "var(--color-text-secondary)",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <span>{tab.label}</span>
-                <span
-                  style={{
-                    fontSize: "0.625rem",
-                    padding: "2px 6px",
-                    borderRadius: "var(--radius-full)",
-                    backgroundColor: "var(--color-bg-deep, #070a12)",
-                    fontFamily: "var(--font-mono)",
-                  }}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Alternador de Visualização (Cards vs Gantt) */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "0.6875rem", fontFamily: "var(--font-mono)", color: "var(--color-text-muted)" }}>
-              VISUALIZAÇÃO:
-            </span>
+      {/* BARRA DE FILTROS & PESQUISA DE RFCS */}
+      <section className="flex flex-col gap-3">
+        {/* Abas de Status e Modos de Exibição */}
+        <div className="flex items-center justify-between border-b border-obsidian-800 pb-2 flex-wrap gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto py-1">
             <button
               type="button"
-              onClick={() => setViewMode("cards")}
-              title="Exibir em Cartões RFC"
-              style={{
-                padding: "6px",
-                borderRadius: "var(--radius-sm)",
-                border: "var(--border-subtle)",
-                backgroundColor:
-                  viewMode === "cards"
-                    ? "rgba(56, 189, 248, 0.2)"
-                    : "transparent",
-                color:
-                  viewMode === "cards"
-                    ? "var(--color-primary)"
-                    : "var(--color-text-muted)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-              }}
+              onClick={() => setActiveTab("ALL")}
+              className={`px-3 py-1.5 rounded-lg font-medium text-xs border flex items-center gap-2 shrink-0 transition-colors ${
+                activeTab === "ALL"
+                  ? "bg-obsidian-850 text-white border-obsidian-700"
+                  : "text-slate-400 hover:text-white hover:bg-obsidian-900 border-transparent"
+              }`}
             >
-              <List size={16} />
+              <span>Todas as Janelas</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-obsidian-950 text-slate-300 font-mono text-[10px]">
+                {counts.all}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("APPROVED")}
+              className={`px-3 py-1.5 rounded-lg font-medium text-xs border flex items-center gap-2 shrink-0 transition-colors ${
+                activeTab === "APPROVED"
+                  ? "bg-obsidian-850 text-white border-obsidian-700"
+                  : "text-slate-400 hover:text-white hover:bg-obsidian-900 border-transparent"
+              }`}
+            >
+              <span>Agendadas</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-obsidian-950 text-sky-400 font-mono text-[10px]">
+                {counts.scheduled}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("IN_PROGRESS")}
+              className={`px-3 py-1.5 rounded-lg font-medium text-xs border flex items-center gap-2 shrink-0 transition-colors ${
+                activeTab === "IN_PROGRESS"
+                  ? "bg-obsidian-850 text-white border-obsidian-700"
+                  : "text-slate-400 hover:text-white hover:bg-obsidian-900 border-transparent"
+              }`}
+            >
+              <span>Em Andamento</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-obsidian-950 text-amber-400 font-mono text-[10px]">
+                {counts.inProgress}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("PENDING_APPROVAL")}
+              className={`px-3 py-1.5 rounded-lg font-medium text-xs border flex items-center gap-2 shrink-0 transition-colors ${
+                activeTab === "PENDING_APPROVAL"
+                  ? "bg-obsidian-850 text-white border-obsidian-700"
+                  : "text-slate-400 hover:text-white hover:bg-obsidian-900 border-transparent"
+              }`}
+            >
+              <span>Pendentes</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-obsidian-950 text-amber-300 font-mono text-[10px]">
+                {counts.pending}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("COMPLETED")}
+              className={`px-3 py-1.5 rounded-lg font-medium text-xs border flex items-center gap-2 shrink-0 transition-colors ${
+                activeTab === "COMPLETED"
+                  ? "bg-obsidian-850 text-white border-obsidian-700"
+                  : "text-slate-400 hover:text-white hover:bg-obsidian-900 border-transparent"
+              }`}
+            >
+              <span>Concluídas</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-obsidian-950 text-emerald-400 font-mono text-[10px]">
+                {counts.completed}
+              </span>
+            </button>
+          </div>
+
+          {/* Modos de Exibição (Cards vs Timeline Gantt) */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+            <span className="text-[10px] uppercase text-slate-500">Visualização:</span>
+            <button
+              type="button"
+              id="btn-view-cards"
+              onClick={() => setViewMode("cards")}
+              className={`p-1.5 rounded transition-colors ${
+                viewMode === "cards"
+                  ? "bg-obsidian-850 text-sky-400 border border-obsidian-700"
+                  : "text-slate-400 hover:text-white hover:bg-obsidian-900"
+              }`}
+              title="Lista de Cartões RFC"
+            >
+              <List className="w-4 h-4" />
             </button>
             <button
               type="button"
+              id="btn-view-gantt"
               onClick={() => setViewMode("gantt")}
+              className={`p-1.5 rounded transition-colors ${
+                viewMode === "gantt"
+                  ? "bg-obsidian-850 text-sky-400 border border-obsidian-700"
+                  : "text-slate-400 hover:text-white hover:bg-obsidian-900"
+              }`}
               title="Exibir Linha do Tempo Gantt"
-              style={{
-                padding: "6px",
-                borderRadius: "var(--radius-sm)",
-                border: "var(--border-subtle)",
-                backgroundColor:
-                  viewMode === "gantt"
-                    ? "rgba(56, 189, 248, 0.2)"
-                    : "transparent",
-                color:
-                  viewMode === "gantt"
-                    ? "var(--color-primary)"
-                    : "var(--color-text-muted)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-              }}
             >
-              <CalendarDays size={16} />
+              <CalendarDays className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Inputs de Pesquisa e Cliente */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: "12px" }}>
-          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <Search
-              size={16}
-              style={{
-                position: "absolute",
-                left: "12px",
-                color: "var(--color-text-muted)",
-              }}
-            />
+        {/* Inputs de Filtro */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-obsidian-900 p-3 rounded-xl border border-obsidian-800 items-center">
+          {/* Busca Textual */}
+          <div className="md:col-span-5 relative flex items-center">
+            <Search className="w-4 h-4 absolute left-3 text-slate-400 pointer-events-none" />
             <input
               type="text"
+              id="maint-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por Ativo (ex: SW-CORE), RFC ou Responsável…"
-              style={{
-                width: "100%",
-                padding: "8px 12px 8px 36px",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--color-bg-deep, #070a12)",
-                border: "var(--border-subtle)",
-                color: "var(--color-text-primary)",
-                fontSize: "0.75rem",
-                fontFamily: "var(--font-mono)",
-                outline: "none",
-              }}
+              className="w-full bg-obsidian-950 border border-obsidian-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 font-mono focus:outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
-          <select
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: "var(--color-bg-deep, #070a12)",
-              border: "var(--border-subtle)",
-              color: "var(--color-text-primary)",
-              fontSize: "0.75rem",
-              outline: "none",
-              cursor: "pointer",
-            }}
-          >
-            <option value="all">Todas as Contratantes</option>
-            {clientOptions.map((clientName) => (
-              <option key={clientName} value={clientName}>
-                {clientName}
-              </option>
-            ))}
-          </select>
+          {/* Filtro de Contratante */}
+          <div className="md:col-span-3 flex items-center gap-2">
+            <label className="text-[10px] font-mono text-slate-400 uppercase shrink-0">
+              Cliente:
+            </label>
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="w-full bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
+            >
+              <option value="all">Todas as Contratantes</option>
+              {clientOptions.map((clientName) => (
+                <option key={clientName} value={clientName}>
+                  {clientName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro de Período */}
+          <div className="md:col-span-3 flex items-center gap-2">
+            <label className="text-[10px] font-mono text-slate-400 uppercase shrink-0">
+              Período:
+            </label>
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="w-full bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
+            >
+              <option value="month">Mês Atual (Outubro 2026)</option>
+              <option value="q4">Trimestre Q4 2026</option>
+              <option value="year">Ano Fiscal 2026</option>
+            </select>
+          </div>
+
+          {/* Botão Limpar */}
+          <div className="md:col-span-1 flex justify-end">
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="w-full py-1.5 px-2 bg-obsidian-850 hover:bg-obsidian-800 text-slate-400 hover:text-white rounded-lg border border-obsidian-700 text-[11px] font-mono font-medium flex items-center justify-center gap-1 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Limpar</span>
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* Renderização condicional por estado */}
-      {currentState === "skeleton" && (
+      {/* RENDERIZAÇÃO CONDICIONAL POR ESTADO (Skeleton / Empty / Nominal) */}
+      {isLoading ? (
         <section
           data-testid="maint-skeleton-container"
-          style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+          className="space-y-4 animate-pulse"
         >
-          <Skeleton height="140px" />
-          <Skeleton height="140px" />
-          <Skeleton height="140px" />
+          <div className="h-32 bg-obsidian-900 border border-obsidian-800 rounded-xl" />
+          <div className="h-32 bg-obsidian-900 border border-obsidian-800 rounded-xl" />
+          <div className="h-32 bg-obsidian-900 border border-obsidian-800 rounded-xl" />
         </section>
-      )}
-
-      {currentState === "empty" && (
+      ) : filteredMaintenances.length === 0 ? (
         <section
           data-testid="maint-empty-container"
-          style={{
-            backgroundColor: "var(--color-surface-card, #0d1424)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-lg)",
-            padding: "48px 24px",
-            textAlign: "center",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "12px",
-          }}
+          className="py-16 px-4 text-center bg-obsidian-900 border border-obsidian-800 rounded-xl space-y-4 shadow-md"
         >
-          <div
-            style={{
-              width: "56px",
-              height: "56px",
-              borderRadius: "50%",
-              backgroundColor: "rgba(56, 189, 248, 0.1)",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--color-primary)",
-            }}
-          >
-            <Calendar size={28} />
+          <div className="w-16 h-16 mx-auto rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+            <Calendar className="w-7 h-7" />
           </div>
-          <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
-            Nenhuma Janela de Manutenção Programada
-          </h3>
-          <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", maxWidth: "450px" }}>
-            Não existem RFCs ativas ou agendadas para os filtros selecionados no período vigente.
-          </p>
-          <Button
+          <div className="space-y-1">
+            <h3 className="font-display font-bold text-base text-white">
+              Nenhuma Janela de Manutenção Programada
+            </h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Não existem RFCs ativas ou agendadas para os filtros selecionados no período vigente.
+            </p>
+          </div>
+          <button
             type="button"
-            onClick={() => {
-              setActiveTab("ALL");
-              setSearchQuery("");
-              setSelectedClient("all");
-            }}
-            variant="ghost"
-            size="sm"
+            onClick={handleClearFilters}
+            className="px-4 py-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-700 text-slate-200 text-xs font-mono transition-colors"
           >
             Restaurar Filtros Operacionais
-          </Button>
+          </button>
         </section>
-      )}
-
-      {currentState === "nominal" && (
+      ) : (
         <>
           {viewMode === "gantt" ? (
             <MaintenanceGanttTimeline maintenances={filteredMaintenances} />
           ) : (
             <section
               data-testid="maint-cards-container"
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+              className="flex flex-col gap-4"
             >
               {filteredMaintenances.map((maint) => (
                 <MaintenanceCard
