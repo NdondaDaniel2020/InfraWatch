@@ -7,17 +7,21 @@ import { IncidentCard } from "./IncidentCard";
 export interface NocIncidentsFeedProps {
   incidents?: IncidentItem[];
   onShowToast?: (text: string, type?: "success" | "warning" | "info") => void;
+  maxItems?: number;
 }
 
 /**
  * Container do Feed de Incidentes em Tempo Real.
  * Orquestra a listagem e delega cada incidente para o componente individual IncidentCard.
+ * Exibe por padrão no máximo 3 cards em destaque no feed operacional.
  */
 export const NocIncidentsFeed: React.FC<NocIncidentsFeedProps> = ({
   incidents = [],
   onShowToast,
+  maxItems = 3,
 }) => {
   const p1Count = incidents.filter((i) => i.severity === "critical").length;
+  const displayedIncidents = incidents.slice(0, maxItems);
 
   return (
     <section
@@ -40,8 +44,8 @@ export const NocIncidentsFeed: React.FC<NocIncidentsFeedProps> = ({
 
       {/* Lista de Incidentes delegando para o componente que recebe o dado */}
       <div className="space-y-3 font-mono">
-        {incidents.length > 0 ? (
-          incidents.map((incident) => (
+        {displayedIncidents.length > 0 ? (
+          displayedIncidents.map((incident) => (
             <IncidentCard
               key={incident.id}
               incident={incident}

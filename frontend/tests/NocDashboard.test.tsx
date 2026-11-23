@@ -74,6 +74,23 @@ describe("NOC Cockpit Dashboard — Telas Mockups & Obsidian Telemetry (Issue #2
       expect(screen.getByTestId("incident-feed-card")).toBeInTheDocument();
       expect(screen.getByText("Fibra Rompida — RT-BENGUELA")).toBeInTheDocument();
     });
+
+    it("deve limitar o feed de incidentes a no máximo 3 cards em exibição", () => {
+      const fiveIncidents = [
+        { id: "1", ticketId: "1", priorityLabel: "P1", severity: "critical" as const, title: "Incidente Alpha", timeAgo: "1m", description: "Desc 1", slaOrStatusText: "SLA", actionType: "ack_resolve" as const },
+        { id: "2", ticketId: "2", priorityLabel: "P1", severity: "critical" as const, title: "Incidente Beta", timeAgo: "2m", description: "Desc 2", slaOrStatusText: "SLA", actionType: "ack_resolve" as const },
+        { id: "3", ticketId: "3", priorityLabel: "P2", severity: "warning" as const, title: "Incidente Gamma", timeAgo: "3m", description: "Desc 3", slaOrStatusText: "SLA", actionType: "ack_resolve" as const },
+        { id: "4", ticketId: "4", priorityLabel: "P2", severity: "warning" as const, title: "Incidente Delta", timeAgo: "4m", description: "Desc 4", slaOrStatusText: "SLA", actionType: "ack_resolve" as const },
+        { id: "5", ticketId: "5", priorityLabel: "P3", severity: "info" as const, title: "Incidente Epsilon", timeAgo: "5m", description: "Desc 5", slaOrStatusText: "SLA", actionType: "ack_resolve" as const },
+      ];
+      renderWithProviders(<NocDashboardPage initialIncidents={fiveIncidents} />);
+
+      expect(screen.getByText("Incidente Alpha")).toBeInTheDocument();
+      expect(screen.getByText("Incidente Beta")).toBeInTheDocument();
+      expect(screen.getByText("Incidente Gamma")).toBeInTheDocument();
+      expect(screen.queryByText("Incidente Delta")).not.toBeInTheDocument();
+      expect(screen.queryByText("Incidente Epsilon")).not.toBeInTheDocument();
+    });
   });
 
   describe("2. Grade de Dispositivos e Filtros Operacionais", () => {
