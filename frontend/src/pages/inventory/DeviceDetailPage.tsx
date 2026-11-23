@@ -75,7 +75,6 @@ export const DeviceDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [period, setPeriod] = useState<TimescalePeriod>("24h");
   const [isProbing, setIsProbing] = useState(false);
-  const [manualViewState, setManualViewState] = useState<"nominal" | "skeleton" | "empty" | "error" | null>(null);
 
   const { data: device, isLoading: deviceLoading, error: deviceError, refetch: refetchDevice } = useQuery({
     queryKey: ["deviceDetail", id],
@@ -137,19 +136,17 @@ export const DeviceDetailPage: React.FC = () => {
   }, [probeMutation]);
 
   const handleRetry = useCallback(() => {
-    setManualViewState(null);
     refetchDevice();
     refetchMetrics();
   }, [refetchDevice, refetchMetrics]);
 
-  // Determina o estado ativo (nominal, skeleton, vazio, erro)
+  // Determina o estado ativo automaticamente no background (nominal, skeleton, vazio, erro)
   const currentViewState: "nominal" | "skeleton" | "empty" | "error" = useMemo(() => {
-    if (manualViewState) return manualViewState;
     if (deviceLoading || metricsLoading) return "skeleton";
     if (deviceError) return "error";
     if (!device || !metrics?.buckets || metrics.buckets.length === 0) return "empty";
     return "nominal";
-  }, [manualViewState, deviceLoading, metricsLoading, deviceError, device, metrics]);
+  }, [deviceLoading, metricsLoading, deviceError, device, metrics]);
 
   const fallbackDevice: DeviceDetail = useMemo(
     () => ({
@@ -248,7 +245,7 @@ export const DeviceDetailPage: React.FC = () => {
     ];
   }, [serverProbes, effectiveDevice, baseLatency]);
 
-  // Se estiver carregando inicialmente e não houver manualViewState
+  // Se estiver carregando inicialmente
   if (currentViewState === "skeleton" && !device) {
     return (
       <main role="main" className="min-h-screen bg-obsidian-950 text-slate-100 p-6 flex flex-col gap-6">
@@ -326,8 +323,6 @@ export const DeviceDetailPage: React.FC = () => {
           device={effectiveDevice}
           onTriggerProbe={handleTriggerProbe}
           isProbing={isProbing}
-          viewState={currentViewState}
-          onViewStateChange={setManualViewState}
         />
 
         {/* CORPO DEPENDENTE DO ESTADO SELECIONADO */}

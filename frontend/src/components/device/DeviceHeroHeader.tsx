@@ -8,16 +8,12 @@ interface DeviceHeroHeaderProps {
   device: DeviceDetail;
   onTriggerProbe: () => void;
   isProbing: boolean;
-  viewState?: "nominal" | "skeleton" | "empty" | "error";
-  onViewStateChange?: (state: "nominal" | "skeleton" | "empty" | "error") => void;
 }
 
 export const DeviceHeroHeader: React.FC<DeviceHeroHeaderProps> = ({
   device,
   onTriggerProbe,
   isProbing,
-  viewState = "nominal",
-  onViewStateChange,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -215,63 +211,6 @@ export const DeviceHeroHeader: React.FC<DeviceHeroHeaderProps> = ({
             <Network className="w-4 h-4 text-emerald-400" />
             <span>Ver no Grafo</span>
           </Link>
-
-          {/* Seletor de Estados de Interface (Nominal, Skeleton, Empty, Error) */}
-          {onViewStateChange && (
-            <div className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-lg border border-obsidian-800 text-xs font-mono ml-auto">
-              <span className="text-slate-500 px-2 text-[11px] uppercase tracking-wider font-semibold">
-                Estado:
-              </span>
-              <button
-                type="button"
-                onClick={() => onViewStateChange("nominal")}
-                id="state-nominal"
-                className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-                  viewState === "nominal"
-                    ? "font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                    : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-                }`}
-              >
-                Nominal
-              </button>
-              <button
-                type="button"
-                onClick={() => onViewStateChange("skeleton")}
-                id="state-skeleton"
-                className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-                  viewState === "skeleton"
-                    ? "font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                    : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-                }`}
-              >
-                Skeleton
-              </button>
-              <button
-                type="button"
-                onClick={() => onViewStateChange("empty")}
-                id="state-empty"
-                className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-                  viewState === "empty"
-                    ? "font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                    : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-                }`}
-              >
-                Vazio
-              </button>
-              <button
-                type="button"
-                onClick={() => onViewStateChange("error")}
-                id="state-error"
-                className={`px-2 py-1 rounded transition-colors cursor-pointer ${
-                  viewState === "error"
-                    ? "font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                    : "text-slate-400 hover:text-white hover:bg-obsidian-850"
-                }`}
-              >
-                Erro SNMP
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </section>
