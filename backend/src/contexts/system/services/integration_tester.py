@@ -55,10 +55,15 @@ class IntegrationTesterService:
         self,
         settings: Any | None = None,
         dynamic_provider: DynamicSettingsProvider | None = None,
+        session_factory: Any | None = None,
+        glpi_client_factory: Any | None = None,
+        zabbix_client_factory: Any | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.session_factory = get_session_factory()
+        self.session_factory = session_factory or get_session_factory()
         self.dynamic_provider = dynamic_provider or get_dynamic_settings_provider()
+        self._glpi_client_factory = glpi_client_factory or GlpiClient
+        self._zabbix_client_factory = zabbix_client_factory or ZabbixClient
 
     @staticmethod
     def mask_webhook_url(url: str | None) -> str | None:
@@ -242,7 +247,7 @@ class IntegrationTesterService:
 
         start_time = time.perf_counter()
         try:
-            async with GlpiClient(
+            async with self._glpi_client_factory(
                 base_url=base_url,
                 app_token=app_token,
                 user_token=user_token,
@@ -299,7 +304,7 @@ class IntegrationTesterService:
 
         start_time = time.perf_counter()
         try:
-            async with ZabbixClient(
+            async with self._zabbix_client_factory(
                 api_url=api_url,
                 api_token=api_token,
                 username=username,

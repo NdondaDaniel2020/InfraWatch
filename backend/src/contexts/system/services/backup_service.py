@@ -109,8 +109,9 @@ def _update_rclone_conf_token(content: str, token_json: str) -> str:
 class BackupService:
     """Encapsula operações de acionamento desacoplado, consulta de histórico e streaming de progresso."""
 
-    def __init__(self) -> None:
+    def __init__(self, http_client: httpx.AsyncClient | None = None) -> None:
         self.settings = get_settings()
+        self._http_client = http_client
 
     async def trigger_backup(
         self,
@@ -325,12 +326,17 @@ class BackupService:
             "grant_type": "authorization_code",
         }
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        client = self._http_client or httpx.AsyncClient(timeout=15.0)
+        should_close = self._http_client is None
+        try:
             resp = await client.post(token_url, data=data)
             if resp.status_code != 200:
                 logger.error("Erro ao trocar código por token com Google OAuth: %s", resp.text)
                 raise ValueError(f"Falha na autorização do Google: {resp.text}")
             token_payload = resp.json()
+        finally:
+            if should_close:
+                await client.aclose()
 
         refresh_token = token_payload.get("refresh_token")
         if not refresh_token:
@@ -535,35 +541,39 @@ class BackupService:
 
         # Tentar renovar access_token e chamar API do Google
         if refresh_token:
+            client = self._http_client or httpx.AsyncClient(timeout=6.0)
+            should_close = self._http_client is None
             try:
-                async with httpx.AsyncClient(timeout=6.0) as client:
-                    token_res = await client.post(
-                        "https://oauth2.googleapis.com/token",
-                        data={
-                            "client_id": client_id,
-                            "client_secret": client_secret,
-                            "refresh_token": refresh_token,
-                            "grant_type": "refresh_token",
-                        },
-                    )
-                    if token_res.status_code == 200:
-                        access_token = token_res.json().get("access_token")
+                token_res = await client.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "refresh_token": refresh_token,
+                        "grant_type": "refresh_token",
+                    },
+                )
+                if token_res.status_code == 200:
+                    access_token = token_res.json().get("access_token")
 
-                    if access_token:
-                        about_res = await client.get(
-                            "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user",
-                            headers={"Authorization": f"Bearer {access_token}"},
-                        )
-                        if about_res.status_code == 200:
-                            data = about_res.json()
-                            quota = data.get("storageQuota", {})
-                            user_data = data.get("user", {})
-                            email = user_data.get("emailAddress", email)
-                            display_name = user_data.get("displayName")
-                            total_bytes = int(quota.get("limit", 0))
-                            used_bytes = int(quota.get("usage", 0))
+                if access_token:
+                    about_res = await client.get(
+                        "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                    )
+                    if about_res.status_code == 200:
+                        data = about_res.json()
+                        quota = data.get("storageQuota", {})
+                        user_data = data.get("user", {})
+                        email = user_data.get("emailAddress", email)
+                        display_name = user_data.get("displayName")
+                        total_bytes = int(quota.get("limit", 0))
+                        used_bytes = int(quota.get("usage", 0))
             except Exception as e:
                 logger.debug("Tentativa de consulta online de quota Google Drive: %s", e)
+            finally:
+                if should_close:
+                    await client.aclose()
 
         # Caso a chamada online falhe ou não informe consumo exato, computa volume real replicado
         if total_bytes <= 0:
