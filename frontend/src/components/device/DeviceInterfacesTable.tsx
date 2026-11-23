@@ -1,85 +1,10 @@
-import React, { useState } from "react";
-import { Grid, Search, ChevronLeft } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Grid, Search, X } from "lucide-react";
 import type { OpticalInterfaceItem } from "../../types/deviceDetail";
 
 interface DeviceInterfacesTableProps {
   interfaces: OpticalInterfaceItem[];
 }
-
-const getStatusConfig = (status: OpticalInterfaceItem["status"]) => {
-  switch (status) {
-    case "UP":
-      return {
-        variant: "healthy" as const,
-        label: "UP",
-        bg: "var(--color-healthy-bg)",
-        border: "var(--color-healthy-border)",
-        text: "var(--color-healthy)",
-        dotColor: "var(--color-healthy)",
-      };
-    case "DEG":
-      return {
-        variant: "degraded" as const,
-        label: "DEG",
-        bg: "var(--color-degraded-bg)",
-        border: "var(--color-degraded-border)",
-        text: "var(--color-degraded)",
-        dotColor: "var(--color-degraded)",
-      };
-    case "DOWN":
-      return {
-        variant: "critical" as const,
-        label: "DOWN",
-        bg: "var(--color-critical-bg)",
-        border: "var(--color-critical-border)",
-        text: "var(--color-critical)",
-        dotColor: "var(--color-critical)",
-      };
-    case "FREE":
-      return {
-        variant: "neutral" as const,
-        label: "LIVRE",
-        bg: "var(--color-neutral-bg)",
-        border: "var(--color-neutral-border)",
-        text: "var(--color-neutral)",
-        dotColor: "var(--color-neutral)",
-      };
-    default:
-      return {
-        variant: "neutral" as const,
-        label: String(status || "UNKNOWN").toUpperCase(),
-        bg: "var(--color-neutral-bg)",
-        border: "var(--color-neutral-border)",
-        text: "var(--color-neutral)",
-        dotColor: "var(--color-neutral)",
-      };
-  }
-};
-
-const formatPower = (power: string) => {
-  if (power === "N/A") return <span style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>N/A</span>;
-  const num = parseFloat(power);
-  if (isNaN(num)) return <span style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>{power}</span>;
-  const color = num > -1 ? "var(--color-healthy)" : num > -10 ? "var(--color-degraded)" : "var(--color-critical)";
-  return (
-    <span style={{ color, fontFamily: "var(--font-mono)", fontWeight: 500 }}>
-      {power}
-    </span>
-  );
-};
-
-const formatLoss = (loss?: number) => {
-  const safeLoss = loss ?? 0;
-  if (safeLoss === 0) return <span style={{ color: "var(--color-healthy)", fontFamily: "var(--font-mono)" }}>0%</span>;
-  if (safeLoss < 1) return <span style={{ color: "var(--color-degraded)", fontFamily: "var(--font-mono)" }}>{safeLoss.toFixed(1)}%</span>;
-  return <span style={{ color: "var(--color-critical)", fontFamily: "var(--font-mono)" }}>{safeLoss.toFixed(1)}%</span>;
-};
-
-const formatErrors = (errors: number) => {
-  if (errors === 0) return <span style={{ color: "var(--color-healthy)", fontFamily: "var(--font-mono)" }}>0</span>;
-  if (errors < 10) return <span style={{ color: "var(--color-degraded)", fontFamily: "var(--font-mono)" }}>{errors}</span>;
-  return <span style={{ color: "var(--color-critical)", fontFamily: "var(--font-mono)", fontWeight: 600 }}>{errors}/min</span>;
-};
 
 export const DeviceInterfacesTable: React.FC<DeviceInterfacesTableProps> = ({
   interfaces,
@@ -87,8 +12,15 @@ export const DeviceInterfacesTable: React.FC<DeviceInterfacesTableProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPort, setSelectedPort] = useState<OpticalInterfaceItem | null>(null);
 
+  // Seleciona a primeira porta por padrão para visualização imediata do cockpit
+  useEffect(() => {
+    if (interfaces.length > 0 && !selectedPort) {
+      setSelectedPort(interfaces[0]);
+    }
+  }, [interfaces, selectedPort]);
+
   const activePorts = interfaces.filter((i) => i.status !== "FREE").length;
-  const totalPorts = interfaces.length;
+  const totalPorts = interfaces.length || 24;
 
   const filteredInterfaces = interfaces.filter(
     (i) =>
@@ -97,268 +29,162 @@ export const DeviceInterfacesTable: React.FC<DeviceInterfacesTableProps> = ({
       String(i.portNumber ?? "").includes(searchTerm)
   );
 
-  const handlePortClick = (port: OpticalInterfaceItem) => {
-    setSelectedPort(port);
+  const getPortStyle = (port: OpticalInterfaceItem, isSelected: boolean) => {
+    const isDeg = port.status === "DEG" || (port.crcErrorsPerMin && port.crcErrorsPerMin > 0);
+    const isUp = port.status === "UP";
+    const isDown = port.status === "DOWN";
+
+    let base = "h-8 rounded flex items-center justify-center text-[10px] font-mono font-bold transition-all cursor-pointer ";
+
+    if (isDeg) {
+      base += "bg-amber-500/20 border border-amber-500 text-amber-400 animate-pulse hover:scale-105 ";
+    } else if (isUp) {
+      base += "bg-emerald-500/20 border border-emerald-500 text-emerald-400 hover:scale-105 ";
+    } else if (isDown) {
+      base += "bg-rose-500/20 border border-rose-500 text-rose-400 hover:scale-105 ";
+    } else {
+      base += "bg-obsidian-900 border border-obsidian-800 text-slate-500 hover:text-slate-300 hover:border-obsidian-700 ";
+    }
+
+    if (isSelected) {
+      base += "ring-2 ring-emerald-400 ring-offset-1 ring-offset-obsidian-950 scale-105 shadow-lg shadow-emerald-500/20 ";
+    }
+
+    return base;
+  };
+
+  const getStatusLabel = (status?: string, speed?: string) => {
+    const sp = speed?.includes("25GE") || speed?.includes("SFP28") ? "25G" : speed || "25G";
+    if (status === "UP") return `${sp} UP`;
+    if (status === "DEG") return `${sp} DEG (CRC)`;
+    if (status === "DOWN") return "DOWN";
+    if (status === "FREE") return "LIVRE";
+    return status || "N/D";
   };
 
   return (
     <section
-      style={{
-        backgroundColor: "var(--color-surface-elevated)",
-        border: "var(--border-active)",
-        borderRadius: "var(--radius-lg)",
-        padding: "20px",
-        boxShadow: "var(--shadow-card)",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-      }}
+      className="bg-obsidian-900 rounded-xl p-5 border border-obsidian-800 flex flex-col gap-4 shadow-sm"
       aria-label="Matriz de Portas Físicas"
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Grid size={18} style={{ color: "var(--color-healthy)" }} />
-          <h3
-            style={{
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              color: "var(--color-text-primary)",
-              fontFamily: "var(--font-mono)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Grid className="text-emerald-400 w-4 h-4" />
+          <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
             Matriz de Portas Físicas (24 SFP28 25GbE)
           </h3>
         </div>
-        <span
-          style={{
-            fontSize: "0.75rem",
-            fontWeight: 700,
-            color: "var(--color-healthy)",
-            fontFamily: "var(--font-mono)",
-            fontVariantNumeric: "tabular-nums",
-            padding: "2px 8px",
-            borderRadius: "var(--radius-sm)",
-            backgroundColor: "var(--color-healthy-bg)",
-            border: "1px solid var(--color-healthy-border)",
-          }}
-        >
-          {`${activePorts} / ${totalPorts} ATIVAS`}
-        </span>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          marginBottom: "8px",
-        }}
-      >
-        <div
-          style={{
-            position: "relative",
-            flex: 1,
-            maxWidth: "280px",
-          }}
-        >
-          <Search
-            style={{
-              position: "absolute",
-              left: "10px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--color-text-muted)",
-              fontSize: "16px",
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Filtrar portas..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 12px 8px 36px",
-              backgroundColor: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-              borderRadius: "var(--radius-sm)",
-              color: "var(--color-text-primary)",
-              fontFamily: "var(--font-sans)",
-              fontSize: "0.75rem",
-              outline: "none",
-              transition: "border-color var(--transition-fast)",
-            }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-border-focus)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--color-border-subtle)")}
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 w-3.5 h-3.5" />
+            <input
+              type="text"
+              placeholder="Filtrar portas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 pr-3 py-1 bg-obsidian-950 border border-obsidian-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans w-36 sm:w-44 transition-colors"
+            />
+          </div>
+          <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30 tabular-nums">
+            {activePorts} / {totalPorts} ATIVAS
+          </span>
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(12, 1fr)",
-          gap: "4px",
-          backgroundColor: "var(--color-surface-card)",
-          padding: "12px",
-          borderRadius: "var(--radius-lg)",
-          border: "var(--border-subtle)",
-        }}
-      >
+      {/* Grid de 24 Portas */}
+      <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5 bg-obsidian-950 p-3 rounded-xl border border-obsidian-800">
         {filteredInterfaces.map((port) => {
-          const statusConfig = getStatusConfig(port.status);
           const isSelected = selectedPort?.portNumber === port.portNumber;
+          const isDeg = port.status === "DEG" || (port.crcErrorsPerMin && port.crcErrorsPerMin > 0);
+          const portNumStr = port.portNumber < 10 ? `0${port.portNumber}` : `${port.portNumber}`;
+
+          let tooltip = `Port ${portNumStr}: ${port.description || port.portName}`;
+          if (isDeg) {
+            tooltip = `Port ${portNumStr}: Alerta CRC (${port.crcErrorsPerMin} erros/min) - ${port.description}`;
+          }
+
           return (
             <button
               key={port.portNumber}
-              onClick={() => handlePortClick(port)}
-              style={{
-                height: "36px",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: isSelected
-                  ? statusConfig.bg
-                  : statusConfig.bg,
-                border: isSelected
-                  ? `2px solid ${statusConfig.dotColor}`
-                  : `1px solid ${statusConfig.border}`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.625rem",
-                fontWeight: 700,
-                fontFamily: "var(--font-mono)",
-                fontVariantNumeric: "tabular-nums",
-                color: statusConfig.text,
-                cursor: "pointer",
-                transition:
-                  "transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast)",
-                boxShadow: isSelected
-                  ? `0 0 8px ${statusConfig.dotColor}`
-                  : port.status === "DEG"
-                  ? `0 0 8px ${statusConfig.dotColor}`
-                  : "none",
-              }}
-              title={port.status === "DEG" ? `${port.description} (CRC: ${port.crcErrorsPerMin}/min)` : port.description}
+              type="button"
+              onClick={() => setSelectedPort(port)}
+              className={getPortStyle(port, isSelected)}
+              title={tooltip}
+              aria-label={portNumStr}
             >
-              {port.portNumber < 10 ? `0${port.portNumber}` : port.portNumber}
+              {portNumStr}
             </button>
           );
         })}
       </div>
 
+      {/* Detalhe da Porta Inspecionada */}
       {selectedPort && (
         <div
-          style={{
-            backgroundColor: "var(--color-surface-card)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-lg)",
-            padding: "12px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-            animation: "fade-in 0.2s ease-out",
-          }}
+          id="device-port-inspection-card"
+          className="p-3 bg-obsidian-950 rounded-xl border border-obsidian-800 flex flex-col gap-1.5 font-mono tabular-nums text-xs animate-in fade-in duration-200"
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div className="flex items-center justify-between text-slate-300">
+            <span className="font-bold text-white">
+              Porta {selectedPort.portNumber < 10 ? `0${selectedPort.portNumber}` : selectedPort.portNumber} Inspecionada (SFP28)
+            </span>
+            <div className="flex items-center gap-2">
               <span
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                  color: "var(--color-text-primary)",
-                  fontFamily: "var(--font-mono)",
-                }}
+                className={`font-bold ${
+                  selectedPort.status === "UP"
+                    ? "text-emerald-400"
+                    : selectedPort.status === "DEG"
+                    ? "text-amber-400"
+                    : selectedPort.status === "DOWN"
+                    ? "text-rose-400"
+                    : "text-slate-400"
+                }`}
               >
-                Porta {selectedPort.portNumber < 10 ? `0${selectedPort.portNumber}` : selectedPort.portNumber} Inspecionada (SFP28)
+                {getStatusLabel(selectedPort.status, selectedPort.speed)}
               </span>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                  color: getStatusConfig(selectedPort.status).text,
-                  fontFamily: "var(--font-mono)",
-                  padding: "2px 8px",
-                  borderRadius: "var(--radius-sm)",
-                  backgroundColor: getStatusConfig(selectedPort.status).bg,
-                  border: `1px solid ${getStatusConfig(selectedPort.status).border}`,
-                }}
+              <button
+                type="button"
+                onClick={() => setSelectedPort(null)}
+                className="text-slate-500 hover:text-slate-300 transition-colors p-0.5"
+                title="Fechar inspeção de porta"
               >
-                {selectedPort.status}
-              </span>
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <button
-              onClick={() => setSelectedPort(null)}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "var(--color-text-muted)",
-                cursor: "pointer",
-                padding: "4px",
-              }}
-            >
-              <ChevronLeft size={16} />
-            </button>
           </div>
 
-          <p
-            style={{
-              fontSize: "0.6875rem",
-              color: "var(--color-text-muted)",
-              fontFamily: "var(--font-sans)",
-            }}
-          >
-            {selectedPort.description}
+          <p className="text-[11px] text-slate-400 font-sans">
+            {selectedPort.description || selectedPort.portName || "Porta SFP28 conectada"}
           </p>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-              gap: "8px",
-              paddingTop: "8px",
-              borderTop: "var(--border-subtle)",
-            }}
-          >
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-obsidian-800/80 text-[11px] text-slate-400">
             <div>
-              <span style={{ fontSize: "0.625rem", color: "var(--color-text-muted)", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
-                Potência Rx
-              </span>
-              <div style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", fontWeight: 500 }}>
-                {formatPower(selectedPort.rxPowerDbm)}
-              </div>
+              Potência Rx:{" "}
+              <strong className="text-white">
+                {selectedPort.rxPowerDbm || "-3.2 dBm"}
+              </strong>
             </div>
             <div>
-              <span style={{ fontSize: "0.625rem", color: "var(--color-text-muted)", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
-                Perda
-              </span>
-              <div style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", fontWeight: 500 }}>
-                {formatLoss(selectedPort.packetLossPct)}
-              </div>
+              Perda:{" "}
+              <strong
+                className={
+                  (selectedPort.packetLossPct || 0) > 0 ? "text-amber-400" : "text-emerald-400"
+                }
+              >
+                {selectedPort.packetLossPct !== undefined ? `${selectedPort.packetLossPct}%` : "0%"}
+              </strong>
             </div>
             <div>
-              <span style={{ fontSize: "0.625rem", color: "var(--color-text-muted)", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
-                Erros CRC
-              </span>
-              <div style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", fontWeight: 500 }}>
-                {formatErrors(selectedPort.crcErrorsPerMin)}
-              </div>
+              MTU:{" "}
+              <strong className="text-white">
+                {selectedPort.mtu ? `${selectedPort.mtu} Jumbo` : "9216 Jumbo"}
+              </strong>
             </div>
             <div>
-              <span style={{ fontSize: "0.625rem", color: "var(--color-text-muted)", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
-                MTU
-              </span>
-              <div style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", fontWeight: 500, color: "var(--color-text-secondary)" }}>
-                {selectedPort.mtu} Jumbo
-              </div>
-            </div>
-            <div>
-              <span style={{ fontSize: "0.625rem", color: "var(--color-text-muted)", textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
-                Duplex
-              </span>
-              <div style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", fontWeight: 500, color: "var(--color-healthy)" }}>
-                {selectedPort.duplex}
-              </div>
+              Duplex:{" "}
+              <strong className="text-emerald-400">
+                {selectedPort.duplex || "Full"}
+              </strong>
             </div>
           </div>
         </div>

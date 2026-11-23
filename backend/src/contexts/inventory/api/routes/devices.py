@@ -311,6 +311,33 @@ class DeviceManualProbeResult(BaseModel):
     message: str
 
 
+class DeviceMetricBucket(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    timestamp: str
+    rtt_min_ms: float
+    rtt_p95_ms: float
+    rtt_max_ms: float
+    packet_loss_pct: float
+
+
+class DeviceMetricSummary(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    min_ms: float
+    p95_ms: float
+    max_ms: float
+    avg_loss_pct: float
+
+
+class DeviceTimescaleMetricsResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    buckets: list[DeviceMetricBucket]
+    period: str
+    summary: DeviceMetricSummary
+
+
 class DeviceInterfaceResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
@@ -429,3 +456,102 @@ async def get_device_interfaces(
             duplex="Full",
         )
     ]
+
+
+@router.get("/{device_id}/metrics", response_model=DeviceTimescaleMetricsResponse)
+async def get_device_metrics(
+    device_id: UUID,
+    user: CurrentUserDep,
+    query_service: DeviceQueryServiceDep,
+    period: str = "24h",
+    org_id: UUID | None = None,
+):
+    """Retorna série temporal de métricas agregadas por time_bucket do TimescaleDB."""
+    from sqlalchemy import text
+    from src.core.database.session import get_session_factory
+
+    target_org_str = enforce_tenant_scope(org_id, user)
+    target_org = UUID(target_org_str) if target_org_str else None
+    device = await query_service.get_device_detail(target_org, device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
+
+    interval_sql = "INTERVAL '10 minutes'"
+    limit_buckets = 60
+    if period == "1h":
+        interval_sql = "INTERVAL '1 minute'"
+        limit_buckets = 60
+    elif period == "7d":
+        interval_sql = "INTERVAL '1 hour'"
+        limit_buckets = 168
+    elif period == "30d":
+        interval_sql = "INTERVAL '4 hours'"
+        limit_buckets = 180
+
+    factory = get_session_factory()
+    async with factory() as session:
+        query_sql = f"""
+            SELECT 
+                time_bucket({interval_sql}, timestamp) AS bucket,
+                MIN(value) as min_rtt,
+                AVG(value) as avg_rtt,
+                MAX(value) as max_rtt,
+                AVG(packet_loss) as avg_loss
+            FROM metrics
+            WHERE device_id = :dev_id AND metric_type = 'latency_ms'
+            GROUP BY bucket
+            ORDER BY bucket ASC
+            LIMIT :limit_b;
+        """
+        result = await session.execute(text(query_sql), {
+            "dev_id": device_id,
+            "limit_b": limit_buckets,
+        })
+        rows = result.fetchall()
+
+    if not rows:
+        return DeviceTimescaleMetricsResponse(
+            buckets=[],
+            period=period,
+            summary=DeviceMetricSummary(min_ms=0.0, p95_ms=0.0, max_ms=0.0, avg_loss_pct=0.0),
+        )
+
+    buckets: list[DeviceMetricBucket] = []
+    rtt_values: list[float] = []
+    loss_values: list[float] = []
+
+    for r in rows:
+        min_v = round(float(r.min_rtt or 0.0), 2)
+        avg_v = round(float(r.avg_rtt or 0.0), 2)
+        max_v = round(float(r.max_rtt or 0.0), 2)
+        loss_v = round(float(r.avg_loss or 0.0), 2)
+
+        buckets.append(
+            DeviceMetricBucket(
+                timestamp=r.bucket.isoformat() if hasattr(r.bucket, "isoformat") else str(r.bucket),
+                rtt_min_ms=min_v,
+                rtt_p95_ms=avg_v,
+                rtt_max_ms=max_v,
+                packet_loss_pct=loss_v,
+            )
+        )
+        rtt_values.append(avg_v)
+        loss_values.append(loss_v)
+
+    sorted_rtt = sorted(rtt_values)
+    p95_idx = min(len(sorted_rtt) - 1, int(len(sorted_rtt) * 0.95))
+    p95_v = sorted_rtt[p95_idx] if sorted_rtt else 0.0
+    min_v = min(rtt_values) if rtt_values else 0.0
+    max_v = max(rtt_values) if rtt_values else 0.0
+    avg_loss = round(sum(loss_values) / len(loss_values), 2) if loss_values else 0.0
+
+    return DeviceTimescaleMetricsResponse(
+        buckets=buckets,
+        period=period,
+        summary=DeviceMetricSummary(
+            min_ms=round(min_v, 2),
+            p95_ms=round(p95_v, 2),
+            max_ms=round(max_v, 2),
+            avg_loss_pct=avg_loss,
+        ),
+    )

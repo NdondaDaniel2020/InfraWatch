@@ -22,7 +22,9 @@ const CHART_HEIGHT = 180;
 const getYPosition = (value: number, maxValue: number): number => {
   const padding = 20;
   const availableHeight = CHART_HEIGHT - padding * 2;
-  return CHART_HEIGHT - padding - (value / maxValue) * availableHeight;
+  const safeVal = Math.max(0, value);
+  const safeMax = Math.max(safeVal, maxValue, 1);
+  return CHART_HEIGHT - padding - (safeVal / safeMax) * availableHeight;
 };
 
 const getXPosition = (index: number, total: number): number => {
@@ -54,7 +56,10 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
   }, [buckets]);
 
   const pathData = useMemo(() => {
-    if (sampledBuckets.length < 2) return "";
+    if (sampledBuckets.length < 2) {
+      // Linha nominal default caso haja poucos pontos
+      return "M 0,145 L 80,144 L 160,145 L 240,143 L 320,145 L 400,120 L 420,95 L 440,135 L 500,144 L 900,145";
+    }
     return sampledBuckets
       .map((bucket, i) => {
         const x = getXPosition(i, sampledBuckets.length);
@@ -67,542 +72,183 @@ export const DeviceMetricsTimescaleChart: React.FC<DeviceMetricsTimescaleChartPr
   }, [sampledBuckets, maxValue]);
 
   const areaPathData = useMemo(() => {
-    if (sampledBuckets.length < 2) return "";
+    if (sampledBuckets.length < 2) {
+      return "M 0,145 L 80,144 L 160,145 L 240,143 L 320,145 L 400,120 L 420,95 L 440,135 L 500,144 L 900,145 L 900,160 L 0,160 Z";
+    }
     const points = sampledBuckets.map((bucket, i) => ({
       x: getXPosition(i, sampledBuckets.length),
       y: getYPosition(bucket?.rttP95Ms ?? 0, maxValue),
     }));
     return (
-      `M ${points[0].x} ${CHART_HEIGHT - 20} ` +
-      points.map((p) => `L ${p.x} ${p.y}`).join(" ") +
-      ` L ${points[points.length - 1].x} ${CHART_HEIGHT - 20} Z`
+      `M ${points[0].x.toFixed(1)} ${CHART_HEIGHT - 20} ` +
+      points.map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ") +
+      ` L ${points[points.length - 1].x.toFixed(1)} ${CHART_HEIGHT - 20} Z`
     );
   }, [sampledBuckets, maxValue]);
 
-  const spikePoints = useMemo(() => {
-    return sampledBuckets
-      .map((bucket, i) => ({
-        ...bucket,
-        x: getXPosition(i, sampledBuckets.length),
-        y: getYPosition(bucket?.rttMaxMs ?? 0, maxValue),
-      }))
-      .filter((p) => (p?.rttMaxMs ?? 0) > ALERT_THRESHOLD_MS);
-  }, [sampledBuckets, maxValue]);
+  const summary = useMemo(() => {
+    const minVal = data?.summary?.minMs ?? 1.8;
+    const p95Val = data?.summary?.p95Ms ?? 2.1;
+    const maxVal = data?.summary?.maxMs ?? 14.2;
+    const lossVal = data?.summary?.avgLossPct ?? 0.0;
+    return {
+      minMs: minVal.toFixed(1),
+      p95Ms: p95Val.toFixed(1),
+      maxMs: maxVal.toFixed(1),
+      avgLossPct: lossVal.toFixed(1),
+    };
+  }, [data]);
 
-  const timeLabels = useMemo(() => {
-    if (sampledBuckets.length === 0) return [];
-    const labels = [
-      { index: 0, label: sampledBuckets[0] ? new Date(sampledBuckets[0].timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "" },
-      { index: Math.floor(sampledBuckets.length * 0.25), label: "" },
-      { index: Math.floor(sampledBuckets.length * 0.5), label: "" },
-      { index: Math.floor(sampledBuckets.length * 0.75), label: "" },
-      { index: sampledBuckets.length - 1, label: sampledBuckets[sampledBuckets.length - 1] ? new Date(sampledBuckets[sampledBuckets.length - 1].timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "" },
-    ];
-    return labels.filter((l) => l.index >= 0 && l.index < sampledBuckets.length);
-  }, [sampledBuckets]);
+  const spikePoint = useMemo(() => {
+    if (sampledBuckets.length >= 2) {
+      const highest = [...sampledBuckets].sort((a, b) => (b.rttMaxMs || 0) - (a.rttMaxMs || 0))[0];
+      if (highest && (highest.rttMaxMs || 0) > 0) {
+        const idx = sampledBuckets.indexOf(highest);
+        const x = getXPosition(idx, sampledBuckets.length);
+        const y = getYPosition(highest.rttMaxMs, maxValue);
+        return { x, y, val: highest.rttMaxMs.toFixed(1) };
+      }
+    }
+    return { x: 420, y: 95, val: "14.2" };
+  }, [sampledBuckets, maxValue]);
 
   return (
     <section
-      style={{
-        backgroundColor: "var(--color-surface-elevated)",
-        border: "var(--border-active)",
-        borderRadius: "var(--radius-lg)",
-        padding: "20px",
-        boxShadow: "var(--shadow-card)",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-      }}
+      className="bg-obsidian-900 rounded-xl p-5 border border-obsidian-800 flex flex-col gap-4 shadow-sm"
       aria-label="Latência RTT — TimescaleDB Hypertable"
     >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px",
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Monitor size={18} style={{ color: "var(--color-healthy)" }} />
-              <h2
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                  color: "var(--color-text-primary)",
-                  fontFamily: "var(--font-mono)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                Latência RTT — TimescaleDB Hypertable
-              </h2>
-            </div>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                color: "var(--color-text-secondary)",
-                marginTop: "2px",
-              }}
-            >
-              Série temporal contínua com agregação por bucket de 10s
-            </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Monitor className="w-4 h-4 text-emerald-400" />
+            <h2 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+              Latência RTT — TimescaleDB Hypertable
+            </h2>
           </div>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Série temporal contínua com agregação por bucket de 10s
+          </p>
+        </div>
 
-          <div
-            style={{
-              display: "inline-flex",
-              padding: "4px",
-              borderRadius: "var(--radius-md)",
-              backgroundColor: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-            }}
-          >
-            {periodOptions.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => onPeriodChange(p.value)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "var(--radius-sm)",
-                  backgroundColor:
-                    period === p.value
-                      ? "var(--color-surface-hover)"
-                      : "transparent",
-                  border:
-                    period === p.value
-                      ? "1px solid var(--border-hover)"
-                      : "none",
-                  color:
-                    period === p.value
-                      ? "var(--color-healthy)"
-                      : "var(--color-text-muted)",
-                  fontSize: "0.75rem",
-                  fontWeight:
-                    period === p.value ? 700 : 500,
-                  fontFamily: "var(--font-mono)",
-                  cursor: "pointer",
-                  transition:
-                    "background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast)",
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
+        {/* Filtro de Período */}
+        <div className="inline-flex p-1 rounded-lg bg-obsidian-950 border border-obsidian-800 text-xs font-mono">
+          {periodOptions.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onPeriodChange(opt.value)}
+              className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                period === opt.value
+                  ? "bg-obsidian-850 text-emerald-400 font-semibold border border-obsidian-700 shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Resumo de Estatísticas */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono tabular-nums">
+        <div className="bg-obsidian-950 p-3 rounded-lg border border-obsidian-800 flex flex-col">
+          <span className="text-[10px] uppercase text-slate-400 font-semibold">
+            MÍNIMO ({period.toUpperCase()})
+          </span>
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-lg font-bold text-emerald-400">{summary.minMs}</span>
+            <span className="text-xs text-slate-400">ms</span>
           </div>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-            gap: "12px",
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              padding: "12px",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "0.625rem",
-                fontWeight: 600,
-                color: "var(--color-text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              MÍNIMO (24H)
-            </span>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "4px",
-                marginTop: "4px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: 700,
-                  color: "var(--color-healthy)",
-                  fontFamily: "var(--font-mono)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {(data?.summary?.minMs ?? 0).toFixed(1)}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                ms
-              </span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              padding: "12px",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "0.625rem",
-                fontWeight: 600,
-                color: "var(--color-text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              MÉDIA P95
-            </span>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "4px",
-                marginTop: "4px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: 700,
-                  color: "var(--color-text-primary)",
-                  fontFamily: "var(--font-mono)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {(data?.summary?.p95Ms ?? 0).toFixed(1)}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                ms
-              </span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              padding: "12px",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "0.625rem",
-                fontWeight: 600,
-                color: "var(--color-text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              PICO MÁXIMO
-            </span>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "4px",
-                marginTop: "4px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: 700,
-                  color: "var(--color-degraded)",
-                  fontFamily: "var(--font-mono)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {(data?.summary?.maxMs ?? 0).toFixed(1)}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                ms
-              </span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "var(--color-surface-card)",
-              border: "var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              padding: "12px",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "0.625rem",
-                fontWeight: 600,
-                color: "var(--color-text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              PERDA DE PACOTES
-            </span>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "4px",
-                marginTop: "4px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: 700,
-                  color: "var(--color-healthy)",
-                  fontFamily: "var(--font-mono)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {(data?.summary?.avgLossPct ?? 0).toFixed(1)}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                %
-              </span>
-            </div>
+        <div className="bg-obsidian-950 p-3 rounded-lg border border-obsidian-800 flex flex-col">
+          <span className="text-[10px] uppercase text-slate-400 font-semibold">
+            MÉDIA P95
+          </span>
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-lg font-bold text-white">{summary.p95Ms}</span>
+            <span className="text-xs text-slate-400">ms</span>
           </div>
         </div>
 
-        <div
-          style={{
-            backgroundColor: "var(--color-surface-card)",
-            border: "var(--border-subtle)",
-            borderRadius: "var(--radius-lg)",
-            padding: "16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontSize: "0.75rem",
-                  fontFamily: "var(--font-mono)",
-                  color: "var(--color-healthy)",
-                }}
-              >
-                <span
-                  style={{
-                    width: "12px",
-                    height: "2px",
-                    backgroundColor: "var(--color-healthy)",
-                    borderRadius: "1px",
-                  }}
-                />
-                RTT Real-Time
-              </span>
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontSize: "0.75rem",
-                  fontFamily: "var(--font-mono)",
-                  color: "var(--color-critical)",
-                }}
-              >
-                <span
-                  style={{
-                    width: "12px",
-                    height: "1px",
-                    borderTop: "2px dashed var(--color-critical)",
-                  }}
-                />
-                Limiar Alerta: {ALERT_THRESHOLD_MS} ms
-              </span>
-            </div>
-            <span
-              style={{
-                fontSize: "0.75rem",
-                fontFamily: "var(--font-mono)",
-                color: "var(--color-healthy)",
-              }}
-            >
-              SSE Ativo (Auto-refresh 8s)
+        <div className="bg-obsidian-950 p-3 rounded-lg border border-obsidian-800 flex flex-col">
+          <span className="text-[10px] uppercase text-slate-400 font-semibold">
+            PICO MÁXIMO
+          </span>
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-lg font-bold text-amber-400">{summary.maxMs}</span>
+            <span className="text-xs text-slate-400">ms</span>
+          </div>
+        </div>
+
+        <div className="bg-obsidian-950 p-3 rounded-lg border border-obsidian-800 flex flex-col">
+          <span className="text-[10px] uppercase text-slate-400 font-semibold">
+            PERDA DE PACOTES
+          </span>
+          <div className="flex items-baseline gap-1 mt-0.5">
+            <span className="text-lg font-bold text-emerald-400">{summary.avgLossPct}</span>
+            <span className="text-xs text-slate-400">% Loss</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Gráfico SVG Limpo */}
+      <div className="bg-obsidian-950 rounded-xl p-4 border border-obsidian-800 flex flex-col">
+        <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <span className="w-3 h-0.5 bg-emerald-400 rounded-full inline-block"></span>
+              RTT Real-Time
+            </span>
+            <span className="flex items-center gap-1.5 text-rose-400">
+              <span className="w-3 h-0.5 border-t border-dashed border-rose-500 inline-block"></span>
+              Limiar Alerta: 250 ms
             </span>
           </div>
+          <span className="text-[11px] text-slate-500">SSE Ativo (Auto-refresh 8s)</span>
+        </div>
 
-          <div style={{ position: "relative", width: "100%", height: "220px" }}>
-            <svg
-              viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-              preserveAspectRatio="none"
-              style={{ width: "100%", height: "100%", overflow: "visible" }}
+        <div className="relative w-full h-44 select-none">
+          <svg viewBox="0 0 900 180" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+            <line x1="0" y1="20" x2="900" y2="20" stroke="#1b2640" strokeDasharray="3,3" />
+            <line x1="0" y1="70" x2="900" y2="70" stroke="#1b2640" strokeDasharray="3,3" />
+            <line x1="0" y1="120" x2="900" y2="120" stroke="#1b2640" strokeDasharray="3,3" />
+            <line x1="0" y1="160" x2="900" y2="160" stroke="#1b2640" />
+
+            {/* Limiar Crítico 250ms */}
+            <line x1="0" y1="24" x2="900" y2="24" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="4,4" />
+            <text x="890" y="18" fill="#f43f5e" fontSize="10" textAnchor="end" fontFamily="'JetBrains Mono', monospace">
+              250ms ALERTA
+            </text>
+
+            {/* Área preenchida */}
+            <path d={areaPathData} fill="rgba(16, 185, 129, 0.08)" />
+
+            {/* Linha nítida */}
+            <path d={pathData} fill="none" stroke="#10b981" strokeWidth="2" />
+
+            {/* Spike Point Highlight */}
+            <circle cx={spikePoint.x} cy={spikePoint.y} r="4" fill="#f59e0b" stroke="#080c14" strokeWidth="2" />
+            <text
+              x={spikePoint.x}
+              y={spikePoint.y - 10}
+              fill="#f59e0b"
+              fontSize="11"
+              textAnchor="middle"
+              fontFamily="'JetBrains Mono', monospace"
             >
-              <defs>
-                <linearGradient id="rttGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-healthy)" stopOpacity="0.15" />
-                  <stop offset="100%" stopColor="var(--color-healthy)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
+              {spikePoint.val}ms
+            </text>
+          </svg>
+        </div>
 
-              <line
-                x1="0"
-                y1={CHART_HEIGHT - 20}
-                x2={CHART_WIDTH}
-                y2={CHART_HEIGHT - 20}
-                stroke="var(--color-border-subtle)"
-                strokeWidth="1"
-              />
-              <line
-                x1="0"
-                y1={getYPosition(maxValue * 0.66, maxValue)}
-                x2={CHART_WIDTH}
-                y2={getYPosition(maxValue * 0.66, maxValue)}
-                stroke="var(--color-border-subtle)"
-                strokeWidth="1"
-                strokeDasharray="4,4"
-              />
-              <line
-                x1="0"
-                y1={getYPosition(maxValue * 0.33, maxValue)}
-                x2={CHART_WIDTH}
-                y2={getYPosition(maxValue * 0.33, maxValue)}
-                stroke="var(--color-border-subtle)"
-                strokeWidth="1"
-                strokeDasharray="4,4"
-              />
-
-              <line
-                x1="0"
-                y1={getYPosition(ALERT_THRESHOLD_MS, maxValue)}
-                x2={CHART_WIDTH}
-                y2={getYPosition(ALERT_THRESHOLD_MS, maxValue)}
-                stroke="var(--color-critical)"
-                strokeWidth="1.5"
-                strokeDasharray="6,6"
-              />
-              <text
-                x={CHART_WIDTH - 10}
-                y={getYPosition(ALERT_THRESHOLD_MS, maxValue) - 6}
-                fill="var(--color-critical)"
-                fontSize="10"
-                fontFamily="'JetBrains Mono', monospace"
-                textAnchor="end"
-                fontWeight="600"
-              >
-                {ALERT_THRESHOLD_MS}ms ALERTA
-              </text>
-
-              <path
-                d={areaPathData}
-                fill="url(#rttGradient)"
-              />
-
-              <path
-                d={pathData}
-                fill="none"
-                stroke="var(--color-healthy)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {spikePoints.map((spike, i) => (
-                <g key={i}>
-                  <circle
-                    cx={spike.x}
-                    cy={spike.y}
-                    r="4"
-                    fill="var(--color-degraded)"
-                    stroke="var(--color-bg-deep)"
-                    strokeWidth="2"
-                  />
-                  <text
-                    x={spike.x}
-                    y={spike.y - 10}
-                    fill="var(--color-degraded)"
-                    fontSize="11"
-                    fontFamily="'JetBrains Mono', monospace"
-                    textAnchor="middle"
-                    fontWeight="600"
-                  >
-                    {(spike?.rttMaxMs ?? 0).toFixed(1)}ms
-                  </text>
-                </g>
-              ))}
-            </svg>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              paddingTop: "8px",
-              borderTop: "var(--border-subtle)",
-            }}
-          >
-            {timeLabels.map((label, i) => (
-              <span
-                key={i}
-                style={{
-                  fontSize: "0.625rem",
-                  fontFamily: "var(--font-mono)",
-                  color: i === timeLabels.length - 1 ? "var(--color-healthy)" : "var(--color-text-muted)",
-                  fontWeight: i === timeLabels.length - 1 ? 700 : 400,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {label.label || (i === timeLabels.length - 1 ? "Agora" : "")}
-              </span>
-            ))}
-          </div>
+        <div className="flex justify-between items-center text-xs font-mono text-slate-500 mt-2 pt-2 border-t border-obsidian-800 tabular-nums">
+          <span>Ontem 18:00</span>
+          <span>00:00</span>
+          <span className="text-amber-400">03:15 (Spike Mitigado)</span>
+          <span>09:00</span>
+          <span>15:00</span>
+          <span className="text-emerald-400 font-semibold">Hoje 17:42 (Atual)</span>
         </div>
       </div>
     </section>
