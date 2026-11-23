@@ -49,7 +49,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = 3;
 
   const { data: organizationsData } = useQuery({
     queryKey: ["slaOrganizations"],
@@ -320,7 +320,7 @@ export const MaintenanceWindowsPage: React.FC = () => {
               className="h-9 px-4 rounded-lg bg-sky-500 hover:bg-sky-400 text-obsidian-950 text-xs font-bold flex items-center gap-2 transition-colors focus-visible:ring-2 focus-visible:ring-sky-400 shadow-lg"
             >
               <PlusCircle className="w-4 h-4 text-obsidian-950" />
-              <span>+ Agendar Nova Parada Técnica</span>
+              <span>Agendar Nova Parada Técnica</span>
             </button>
           )}
         </div>
