@@ -18,7 +18,7 @@ from uuid import uuid4
 import httpx
 from redis.exceptions import RedisError
 
-from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
+from src.contexts.iam.domain.authenticated_user import AuthenticatedUser
 from src.contexts.system.schemas.backup import (
     BackupHistoryItem,
     BackupHistoryResponse,

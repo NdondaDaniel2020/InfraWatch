@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
+from src.contexts.iam.domain.authenticated_user import AuthenticatedUser
 from src.contexts.inventory.database.models import DeviceModel
 from src.contexts.telemetry.database.models import MetricModel
 from src.contexts.telemetry.schemas.telemetry import (

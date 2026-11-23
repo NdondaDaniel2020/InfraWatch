@@ -1,6 +1,7 @@
 """Módulo de domínio do contexto IAM."""
 
 from src.contexts.iam.domain.aggregate import User
+from src.contexts.iam.domain.authenticated_user import AuthenticatedUser
 from src.contexts.iam.domain.commands import (
     ActivateUserCommand,
     AdminDisableMfaCommand,
@@ -30,6 +31,7 @@ __all__ = [
     "AdminDisableMfaCommand",
     "AuditAction",
     "AuditResult",
+    "AuthenticatedUser",
     "ChangePasswordCommand",
     "ChangeUserRoleCommand",
     "DeactivateUserCommand",

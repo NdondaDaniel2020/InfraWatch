@@ -14,7 +14,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
-    from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
+    from src.contexts.iam.domain.authenticated_user import AuthenticatedUser
 
 from src.contexts.iam.domain.enums import UserRole
 

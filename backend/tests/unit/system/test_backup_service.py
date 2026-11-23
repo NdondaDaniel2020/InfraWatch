@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.contexts.iam.api.dependencies.auth import AuthenticatedUser
+from src.contexts.iam.domain.authenticated_user import AuthenticatedUser
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.system.services.backup_service import BackupService, _format_size
 
