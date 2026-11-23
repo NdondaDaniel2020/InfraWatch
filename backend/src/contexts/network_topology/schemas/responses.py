@@ -161,3 +161,16 @@ class ProbeDispatchResponse(BaseModel):
     ip_address: str
     sse_channel: str
     message: str
+
+
+class AvailableTopologyDeviceResponse(BaseModel):
+    """Dispositivo do inventário disponível para adição ao grafo de topologia."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    category: str
+    ip_address: str
+    status: str
+    is_in_topology: bool

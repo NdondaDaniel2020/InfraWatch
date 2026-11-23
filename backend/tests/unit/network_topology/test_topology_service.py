@@ -280,3 +280,71 @@ async def test_get_graph_enriches_device_and_telemetry(service, mock_repo, mock_
     assert enrichments[dev_id]["vendor"] == "Ubiquiti"
     assert enrichments[dev_id]["latency_ms"] == 12.5
     assert enrichments[dev_id]["packet_loss"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_update_edge(service, mock_repo):
+    org_id = uuid4()
+    edge_id = uuid4()
+    from src.contexts.network_topology.domain.models import TopologyEdge
+    edge = TopologyEdge(
+        id=edge_id,
+        source_node_id=uuid4(),
+        target_node_id=uuid4(),
+        organization_id=org_id,
+        link_type="ethernet",
+        bandwidth_gbps=1.0,
+    )
+    mock_repo.get_edge.return_value = edge
+
+    updated = await service.update_edge(
+        edge_id=edge_id,
+        organization_id=org_id,
+        link_type="fiber",
+        bandwidth_gbps=100.0,
+        port_src="ge-0/0/1",
+        port_dst="ge-0/0/2",
+    )
+    assert updated.link_type == "fiber"
+    assert updated.bandwidth_gbps == 100.0
+    assert updated.port_src == "ge-0/0/1"
+    assert updated.port_dst == "ge-0/0/2"
+
+
+@pytest.mark.asyncio
+async def test_get_available_devices(service, mock_repo, mock_device_repo):
+    org_id = uuid4()
+    dev1_id = uuid4()
+    dev2_id = uuid4()
+
+    mock_dev1 = MagicMock()
+    mock_dev1.id = dev1_id
+    mock_dev1.name = "Switch-01"
+    mock_dev1.category = "SWITCH"
+    mock_dev1.ip_address = "10.0.0.1"
+    mock_dev1.status = "UP"
+
+    mock_dev2 = MagicMock()
+    mock_dev2.id = dev2_id
+    mock_dev2.name = "Firewall-01"
+    mock_dev2.category = "FIREWALL"
+    mock_dev2.ip_address = "10.0.0.2"
+    mock_dev2.status = "UP"
+
+    mock_device_repo.find_by_organization = AsyncMock(return_value=[mock_dev1, mock_dev2])
+
+    node = TopologyNode(
+        id=uuid4(),
+        label="Switch-01",
+        node_type="switch",
+        organization_id=org_id,
+        device_id=dev1_id,
+    )
+    mock_repo.get_graph.return_value = TopologyGraph(nodes=[node], edges=[])
+
+    result = await service.get_available_devices(org_id)
+    assert len(result) == 2
+    assert result[0]["id"] == dev1_id
+    assert result[0]["is_in_topology"] is True
+    assert result[1]["id"] == dev2_id
+    assert result[1]["is_in_topology"] is False

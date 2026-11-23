@@ -14,6 +14,13 @@ vi.mock("../src/services/topologyApi", () => ({
     getTopologyGraph: vi.fn(),
     runPingTrace: vi.fn(),
     isolateNode: vi.fn(),
+    getAvailableDevices: vi.fn(),
+    createNode: vi.fn(),
+    updateNodePosition: vi.fn(),
+    deleteNode: vi.fn(),
+    createEdge: vi.fn(),
+    updateEdge: vi.fn(),
+    deleteEdge: vi.fn(),
   },
 }));
 
@@ -89,6 +96,49 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
     (topologyApi.isolateNode as any).mockResolvedValue({
       success: true,
       message: "Nó RT-BRANCH-BENGUELA isolado da rota de trânsito OSPF/BGP com sucesso.",
+    });
+    (topologyApi.getAvailableDevices as any).mockResolvedValue([
+      {
+        id: "dev-avail-1",
+        name: "SW-ACCESS-01",
+        category: "SWITCH",
+        ip_address: "10.0.1.50",
+        status: "UP",
+        is_in_topology: false,
+      },
+      {
+        id: "dev-avail-2",
+        name: "SW-CORE-LUANDA-01",
+        category: "SWITCH",
+        ip_address: "10.0.1.10",
+        status: "UP",
+        is_in_topology: true,
+      },
+    ]);
+    (topologyApi.createNode as any).mockResolvedValue({
+      id: "node-new-1",
+      label: "RT-NEW-EDGE",
+      node_type: "router",
+      organization_id: "org-unitel",
+    });
+    (topologyApi.deleteNode as any).mockResolvedValue(undefined);
+    (topologyApi.createEdge as any).mockResolvedValue({
+      id: "edge-new-1",
+      source_node_id: "node-1",
+      target_node_id: "node-2",
+      link_type: "fiber",
+      bandwidth_gbps: 10,
+    });
+    (topologyApi.updateEdge as any).mockResolvedValue({
+      id: "edge-1",
+      link_type: "fiber",
+      bandwidth_gbps: 40,
+    });
+    (topologyApi.deleteEdge as any).mockResolvedValue(undefined);
+    (topologyApi.updateNodePosition as any).mockResolvedValue({
+      id: "node-1",
+      position_x: 300,
+      position_y: 400,
     });
   });
 
@@ -247,6 +297,83 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
 
     await waitFor(() => {
       expect(topologyApi.getTopologyGraph).toHaveBeenCalledWith("org-banco-sol");
+    });
+  });
+
+  it("deve alternar entre Modo Monitoramento e Modo Edição exibindo banner e botão de adicionar nó", async () => {
+    renderWithProviders(<TopologyMapPage />);
+
+    // Por padrão está no modo monitoramento
+    const editBtn = screen.getByTestId("topology-edit-mode-btn");
+    expect(editBtn).toHaveTextContent("Editar Topologia");
+    expect(screen.queryByTestId("topology-add-node-btn")).not.toBeInTheDocument();
+
+    // Ativa Modo Edição
+    fireEvent.click(editBtn);
+
+    expect(screen.getByTestId("topology-edit-mode-btn")).toHaveTextContent("Modo Edição");
+    expect(screen.getByTestId("topology-add-node-btn")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Modo Edição Ativo: Arraste nós para reposicionar/i)
+    ).toBeInTheDocument();
+
+    // Desativa Modo Edição
+    fireEvent.click(editBtn);
+    expect(screen.queryByTestId("topology-add-node-btn")).not.toBeInTheDocument();
+  });
+
+  it("deve abrir AddNodeModal e cadastrar nó customizado na organização", async () => {
+    renderWithProviders(<TopologyMapPage />);
+
+    // Aguarda carregar as organizações
+    await waitFor(() => {
+      expect(screen.getByTestId("topology-org-select")).toBeInTheDocument();
+    });
+
+    // Ativa Modo Edição
+    fireEvent.click(screen.getByTestId("topology-edit-mode-btn"));
+
+    // Clica em Adicionar Nó
+    fireEvent.click(screen.getByTestId("topology-add-node-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("add-node-modal")).toBeInTheDocument();
+    });
+
+    // Alterna para tab customizado
+    fireEvent.click(screen.getByText("Nó Externo / Lógico"));
+
+    const inputLabel = screen.getByPlaceholderText(/Ex: RT-EDGE-02 ou AWS-DIRECT-CONNECT/i);
+    fireEvent.change(inputLabel, { target: { value: "ROUTER-CUSTOM-01" } });
+
+    const btnSubmit = screen.getByRole("button", { name: "Criar Nó" });
+    fireEvent.click(btnSubmit);
+
+    await waitFor(() => {
+      expect(topologyApi.createNode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          label: "ROUTER-CUSTOM-01",
+          node_type: "router",
+        }),
+        "org-unitel"
+      );
+    });
+  });
+
+  it("deve permitir remover nó pelo drawer no Modo Edição", async () => {
+    renderWithProviders(<TopologyMapPage />);
+
+    // Ativa Modo Edição
+    fireEvent.click(screen.getByTestId("topology-edit-mode-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("drawer-delete-node-btn")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("drawer-delete-node-btn"));
+
+    await waitFor(() => {
+      expect(topologyApi.deleteNode).toHaveBeenCalled();
     });
   });
 });

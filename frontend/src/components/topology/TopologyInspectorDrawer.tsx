@@ -12,6 +12,7 @@ import {
   BellOff,
   AlertTriangle,
   RadioTower,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TopologyDeviceData } from "../../types/topology";
@@ -23,6 +24,8 @@ interface TopologyInspectorDrawerProps {
   onClose: () => void;
   onRunPingTrace: (deviceId: string) => void;
   onIsolateNode: (deviceId: string) => void;
+  isEditMode?: boolean;
+  onDeleteNode?: (deviceId: string) => void;
 }
 
 export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = ({
@@ -31,6 +34,8 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
   onClose,
   onRunPingTrace,
   onIsolateNode,
+  isEditMode = false,
+  onDeleteNode,
 }) => {
   const [selectedPortId, setSelectedPortId] = useState<number>(1);
   const [alertsPaused, setAlertsPaused] = useState(false);
@@ -346,6 +351,17 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
             <span>Incidentes</span>
           </Link>
         </div>
+        {isEditMode && onDeleteNode && (
+          <button
+            type="button"
+            data-testid="drawer-delete-node-btn"
+            onClick={() => onDeleteNode(device.id)}
+            className="w-full py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-mono text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <Trash2 size={14} />
+            <span>Remover Nó da Topologia</span>
+          </button>
+        )}
       </footer>
     </aside>
   );

@@ -1,10 +1,14 @@
 import { apiClient } from "./apiClient";
 import {
+  AvailableTopologyDevice,
+  CreateTopologyEdgePayload,
+  CreateTopologyNodePayload,
   TopologyDeviceCategory,
   TopologyDeviceData,
   TopologyEdgeData,
   TopologyGraphResponse,
   TopologyHealthStatus,
+  UpdateTopologyEdgePayload,
 } from "../types/topology";
 
 export interface BackendTopologyNode {
@@ -119,6 +123,10 @@ export const topologyApi = {
         source: e.source_node_id,
         target: e.target_node_id,
         bandwidth,
+        linkType: e.link_type,
+        bandwidthGbps: e.bandwidth_gbps ?? undefined,
+        portSrc: e.port_src ?? undefined,
+        portDst: e.port_dst ?? undefined,
         status: "unknown",
         statusText: [e.link_type, bandwidth].filter(Boolean).join(" • ") || undefined,
       };
@@ -167,5 +175,78 @@ export const topologyApi = {
       `/api/v1/topology/nodes/${nodeId}/isolate`,
       {}
     );
+  },
+
+  /**
+   * Lista dispositivos do inventário da organização indicando se já estão na topologia.
+   */
+  getAvailableDevices: async (organizationId?: string | null): Promise<AvailableTopologyDevice[]> => {
+    const params = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+    return apiClient.get<AvailableTopologyDevice[]>(`/api/v1/topology/available-devices${params}`);
+  },
+
+  /**
+   * Cria um novo nó na topologia da organização.
+   */
+  createNode: async (
+    payload: CreateTopologyNodePayload,
+    organizationId?: string | null
+  ): Promise<BackendTopologyNode> => {
+    const params = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+    return apiClient.post<BackendTopologyNode>(`/api/v1/topology/nodes${params}`, payload);
+  },
+
+  /**
+   * Atualiza as coordenadas visuais (x, y) de um nó no canvas.
+   */
+  updateNodePosition: async (
+    nodeId: string,
+    position: { position_x: number; position_y: number },
+    organizationId?: string | null
+  ): Promise<BackendTopologyNode> => {
+    const params = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+    return apiClient.patch<BackendTopologyNode>(
+      `/api/v1/topology/nodes/${nodeId}/position${params}`,
+      position
+    );
+  },
+
+  /**
+   * Remove um nó da topologia e seus enlaces conectados.
+   */
+  deleteNode: async (nodeId: string, organizationId?: string | null): Promise<void> => {
+    const params = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+    return apiClient.delete<void>(`/api/v1/topology/nodes/${nodeId}${params}`);
+  },
+
+  /**
+   * Cria um enlace entre dois nós na topologia da organização.
+   */
+  createEdge: async (
+    payload: CreateTopologyEdgePayload,
+    organizationId?: string | null
+  ): Promise<BackendTopologyEdge> => {
+    const params = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+    return apiClient.post<BackendTopologyEdge>(`/api/v1/topology/edges${params}`, payload);
+  },
+
+  /**
+   * Atualiza os atributos (tipo, largura de banda, portas) de um enlace.
+   */
+  updateEdge: async (
+    edgeId: string,
+    payload: UpdateTopologyEdgePayload,
+    organizationId?: string | null
+  ): Promise<BackendTopologyEdge> => {
+    const params = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+    return apiClient.patch<BackendTopologyEdge>(`/api/v1/topology/edges/${edgeId}${params}`, payload);
+  },
+
+  /**
+   * Remove um enlace entre dois nós.
+   */
+  deleteEdge: async (edgeId: string, organizationId?: string | null): Promise<void> => {
+    const params = organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : "";
+    return apiClient.delete<void>(`/api/v1/topology/edges/${edgeId}${params}`);
   },
 };

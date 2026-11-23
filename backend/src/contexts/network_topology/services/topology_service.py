@@ -254,6 +254,51 @@ class TopologyService:
         await self._commit()
         logger.info("Enlace topológico removido: %s na organização %s", edge_id, organization_id)
 
+    async def update_edge(
+        self,
+        edge_id: UUID,
+        organization_id: UUID,
+        link_type: str | None = None,
+        bandwidth_gbps: float | None = None,
+        port_src: str | None = None,
+        port_dst: str | None = None,
+    ) -> TopologyEdge:
+        """Atualiza propriedades de um enlace existente."""
+        edge = await self._repo.get_edge(edge_id, organization_id)
+        if not edge:
+            raise EdgeNotFoundError(edge_id)
+
+        edge.update(
+            link_type=link_type,
+            bandwidth_gbps=bandwidth_gbps,
+            port_src=port_src,
+            port_dst=port_dst,
+        )
+        saved = await self._repo.save_edge(edge)
+        await self._commit()
+        logger.info("Enlace topológico atualizado: %s na organização %s", edge_id, organization_id)
+        return saved
+
+    async def get_available_devices(
+        self, organization_id: UUID
+    ) -> list[dict[str, Any]]:
+        """Lista dispositivos do inventário da organização marcando se já estão na topologia."""
+        devices = await self._device_repo.find_by_organization(organization_id)
+        graph = await self._repo.get_graph(organization_id)
+        node_device_ids = {n.device_id for n in graph.nodes if n.device_id is not None}
+
+        result: list[dict[str, Any]] = []
+        for dev in devices:
+            result.append({
+                "id": dev.id,
+                "name": dev.name,
+                "category": dev.category,
+                "ip_address": dev.ip_address,
+                "status": dev.status,
+                "is_in_topology": dev.id in node_device_ids,
+            })
+        return result
+
     # ------------------------------------------------------------------
     # Ping On-Demand via Redis Streams
     # ------------------------------------------------------------------

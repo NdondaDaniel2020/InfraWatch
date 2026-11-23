@@ -74,7 +74,12 @@ export const TopologyEdge = memo(
               className="nodrag nopan z-20"
             >
               <div
-                className={`px-2 py-0.5 rounded shadow text-[10px] font-mono tabular-nums flex items-center gap-1.5 backdrop-blur-sm border ${
+                onClick={() => {
+                  (edgeData as any)?.onEdgeClick?.(id, edgeData);
+                }}
+                className={`px-2 py-0.5 rounded shadow text-[10px] font-mono tabular-nums flex items-center gap-1.5 backdrop-blur-sm border transition-colors ${
+                  (edgeData as any)?.isEditMode ? "cursor-pointer hover:border-amber-400 hover:bg-amber-950/40" : ""
+                } ${
                   isBroken
                     ? "bg-obsidian-950/95 border-rose-500/60 text-rose-400 font-bold"
                     : isDegraded

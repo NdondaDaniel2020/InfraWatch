@@ -32,6 +32,7 @@ from src.contexts.network_topology.domain.models import (
     TopologyDomainError,
 )
 from src.contexts.network_topology.schemas import (
+    AvailableTopologyDeviceResponse,
     CreateTopologyEdgeRequest,
     CreateTopologyNodeRequest,
     IsolateNodeResponse,
@@ -40,6 +41,7 @@ from src.contexts.network_topology.schemas import (
     TopologyGraphResponse,
     TopologyNodeResponse,
     TriggerOnDemandProbeRequest,
+    UpdateTopologyEdgeRequest,
     UpdateTopologyNodePositionRequest,
 )
 
@@ -104,6 +106,23 @@ async def get_topology_graph(
     org_id = await _resolve_tenant_org(user, organization_id, service)
     graph, device_statuses = await service.get_graph(org_id)
     return TopologyGraphResponse.from_domain(graph, device_statuses=device_statuses)
+
+
+@router.get(
+    "/available-devices",
+    response_model=list[AvailableTopologyDeviceResponse],
+    summary="Listar dispositivos do inventário para topologia",
+    dependencies=[Depends(require_roles(*READ_ROLES))],
+)
+async def get_available_devices(
+    user: CurrentUserDep,
+    service: TopologyServiceDep,
+    organization_id: Annotated[UUID | None, Query(description="Filtrar por organização")] = None,
+) -> list[AvailableTopologyDeviceResponse]:
+    """Lista os ativos do inventário do tenant indicando se já estão presentes no grafo."""
+    org_id = await _resolve_tenant_org(user, organization_id, service)
+    raw_devices = await service.get_available_devices(org_id)
+    return [AvailableTopologyDeviceResponse.model_validate(d) for d in raw_devices]
 
 
 # ---------------------------------------------------------------------------
@@ -246,6 +265,37 @@ async def delete_edge(
         await service.delete_edge(edge_id, org_id)
     except EdgeNotFoundError as err:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+
+
+@router.patch(
+    "/edges/{edge_id}",
+    response_model=TopologyEdgeResponse,
+    summary="Atualizar enlace",
+    dependencies=[Depends(require_roles(*OPERATOR_ROLES))],
+)
+async def update_edge(
+    edge_id: UUID,
+    payload: UpdateTopologyEdgeRequest,
+    user: CurrentUserDep,
+    service: TopologyServiceDep,
+    organization_id: Annotated[UUID | None, Query(description="Organização do enlace")] = None,
+) -> TopologyEdgeResponse:
+    """Atualiza propriedades como link_type, bandwidth e portas de um enlace."""
+    org_id = await _resolve_tenant_org(user, organization_id, service)
+    try:
+        edge = await service.update_edge(
+            edge_id=edge_id,
+            organization_id=org_id,
+            link_type=payload.link_type,
+            bandwidth_gbps=payload.bandwidth_gbps,
+            port_src=payload.port_src,
+            port_dst=payload.port_dst,
+        )
+        return TopologyEdgeResponse.from_domain(edge)
+    except EdgeNotFoundError as err:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+    except TopologyDomainError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
 
 
 # ---------------------------------------------------------------------------

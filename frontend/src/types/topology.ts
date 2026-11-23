@@ -69,9 +69,48 @@ export interface TopologyEdgeData {
   target: string;
   latencyMs?: number;
   bandwidth?: string;
+  linkType?: string;
+  bandwidthGbps?: number;
+  portSrc?: string;
+  portDst?: string;
   status?: "healthy" | "degraded" | "broken" | "unknown";
   statusText?: string;
   trafficLabel?: string;
+}
+
+export interface AvailableTopologyDevice {
+  id: string;
+  name: string;
+  category: string;
+  ip_address: string;
+  status: string;
+  is_in_topology: boolean;
+}
+
+export interface CreateTopologyNodePayload {
+  label: string;
+  node_type?: string;
+  device_id?: string | null;
+  ip_address?: string | null;
+  cluster?: string | null;
+  position_x?: number | null;
+  position_y?: number | null;
+}
+
+export interface CreateTopologyEdgePayload {
+  source_node_id: string;
+  target_node_id: string;
+  link_type?: string;
+  bandwidth_gbps?: number | null;
+  port_src?: string | null;
+  port_dst?: string | null;
+}
+
+export interface UpdateTopologyEdgePayload {
+  link_type?: string;
+  bandwidth_gbps?: number | null;
+  port_src?: string | null;
+  port_dst?: string | null;
 }
 
 export interface TopologyGraphResponse {

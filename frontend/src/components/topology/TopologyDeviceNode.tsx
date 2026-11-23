@@ -8,12 +8,15 @@ import {
   Server,
   Layers,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { TopologyDeviceData } from "../../types/topology";
 
 export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
   const device = data as unknown as TopologyDeviceData;
   const onNodeSelect = (data as any)?.onSelect;
+  const isEditMode = Boolean((data as any)?.isEditMode);
+  const onDeleteNode = (data as any)?.onDeleteNode;
 
   const getBorderAndBgStyles = () => {
     if (selected) {
@@ -93,24 +96,40 @@ export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
       <Handle
         type="target"
         position={Position.Top}
-        className="w-2.5 h-2.5 !bg-obsidian-800 !border-2 !border-emerald-400"
+        className={`${
+          isEditMode
+            ? "!w-3.5 !h-3.5 !bg-emerald-400 !border-2 !border-obsidian-950 hover:!scale-125"
+            : "w-2.5 h-2.5 !bg-obsidian-800 !border-2 !border-emerald-400"
+        }`}
       />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-2.5 h-2.5 !bg-obsidian-800 !border-2 !border-emerald-400"
+        className={`${
+          isEditMode
+            ? "!w-3.5 !h-3.5 !bg-emerald-400 !border-2 !border-obsidian-950 hover:!scale-125"
+            : "w-2.5 h-2.5 !bg-obsidian-800 !border-2 !border-emerald-400"
+        }`}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="right"
-        className="w-2 h-2 !bg-obsidian-800 !border !border-emerald-400"
+        className={`${
+          isEditMode
+            ? "!w-3.5 !h-3.5 !bg-emerald-400 !border-2 !border-obsidian-950 hover:!scale-125"
+            : "w-2 h-2 !bg-obsidian-800 !border !border-emerald-400"
+        }`}
       />
       <Handle
         type="target"
         position={Position.Left}
         id="left"
-        className="w-2 h-2 !bg-obsidian-800 !border !border-emerald-400"
+        className={`${
+          isEditMode
+            ? "!w-3.5 !h-3.5 !bg-emerald-400 !border-2 !border-obsidian-950 hover:!scale-125"
+            : "w-2 h-2 !bg-obsidian-800 !border !border-emerald-400"
+        }`}
       />
 
       {/* Header do Card */}
@@ -131,7 +150,22 @@ export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
             {device.label}
           </span>
         </div>
-        {getStatusBadge()}
+        <div className="flex items-center gap-1">
+          {isEditMode && selected && onDeleteNode && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteNode(device.id || id);
+              }}
+              title="Remover este nó da topologia"
+              className="p-1 rounded bg-rose-500/20 text-rose-400 hover:bg-rose-500/40 hover:text-rose-200 transition-colors"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
+          {getStatusBadge()}
+        </div>
       </div>
 
       {/* Métricas e Detalhes Vitais */}

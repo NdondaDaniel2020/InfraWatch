@@ -328,3 +328,103 @@ async def test_isolate_node_route(
         assert data["node_id"] == str(node_id)
 
     app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_update_edge_route(
+    in_memory_db: async_sessionmaker[AsyncSession],
+    super_admin_user: AuthenticatedUser,
+    test_org_id: UUID,
+):
+    """Operador atualiza propriedades de um enlace via PATCH /api/v1/topology/edges/{id}."""
+    app = create_app()
+
+    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+        async with in_memory_db() as session:
+            yield session
+
+    def override_get_current_user() -> AuthenticatedUser:
+        return super_admin_user
+
+    app.dependency_overrides[get_db_session] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        # Cria dois nós
+        n1 = await client.post(
+            "/api/v1/topology/nodes",
+            params={"organization_id": str(test_org_id)},
+            json={"label": "NODE-1", "node_type": "device"},
+        )
+        n2 = await client.post(
+            "/api/v1/topology/nodes",
+            params={"organization_id": str(test_org_id)},
+            json={"label": "NODE-2", "node_type": "device"},
+        )
+        n1_id = n1.json()["id"]
+        n2_id = n2.json()["id"]
+
+        # Cria enlace
+        edge_res = await client.post(
+            "/api/v1/topology/edges",
+            params={"organization_id": str(test_org_id)},
+            json={
+                "source_node_id": n1_id,
+                "target_node_id": n2_id,
+                "link_type": "ethernet",
+                "bandwidth_gbps": 1.0,
+            },
+        )
+        edge_id = edge_res.json()["id"]
+
+        # Atualiza enlace
+        patch_res = await client.patch(
+            f"/api/v1/topology/edges/{edge_id}",
+            params={"organization_id": str(test_org_id)},
+            json={
+                "link_type": "fiber",
+                "bandwidth_gbps": 40.0,
+                "port_src": "Te1/0/1",
+                "port_dst": "Te1/0/2",
+            },
+        )
+        assert patch_res.status_code == status.HTTP_200_OK
+        data = patch_res.json()
+        assert data["link_type"] == "fiber"
+        assert data["bandwidth_gbps"] == 40.0
+        assert data["port_src"] == "Te1/0/1"
+        assert data["port_dst"] == "Te1/0/2"
+
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_get_available_devices_route(
+    in_memory_db: async_sessionmaker[AsyncSession],
+    super_admin_user: AuthenticatedUser,
+    test_org_id: UUID,
+):
+    """Consulta GET /api/v1/topology/available-devices retorna lista de dispositivos."""
+    app = create_app()
+
+    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+        async with in_memory_db() as session:
+            yield session
+
+    def override_get_current_user() -> AuthenticatedUser:
+        return super_admin_user
+
+    app.dependency_overrides[get_db_session] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get(
+            "/api/v1/topology/available-devices",
+            params={"organization_id": str(test_org_id)},
+        )
+        assert res.status_code == status.HTTP_200_OK
+        assert isinstance(res.json(), list)
+
+    app.dependency_overrides.clear()

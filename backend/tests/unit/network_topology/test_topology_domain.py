@@ -162,3 +162,27 @@ def test_topology_semantic_exceptions():
     dst_id = uuid4()
     err_exists = EdgeAlreadyExistsError(src_id, dst_id)
     assert str(src_id) in str(err_exists)
+
+
+def test_topology_edge_update():
+    src_id = uuid4()
+    dst_id = uuid4()
+    edge = TopologyEdge(
+        id=uuid4(),
+        source_node_id=src_id,
+        target_node_id=dst_id,
+        organization_id=uuid4(),
+        link_type="ethernet",
+        bandwidth_gbps=1.0,
+    )
+    edge.update(link_type="fiber", bandwidth_gbps=10.0, port_src="eth0", port_dst="eth1")
+    assert edge.link_type == "fiber"
+    assert edge.bandwidth_gbps == 10.0
+    assert edge.port_src == "eth0"
+    assert edge.port_dst == "eth1"
+
+    with pytest.raises(InvalidLinkTypeError):
+        edge.update(link_type="invalid_type")
+
+    with pytest.raises(TopologyDomainError, match="bandwidth_gbps deve ser positivo"):
+        edge.update(bandwidth_gbps=0)

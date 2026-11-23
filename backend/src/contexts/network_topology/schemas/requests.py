@@ -61,6 +61,26 @@ class CreateTopologyEdgeRequest(BaseModel):
     )
 
 
+class UpdateTopologyEdgeRequest(BaseModel):
+    """Payload para atualização de enlace existente."""
+
+    model_config = ConfigDict(frozen=True)
+
+    link_type: str | None = Field(
+        default=None,
+        description="Tipo de enlace: 'fiber' | 'ethernet' | 'vpn' | 'logical' | 'wireless'",
+    )
+    bandwidth_gbps: float | None = Field(
+        default=None, gt=0, description="Largura de banda nominal em Gbps"
+    )
+    port_src: str | None = Field(
+        default=None, max_length=50, description="Identificador da porta de origem"
+    )
+    port_dst: str | None = Field(
+        default=None, max_length=50, description="Identificador da porta de destino"
+    )
+
+
 class TriggerOnDemandProbeRequest(BaseModel):
     """Parâmetros opcionais para o disparo de sonda sob demanda."""
 
