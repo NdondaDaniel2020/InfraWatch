@@ -212,13 +212,28 @@ export const deviceDetailApi = {
 
   async triggerManualProbe(id: string): Promise<ManualProbeResult> {
     const res = await apiClient.post<any>(`${BASE_PATH}/${id}/probe`, {});
+    const zbxRaw = res?.zabbixStatus || res?.zabbix_status;
     return {
       success: res?.success ?? true,
       rttMs: res?.rttMs ?? res?.rtt_ms ?? 0,
       packetLossPct: res?.packetLossPct ?? res?.packet_loss_pct ?? 0,
       packetsSent: res?.packetsSent ?? res?.packets_sent ?? 5,
-      packetsReceived: res?.packetsReceived ?? res?.packets_received ?? 5,
+      packetsReceived: res?.packetsReceived ?? res?.packets_received ?? (res?.success ? 5 : 0),
       timestamp: res?.timestamp ?? new Date().toISOString(),
+      status: res?.status || (res?.success ? "UP" : "DOWN"),
+      message: res?.message,
+      protocol: res?.protocol || "ICMP",
+      targetIp: res?.targetIp || res?.target_ip,
+      zabbixStatus: zbxRaw
+        ? {
+            hostId: zbxRaw.hostId || zbxRaw.host_id,
+            hostName: zbxRaw.hostName || zbxRaw.host_name,
+            status: zbxRaw.status,
+            snmpAvailable: zbxRaw.snmpAvailable ?? zbxRaw.snmp_available,
+            agentAvailable: zbxRaw.agentAvailable ?? zbxRaw.agent_available,
+            message: zbxRaw.message,
+          }
+        : null,
     };
   },
 

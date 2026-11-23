@@ -76,6 +76,15 @@ export interface DeviceIncidentSummary {
   createdAt: string;
 }
 
+export interface ZabbixProbeStatus {
+  hostId: string;
+  hostName?: string;
+  status: "UP" | "DOWN" | "UNKNOWN" | "ERROR";
+  snmpAvailable?: boolean;
+  agentAvailable?: boolean;
+  message?: string;
+}
+
 export interface ManualProbeResult {
   success: boolean;
   rttMs: number;
@@ -83,6 +92,11 @@ export interface ManualProbeResult {
   packetsSent: number;
   packetsReceived: number;
   timestamp: string;
+  status?: string;
+  message?: string;
+  protocol?: string;
+  targetIp?: string;
+  zabbixStatus?: ZabbixProbeStatus | null;
 }
 
 export interface DeviceSyntheticProbe {

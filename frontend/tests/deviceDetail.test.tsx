@@ -251,6 +251,47 @@ describe("DeviceDetailPage — Cockpit 360° do Dispositivo (Issue #244)", () =>
       });
     });
 
+    it("deve exibir card de diagnóstico detalhado com latência e status após probe e permitir fechá-lo", async () => {
+      const user = userEvent.setup();
+      (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(mockDevice);
+      (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue(mockMetrics);
+      (deviceDetailApi.triggerManualProbe as Mock).mockResolvedValue({
+        ...mockManualProbeResult,
+        status: "UP",
+        message: "Sonda concluída com status UP",
+        protocol: "ICMP",
+        targetIp: "10.0.1.1",
+        zabbixStatus: {
+          hostId: "10084",
+          status: "UP",
+          snmpAvailable: true,
+          agentAvailable: false,
+          message: "Host verificado no Zabbix Server",
+        },
+      });
+
+      renderWithProviders(<DeviceDetailPage />);
+
+      await waitFor(() => expect(screen.getAllByText("SW-CORE-LUANDA-01").length).toBeGreaterThanOrEqual(1));
+
+      const probeButton = screen.getByRole("button", { name: /disparar ping \/ icmp/i });
+      await user.click(probeButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("device-diagnostic-card")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("Diagnóstico de Conectividade In-Process")).toBeInTheDocument();
+      expect(screen.getByText("Zabbix Server (SNMP / Agent Telemetry & JSON-RPC)")).toBeInTheDocument();
+
+      const closeButton = screen.getByRole("button", { name: /fechar diagnóstico/i });
+      await user.click(closeButton);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("device-diagnostic-card")).not.toBeInTheDocument();
+      });
+    });
+
     it("deve navegar para edição do ativo", async () => {
       (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(mockDevice);
       (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue(mockMetrics);

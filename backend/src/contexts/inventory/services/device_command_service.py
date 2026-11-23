@@ -420,6 +420,46 @@ class DeviceCommandService:
 
         success = result.status in ("UP", "DEGRADED")
         now_iso = datetime.now(timezone.utc).isoformat()
+
+        zabbix_status = None
+        thresholds = device.thresholds or {}
+        zh_id = thresholds.get("zabbix_host_id") or thresholds.get("hostid")
+        if zh_id:
+            try:
+                from src.contexts.system.services.dynamic_settings_provider import DynamicSettingsProvider
+                from src.integrations.zabbix.client import ZabbixClient
+
+                dyn_provider = DynamicSettingsProvider(self.session)
+                zabbix_cfg = await dyn_provider.get_zabbix_config()
+                if zabbix_cfg.get("enabled", False) and zabbix_cfg.get("api_url"):
+                    async with ZabbixClient(
+                        api_url=zabbix_cfg["api_url"],
+                        api_token=zabbix_cfg.get("api_token"),
+                        username=zabbix_cfg.get("user") or "Admin",
+                        password=zabbix_cfg.get("password") or "zabbix",
+                        timeout=2.0,
+                    ) as zbx:
+                        hosts = await zbx.get_hosts(hostids=[str(zh_id)])
+                        if hosts:
+                            h = hosts[0]
+                            snmp_avail = str(h.get("snmp_available", "0"))
+                            agent_avail = str(h.get("available", "0"))
+                            is_avail = snmp_avail == "1" or agent_avail == "1"
+                            zabbix_status = {
+                                "host_id": str(zh_id),
+                                "host_name": h.get("name") or h.get("host"),
+                                "status": "UP" if is_avail else "DOWN",
+                                "snmp_available": snmp_avail == "1",
+                                "agent_available": agent_avail == "1",
+                                "message": "Host verificado no Zabbix Server (SNMP / Agent Telemetry)." if is_avail else "Host inalcançável no Zabbix Server.",
+                            }
+            except Exception as exc:
+                zabbix_status = {
+                    "host_id": str(zh_id),
+                    "status": "UNKNOWN",
+                    "message": f"Diagnóstico Zabbix indisponível: {exc!s}",
+                }
+
         return DeviceManualProbeResult(
             success=success,
             rtt_ms=round(result.latency_ms, 2),
@@ -429,4 +469,7 @@ class DeviceCommandService:
             timestamp=now_iso,
             status=result.status,
             message=f"Sonda concluída com status {result.status}" if success else (result.error_message or "Falha na sondagem"),
+            protocol=device.protocol.upper(),
+            target_ip=device.ip_address,
+            zabbix_status=zabbix_status,
         )

@@ -104,6 +104,9 @@ class DeviceManualProbeResult(BaseModel):
     timestamp: str
     status: str
     message: str
+    protocol: str = "ICMP"
+    target_ip: str | None = None
+    zabbix_status: dict[str, Any] | None = None
 
 
 class DeviceMetricBucket(BaseModel):

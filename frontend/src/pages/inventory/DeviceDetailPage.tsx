@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { DeviceHeroHeader } from "../../components/device/DeviceHeroHeader";
+import { DeviceDiagnosticCard } from "../../components/device/DeviceDiagnosticCard";
 import { DeviceMetricsTimescaleChart } from "../../components/device/DeviceMetricsTimescaleChart";
 import { DeviceInterfacesTable } from "../../components/device/DeviceInterfacesTable";
 import { DeviceFormModal } from "../../components/inventory/DeviceFormModal";
@@ -21,7 +22,7 @@ import { deviceDetailApi } from "../../services/deviceDetailApi";
 import { devicesApi } from "../../services/devicesApi";
 import { slaApi } from "../../services/slaApi";
 import { incidentsApi } from "../../services/incidentsApi";
-import type { TimescalePeriod, DeviceDetail } from "../../types/deviceDetail";
+import type { TimescalePeriod, DeviceDetail, ManualProbeResult } from "../../types/deviceDetail";
 import type { CreateDeviceRequest, ProberProtocol, DeviceCategory } from "../../types/inventory";
 import { toast } from "sonner";
 
@@ -80,6 +81,7 @@ export const DeviceDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [period, setPeriod] = useState<TimescalePeriod>("24h");
   const [isProbing, setIsProbing] = useState(false);
+  const [diagnosticResult, setDiagnosticResult] = useState<ManualProbeResult | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(location.pathname.endsWith("/edit"));
 
   useEffect(() => {
@@ -131,6 +133,7 @@ export const DeviceDetailPage: React.FC = () => {
     mutationFn: () => deviceDetailApi.triggerManualProbe(id!),
     onSuccess: (result) => {
       setIsProbing(false);
+      setDiagnosticResult(result);
       if (result.success) {
         toast.success(
           `Sonda ICMP concluída: ${result.packetsReceived}/${result.packetsSent} pacotes recebidos (RTT avg: ${result.rttMs}ms, loss: ${result.packetLossPct}%)`
@@ -146,6 +149,16 @@ export const DeviceDetailPage: React.FC = () => {
     },
     onError: (error: Error) => {
       setIsProbing(false);
+      setDiagnosticResult({
+        success: false,
+        rttMs: 0,
+        packetLossPct: 100,
+        packetsSent: 5,
+        packetsReceived: 0,
+        timestamp: new Date().toISOString(),
+        status: "ERROR",
+        message: error.message || "Erro ao executar teste de diagnóstico",
+      });
       toast.error(error.message || "Erro ao disparar sonda ICMP");
     },
   });
@@ -377,6 +390,16 @@ export const DeviceDetailPage: React.FC = () => {
           isProbing={isProbing}
           onEdit={() => setIsEditModalOpen(true)}
         />
+
+        {/* PAINEL DE DIAGNÓSTICO DE CONECTIVIDADE IN-PROCESS */}
+        {diagnosticResult && (
+          <DeviceDiagnosticCard
+            result={diagnosticResult}
+            onDismiss={() => setDiagnosticResult(null)}
+            onReProbe={handleTriggerProbe}
+            isProbing={isProbing}
+          />
+        )}
 
         {/* CORPO DEPENDENTE DO ESTADO SELECIONADO */}
         {currentViewState === "skeleton" ? (
