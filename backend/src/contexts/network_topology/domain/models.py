@@ -200,6 +200,31 @@ class TopologyEdge:
                 f"bandwidth_gbps deve ser positivo, recebido: {self.bandwidth_gbps}"
             )
 
+    def update(
+        self,
+        link_type: str | None = None,
+        bandwidth_gbps: float | None = None,
+        port_src: str | None = None,
+        port_dst: str | None = None,
+    ) -> None:
+        """Atualiza atributos do enlace mantendo invariantes."""
+        if link_type is not None:
+            normalized = link_type.strip().lower()
+            if normalized not in VALID_LINK_TYPES:
+                raise InvalidLinkTypeError(link_type)
+            self.link_type = normalized
+        if bandwidth_gbps is not None:
+            if bandwidth_gbps <= 0:
+                raise TopologyDomainError(
+                    f"bandwidth_gbps deve ser positivo, recebido: {bandwidth_gbps}"
+                )
+            self.bandwidth_gbps = bandwidth_gbps
+        if port_src is not None:
+            self.port_src = port_src
+        if port_dst is not None:
+            self.port_dst = port_dst
+        self.updated_at = datetime.now(UTC)
+
 
 # ---------------------------------------------------------------------------
 # Agregado: TopologyGraph

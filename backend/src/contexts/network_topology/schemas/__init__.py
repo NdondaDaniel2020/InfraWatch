@@ -4,9 +4,11 @@ from src.contexts.network_topology.schemas.requests import (
     CreateTopologyEdgeRequest,
     CreateTopologyNodeRequest,
     TriggerOnDemandProbeRequest,
+    UpdateTopologyEdgeRequest,
     UpdateTopologyNodePositionRequest,
 )
 from src.contexts.network_topology.schemas.responses import (
+    AvailableTopologyDeviceResponse,
     IsolateNodeResponse,
     ProbeDispatchResponse,
     TopologyEdgeResponse,
@@ -15,6 +17,7 @@ from src.contexts.network_topology.schemas.responses import (
 )
 
 __all__ = [
+    "AvailableTopologyDeviceResponse",
     "CreateTopologyEdgeRequest",
     "CreateTopologyNodeRequest",
     "IsolateNodeResponse",
@@ -23,5 +26,6 @@ __all__ = [
     "TopologyGraphResponse",
     "TopologyNodeResponse",
     "TriggerOnDemandProbeRequest",
+    "UpdateTopologyEdgeRequest",
     "UpdateTopologyNodePositionRequest",
 ]

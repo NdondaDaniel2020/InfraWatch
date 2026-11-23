@@ -6,6 +6,9 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Building2,
+  Edit3,
+  Eye,
+  Plus,
 } from "lucide-react";
 
 export type TopologyStateSimulation = "nominal" | "skeleton" | "empty" | "error";
@@ -39,6 +42,10 @@ interface TopologyToolbarProps {
   isGlobalOperator?: boolean;
   userOrgName?: string | null;
   isLoadingOrganizations?: boolean;
+  canEdit?: boolean;
+  isEditMode?: boolean;
+  onToggleEditMode?: () => void;
+  onAddNodeClick?: () => void;
 }
 
 export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
@@ -57,6 +64,10 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
   isGlobalOperator = false,
   userOrgName,
   isLoadingOrganizations = false,
+  canEdit = true,
+  isEditMode = false,
+  onToggleEditMode,
+  onAddNodeClick,
 }) => {
   return (
     <header
@@ -162,6 +173,39 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = ({
             DB / API {categoryCounts ? `(${categoryCounts.workload})` : ""}
           </button>
         </div>
+
+        {/* Modo de Operação (Monitoramento vs Edição) */}
+        {canEdit && (
+          <div className="flex items-center gap-1.5">
+            {isEditMode && onAddNodeClick && (
+              <button
+                type="button"
+                data-testid="topology-add-node-btn"
+                onClick={onAddNodeClick}
+                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-obsidian-950 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-md shadow-emerald-950/40"
+                title="Adicionar Novo Nó à Topologia"
+              >
+                <Plus size={14} />
+                <span className="hidden sm:inline">Adicionar Nó</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              data-testid="topology-edit-mode-btn"
+              onClick={onToggleEditMode}
+              className={`px-2.5 py-1 rounded-lg border text-xs font-mono flex items-center gap-1.5 transition-colors ${
+                isEditMode
+                  ? "bg-amber-500/20 border-amber-500/50 text-amber-300 font-bold shadow-sm shadow-amber-950/40"
+                  : "bg-obsidian-950 hover:bg-obsidian-850 border-obsidian-800 text-slate-300 hover:text-white"
+              }`}
+              title={isEditMode ? "Sair do Modo Edição" : "Ativar Modo Edição da Topologia"}
+            >
+              {isEditMode ? <Eye size={13} className="text-amber-400" /> : <Edit3 size={13} className="text-emerald-400" />}
+              <span className="hidden sm:inline">{isEditMode ? "Modo Edição" : "Editar Topologia"}</span>
+            </button>
+          </div>
+        )}
 
         {/* Controles de Zoom & Viewport */}
         <div className="flex items-center gap-1">

@@ -11,6 +11,7 @@ import {
   Edge,
   NodeTypes,
   EdgeTypes,
+  Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
@@ -22,6 +23,8 @@ import {
   TopologyStateSimulation,
 } from "../../components/topology/TopologyToolbar";
 import { TopologyInspectorDrawer } from "../../components/topology/TopologyInspectorDrawer";
+import { AddNodeModal } from "../../components/topology/AddNodeModal";
+import { EdgeConfigModal, EdgeConfigModalData } from "../../components/topology/EdgeConfigModal";
 import { TopologyDeviceData } from "../../types/topology";
 import { topologyApi } from "../../services/topologyApi";
 import { useAuth } from "../../context/AuthContext";
@@ -97,10 +100,26 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   const [zoomLevel, setZoomLevel] = useState(1);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
+  // Estados do Editor Visual de Topologia
+  const canEdit =
+    isGlobalOperator || user?.role === "ORG_ADMIN" || user?.role === "NOC_OPERATOR";
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
+  const [edgeModalConfig, setEdgeModalConfig] = useState<{
+    isOpen: boolean;
+    mode: "create" | "edit";
+    data: EdgeConfigModalData | null;
+  }>({
+    isOpen: false,
+    mode: "create",
+    data: null,
+  });
+
   const {
     data: topologyGraph,
     isLoading,
     isError,
+    refetch,
   } = useQuery({
     queryKey: ["topologyGraph", effectiveOrgId],
     queryFn: () => topologyApi.getTopologyGraph(effectiveOrgId),
@@ -148,26 +167,123 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
       ? "empty"
       : stateSimulation;
 
+  // Ações de Gestão e Edição de Nós e Enlaces
+  const handleDeleteNode = useCallback(
+    async (nodeId: string) => {
+      try {
+        await topologyApi.deleteNode(nodeId, effectiveOrgId);
+        toast.success("Nó removido da topologia com sucesso.");
+        refetch();
+        if (selectedDeviceId === nodeId) {
+          setSelectedDeviceId(null);
+          setIsInspectorOpen(false);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao remover nó da topologia.");
+      }
+    },
+    [effectiveOrgId, refetch, selectedDeviceId]
+  );
+
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      if (!isEditMode) return;
+      if (!connection.source || !connection.target) return;
+      if (connection.source === connection.target) {
+        toast.error("Auto-conexão não é permitida em enlaces topológicos.");
+        return;
+      }
+      const srcNode = rawNodes.find((n) => n.id === connection.source);
+      const dstNode = rawNodes.find((n) => n.id === connection.target);
+      setEdgeModalConfig({
+        isOpen: true,
+        mode: "create",
+        data: {
+          source_node_id: connection.source,
+          target_node_id: connection.target,
+          source_label: srcNode?.label,
+          target_label: dstNode?.label,
+          link_type: "fiber",
+          bandwidth_gbps: 10,
+        },
+      });
+    },
+    [isEditMode, rawNodes]
+  );
+
+  const handleEdgeClick = useCallback(
+    (_: any, edge: Edge) => {
+      if (!isEditMode) return;
+      const edgeData = edge.data as any;
+      const srcNode = rawNodes.find((n) => n.id === edge.source);
+      const dstNode = rawNodes.find((n) => n.id === edge.target);
+      setEdgeModalConfig({
+        isOpen: true,
+        mode: "edit",
+        data: {
+          id: edge.id,
+          source_node_id: edge.source,
+          target_node_id: edge.target,
+          source_label: srcNode?.label,
+          target_label: dstNode?.label,
+          link_type: edgeData?.linkType || "fiber",
+          bandwidth_gbps: edgeData?.bandwidthGbps || 10,
+          port_src: edgeData?.portSrc,
+          port_dst: edgeData?.portDst,
+        },
+      });
+    },
+    [isEditMode, rawNodes]
+  );
+
+  const handleNodeDragStop = useCallback(
+    async (_: any, node: Node) => {
+      if (!effectiveOrgId) return;
+      try {
+        await topologyApi.updateNodePosition(
+          node.id,
+          {
+            position_x: Math.round(node.position.x),
+            position_y: Math.round(node.position.y),
+          },
+          effectiveOrgId
+        );
+      } catch (err) {
+        console.error("Falha ao salvar posição do nó no canvas:", err);
+      }
+    },
+    [effectiveOrgId]
+  );
+
   // Mapeia os dados dos nós para o formato do React Flow
   const initialNodes: Node[] = useMemo(() => {
     return rawNodes.map((dev) => ({
       id: dev.id,
       type: "deviceNode",
-      position: INITIAL_NODE_POSITIONS[dev.id] ||
-        INITIAL_NODE_POSITIONS[dev.label] || {
-          x: dev.positionX ?? 200,
-          y: dev.positionY ?? 200,
-        },
+      position: {
+        x:
+          dev.positionX ??
+          INITIAL_NODE_POSITIONS[dev.id]?.x ??
+          INITIAL_NODE_POSITIONS[dev.label]?.x ??
+          200,
+        y:
+          dev.positionY ??
+          INITIAL_NODE_POSITIONS[dev.id]?.y ??
+          INITIAL_NODE_POSITIONS[dev.label]?.y ??
+          200,
+      },
       data: {
         ...dev,
+        isEditMode,
         onSelect: (id: string) => {
           setSelectedDeviceId(id);
           setIsInspectorOpen(true);
         },
+        onDeleteNode: handleDeleteNode,
       } as any,
       selected: dev.id === (selectedDeviceId || rawNodes[0]?.id),
     }));
-  }, [rawNodes, selectedDeviceId]);
+  }, [rawNodes, selectedDeviceId, isEditMode, handleDeleteNode]);
 
   // Mapeia os enlaces para o formato do React Flow
   const initialEdges: Edge[] = useMemo(() => {
@@ -176,10 +292,33 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
       source: edge.source,
       target: edge.target,
       type: "topologyEdge",
-      data: edge as any,
+      data: {
+        ...edge,
+        isEditMode,
+        onEdgeClick: () => {
+          if (!isEditMode) return;
+          const srcNode = rawNodes.find((n) => n.id === edge.source);
+          const dstNode = rawNodes.find((n) => n.id === edge.target);
+          setEdgeModalConfig({
+            isOpen: true,
+            mode: "edit",
+            data: {
+              id: edge.id,
+              source_node_id: edge.source,
+              target_node_id: edge.target,
+              source_label: srcNode?.label,
+              target_label: dstNode?.label,
+              link_type: edge.linkType || "fiber",
+              bandwidth_gbps: edge.bandwidthGbps || 10,
+              port_src: edge.portSrc,
+              port_dst: edge.portDst,
+            },
+          });
+        },
+      } as any,
       animated: edge.status !== "broken",
     }));
-  }, [rawEdges]);
+  }, [rawEdges, isEditMode, rawNodes]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -304,6 +443,10 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
         isGlobalOperator={isGlobalOperator}
         userOrgName={user?.organization_name}
         isLoadingOrganizations={isLoadingOrganizations}
+        canEdit={canEdit}
+        isEditMode={isEditMode}
+        onToggleEditMode={() => setIsEditMode((prev) => !prev)}
+        onAddNodeClick={() => setIsAddNodeOpen(true)}
       />
 
       {/* 2. Área do Canvas & Drawer Lateral */}
@@ -312,6 +455,14 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           id="main-content"
           className="flex-1 relative overflow-hidden bg-obsidian-950 focus:outline-none"
         >
+          {/* Banner Indicativo de Modo Edição */}
+          {isEditMode && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-[11px] font-mono text-amber-300 backdrop-blur-md shadow-lg pointer-events-none flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>Modo Edição Ativo: Arraste nós para reposicionar ou conecte nós arrastando das bordas</span>
+            </div>
+          )}
+
           {/* ESTADO 1: NOMINAL (AO VIVO COM REACT FLOW) */}
           {activeViewState === "nominal" && (
             <ReactFlow
@@ -320,6 +471,9 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onNodeClick={handleNodeClick}
+              onNodeDragStop={handleNodeDragStop}
+              onConnect={handleConnect}
+              onEdgeClick={handleEdgeClick}
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
               onInit={(instance) => {
@@ -332,6 +486,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
               maxZoom={2.5}
               className="w-full h-full bg-obsidian-950"
               proOptions={{ hideAttribution: true }}
+              nodesConnectable={isEditMode}
             >
               <Background color="#2a395e" gap={24} size={1} />
               <Controls className="!bg-obsidian-900 !border-obsidian-800 !fill-white" />
@@ -456,8 +611,36 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           onClose={() => setIsInspectorOpen(false)}
           onRunPingTrace={handleRunPingTrace}
           onIsolateNode={handleIsolateNode}
+          isEditMode={isEditMode}
+          onDeleteNode={handleDeleteNode}
         />
       </div>
+
+      {/* 4. Modais do Editor de Topologia */}
+      <AddNodeModal
+        isOpen={isAddNodeOpen}
+        onClose={() => setIsAddNodeOpen(false)}
+        effectiveOrgId={effectiveOrgId}
+        onNodeAdded={() => {
+          refetch();
+        }}
+      />
+
+      <EdgeConfigModal
+        isOpen={edgeModalConfig.isOpen}
+        onClose={() =>
+          setEdgeModalConfig({ isOpen: false, mode: "create", data: null })
+        }
+        mode={edgeModalConfig.mode}
+        initialData={edgeModalConfig.data}
+        effectiveOrgId={effectiveOrgId}
+        onSaved={() => {
+          refetch();
+        }}
+        onDeleted={() => {
+          refetch();
+        }}
+      />
     </div>
   );
 };
