@@ -9,6 +9,8 @@ import {
   BellOff,
   Eye,
   RotateCcw,
+  ShieldCheck,
+  FileText,
 } from "lucide-react";
 import type { MaintenanceWindow } from "../../types/sla";
 import { toast } from "sonner";
@@ -97,6 +99,17 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
   const durationMins = maintenance.durationMinutes % 60;
   const durationText = `${durationHours}h ${durationMins.toString().padStart(2, "0")}m`;
 
+  const formatUtcDate = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+  };
+
+  const formatWatTime = (d: Date) => {
+    const wat = new Date(d.getTime() + 60 * 60 * 1000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(wat.getUTCHours())}:${pad(wat.getUTCMinutes())} WAT`;
+  };
+
   return (
     <article
       data-testid={`rfc-card-${maintenance.id}`}
@@ -105,207 +118,299 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
         maintenance.status === "PENDING_APPROVAL"
           ? "border-amber-500/40 hover:border-amber-500/70"
           : "border-obsidian-800 hover:border-obsidian-700"
-      } transition-colors flex flex-col xl:flex-row gap-5 relative overflow-hidden group shadow-md`}
+      } transition-colors flex flex-col gap-4 relative overflow-hidden group shadow-md w-full`}
     >
       {/* Barra de cor indicadora na lateral */}
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${statusConfigs.edgeClass}`} />
 
-      {/* Bloco de Data (Esquerda) */}
-      <div className="flex xl:flex-col items-center justify-center p-3 rounded-lg bg-obsidian-950 border border-obsidian-800 min-w-[120px] shrink-0 text-center gap-1">
-        {statusConfigs.icon}
-        <div className="flex flex-col">
-          <span className="font-display font-bold text-lg text-white leading-tight">
-            {dayStr} {monthStr}
-          </span>
-          <span className={`font-mono tabular-nums text-xs font-semibold ${statusConfigs.textColor}`}>
-            {yearStr}
-          </span>
-        </div>
-        <span
-          className={`font-mono text-[10px] font-semibold px-2 py-0.5 mt-1 rounded border ${statusConfigs.badgeBg}`}
-        >
-          {statusConfigs.label}
-        </span>
-      </div>
-
-      {/* Detalhes Centrais da RFC */}
-      <div className="flex-1 flex flex-col gap-3 min-w-0">
-        {/* Linha de cabeçalho da RFC: código, horários e cliente */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-obsidian-800 pb-2">
-          <div className="flex items-center flex-wrap gap-2 text-xs font-mono">
-            <span
-              className={`font-bold px-2 py-0.5 rounded bg-obsidian-950 border ${statusConfigs.borderColor} ${statusConfigs.textColor}`}
-            >
-              {maintenance.rfcNumber}
+      {/* LINHA PRINCIPAL DO CARTÃO (Data + Detalhes + Ações) */}
+      <div className="flex flex-col xl:flex-row gap-5 items-start xl:items-stretch w-full">
+        {/* Bloco de Data (Esquerda) */}
+        <div className="flex xl:flex-col items-center justify-center p-3 rounded-lg bg-obsidian-950 border border-obsidian-800 min-w-[120px] shrink-0 text-center gap-1 self-stretch xl:self-auto">
+          {statusConfigs.icon}
+          <div className="flex flex-col">
+            <span className="font-display font-bold text-lg text-white leading-tight">
+              {dayStr} {monthStr}
             </span>
-            <span className="text-obsidian-700">•</span>
-            <span className="text-white flex items-center gap-1 tabular-nums">
-              <Clock className="w-3.5 h-3.5 text-sky-400" />
-              {startDate.toISOString().substring(11, 16)} – {endDate.toISOString().substring(11, 16)} UTC
-            </span>
-            <span className="text-obsidian-700">•</span>
-            <span className="text-slate-400">
-              Duração: <strong className="text-white">{durationText}</strong>
+            <span className={`font-mono tabular-nums text-xs font-semibold ${statusConfigs.textColor}`}>
+              {yearStr}
             </span>
           </div>
-
-          {/* Badge do Cliente */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-obsidian-950 text-slate-300 font-mono text-xs border border-obsidian-800">
-            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{maintenance.clientName}</span>
-          </div>
+          <span
+            className={`font-mono text-[10px] font-semibold px-2 py-0.5 mt-1 rounded border ${statusConfigs.badgeBg}`}
+          >
+            {statusConfigs.label}
+          </span>
         </div>
 
-        {/* Ativos Alvo */}
-        <div className="flex items-center flex-wrap gap-2 text-xs font-mono">
-          <span className="text-[10px] text-slate-400 uppercase font-semibold">Ativos Alvo:</span>
-          {maintenance.targetDeviceNames.map((name, index) => {
-            const devId = maintenance.targetDeviceIds[index];
-            const isValidDeviceUuid = Boolean(devId && /^[0-9a-fA-F-]{36}$/.test(devId));
-            return (
+        {/* Detalhes Centrais da RFC */}
+        <div className="flex-1 flex flex-col gap-3 min-w-0 w-full">
+          {/* Linha de cabeçalho da RFC: código, horários e cliente */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-obsidian-800 pb-2">
+            <div className="flex items-center flex-wrap gap-2 text-xs font-mono">
               <span
-                key={name}
-                className="px-2 py-0.5 rounded bg-obsidian-950 border border-obsidian-800 text-white flex items-center gap-1.5"
+                className={`font-bold px-2 py-0.5 rounded bg-obsidian-950 border ${statusConfigs.borderColor} ${statusConfigs.textColor}`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                {isValidDeviceUuid ? (
+                {maintenance.rfcNumber}
+              </span>
+              <span className="text-obsidian-700">•</span>
+              <span className="text-white flex items-center gap-1 tabular-nums">
+                <Clock className="w-3.5 h-3.5 text-sky-400" />
+                {startDate.toISOString().substring(11, 16)} – {endDate.toISOString().substring(11, 16)} UTC
+              </span>
+              <span className="text-obsidian-700">•</span>
+              <span className="text-slate-400">
+                Duração: <strong className="text-white">{durationText}</strong>
+              </span>
+            </div>
+
+            {/* Contratante */}
+            <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+              <span>{maintenance.clientName}</span>
+              {maintenance.clientCategory && (
+                <span className="px-1.5 py-0.2 rounded bg-obsidian-950 border border-obsidian-800 text-[10px] font-mono text-slate-400">
+                  {maintenance.clientCategory}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Ativos Alvo */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-mono uppercase text-slate-500 font-semibold">
+              Ativo(s) Alvo:
+            </span>
+            {maintenance.targetDeviceNames && maintenance.targetDeviceNames.length > 0 ? (
+              maintenance.targetDeviceNames.map((deviceName, idx) => {
+                const deviceId = maintenance.targetDeviceIds[idx];
+                return deviceId ? (
                   <Link
-                    to={`/devices/${devId}`}
-                    className="hover:text-emerald-400 transition-colors"
+                    key={deviceName}
+                    to={`/devices/${deviceId}`}
+                    className="px-2 py-0.5 rounded bg-obsidian-950 hover:bg-obsidian-850 border border-obsidian-800 text-sky-400 hover:text-sky-300 font-mono text-xs font-semibold flex items-center gap-1 transition-colors"
                   >
-                    {name}
+                    <span>{deviceName}</span>
                   </Link>
                 ) : (
-                  <span>{name}</span>
-                )}
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Título e Escopo */}
-        <div>
-          <h3 className="text-sm font-semibold text-white mb-1">{maintenance.title}</h3>
-          <p className="text-xs text-slate-300 leading-relaxed">{maintenance.description}</p>
-        </div>
-
-        {/* Status de Homologação e Isenção de SLA */}
-        <div
-          className={`p-2.5 rounded-lg bg-obsidian-950 border ${
-            maintenance.slaExemption ? "border-emerald-500/30" : "border-amber-500/30"
-          } flex flex-wrap items-center justify-between gap-2`}
-        >
-          <div className="flex items-center flex-wrap gap-2">
-            {maintenance.slaExemption ? (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-xs font-semibold border border-emerald-500/30">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Isenção de SLA Homologada
-              </span>
+                  <span
+                    key={deviceName}
+                    className="px-2 py-0.5 rounded bg-obsidian-950 border border-obsidian-800 text-sky-400 font-mono text-xs font-semibold"
+                  >
+                    {deviceName}
+                  </span>
+                );
+              })
             ) : (
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-xs font-bold border border-amber-500/40">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                Aguardando Deferimento Formal
+              <span className="px-2 py-0.5 rounded bg-obsidian-950 border border-obsidian-800 text-slate-400 font-mono text-xs">
+                Infraestrutura Global
               </span>
             )}
-
-            <span className="text-xs text-slate-400 font-mono">
-              {maintenance.approvedBy
-                ? `Aprovador: ${maintenance.approvedBy}`
-                : maintenance.status === "APPROVED" || maintenance.slaExemption
-                ? "Homologado pelo NOC Lead"
-                : "Parecer técnico pendente do NOC Lead"}
-            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {maintenance.alarmSuppression && (
-              <span className="font-mono text-xs text-emerald-400 flex items-center gap-1">
-                <BellOff className="w-3.5 h-3.5" />
-                Supressão de alarmes ativa
+          {/* Título & Descrição do Procedimento */}
+          <div className="space-y-1">
+            <h4 className="font-display font-bold text-sm text-white group-hover:text-sky-300 transition-colors">
+              {maintenance.title}
+            </h4>
+            <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+              {maintenance.description || maintenance.title}
+            </p>
+          </div>
+
+          {/* Faixa de Homologação de Isenção de SLA (ADR-009) */}
+          <div
+            className={`p-2.5 rounded-lg bg-obsidian-950 border ${
+              maintenance.status === "PENDING_APPROVAL"
+                ? "border-amber-500/30"
+                : "border-emerald-500/30"
+            } flex flex-wrap items-center justify-between gap-2`}
+          >
+            <div className="flex items-center gap-2">
+              {maintenance.status === "PENDING_APPROVAL" ? (
+                <>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold">
+                    AGUARDANDO DEFERIMENTO FORMAL
+                  </span>
+                  <span className="text-xs text-amber-300 font-mono">
+                    Impacto potencial de R$ 0 / penalidade retida
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="text-xs text-emerald-300 font-mono font-semibold">
+                    Isenção de SLA Homologada
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    (Sem impacto contratual • ADR-009)
+                  </span>
+                </>
+              )}
+              <span className="text-obsidian-700 hidden sm:inline">•</span>
+              <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
+                {maintenance.approvedBy
+                  ? `Aprovador: ${maintenance.approvedBy}`
+                  : maintenance.status === "APPROVED" || maintenance.slaExemption
+                  ? "Homologado pelo NOC Lead"
+                  : "Parecer técnico pendente do NOC Lead"}
               </span>
-            )}
+            </div>
 
-            {canApprove && maintenance.status === "PENDING_APPROVAL" && (
-              <button
-                type="button"
-                onClick={() => onApprove?.(maintenance.id)}
-                className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition-colors shadow cursor-pointer"
-              >
-                Homologar Isenção Agora
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {maintenance.alarmSuppression && (
+                <span className="font-mono text-xs text-emerald-400 flex items-center gap-1">
+                  <BellOff className="w-3.5 h-3.5" />
+                  Supressão de alarmes ativa
+                </span>
+              )}
+
+              {canApprove && maintenance.status === "PENDING_APPROVAL" && (
+                <button
+                  type="button"
+                  onClick={() => onApprove?.(maintenance.id)}
+                  className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition-colors shadow cursor-pointer"
+                >
+                  Homologar Isenção Agora
+                </button>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* Ações da RFC (Direita) */}
+        <div className="flex xl:flex-col items-center justify-between xl:justify-center gap-2 border-t xl:border-t-0 xl:border-l border-obsidian-800 pt-3 xl:pt-0 xl:pl-4 min-w-[140px] shrink-0 self-stretch xl:self-auto">
+          <button
+            type="button"
+            onClick={() => setIsDossierOpen(!isDossierOpen)}
+            aria-expanded={isDossierOpen}
+            className={`w-full h-9 px-3.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer focus:ring-2 focus:ring-sky-400 ${
+              isDossierOpen
+                ? "bg-sky-500 text-obsidian-950 border-sky-400 font-bold"
+                : "bg-obsidian-850 hover:bg-obsidian-800 text-slate-200 border-obsidian-700"
+            }`}
+          >
+            <Eye className="w-4 h-4" />
+            <span>{isDossierOpen ? "Fechar Dossiê" : "Ver Dossiê"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleRollbackClick}
+            title={maintenance.rollbackPlan || "Plano de contingência e rollback pré-aprovado"}
+            className="w-full h-9 px-3.5 rounded-lg bg-obsidian-950 hover:bg-obsidian-850 text-slate-400 hover:text-slate-200 border border-obsidian-800 text-xs font-mono flex items-center justify-center gap-1 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Rollback Plan</span>
+          </button>
         </div>
       </div>
 
-      {/* Ações da RFC (Direita) */}
-      <div className="flex xl:flex-col items-center justify-between xl:justify-center gap-2 border-t xl:border-t-0 xl:border-l border-obsidian-800 pt-3 xl:pt-0 xl:pl-4 min-w-[140px] shrink-0">
-        <button
-          type="button"
-          onClick={() => setIsDossierOpen(!isDossierOpen)}
-          aria-expanded={isDossierOpen}
-          className="w-full h-9 px-3.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 text-slate-200 border border-obsidian-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer focus:ring-2 focus:ring-sky-400"
-        >
-          <Eye className="w-4 h-4 text-sky-400" />
-          <span>{isDossierOpen ? "Fechar Dossiê" : "Ver Dossiê"}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleRollbackClick}
-          title={maintenance.rollbackPlan || "Plano de contingência e rollback pré-aprovado"}
-          className="w-full h-9 px-3.5 rounded-lg bg-obsidian-950 hover:bg-obsidian-850 text-slate-400 hover:text-slate-200 border border-obsidian-800 text-xs font-mono flex items-center justify-center gap-1 transition-colors cursor-pointer"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Rollback Plan</span>
-        </button>
-      </div>
-
-      {/* Dossiê Técnico Detalhado da RFC */}
+      {/* DOSSIÊ TÉCNICO DETALHADO DA RFC (Renderizado abaixo do cartão, largura 100%!) */}
       {isDossierOpen && (
         <section
           data-testid={`rfc-dossier-${maintenance.id}`}
-          className="w-full mt-3 p-4 rounded-xl bg-obsidian-950 border border-sky-500/30 flex flex-col gap-3 font-mono text-xs shadow-inner"
+          className="w-full mt-2 pt-4 border-t border-obsidian-800 flex flex-col gap-4 font-mono text-xs"
         >
-          <div className="flex items-center justify-between border-b border-obsidian-800 pb-2">
-            <span className="text-sky-400 font-bold">
-              DOSSIÊ TÉCNICO OPERACIONAL — {maintenance.rfcNumber}
-            </span>
-            <span className="text-slate-500 text-[11px]">ID: {maintenance.id}</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-slate-300">
-            <div>
-              <span className="text-slate-500 block text-[11px]">Janela UTC:</span>
-              <span className="text-white">{maintenance.startTimeUtc} até {maintenance.endTimeUtc}</span>
-            </div>
-            <div>
-              <span className="text-slate-500 block text-[11px]">Duração Homologada:</span>
-              <span className="text-white">{maintenance.durationMinutes} minutos</span>
-            </div>
-            <div>
-              <span className="text-slate-500 block text-[11px]">Contratante:</span>
-              <span className="text-white">
-                {maintenance.clientName} ({maintenance.clientCategory || "CORPORATIVO"})
+          {/* Header do Dossiê */}
+          <div className="flex items-center justify-between bg-obsidian-950 px-4 py-2.5 rounded-lg border border-sky-500/30">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-sky-400" />
+              <span className="text-sky-400 font-bold text-xs uppercase tracking-wider">
+                DOSSIÊ TÉCNICO OPERACIONAL — {maintenance.rfcNumber}
               </span>
             </div>
-            <div>
-              <span className="text-slate-500 block text-[11px]">Ativo(s) Afetado(s):</span>
-              <span className="text-white">{maintenance.targetDeviceNames.join(", ") || "Global"}</span>
+            <span className="text-slate-500 text-[11px] font-mono">
+              UUID: {maintenance.id}
+            </span>
+          </div>
+
+          {/* Grid de Metadados Auditados */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg bg-obsidian-950 border border-obsidian-800 flex flex-col gap-1">
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">
+                Janela Operacional
+              </span>
+              <span className="text-slate-200 font-medium text-xs">
+                {formatUtcDate(startDate)}
+              </span>
+              <span className="text-slate-400 text-[11px]">
+                {formatWatTime(startDate)} – {formatWatTime(endDate)}
+              </span>
+            </div>
+
+            <div className="p-3 rounded-lg bg-obsidian-950 border border-obsidian-800 flex flex-col gap-1">
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">
+                Duração Homologada
+              </span>
+              <span className="text-sky-400 font-bold text-xs">
+                {maintenance.durationMinutes} minutos ({durationText})
+              </span>
+              <span className="text-slate-500 text-[10px]">
+                Teto Contratual: 8h máx/mês
+              </span>
+            </div>
+
+            <div className="p-3 rounded-lg bg-obsidian-950 border border-obsidian-800 flex flex-col gap-1">
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">
+                Contratante Vinculada
+              </span>
+              <span className="text-white font-medium text-xs">
+                {maintenance.clientName}
+              </span>
+              <span className="text-slate-500 text-[10px]">
+                Categoria: {maintenance.clientCategory || "CORPORATIVO"}
+              </span>
+            </div>
+
+            <div className="p-3 rounded-lg bg-obsidian-950 border border-obsidian-800 flex flex-col gap-1">
+              <span className="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">
+                Ativo(s) Afetado(s)
+              </span>
+              <span
+                className="text-emerald-400 font-semibold text-xs truncate"
+                title={maintenance.targetDeviceNames.join(", ") || "Global"}
+              >
+                {maintenance.targetDeviceNames.join(", ") || "Infraestrutura Global"}
+              </span>
+              <span className="text-slate-500 text-[10px]">
+                Cluster: LUANDA-01
+              </span>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-obsidian-900">
-            <span className="text-slate-500 block text-[11px] mb-1">Escopo e Procedimento:</span>
-            <p className="text-slate-300 leading-relaxed">{maintenance.description || maintenance.title}</p>
+          {/* Escopo e Procedimento Técnico */}
+          <div className="p-3.5 rounded-lg bg-obsidian-950 border border-obsidian-800 flex flex-col gap-1.5">
+            <span className="text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
+              Escopo &amp; Procedimento Técnico Homologado:
+            </span>
+            <p className="text-slate-300 leading-relaxed text-xs font-sans">
+              {maintenance.description || maintenance.title}
+            </p>
           </div>
 
+          {/* Plano de Contingência / Rollback */}
           {maintenance.rollbackPlan && (
-            <div className="pt-2 border-t border-obsidian-900">
-              <span className="text-amber-400 block text-[11px] mb-1">Plano de Contingência / Rollback:</span>
-              <p className="text-slate-300 leading-relaxed">{maintenance.rollbackPlan}</p>
+            <div className="p-3.5 rounded-lg bg-obsidian-950 border border-amber-500/20 flex flex-col gap-1.5">
+              <span className="text-amber-400 font-semibold text-[11px] uppercase tracking-wider">
+                Plano de Contingência / Rollback:
+              </span>
+              <p className="text-slate-300 leading-relaxed text-xs font-sans">
+                {maintenance.rollbackPlan}
+              </p>
             </div>
           )}
+
+          {/* Rodapé de Governança BNA */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-obsidian-800 text-[11px] text-slate-400">
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Supressão automática de alarmes e telemetria ativada durante a janela</span>
+            </span>
+            <span className="text-slate-500">
+              Isenção formal de SLA auditada conforme ADR-009 e normas do BNA
+            </span>
+          </div>
         </section>
       )}
     </article>
