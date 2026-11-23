@@ -500,14 +500,14 @@ async def get_device_metrics(
             FROM metrics
             WHERE device_id = :dev_id AND metric_type = 'latency_ms'
             GROUP BY bucket
-            ORDER BY bucket ASC
+            ORDER BY bucket DESC
             LIMIT :limit_b;
         """
         result = await session.execute(text(query_sql), {
             "dev_id": device_id,
             "limit_b": limit_buckets,
         })
-        rows = result.fetchall()
+        rows = list(reversed(result.fetchall()))
 
     if not rows:
         return DeviceTimescaleMetricsResponse(
