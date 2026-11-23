@@ -64,6 +64,40 @@ class IPAddress:
 
 
 @dataclass(frozen=True, slots=True)
+class HostAddress:
+    """Endereço de rede flexível (IPv4, IPv6 ou identificador de container/serviço RFC 1123).
+
+    Utilizado principalmente para contêineres Docker, microsserviços e nomes de host DNS locais.
+    """
+
+    value: str
+
+    def __post_init__(self) -> None:
+        val = (self.value or "").strip()
+        if not val:
+            raise ValueError("Endereço de rede não pode ser vazio")
+        try:
+            parsed = _ipaddress.ip_address(val)
+            object.__setattr__(self, "value", str(parsed))
+        except ValueError:
+            import re
+
+            if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$", val):
+                raise ValueError(f"Endereço IP ou identificador de host inválido: '{self.value}'")
+            object.__setattr__(self, "value", val)
+
+    @property
+    def version(self) -> int:
+        try:
+            return _ipaddress.ip_address(self.value).version
+        except ValueError:
+            return 0
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dataclass(frozen=True, slots=True)
 class NetworkPort:
     """Porta TCP/UDP validada no intervalo 0–65535.
 

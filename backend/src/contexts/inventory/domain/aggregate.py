@@ -11,6 +11,7 @@ from uuid import UUID
 from src.contexts.inventory.domain.value_objects import (
     DeviceCategory,
     DeviceStatus,
+    HostAddress,
     IPAddress,
     NetworkPort,
     ThresholdConfig,
@@ -49,15 +50,32 @@ class Device(Entity):
         self.hostname = hostname
 
         # Validação via Value Objects
-        self._ip_address = IPAddress(ip_address)
-        self._port = NetworkPort(port)
         self._category = DeviceCategory(category)
+        self._port = NetworkPort(port)
+        self.protocol = protocol
+        self.interval_seconds = interval_seconds
+
+        # Dispositivos de container Docker ou serviços usam identificadores/hostnames (ex.: infrawatch-redis)
+        if self._category == DeviceCategory.CONTAINER or protocol.lower() == "docker":
+            self._ip_address = HostAddress(ip_address)
+        else:
+            try:
+                self._ip_address = IPAddress(ip_address)
+            except ValueError as err:
+                parts = ip_address.split(".")
+                is_numeric_quad = len(parts) == 4 and all(p.isdigit() for p in parts)
+                if not is_numeric_quad and ip_address in ("postgres", "redis", "infrawatch-api"):
+                    try:
+                        self._ip_address = HostAddress(ip_address)
+                    except ValueError:
+                        raise err
+                else:
+                    raise err
+
         self._thresholds = (
             ThresholdConfig.from_dict(thresholds) if thresholds else ThresholdConfig()
         )
 
-        self.protocol = protocol
-        self.interval_seconds = interval_seconds
         self.is_paused = False
         self.status = DeviceStatus.UP.value
         self.maintenance_until: datetime | None = None
@@ -71,7 +89,21 @@ class Device(Entity):
 
     @ip_address.setter
     def ip_address(self, value: str) -> None:
-        self._ip_address = IPAddress(value)
+        if self._category == DeviceCategory.CONTAINER or getattr(self, "protocol", "").lower() == "docker":
+            self._ip_address = HostAddress(value)
+        else:
+            try:
+                self._ip_address = IPAddress(value)
+            except ValueError as err:
+                parts = value.split(".")
+                is_numeric_quad = len(parts) == 4 and all(p.isdigit() for p in parts)
+                if not is_numeric_quad and value in ("postgres", "redis", "infrawatch-api"):
+                    try:
+                        self._ip_address = HostAddress(value)
+                    except ValueError:
+                        raise err
+                else:
+                    raise err
 
     @property
     def port(self) -> int:
