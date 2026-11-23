@@ -10,6 +10,7 @@ export interface DeviceCardProps {
   device: MonitoredDevice;
   onSelect?: (device: MonitoredDevice) => void;
   onPing?: (device: MonitoredDevice) => void;
+  isPinging?: boolean;
 }
 
 export interface StatusVisualConfig {
@@ -62,13 +63,17 @@ export const STATUS_VISUALS: Record<NormalizedStatus, StatusVisualConfig> = {
     metric4Color: "text-rose-400",
     getMetric4Value: (device) => device.downtime_duration ?? "--:--:--",
     renderFooterStatus: (device, onSelect) => (
-      <button
-        type="button"
-        onClick={() => onSelect?.(device)}
-        className="text-rose-400 font-bold hover:underline cursor-pointer"
-      >
-        {device.ticket_id ? `Ticket #${device.ticket_id} ↗` : "Sem ticket"}
-      </button>
+      device.ticket_id ? (
+        <button
+          type="button"
+          onClick={() => onSelect?.(device)}
+          className="text-rose-400 font-bold hover:underline cursor-pointer"
+        >
+          Ticket #{device.ticket_id} ↗
+        </button>
+      ) : (
+        <span className="text-rose-400/80 font-mono text-[11px]">Sem ticket</span>
+      )
     ),
   },
   DEG: {
@@ -166,6 +171,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
   device,
   onSelect,
   onPing,
+  isPinging = false,
 }) => {
   const navigate = useNavigate();
   const statusKey = getStatusKey(device);
@@ -257,10 +263,11 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({
           {onPing && (
             <button
               type="button"
+              disabled={isPinging}
               onClick={() => onPing(device)}
-              className="text-emerald-400 hover:underline cursor-pointer font-medium"
+              className="text-emerald-400 hover:underline cursor-pointer font-medium disabled:opacity-50"
             >
-              Ping Agora
+              {isPinging ? "Sondando..." : "Ping Agora"}
             </button>
           )}
 

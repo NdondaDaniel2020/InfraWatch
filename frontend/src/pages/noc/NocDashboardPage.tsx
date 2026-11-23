@@ -17,6 +17,8 @@ import { useTelemetry } from "../../context/TelemetryContext";
 import { apiClient } from "../../services/apiClient";
 import { backupApi } from "../../services/backupApi";
 import { deviceDetailApi } from "../../services/deviceDetailApi";
+import { devicesApi } from "../../services/devicesApi";
+import { MaintenanceModal } from "../../components/inventory/MaintenanceModal";
 import type {
   DashboardViewMode,
   DeviceSeverity,
@@ -90,13 +92,20 @@ const mapRawToMonitoredDevice = (item: any): MonitoredDevice => {
       typeof m === "number" ? m : m.latency_ms
     );
   } else if (lastLatency != null && lastLatency > 0) {
-    recentMetrics = [
-      Number((lastLatency * 0.94).toFixed(1)),
-      Number((lastLatency * 1.05).toFixed(1)),
-      Number((lastLatency * 0.98).toFixed(1)),
-      Number((lastLatency * 1.02).toFixed(1)),
-      lastLatency,
-    ];
+    recentMetrics = [lastLatency];
+  }
+
+  // Calcula tempo real decorrido se o ativo estiver DOWN e possuir last_monitored_at
+  let realDowntime: string | undefined = item.downtime_duration;
+  if (!realDowntime && status === "DOWN" && item.last_monitored_at) {
+    const diffMs = Date.now() - new Date(item.last_monitored_at).getTime();
+    if (!isNaN(diffMs) && diffMs > 0) {
+      const totalSec = Math.floor(diffMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      realDowntime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
   }
 
   return {
@@ -120,8 +129,8 @@ const mapRawToMonitoredDevice = (item: any): MonitoredDevice => {
     root_cause:
       item.root_cause || (status === "DOWN" ? "Sonda inalcançável (loss 100%)" : undefined),
     uptime_duration: item.uptime_duration || (status === "UP" ? "99.9% Nominal" : undefined),
-    downtime_duration: item.downtime_duration || (status === "DOWN" ? "00:08:12" : undefined),
-    ticket_id: item.ticket_id || (status === "DOWN" ? "8492" : undefined),
+    downtime_duration: realDowntime,
+    ticket_id: item.ticket_id || item.ticketId || undefined,
   };
 };
 
@@ -141,6 +150,10 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isDrainModalOpen, setIsDrainModalOpen] = useState(false);
+  const [isPingingId, setIsPingingId] = useState<string | null>(null);
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [maintenanceTargetDevice, setMaintenanceTargetDevice] = useState<MonitoredDevice | null>(null);
+  const [isMaintenanceLoading, setIsMaintenanceLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<ToastMessage | null>(null);
 
   // Exibe toast temporário
@@ -643,17 +656,98 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
   };
 
   const handlePingDevice = async (device: MonitoredDevice) => {
-    showToast(
-      `Sonda ICMP executada para ${device.name}: RTT ${device.last_latency_ms != null ? `${device.last_latency_ms}ms` : "sondando..."}`,
-      "info"
-    );
+    setIsPingingId(device.device_id);
+    showToast(`Sonda ICMP executada para ${device.name} (${device.ip_address}): disparando em tempo real...`, "info");
     try {
+      let probeResult: any = null;
       if (device.device_id && !device.device_id.startsWith("dev-mock")) {
-        await deviceDetailApi.triggerManualProbe(device.device_id);
+        probeResult = await deviceDetailApi.triggerManualProbe(device.device_id);
+      } else {
+        probeResult = {
+          success: true,
+          rttMs: 12.4,
+          packetLossPct: 0,
+          status: "UP",
+          message: "Probe simulada com sucesso",
+        };
       }
-      refetchTelemetry();
-    } catch {
-      // Ignora erro para não quebrar UI
+
+      const newLatency = Number(probeResult.rttMs) || 0;
+      const newLoss = Number(probeResult.packetLossPct) ?? (probeResult.success ? 0 : 100);
+      const newStatus = (probeResult.status || (probeResult.success ? "UP" : "DOWN")) as DeviceStatus;
+
+      setSelectedDevice((prev) => {
+        if (!prev || prev.device_id !== device.device_id) return prev;
+        return {
+          ...prev,
+          status: newStatus,
+          last_latency_ms: newLatency > 0 ? newLatency : null,
+          last_packet_loss: newLoss,
+          recent_latency: [...(prev.recent_latency || []).slice(-19), newLatency],
+        };
+      });
+
+      if (probeResult.success) {
+        showToast(
+          `Sonda ICMP concluída para ${device.name}: RTT ${newLatency.toFixed(1)}ms (${newLoss}% perda) • Status ${newStatus}`,
+          "success"
+        );
+      } else {
+        showToast(
+          `Sonda ICMP falhou para ${device.name}: ${probeResult.message || "Host inalcançável (100% perda)"}`,
+          "warning"
+        );
+      }
+
+      await refetchTelemetry();
+      activeQueryClient.invalidateQueries({ queryKey: ["telemetry-monitored-devices"] });
+    } catch (err: any) {
+      showToast(`Erro ao disparar sonda para ${device.name}: ${err?.message || "Timeout"}`, "error");
+    } finally {
+      setIsPingingId(null);
+    }
+  };
+
+  const handleMaintenanceClick = async (device: MonitoredDevice) => {
+    if (device.status === "MAINT") {
+      try {
+        setIsMaintenanceLoading(true);
+        if (device.device_id && !device.device_id.startsWith("dev-mock")) {
+          await devicesApi.resumeDevice(device.device_id);
+        }
+        setSelectedDevice((prev) => (prev ? { ...prev, status: "UP" } : null));
+        showToast(`Ativo ${device.name} retirado da janela de manutenção. Monitoramento reativado.`, "success");
+        await refetchTelemetry();
+        activeQueryClient.invalidateQueries({ queryKey: ["telemetry-monitored-devices"] });
+      } catch (err: any) {
+        showToast(`Erro ao reativar ativo: ${err?.message || "Falha na requisição"}`, "error");
+      } finally {
+        setIsMaintenanceLoading(false);
+      }
+    } else {
+      setMaintenanceTargetDevice(device);
+      setIsMaintenanceModalOpen(true);
+    }
+  };
+
+  const handleConfirmMaintenance = async (payload: { until: string; title: string; reason: string }) => {
+    if (!maintenanceTargetDevice) return;
+    try {
+      setIsMaintenanceLoading(true);
+      if (maintenanceTargetDevice.device_id && !maintenanceTargetDevice.device_id.startsWith("dev-mock")) {
+        await devicesApi.setMaintenance(maintenanceTargetDevice.device_id, payload);
+      }
+      setSelectedDevice((prev) => (prev ? { ...prev, status: "MAINT" } : null));
+      showToast(`Janela de manutenção agendada para ${maintenanceTargetDevice.name}.`, "warning");
+      setIsMaintenanceModalOpen(false);
+      setMaintenanceTargetDevice(null);
+      await refetchTelemetry();
+      activeQueryClient.invalidateQueries({ queryKey: ["telemetry-monitored-devices"] });
+      activeQueryClient.invalidateQueries({ queryKey: ["noc-maintenance-windows"] });
+    } catch (err: any) {
+      showToast(`Erro ao agendar manutenção: ${err?.message || "Falha na requisição"}`, "error");
+    } finally {
+      setIsMaintenanceLoading(false);
     }
   };
 
@@ -899,6 +993,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
                         device={device}
                         onSelect={handleSelectDevice}
                         onPing={handlePingDevice}
+                        isPinging={isPingingId === device.device_id}
                       />
                     ))
                   ) : (
@@ -1049,6 +1144,20 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
           setSelectedDevice(null);
         }}
         onPing={handlePingDevice}
+        isPinging={isPingingId === selectedDevice?.device_id}
+        onMaintenance={handleMaintenanceClick}
+        isMaintenanceLoading={isMaintenanceLoading}
+      />
+
+      <MaintenanceModal
+        isOpen={isMaintenanceModalOpen}
+        onClose={() => {
+          setIsMaintenanceModalOpen(false);
+          setMaintenanceTargetDevice(null);
+        }}
+        deviceName={maintenanceTargetDevice?.name || "Dispositivo"}
+        onConfirm={handleConfirmMaintenance}
+        isLoading={isMaintenanceLoading}
       />
 
       <EmergencyDrainModal
