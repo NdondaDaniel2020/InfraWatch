@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ReactFlow,
@@ -65,6 +66,7 @@ export interface TopologyMapPageProps {
 export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   initialViewState = "nominal",
 }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isGlobalOperator = user?.role === "SUPER_ADMIN" || user?.role === "NOC_OPERATOR";
 
@@ -370,6 +372,18 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
     );
   }, [setNodes]);
 
+  // Manipulador de duplo clique: navega diretamente para /devices/{uuid}
+  const handleNodeDoubleClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const dev = node.data as unknown as TopologyDeviceData;
+      const targetId = dev?.deviceId || dev?.id || node.id;
+      if (targetId) {
+        navigate(`/devices/${targetId}`);
+      }
+    },
+    [navigate]
+  );
+
   // Controles de Viewport
   const handleZoomIn = () => {
     if (reactFlowInstance) {
@@ -471,6 +485,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
               onNodeDragStop={handleNodeDragStop}
               onConnect={handleConnect}
               onEdgeClick={handleEdgeClick}

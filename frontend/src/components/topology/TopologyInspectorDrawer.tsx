@@ -90,9 +90,13 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
             {getCategoryIcon(device.category)}
           </div>
           <div className="min-w-0">
-            <h2 className="font-mono tabular-nums text-xs font-bold text-white truncate">
+            <Link
+              to={`/devices/${device.deviceId || device.id}`}
+              className="font-mono tabular-nums text-xs font-bold text-white hover:text-emerald-400 hover:underline truncate block transition-colors"
+              title="Abrir página deste dispositivo"
+            >
               {device.label}
-            </h2>
+            </Link>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span
                 className={`w-2 h-2 rounded-full ${
@@ -168,6 +172,16 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
               <span className="text-slate-200 font-semibold truncate block">
                 {device.model || device.label}
               </span>
+            </div>
+            <div>
+              <span className="text-slate-400 block text-[10px]">ENDPOINT / IP</span>
+              <Link
+                to={`/devices/${device.deviceId || device.id}`}
+                className="text-emerald-400 hover:underline font-semibold truncate block"
+                title="Abrir detalhes deste endpoint"
+              >
+                {device.ip || "—"}
+              </Link>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px]">FIRMWARE / SO</span>
@@ -322,6 +336,7 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
 
           <Link
             to={`/devices/${device.deviceId || device.id}`}
+            data-testid="drawer-view-360-link"
             className="px-2.5 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-200 font-mono text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
           >
             <Eye size={14} className="text-sky-400" />

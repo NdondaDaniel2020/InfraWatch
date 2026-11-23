@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import {
   Router,
@@ -13,10 +14,12 @@ import {
 import { TopologyDeviceData } from "../../types/topology";
 
 export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
+  const navigate = useNavigate();
   const device = data as unknown as TopologyDeviceData;
   const onNodeSelect = (data as any)?.onSelect;
   const isEditMode = Boolean((data as any)?.isEditMode);
   const onDeleteNode = (data as any)?.onDeleteNode;
+  const targetDeviceId = device.deviceId || device.id || id;
 
   const getBorderAndBgStyles = () => {
     if (selected) {
@@ -90,6 +93,13 @@ export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
     <article
       data-testid={`topology-node-${device.id || id}`}
       onClick={() => onNodeSelect?.(device.id || id)}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (targetDeviceId) {
+          navigate(`/devices/${targetDeviceId}`);
+        }
+      }}
+      title={`Duplo clique para abrir detalhes de ${device.label}`}
       className={`w-60 bg-obsidian-900 rounded-xl p-3 select-none cursor-pointer transition-colors ${getBorderAndBgStyles()}`}
     >
       {/* Handles para Conexões */}
@@ -137,7 +147,14 @@ export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
         <div className="flex items-center gap-1.5 min-w-0">
           {getCategoryIcon(device.category)}
           <span
-            className={`font-mono tabular-nums text-xs font-bold truncate ${
+            onClick={(e) => {
+              e.stopPropagation();
+              if (targetDeviceId) {
+                navigate(`/devices/${targetDeviceId}`);
+              }
+            }}
+            title="Clique para abrir detalhes deste ativo"
+            className={`font-mono tabular-nums text-xs font-bold truncate cursor-pointer hover:underline hover:text-emerald-400 transition-colors ${
               device.status === "CRITICAL_DOWN"
                 ? "text-rose-400"
                 : device.status === "DEGRADED"
@@ -177,8 +194,25 @@ export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-400">IP:</span>
-          <span className="text-slate-200 text-right">{device.ip || "—"}</span>
+          <span className="text-slate-400">IP / ENDPOINT:</span>
+          <span
+            onClick={(e) => {
+              if (device.ip && device.ip !== "—") {
+                e.stopPropagation();
+                if (targetDeviceId) {
+                  navigate(`/devices/${targetDeviceId}`);
+                }
+              }
+            }}
+            title={device.ip && device.ip !== "—" ? "Clique para abrir detalhes deste endpoint" : undefined}
+            className={`text-right ${
+              device.ip && device.ip !== "—"
+                ? "text-slate-200 hover:text-emerald-400 hover:underline cursor-pointer"
+                : "text-slate-200"
+            }`}
+          >
+            {device.ip || "—"}
+          </span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-400">RTT:</span>
