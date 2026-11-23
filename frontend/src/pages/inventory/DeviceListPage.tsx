@@ -6,6 +6,7 @@ import { Button, Badge, Skeleton } from "../../components/ui";
 import { DeviceFormModal } from "../../components/inventory/DeviceFormModal";
 import { PauseDeviceModal } from "../../components/inventory/PauseDeviceModal";
 import { MaintenanceModal } from "../../components/inventory/MaintenanceModal";
+import { DeviceActionMenu } from "../../components/inventory/DeviceActionMenu";
 import { devicesApi } from "../../services/devicesApi";
 import type { DeviceListItem, DeviceFilters, DeviceHealthStatus, ProberProtocol, DeviceCategory } from "../../types/inventory";
 import { toast } from "sonner";
@@ -74,9 +75,15 @@ const EmptyState: React.FC<{ onCreate: () => void }> = ({ onCreate }) => (
 const DeviceRow: React.FC<{
   device: DeviceListItem;
   onViewDetails: (id: string) => void;
+  onPause?: (id: string, reason: string) => void;
+  onResume?: (id: string) => void;
+  onMaintenance?: (id: string, payload: { until: string; title: string; reason: string }) => void;
 }> = ({
   device,
   onViewDetails,
+  onPause,
+  onResume,
+  onMaintenance,
 }) => {
   const rawStatus = String(device.healthStatus || (device as any).status || ((device as any).is_paused ? "PAUSED" : "UP")).toUpperCase();
   const statusKey: DeviceHealthStatus =
@@ -94,9 +101,17 @@ const DeviceRow: React.FC<{
   return (
     <tr style={{ borderBottom: "var(--border-subtle)", transition: "background-color var(--transition-fast)" }}>
       <td style={{ padding: "12px 16px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+        <div
+          onClick={() => onViewDetails(device.id)}
+          className="cursor-pointer group"
+          title={`Ver detalhes do ativo ${device.name}`}
+          style={{ display: "flex", flexDirection: "column", gap: "4px" }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontWeight: 600, color: "var(--color-text-primary)", fontFamily: "var(--font-sans)" }}>
+            <span
+              className="group-hover:text-emerald-400 group-hover:underline transition-colors"
+              style={{ fontWeight: 600, color: "var(--color-text-primary)", fontFamily: "var(--font-sans)" }}
+            >
               {device.name}
             </span>
             <Badge variant={device.category === "ROUTER" || device.category === "SWITCH" ? "neutral" : "neutral"} size="sm" dot={false}>
@@ -109,8 +124,16 @@ const DeviceRow: React.FC<{
         </div>
       </td>
       <td style={{ padding: "12px 16px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--color-text-primary)" }}>
+        <div
+          onClick={() => onViewDetails(device.id)}
+          className="cursor-pointer group"
+          title={`Ver detalhes do endpoint ${ipDisplay}`}
+          style={{ display: "flex", flexDirection: "column", gap: "4px" }}
+        >
+          <span
+            className="group-hover:text-emerald-400 group-hover:underline transition-colors"
+            style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--color-text-primary)" }}
+          >
             {ipDisplay}{device.port ? `:${device.port}` : ""}
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
@@ -129,16 +152,29 @@ const DeviceRow: React.FC<{
           {device.intervalSeconds}s
         </span>
       </td>
-      <td style={{ padding: "12px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <td style={{ padding: "12px 16px", textAlign: "right" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px" }}>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            icon={<MoreHorizontal size={14} />}
             onClick={() => onViewDetails(device.id)}
-            aria-label="Ver detalhes"
+            aria-label={`Ações para ${device.name}`}
             data-testid={`device-details-${device.id}`}
-          />
+            title="Acessar página de detalhes e telemetria do ativo"
+          >
+            Ações
+          </Button>
+          {onPause && onResume && onMaintenance && (
+            <DeviceActionMenu
+              deviceId={device.id}
+              deviceName={device.name}
+              healthStatus={statusKey}
+              onPause={onPause}
+              onResume={onResume}
+              onMaintenance={onMaintenance}
+              onViewDetails={onViewDetails}
+            />
+          )}
         </div>
       </td>
     </tr>
@@ -191,6 +227,15 @@ export const DeviceListPage: React.FC = () => {
     onError: (err: Error) => toast.error(err.message || "Erro ao pausar monitoramento"),
   });
 
+  const resumeMutation = useMutation({
+    mutationFn: (id: string) => devicesApi.resumeDevice(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      toast.success("Monitoramento retomado com sucesso");
+    },
+    onError: (err: Error) => toast.error(err.message || "Erro ao retomar monitoramento"),
+  });
+
   const maintenanceMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: { until: string; title: string; reason: string } }) =>
       devicesApi.setMaintenance(id, payload),
@@ -218,6 +263,13 @@ export const DeviceListPage: React.FC = () => {
       onSettled: () => setActionLoading((prev) => ({ ...prev, [deviceId]: false })),
     });
   }, [pauseMutation]);
+
+  const handleResume = useCallback((deviceId: string) => {
+    setActionLoading((prev) => ({ ...prev, [deviceId]: true }));
+    resumeMutation.mutate(deviceId, {
+      onSettled: () => setActionLoading((prev) => ({ ...prev, [deviceId]: false })),
+    });
+  }, [resumeMutation]);
 
   const handleMaintenance = useCallback((deviceId: string, payload: { until: string; title: string; reason: string }) => {
     setActionLoading((prev) => ({ ...prev, [deviceId]: true }));
@@ -456,6 +508,9 @@ export const DeviceListPage: React.FC = () => {
                       key={device.id}
                       device={device}
                       onViewDetails={handleViewDetails}
+                      onPause={handlePause}
+                      onResume={handleResume}
+                      onMaintenance={handleMaintenance}
                     />
                   ))}
                 </tbody>

@@ -34,6 +34,16 @@ vi.mock("../src/context/TelemetryContext", () => ({
   }),
 }));
 
+const mockNavigate = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
 vi.mock("../src/services/adminApi", () => ({
   adminApi: {
     listOrganizations: vi.fn().mockResolvedValue({
@@ -375,5 +385,31 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
     await waitFor(() => {
       expect(topologyApi.deleteNode).toHaveBeenCalled();
     });
+  });
+
+  it("deve navegar para /devices/{uuid} ao clicar duas vezes no nó", async () => {
+    renderWithProviders(<TopologyMapPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("topology-node-SW-CORE-LUANDA-01")).toBeInTheDocument();
+    });
+
+    const nodeElement = screen.getByTestId("topology-node-SW-CORE-LUANDA-01");
+    fireEvent.doubleClick(nodeElement);
+
+    expect(mockNavigate).toHaveBeenCalledWith("/devices/SW-CORE-LUANDA-01");
+  });
+
+  it("deve conter links diretos para /devices/{uuid} no drawer do nó selecionado", async () => {
+    renderWithProviders(<TopologyMapPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("drawer-view-360-link")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("drawer-view-360-link")).toHaveAttribute(
+      "href",
+      "/devices/SW-CORE-LUANDA-01"
+    );
   });
 });

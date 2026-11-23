@@ -489,4 +489,19 @@ describe("Inventory Management — Issue #217", () => {
       expect(document.activeElement).toBeInTheDocument();
     }, 10000);
   });
+
+  describe("DeviceListPage — Ações e Navegação", () => {
+    it("deve renderizar botão Ações na tabela que permite acessar detalhes do dispositivo", async () => {
+      (devicesApi.listDevices as Mock).mockResolvedValue(createMockResponse(mockDeviceList));
+
+      renderWithProviders(<DeviceListPage />);
+
+      await waitFor(() => expect(screen.getByText("Roteador Core SP")).toBeInTheDocument());
+
+      const actionsBtn = screen.getByTestId(`device-details-${mockDeviceList[0].id}`);
+      expect(actionsBtn).toBeInTheDocument();
+      expect(actionsBtn).toHaveTextContent("Ações");
+      fireEvent.click(actionsBtn);
+    });
+  });
 });
