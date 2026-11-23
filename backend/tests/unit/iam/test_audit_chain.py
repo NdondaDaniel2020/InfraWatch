@@ -172,6 +172,13 @@ async def test_audit_service_chaining_and_integrity_verification(
     assert is_valid is True
     assert errors == []
 
+    # 4.1 Verificação via verify_integrity_report
+    valid_rep, viol_rep, count_rep, last_hash = await service.verify_integrity_report(organization_id=org_id)
+    assert valid_rep is True
+    assert viol_rep == []
+    assert count_rep == 3
+    assert last_hash == r3.hash
+
     # 5. Simulação de adulteração (Tampering) passando lista copiada
     import copy
 

@@ -1,4 +1,5 @@
-from uuid import UUID
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,16 +13,21 @@ from src.contexts.inventory.domain.events import (
     DeviceUpdated,
 )
 from src.contexts.inventory.repositories.device_repository import DeviceRepository
+from src.contexts.inventory.schemas.device_schemas import DeviceManualProbeResult
 from src.contexts.inventory.schemas.requests import (
     CreateDeviceRequest,
     PauseDeviceRequest,
     ResumeDeviceRequest,
     SetMaintenanceRequest,
+    TestProbeRequest,
+    TestProbeResponse,
     UpdateDeviceRequest,
 )
 from src.core.database.outbox_repository import OutboxRepository
 from src.core.database.unit_of_work import AbstractUnitOfWork, SqlAlchemyUnitOfWork
 from src.core.domain.entity import generate_uuid7
+from src.workers.probers.executor import ProbeExecutor
+from src.workers.scheduler.in_memory_inventory import ProbeTarget
 
 
 class DeviceCommandService:
@@ -337,3 +343,90 @@ class DeviceCommandService:
 
         await self.uow.commit()
         return device
+
+    async def execute_pre_check_probe(
+        self,
+        cmd: TestProbeRequest,
+        organization_id: UUID | None = None,
+    ) -> TestProbeResponse:
+        """Executa sonda preliminar sob demanda para testar conectividade com o alvo."""
+        resolved_port = cmd.port
+        if resolved_port == 0 and cmd.protocol.upper() == "SNMP":
+            resolved_port = 161
+
+        target = ProbeTarget(
+            device_id=uuid4(),
+            organization_id=organization_id or uuid4(),
+            name=f"Pre-Check-{cmd.ip_address}",
+            ip_address=cmd.ip_address,
+            port=resolved_port,
+            protocol=cmd.protocol,
+            category="PRE_CHECK",
+            interval_seconds=60,
+        )
+
+        executor = ProbeExecutor(max_concurrent=10)
+        result = await executor.execute(target, timeout_ms=cmd.timeout_ms)
+
+        success = result.status in ("UP", "DEGRADED")
+        if success:
+            message = (
+                f"Conexão validada com sucesso! RTT: {result.latency_ms:.2f}ms"
+                if result.latency_ms > 0
+                else f"Conexão validada com sucesso! Status: {result.status}"
+            )
+        else:
+            message = result.error_message or f"Falha na sondagem: {result.status}"
+
+        return TestProbeResponse(
+            status=result.status,
+            latency_ms=result.latency_ms,
+            packet_loss_pct=result.packet_loss_pct,
+            message=message,
+            success=success,
+            error_message=result.error_message,
+        )
+
+    async def execute_on_demand_probe(
+        self,
+        device_id: UUID,
+        organization_id: UUID | None = None,
+    ) -> DeviceManualProbeResult | None:
+        """Executa sonda on-demand no dispositivo cadastrado com base em seus atributos reais."""
+        device = await self.repository.find_by_id(device_id)
+        if not device:
+            return None
+
+        if organization_id and device.organization_id != organization_id:
+            return None
+
+        resolved_port = device.port
+        if resolved_port == 0 and device.protocol.upper() == "SNMP":
+            resolved_port = 161
+
+        target = ProbeTarget(
+            device_id=device.id,
+            organization_id=device.organization_id,
+            name=device.name,
+            ip_address=device.ip_address,
+            port=resolved_port,
+            protocol=device.protocol,
+            category=device.category,
+            interval_seconds=device.interval_seconds,
+        )
+
+        executor = ProbeExecutor(max_concurrent=10)
+        result = await executor.execute(target, timeout_ms=3000)
+
+        success = result.status in ("UP", "DEGRADED")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        return DeviceManualProbeResult(
+            success=success,
+            rtt_ms=round(result.latency_ms, 2),
+            packet_loss_pct=round(result.packet_loss_pct, 1),
+            packets_sent=5,
+            packets_received=5 if success else 0,
+            timestamp=now_iso,
+            status=result.status,
+            message=f"Sonda concluída com status {result.status}" if success else (result.error_message or "Falha na sondagem"),
+        )

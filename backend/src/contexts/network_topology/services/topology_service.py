@@ -60,22 +60,8 @@ class TopologyService:
 
     async def get_default_organization_id(self) -> UUID | None:
         """Retorna o ID da primeira organização disponível para fallback de operadores globais."""
-        from src.contexts.iam.database.models import OrganizationModel
-        from src.contexts.network_topology.database.models import TopologyNodeModel
-
         try:
-            stmt = select(OrganizationModel.id).where(OrganizationModel.is_active.is_(True)).limit(1)
-            result = await self._session.execute(stmt)
-            org_id = result.scalar_one_or_none()
-            if org_id:
-                return org_id
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("Tabela de organizações não acessível para fallback: %s", exc)
-
-        try:
-            node_stmt = select(TopologyNodeModel.organization_id).limit(1)
-            node_result = await self._session.execute(node_stmt)
-            return node_result.scalar_one_or_none()
+            return await self._repo.get_default_organization_id()
         except Exception as exc:  # noqa: BLE001
             logger.debug("Tabela de nós topológicos não acessível para fallback: %s", exc)
             return None

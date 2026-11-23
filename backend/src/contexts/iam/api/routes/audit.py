@@ -83,19 +83,14 @@ async def verify_audit_integrity(
     Detecta imediatamente se qualquer registro foi modificado, deletado ou injetado fora de ordem.
     """
     start_t = time.perf_counter()
-    is_valid, violations = await audit_service.verify_audit_trail_integrity(
-        organization_id=organization_id
-    )
-
-    all_records = await audit_service.repository.list_all_chronological(
+    is_valid, violations, total_records, last_hash = await audit_service.verify_integrity_report(
         organization_id=organization_id
     )
     duration_ms = max(1, int((time.perf_counter() - start_t) * 1000))
-    last_hash = all_records[-1].hash if all_records else None
 
     return AuditIntegrityVerificationResponse(
         is_valid=is_valid,
-        total_records=len(all_records),
+        total_records=total_records,
         violations=violations,
         last_block_hash=last_hash,
         verification_time_ms=duration_ms,

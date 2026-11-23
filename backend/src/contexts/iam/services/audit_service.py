@@ -128,6 +128,18 @@ class AuditService:
 
         return is_valid, errors
 
+    async def verify_integrity_report(
+        self,
+        *,
+        organization_id: UUID | None = None,
+    ) -> tuple[bool, list[str], int, str | None]:
+        """Gera relatório de verificação criptográfica e encadeamento da trilha de auditoria."""
+        audit_records = await self.repository.list_all_chronological(organization_id=organization_id)
+        is_valid, violations = await self.verify_audit_trail_integrity(records=audit_records)
+        total_records = len(audit_records)
+        last_hash = audit_records[-1].hash if audit_records else None
+        return is_valid, violations, total_records, last_hash
+
     async def get_logs_paginated(
         self,
         *,

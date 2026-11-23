@@ -3,6 +3,7 @@ from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
 
 
 def mask_ip_address(ip: str) -> str:
@@ -90,3 +91,59 @@ class DeviceDetail(BaseModel):
 
 class DeviceSearchResult(DeviceListItem):
     pass
+
+
+class DeviceManualProbeResult(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    success: bool
+    rtt_ms: float
+    packet_loss_pct: float
+    packets_sent: int
+    packets_received: int
+    timestamp: str
+    status: str
+    message: str
+
+
+class DeviceMetricBucket(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    timestamp: str
+    rtt_min_ms: float
+    rtt_p95_ms: float
+    rtt_max_ms: float
+    packet_loss_pct: float
+
+
+class DeviceMetricSummary(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    min_ms: float
+    p95_ms: float
+    max_ms: float
+    avg_loss_pct: float
+
+
+class DeviceTimescaleMetricsResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    buckets: list[DeviceMetricBucket]
+    period: str
+    summary: DeviceMetricSummary
+
+
+class DeviceInterfaceResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    port_number: int
+    port_name: str
+    speed: str
+    status: str
+    description: str
+    rx_power_dbm: str
+    tx_power_dbm: str
+    crc_errors_per_min: int
+    packet_loss_pct: float
+    mtu: int
+    duplex: str

@@ -9,6 +9,7 @@ de eventos no Transactional Outbox para atualização reativa dos daemons.
 from __future__ import annotations
 
 import logging
+from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -67,6 +68,38 @@ class SystemSettingsService:
         self.audit_service = AuditService(session)
         self.dynamic_provider = dynamic_provider or get_dynamic_settings_provider()
         self.integration_tester = integration_tester or get_integration_tester_service()
+
+    async def update_integration_by_name(
+        self,
+        name: str,
+        payload: dict[str, Any],
+        updated_by: UUID | None = None,
+        ip_address: str | None = None,
+    ) -> IntegrationUpdateResponse:
+        """Despacha a atualização da integração mapeando o payload para o schema tipado correspondente."""
+        cat = name.lower().strip()
+        if cat == "glpi":
+            glpi_req = GlpiSettingsUpdateRequest(**payload)
+            return await self.update_glpi_settings(glpi_req, updated_by=updated_by, ip_address=ip_address)
+        elif cat == "zabbix":
+            zabbix_req = ZabbixSettingsUpdateRequest(**payload)
+            return await self.update_zabbix_settings(zabbix_req, updated_by=updated_by, ip_address=ip_address)
+        elif cat == "telegram":
+            telegram_req = TelegramSettingsUpdateRequest(**payload)
+            return await self.update_telegram_settings(telegram_req, updated_by=updated_by, ip_address=ip_address)
+        elif cat == "whatsapp":
+            wa_req = WhatsappSettingsUpdateRequest(**payload)
+            return await self.update_whatsapp_settings(wa_req, updated_by=updated_by, ip_address=ip_address)
+        elif cat == "smtp":
+            smtp_req = SmtpSettingsUpdateRequest(**payload)
+            return await self.update_smtp_settings(smtp_req, updated_by=updated_by, ip_address=ip_address)
+        elif cat == "webhook":
+            webhook_req = WebhookSettingsUpdateRequest(**payload)
+            return await self.update_webhook_settings(webhook_req, updated_by=updated_by, ip_address=ip_address)
+        else:
+            raise ValueError(
+                f"Integração '{name}' não é suportada. Opções: glpi, zabbix, telegram, whatsapp, smtp, webhook."
+            )
 
     async def update_glpi_settings(
         self,

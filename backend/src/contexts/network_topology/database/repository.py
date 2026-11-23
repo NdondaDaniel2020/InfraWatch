@@ -35,6 +35,12 @@ class TopologyRepository:
         edges = await self.list_edges(organization_id)
         return TopologyGraph(nodes=nodes, edges=edges)
 
+    async def get_default_organization_id(self) -> UUID | None:
+        """Retorna o ID da primeira organização com nós no grafo topológico."""
+        stmt = select(TopologyNodeModel.organization_id).limit(1)
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
     # ------------------------------------------------------------------
     # Nós (TopologyNode)
     # ------------------------------------------------------------------
