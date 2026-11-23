@@ -49,11 +49,29 @@ def mock_session():
 
 
 @pytest.fixture
-def service(mock_session, mock_event_bus, mock_repo):
+def mock_device_repo():
+    repo = MagicMock()
+    repo.find_by_id = AsyncMock(return_value=None)
+    repo.find_by_ids = AsyncMock(return_value=[])
+    repo.save = AsyncMock(side_effect=lambda d: d)
+    return repo
+
+
+@pytest.fixture
+def mock_telemetry_service():
+    svc = MagicMock()
+    svc.get_latest_metrics_for_devices = AsyncMock(return_value={})
+    return svc
+
+
+@pytest.fixture
+def service(mock_session, mock_event_bus, mock_repo, mock_device_repo, mock_telemetry_service):
     return TopologyService(
         uow_or_session=mock_session,
         event_bus=mock_event_bus,
         repository=mock_repo,
+        device_repo=mock_device_repo,
+        telemetry_service=mock_telemetry_service,
     )
 
 
@@ -201,3 +219,64 @@ async def test_isolate_node_not_found(service, mock_repo):
 
     with pytest.raises(NodeNotFoundError):
         await service.isolate_node(node_id, org_id)
+
+
+@pytest.mark.asyncio
+async def test_isolate_node_with_associated_device(service, mock_repo, mock_device_repo):
+    org_id = uuid4()
+    node_id = uuid4()
+    dev_id = uuid4()
+    node = TopologyNode(
+        id=node_id,
+        label="SW-CORE-01",
+        node_type="device",
+        organization_id=org_id,
+        device_id=dev_id,
+    )
+    mock_repo.get_node.return_value = node
+
+    mock_device = MagicMock()
+    mock_device.organization_id = org_id
+    mock_device.status = "UP"
+    mock_device.is_paused = False
+    mock_device_repo.find_by_id.return_value = mock_device
+
+    await service.isolate_node(node_id, org_id)
+
+    mock_device_repo.find_by_id.assert_awaited_once_with(dev_id)
+    assert mock_device.status == "MAINTENANCE"
+    assert mock_device.is_paused is True
+    mock_device_repo.save.assert_awaited_once_with(mock_device)
+
+
+@pytest.mark.asyncio
+async def test_get_graph_enriches_device_and_telemetry(service, mock_repo, mock_device_repo, mock_telemetry_service):
+    org_id = uuid4()
+    dev_id = uuid4()
+    node = TopologyNode(
+        id=uuid4(),
+        label="Router-01",
+        node_type="device",
+        organization_id=org_id,
+        device_id=dev_id,
+    )
+    mock_repo.get_graph.return_value = TopologyGraph(nodes=[node], edges=[])
+
+    mock_device = MagicMock()
+    mock_device.id = dev_id
+    mock_device.status = "UP"
+    mock_device.thresholds = {"model": "EdgeRouter", "vendor": "Ubiquiti"}
+    mock_device.category = "ROUTER"
+    mock_device_repo.find_by_ids.return_value = [mock_device]
+
+    mock_telemetry_service.get_latest_metrics_for_devices.return_value = {
+        dev_id: {"latency_ms": 12.5, "packet_loss": 0.0}
+    }
+
+    graph, enrichments = await service.get_graph(org_id)
+    assert graph.total_nodes == 1
+    assert dev_id in enrichments
+    assert enrichments[dev_id]["model"] == "EdgeRouter"
+    assert enrichments[dev_id]["vendor"] == "Ubiquiti"
+    assert enrichments[dev_id]["latency_ms"] == 12.5
+    assert enrichments[dev_id]["packet_loss"] == 0.0

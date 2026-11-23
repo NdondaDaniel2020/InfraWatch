@@ -18,11 +18,8 @@ class DeviceRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def find_by_id(self, device_id: UUID) -> Device | None:
-        """Busca o modelo por ID e reconstrói o agregado de domínio Device."""
-        model = await self.get_by_id(device_id)
-        if not model:
-            return None
+    def _to_domain(self, model: DeviceModel) -> Device:
+        """Reconstrói o agregado de domínio Device a partir do modelo ORM."""
         device = Device(
             id=model.id,
             organization_id=model.organization_id,
@@ -41,6 +38,23 @@ class DeviceRepository:
         device.maintenance_until = model.maintenance_until
         device.updated_at = model.updated_at
         return device
+
+    async def find_by_id(self, device_id: UUID) -> Device | None:
+        """Busca o modelo por ID e reconstrói o agregado de domínio Device."""
+        model = await self.get_by_id(device_id)
+        return self._to_domain(model) if model else None
+
+    async def find_by_ids(
+        self, device_ids: list[UUID], organization_id: UUID | None = None
+    ) -> list[Device]:
+        """Busca múltiplos dispositivos por IDs e escopo opcional de organização."""
+        if not device_ids:
+            return []
+        stmt = select(DeviceModel).where(DeviceModel.id.in_(device_ids))
+        if organization_id is not None:
+            stmt = stmt.where(DeviceModel.organization_id == organization_id)
+        result = await self.session.execute(stmt)
+        return [self._to_domain(m) for m in result.scalars().all()]
 
     async def save(self, device: Any) -> DeviceModel:
         """Persiste ou atualiza a entidade de domínio ou modelo de dispositivo na sessão ativa."""

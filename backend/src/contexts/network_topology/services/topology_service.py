@@ -10,10 +10,9 @@ import logging
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.inventory.repositories.device_repository import DeviceRepository
 from src.contexts.network_topology.database.repository import TopologyRepository
 from src.contexts.network_topology.domain.models import (
     EdgeAlreadyExistsError,
@@ -24,6 +23,7 @@ from src.contexts.network_topology.domain.models import (
     TopologyGraph,
     TopologyNode,
 )
+from src.contexts.telemetry.services.telemetry_query_service import TelemetryQueryService
 from src.core.database.unit_of_work import AbstractUnitOfWork
 from src.core.messaging.interfaces import EventBus
 from src.core.messaging.resilient_bus import ResilientEventBus
@@ -40,6 +40,8 @@ class TopologyService:
         uow_or_session: AbstractUnitOfWork | AsyncSession,
         event_bus: EventBus | None = None,
         repository: TopologyRepository | None = None,
+        device_repo: DeviceRepository | None = None,
+        telemetry_service: TelemetryQueryService | None = None,
     ) -> None:
         if isinstance(uow_or_session, AbstractUnitOfWork):
             self._uow: AbstractUnitOfWork | None = uow_or_session
@@ -49,6 +51,8 @@ class TopologyService:
             self._session = uow_or_session
 
         self._repo = repository or TopologyRepository(self._session)
+        self._device_repo = device_repo or DeviceRepository(self._session)
+        self._telemetry_service = telemetry_service or TelemetryQueryService(self._session)
         self._event_bus = event_bus or ResilientEventBus()
 
     async def _commit(self) -> None:
@@ -79,12 +83,7 @@ class TopologyService:
         device_enrichments: dict[UUID, dict[str, Any]] = {}
 
         if device_ids:
-            stmt = select(DeviceModel).where(
-                DeviceModel.id.in_(device_ids),
-                DeviceModel.organization_id == organization_id,
-            )
-            result = await self._session.execute(stmt)
-            devices = result.scalars().all()
+            devices = await self._device_repo.find_by_ids(device_ids, organization_id)
             for dev in devices:
                 device_enrichments[dev.id] = {
                     "status": dev.status,
@@ -95,35 +94,10 @@ class TopologyService:
                 }
 
             try:
-                from src.contexts.telemetry.database.models import MetricModel
-
-                latest_subq = (
-                    select(
-                        MetricModel.device_id,
-                        func.max(MetricModel.timestamp).label("max_ts"),
-                    )
-                    .where(MetricModel.device_id.in_(device_ids))
-                    .group_by(MetricModel.device_id)
-                    .subquery()
-                )
-                metrics_stmt = select(MetricModel).join(
-                    latest_subq,
-                    (MetricModel.device_id == latest_subq.c.device_id)
-                    & (MetricModel.timestamp == latest_subq.c.max_ts),
-                )
-                metrics_result = (await self._session.execute(metrics_stmt)).scalars().all()
-                for m in metrics_result:
-                    if m.device_id in device_enrichments:
-                        if m.metric_type == "latency_ms":
-                            device_enrichments[m.device_id]["latency_ms"] = round(m.value, 1)
-                        elif m.metric_type == "packet_loss":
-                            device_enrichments[m.device_id]["packet_loss"] = round(m.value, 1)
-                        elif m.metric_type == "cpu_usage":
-                            device_enrichments[m.device_id]["cpu_usage"] = round(m.value, 1)
-                        elif m.metric_type == "memory_usage":
-                            device_enrichments[m.device_id]["mem_usage"] = round(m.value, 1)
-                        if m.packet_loss is not None:
-                            device_enrichments[m.device_id]["packet_loss"] = round(m.packet_loss, 1)
+                metrics_by_dev = await self._telemetry_service.get_latest_metrics_for_devices(device_ids)
+                for dev_id, m_dict in metrics_by_dev.items():
+                    if dev_id in device_enrichments:
+                        device_enrichments[dev_id].update(m_dict)
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Métricas de telemetria não disponíveis para enriquecimento: %s", exc)
 
@@ -136,15 +110,11 @@ class TopologyService:
             raise NodeNotFoundError(node_id)
 
         if node.device_id is not None:
-            stmt = select(DeviceModel).where(
-                DeviceModel.id == node.device_id,
-                DeviceModel.organization_id == organization_id,
-            )
-            result = await self._session.execute(stmt)
-            device = result.scalar_one_or_none()
-            if device:
+            device = await self._device_repo.find_by_id(node.device_id)
+            if device and device.organization_id == organization_id:
                 device.status = "MAINTENANCE"
                 device.is_paused = True
+                await self._device_repo.save(device)
 
         await self._commit()
         return f"Nó {node.label} isolado da rota de trânsito OSPF/BGP com sucesso."
@@ -167,13 +137,8 @@ class TopologyService:
         """Cria e persiste um novo nó topológico."""
         # Se device_id foi especificado mas ip_address não, tenta herdar o ip do dispositivo
         if device_id is not None and not ip_address:
-            dev_stmt = select(DeviceModel).where(
-                DeviceModel.id == device_id,
-                DeviceModel.organization_id == organization_id,
-            )
-            dev_res = await self._session.execute(dev_stmt)
-            dev = dev_res.scalar_one_or_none()
-            if dev:
+            dev = await self._device_repo.find_by_id(device_id)
+            if dev and dev.organization_id == organization_id:
                 ip_address = dev.ip_address
                 if not label:
                     label = dev.name

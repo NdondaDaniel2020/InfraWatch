@@ -29,6 +29,46 @@ class TelemetryQueryService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def get_latest_metrics_for_devices(
+        self, device_ids: list[UUID]
+    ) -> dict[UUID, dict[str, float]]:
+        """Recupera as métricas operacionais mais recentes para um conjunto de dispositivos."""
+        if not device_ids:
+            return {}
+
+        latest_subq = (
+            select(
+                MetricModel.device_id,
+                func.max(MetricModel.timestamp).label("max_ts"),
+            )
+            .where(MetricModel.device_id.in_(device_ids))
+            .group_by(MetricModel.device_id)
+            .subquery()
+        )
+        metrics_stmt = select(MetricModel).join(
+            latest_subq,
+            (MetricModel.device_id == latest_subq.c.device_id)
+            & (MetricModel.timestamp == latest_subq.c.max_ts),
+        )
+        metrics_result = (await self._session.execute(metrics_stmt)).scalars().all()
+
+        device_metrics: dict[UUID, dict[str, float]] = {}
+        for m in metrics_result:
+            if m.device_id not in device_metrics:
+                device_metrics[m.device_id] = {}
+            if m.metric_type == "latency_ms":
+                device_metrics[m.device_id]["latency_ms"] = round(m.value, 1)
+            elif m.metric_type == "packet_loss":
+                device_metrics[m.device_id]["packet_loss"] = round(m.value, 1)
+            elif m.metric_type == "cpu_usage":
+                device_metrics[m.device_id]["cpu_usage"] = round(m.value, 1)
+            elif m.metric_type == "memory_usage":
+                device_metrics[m.device_id]["mem_usage"] = round(m.value, 1)
+            if m.packet_loss is not None:
+                device_metrics[m.device_id]["packet_loss"] = round(m.packet_loss, 1)
+
+        return device_metrics
+
     async def list_monitored_devices(
         self,
         current_user: AuthenticatedUser,
