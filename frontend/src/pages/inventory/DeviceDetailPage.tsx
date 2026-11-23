@@ -190,6 +190,13 @@ export const DeviceDetailPage: React.FC = () => {
         protocol: formData.protocol,
         category: formData.category,
         intervalSeconds: formData.intervalSeconds,
+        description: formData.description,
+        tags: formData.tags,
+        thresholds: formData.thresholds,
+        httpConfig: formData.httpConfig,
+        tcpConfig: formData.tcpConfig,
+        dockerConfig: formData.dockerConfig,
+        snmpConfig: formData.snmpConfig,
       });
     },
     [updateMutation]
@@ -646,9 +653,13 @@ export const DeviceDetailPage: React.FC = () => {
             hostname: effectiveDevice.hostname,
             ipAddress: effectiveDevice.ipAddress,
             port: effectiveDevice.port,
-            protocol: effectiveDevice.protocol as ProberProtocol,
+            protocol: (effectiveDevice.protocol?.toUpperCase() || "ICMP") as ProberProtocol,
             category: effectiveDevice.category as DeviceCategory,
             intervalSeconds: effectiveDevice.intervalSeconds,
+            description: effectiveDevice.description || "Datacenter Luanda Sul • Rack R-04",
+            dockerConfig: {
+              containerName: effectiveDevice.name || effectiveDevice.ipAddress,
+            },
           }}
           mode="edit"
           data-testid="device-form-modal"

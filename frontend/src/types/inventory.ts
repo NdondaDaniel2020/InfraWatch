@@ -1,6 +1,16 @@
 export type ProberProtocol = "ICMP" | "HTTP" | "TCP" | "DOCKER" | "HEARTBEAT" | "SNMP";
 
-export type DeviceCategory = "ROUTER" | "SWITCH" | "FIREWALL" | "SERVER" | "DATABASE" | "LOAD_BALANCER" | "OTHER";
+export type DeviceCategory =
+  | "ROUTER"
+  | "SWITCH"
+  | "FIREWALL"
+  | "SERVER"
+  | "DATABASE"
+  | "LOAD_BALANCER"
+  | "CONTAINER"
+  | "ACCESS_POINT"
+  | "MICROWAVE_LINK"
+  | "OTHER";
 
 export type DeviceHealthStatus = "UP" | "DOWN" | "DEG" | "MAINT" | "PAUSED";
 

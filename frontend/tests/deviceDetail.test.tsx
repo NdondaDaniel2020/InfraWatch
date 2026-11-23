@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import { DeviceDetailPage } from "../src/pages/inventory/DeviceDetailPage";
 import { DeviceMetricsTimescaleChart } from "../src/components/device/DeviceMetricsTimescaleChart";
 import { deviceDetailApi } from "../src/services/deviceDetailApi";
+import { devicesApi } from "../src/services/devicesApi";
 import { incidentsApi } from "../src/services/incidentsApi";
 import {
   createMockDeviceDetail,
@@ -22,6 +23,13 @@ vi.mock("../src/services/deviceDetailApi", () => ({
     triggerManualProbe: vi.fn(),
     getDeviceInterfaces: vi.fn(),
     getDeviceProbes: vi.fn().mockResolvedValue([]),
+  },
+}));
+
+vi.mock("../src/services/devicesApi", () => ({
+  devicesApi: {
+    updateDevice: vi.fn().mockResolvedValue({}),
+    testProbe: vi.fn().mockResolvedValue({ success: true, message: "OK" }),
   },
 }));
 
@@ -318,6 +326,53 @@ describe("DeviceDetailPage — Cockpit 360° do Dispositivo (Issue #244)", () =>
 
       await waitFor(() => {
         expect(screen.getByTestId("device-form-modal")).toBeInTheDocument();
+      });
+    });
+
+    it("deve permitir editar ativo com protocolo Docker e categoria CONTAINER e submeter com sucesso", async () => {
+      const user = userEvent.setup();
+      const mockContainerDevice = {
+        ...mockDevice,
+        name: "infrawatch-redis",
+        hostname: "docker",
+        ipAddress: "infrawatch-redis",
+        protocol: "docker",
+        category: "CONTAINER",
+        port: 0,
+      };
+      (deviceDetailApi.getDeviceDetail as Mock).mockResolvedValue(mockContainerDevice);
+      (deviceDetailApi.getTimescaleMetrics as Mock).mockResolvedValue(mockMetrics);
+
+      renderWithProviders(<DeviceDetailPage />);
+
+      await waitFor(() => expect(screen.getAllByText("infrawatch-redis").length).toBeGreaterThanOrEqual(1));
+
+      const editButton = screen.getByRole("link", { name: /editar ativo/i });
+      await user.click(editButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("device-form-modal")).toBeInTheDocument();
+      });
+
+      const submitButton = screen.getByRole("button", { name: /salvar alterações/i });
+      expect((submitButton as HTMLButtonElement).disabled).toBe(false);
+
+      const nameInput = screen.getByLabelText(/nome do ativo/i);
+      await user.clear(nameInput);
+      await user.type(nameInput, "infrawatch-redis-novo");
+
+      expect((submitButton as HTMLButtonElement).disabled).toBe(false);
+      await user.click(submitButton);
+
+      await waitFor(() => {
+        expect(devicesApi.updateDevice).toHaveBeenCalledWith(
+          "dev-1",
+          expect.objectContaining({
+            name: "infrawatch-redis-novo",
+            category: "CONTAINER",
+            protocol: "DOCKER",
+          })
+        );
       });
     });
   });

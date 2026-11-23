@@ -35,8 +35,8 @@ export const baseDeviceSchema = z.object({
   port: z
     .number()
     .int()
-    .min(1, "Porta deve ser entre 1 e 65535")
-    .max(65535, "Porta deve ser entre 1 e 65535")
+    .min(0, "Porta deve ser entre 0 e 65535")
+    .max(65535, "Porta deve ser entre 0 e 65535")
     .optional(),
   protocol: z.enum(["ICMP", "HTTP", "TCP", "DOCKER", "HEARTBEAT", "SNMP"]),
   category: z.enum([
@@ -46,6 +46,9 @@ export const baseDeviceSchema = z.object({
     "SERVER",
     "DATABASE",
     "LOAD_BALANCER",
+    "CONTAINER",
+    "ACCESS_POINT",
+    "MICROWAVE_LINK",
     "OTHER",
   ]),
   intervalSeconds: z
@@ -90,7 +93,7 @@ export const tcpConfigSchema = z.object({
 });
 
 export const dockerConfigSchema = z.object({
-  containerName: z.string().min(1, "Nome do container é obrigatório").max(255),
+  containerName: z.string().max(255).optional(),
   socketPath: z.string().max(255).optional(),
 });
 
@@ -132,12 +135,15 @@ export const deviceSchema = baseDeviceSchema
         path: ["tcpConfig"],
       });
     }
-    if (data.protocol === "DOCKER" && !data.dockerConfig) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Configuração Docker é obrigatória para protocolo Docker",
-        path: ["dockerConfig"],
-      });
+    if (data.protocol === "DOCKER") {
+      const cName = data.dockerConfig?.containerName || data.name || data.ipAddress;
+      if (!cName || !cName.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Nome do container é obrigatório para protocolo Docker",
+          path: ["dockerConfig", "containerName"],
+        });
+      }
     }
     if (
       data.protocol === "TCP" &&

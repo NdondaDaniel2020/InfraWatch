@@ -36,8 +36,11 @@ const categoryOptions: { value: DeviceCategory; label: string }[] = [
   { value: "SWITCH", label: "Switch de Acesso / Distribuição" },
   { value: "FIREWALL", label: "Firewall de Borda" },
   { value: "SERVER", label: "Servidores / Kubernetes" },
+  { value: "CONTAINER", label: "Contêineres / Docker / Podman" },
   { value: "DATABASE", label: "Bancos de Dados" },
   { value: "LOAD_BALANCER", label: "Load Balancer" },
+  { value: "ACCESS_POINT", label: "Access Point / Wi-Fi" },
+  { value: "MICROWAVE_LINK", label: "Enlace Rádio / Micro-ondas" },
   { value: "OTHER", label: "Outros Equipamentos" },
 ];
 
@@ -92,12 +95,51 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
     setValue,
     getValues,
     watch,
+    reset,
+    trigger,
     formState: { errors, isSubmitting, isValid },
   } = useForm<DeviceFormData>({
     resolver: zodResolver(deviceSchema),
     defaultValues,
     mode: "onChange",
   });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const proto = ((initialData?.protocol || "ICMP").toUpperCase()) as ProberProtocol;
+      const initialCat = (initialData?.category || "ROUTER") as DeviceCategory;
+      const merged: DeviceFormData = {
+        name: initialData?.name || "",
+        hostname: initialData?.hostname || "",
+        ipAddress: initialData?.ipAddress || "",
+        protocol: proto,
+        category: initialCat,
+        port: initialData?.port ?? 0,
+        intervalSeconds: initialData?.intervalSeconds ?? 30,
+        description: initialData?.description || "Datacenter Luanda Sul • Rack R-04",
+        slaExemption48h: initialData?.slaExemption48h ?? true,
+        thresholds: initialData?.thresholds || {
+          latencyWarningMs: 250,
+          latencyCriticalMs: 3,
+        },
+        dockerConfig: initialData?.dockerConfig || {
+          containerName: initialData?.name || initialData?.ipAddress || "",
+          socketPath: "/var/run/docker.sock",
+        },
+        httpConfig: initialData?.httpConfig,
+        tcpConfig: initialData?.tcpConfig,
+        snmpConfig: initialData?.snmpConfig || {
+          version: "v2c",
+          port: 161,
+          community: "public",
+          securityLevel: "authPriv",
+          timeoutSeconds: 5,
+        },
+      };
+      reset(merged);
+      trigger();
+    }
+  }, [isOpen, initialData, reset, trigger]);
 
   const protocol = watch("protocol", "ICMP");
   const intervalSeconds = watch("intervalSeconds", 30);
@@ -150,7 +192,12 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
           expectedStatusCodes: currentValues.httpConfig.expectedStatusCodes.split(",").map(Number).filter(Boolean),
         } : undefined,
         tcpConfig: currentValues.tcpConfig,
-        dockerConfig: currentValues.dockerConfig,
+        dockerConfig: currentValues.dockerConfig?.containerName
+          ? {
+              containerName: currentValues.dockerConfig.containerName,
+              socketPath: currentValues.dockerConfig.socketPath,
+            }
+          : undefined,
       });
 
       setTestConnMessage(response.message);
@@ -191,7 +238,12 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
           }
         : undefined,
       tcpConfig: data.tcpConfig,
-      dockerConfig: data.dockerConfig,
+      dockerConfig: data.dockerConfig?.containerName
+        ? {
+            containerName: data.dockerConfig.containerName,
+            socketPath: data.dockerConfig.socketPath,
+          }
+        : undefined,
       snmpConfig: data.snmpConfig,
     };
     await onSubmit(payload);
