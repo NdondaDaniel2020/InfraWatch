@@ -59,7 +59,7 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
         </div>
 
         {/* Campo de Busca */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto min-w-0">
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
@@ -79,18 +79,18 @@ export const SlaEndpointsTable: React.FC<SlaEndpointsTableProps> = ({
       </div>
 
       {/* Tabela de Dados */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs" id="sla-endpoints-table-body">
+      <div className="overflow-x-auto min-w-0 max-w-full">
+        <table className="min-w-[750px] w-full text-left border-collapse text-xs" id="sla-endpoints-table-body">
           <thead>
             <tr className="bg-obsidian-950/60 border-b border-obsidian-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-              <th className="py-3 px-4">ENDPOINT / FQDN</th>
-              <th className="py-3 px-4">SERVIÇO CONTRATADO</th>
-              <th className="py-3 px-4">PROTOCOLO</th>
-              <th className="py-3 px-4 text-center">STATUS ATUAL</th>
-              <th className="py-3 px-4 text-center">SLA NO PERÍODO</th>
-              <th className="py-3 px-4 text-center">LATÊNCIA MÉDIA</th>
-              <th className="py-3 px-4">REGIÃO / DC</th>
-              <th className="py-3 px-4 text-right">CONFORMIDADE</th>
+              <th className="py-3 px-4 whitespace-nowrap">ENDPOINT / FQDN</th>
+              <th className="py-3 px-4 whitespace-nowrap">SERVIÇO CONTRATADO</th>
+              <th className="py-3 px-4 whitespace-nowrap">PROTOCOLO</th>
+              <th className="py-3 px-4 text-center whitespace-nowrap">STATUS ATUAL</th>
+              <th className="py-3 px-4 text-center whitespace-nowrap">SLA NO PERÍODO</th>
+              <th className="py-3 px-4 text-center whitespace-nowrap">LATÊNCIA MÉDIA</th>
+              <th className="py-3 px-4 whitespace-nowrap">REGIÃO / DC</th>
+              <th className="py-3 px-4 text-right whitespace-nowrap">CONFORMIDADE</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-obsidian-800/80 font-mono">

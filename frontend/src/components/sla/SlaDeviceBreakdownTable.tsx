@@ -63,7 +63,7 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
           </h2>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto min-w-0">
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
@@ -83,17 +83,17 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
       </div>
 
       {/* Tabela de Ativos */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse" id="sla-device-table">
+      <div className="overflow-x-auto min-w-0 max-w-full">
+        <table className="min-w-[700px] w-full text-left border-collapse" id="sla-device-table">
           <thead>
             <tr className="bg-obsidian-950/60 border-b border-obsidian-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-              <th className="py-3 px-4">ATIVO / FQDN</th>
-              <th className="py-3 px-4">ENDEREÇO IPV4</th>
-              <th className="py-3 px-4">TIER / CATEGORIA</th>
-              <th className="py-3 px-4 text-center">UPTIME BRUTO</th>
-              <th className="py-3 px-4 text-center">ISENÇÃO RFC (MIN)</th>
-              <th className="py-3 px-4 text-center">UPTIME LÍQUIDO</th>
-              <th className="py-3 px-4 text-right">CONFORMIDADE</th>
+              <th className="py-3 px-4 whitespace-nowrap">ATIVO / FQDN</th>
+              <th className="py-3 px-4 whitespace-nowrap">ENDEREÇO IPV4</th>
+              <th className="py-3 px-4 whitespace-nowrap">TIER / CATEGORIA</th>
+              <th className="py-3 px-4 text-center whitespace-nowrap">UPTIME BRUTO</th>
+              <th className="py-3 px-4 text-center whitespace-nowrap">ISENÇÃO RFC (MIN)</th>
+              <th className="py-3 px-4 text-center whitespace-nowrap">UPTIME LÍQUIDO</th>
+              <th className="py-3 px-4 text-right whitespace-nowrap">CONFORMIDADE</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-obsidian-800/80 text-xs font-mono">
