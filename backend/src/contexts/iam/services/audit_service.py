@@ -71,7 +71,7 @@ class AuditService:
         audit_records = (
             records
             if records is not None
-            else await self.repository.list_all_chronological(organization_id=organization_id)
+            else await self.repository.list_all_chronological()
         )
         if not audit_records:
             return True, []
@@ -115,6 +115,20 @@ class AuditService:
 
             expected_previous_hash = record.hash
 
+        # Se organization_id for fornecido e houver erros na cadeia global,
+        # sanitizamos as mensagens para não expor IDs/dados de outras organizações
+        if organization_id is not None and errors:
+            org_records_ids = {str(r.id) for r in audit_records if r.organization_id == organization_id}
+            sanitized_errors: list[str] = []
+            for err in errors:
+                if any(rec_id in err for rec_id in org_records_ids):
+                    sanitized_errors.append(err)
+                else:
+                    sanitized_errors.append(
+                        "Quebra de integridade na cadeia de custódia global do sistema."
+                    )
+            errors = list(dict.fromkeys(sanitized_errors))
+
         is_valid = len(errors) == 0
         if not is_valid:
             logger.error(
@@ -134,10 +148,23 @@ class AuditService:
         organization_id: UUID | None = None,
     ) -> tuple[bool, list[str], int, str | None]:
         """Gera relatório de verificação criptográfica e encadeamento da trilha de auditoria."""
-        audit_records = await self.repository.list_all_chronological(organization_id=organization_id)
-        is_valid, violations = await self.verify_audit_trail_integrity(records=audit_records)
-        total_records = len(audit_records)
-        last_hash = audit_records[-1].hash if audit_records else None
+        all_records = await self.repository.list_all_chronological()
+        is_valid, violations = await self.verify_audit_trail_integrity(
+            organization_id=organization_id,
+            records=all_records,
+        )
+        if organization_id is not None:
+            org_records = [r for r in all_records if r.organization_id == organization_id]
+            total_records = len(org_records)
+            last_hash = (
+                org_records[-1].hash
+                if org_records
+                else (all_records[-1].hash if all_records else None)
+            )
+        else:
+            total_records = len(all_records)
+            last_hash = all_records[-1].hash if all_records else None
+
         return is_valid, violations, total_records, last_hash
 
     async def get_logs_paginated(
