@@ -134,25 +134,30 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
   };
 
   const executeAction = (actionId: ActionId) => {
+    const currentPauseReason = pauseReason.trim();
+    const currentMaintenancePayload = { ...maintenancePayload };
+
+    // Fecha o modal e menu imediatamente para prevenir flashes de validação
+    setIsOpen(false);
+    setSelectedAction(null);
+    setPauseReason("");
+    setMaintenancePayload({ until: "", title: "", reason: "" });
+
     switch (actionId) {
       case "pause":
-        if (pauseReason.trim()) {
-          onPause(deviceId, pauseReason.trim());
+        if (currentPauseReason) {
+          onPause(deviceId, currentPauseReason);
         }
         break;
       case "resume":
         onResume(deviceId);
         break;
       case "maintenance":
-        if (maintenancePayload.until && maintenancePayload.title.trim() && maintenancePayload.reason.trim()) {
-          onMaintenance(deviceId, maintenancePayload);
+        if (currentMaintenancePayload.until && currentMaintenancePayload.title.trim() && currentMaintenancePayload.reason.trim()) {
+          onMaintenance(deviceId, currentMaintenancePayload);
         }
         break;
     }
-    setPauseReason("");
-    setMaintenancePayload({ until: "", title: "", reason: "" });
-    setIsOpen(false);
-    setSelectedAction(null);
   };
 
   const canPause = healthStatus !== "PAUSED" && healthStatus !== "MAINT";
@@ -196,11 +201,21 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
               }}
               data-testid="pause-reason-input"
             />
-            {pauseReason.trim().length < 10 && (
-              <p style={{ color: "var(--color-critical)", fontSize: "0.75rem", marginTop: "8px" }}>
-                O motivo deve ter pelo menos 10 caracteres.
-              </p>
-            )}
+            <div style={{ marginTop: "8px", fontSize: "0.75rem" }}>
+              {pauseReason.trim().length === 0 ? (
+                <p style={{ color: "var(--color-text-secondary)" }}>
+                  Mínimo de 10 caracteres para registro de auditoria.
+                </p>
+              ) : pauseReason.trim().length < 10 ? (
+                <p style={{ color: "var(--color-critical)" }}>
+                  O motivo deve ter pelo menos 10 caracteres ({pauseReason.trim().length}/10).
+                </p>
+              ) : (
+                <p style={{ color: "var(--color-healthy)" }}>
+                  ✓ Justificativa válida ({pauseReason.trim().length} caracteres).
+                </p>
+              )}
+            </div>
           </div>
         );
       case "maintenance":
@@ -326,7 +341,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
 
     return (
       <Button
-        variant={isPause ? "destructive" : isMaintenance ? "primary" : "secondary"}
+        variant="primary"
         onClick={() => executeAction(selectedAction!)}
         disabled={disabled}
         data-testid="confirm-action-button"
