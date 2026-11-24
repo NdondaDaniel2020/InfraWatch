@@ -15,9 +15,9 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.contexts.telemetry.database.repository import TelemetryRepository
 from src.workers.probers.base import ProbeResult
 
 logger = logging.getLogger("infrawatch.telemetry.batch_writer")
@@ -119,16 +119,11 @@ class MetricsBatchWriter:
             self._buffer.clear()
             self._flush_event.clear()
 
-        # Inserção em lote via executemany (asyncpg faz pipelining nativo)
-        insert_sql = text("""
-            INSERT INTO metrics (device_id, organization_id, metric_type, value, packet_loss, status, timestamp)
-            VALUES (:device_id, :organization_id, :metric_type, :value, :packet_loss, :status, :timestamp)
-        """)
-
         start = time.perf_counter()
         try:
             async with self._session_factory() as session, session.begin():
-                await session.execute(insert_sql, batch)
+                repo = TelemetryRepository(session)
+                await repo.insert_metrics_batch(batch)
 
             elapsed_ms = (time.perf_counter() - start) * 1000
             logger.info(

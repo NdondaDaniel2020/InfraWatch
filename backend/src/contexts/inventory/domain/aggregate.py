@@ -193,3 +193,9 @@ class Device(Entity):
         """Coloca o dispositivo em modo de manutenção."""
         self.status = DeviceStatus.MAINTENANCE.value
         self.maintenance_until = maintenance_until
+
+    def isolate(self, maintenance_until: datetime | None = None) -> None:
+        """Isola o dispositivo da rota operacional suspendendo sondas e marcando manutenção."""
+        self.status = DeviceStatus.MAINTENANCE.value
+        self.is_paused = True
+        self.maintenance_until = maintenance_until

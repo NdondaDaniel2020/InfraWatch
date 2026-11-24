@@ -9,6 +9,7 @@ from fastapi import Depends
 from src.contexts.inventory.repositories.device_repository import DeviceRepository
 from src.contexts.inventory.services.device_command_service import DeviceCommandService
 from src.contexts.inventory.services.device_query_service import DeviceQueryService
+from src.contexts.telemetry.services.telemetry_query_service import TelemetryQueryService
 from src.core.web.dependencies import DbSessionDep, UnitOfWorkDep
 
 
@@ -25,9 +26,13 @@ def get_device_command_service(
     return DeviceCommandService(uow, repository)
 
 
-def get_device_query_service(session: DbSessionDep) -> DeviceQueryService:
+def get_device_query_service(
+    session: DbSessionDep,
+    repository: DeviceRepository = Depends(get_device_repository),
+) -> DeviceQueryService:
     """Provedor de dependência para serviço de consultas de dispositivos."""
-    return DeviceQueryService(session)
+    telemetry_service = TelemetryQueryService(session)
+    return DeviceQueryService(session, repository=repository, telemetry_service=telemetry_service)
 
 
 DeviceCommandServiceDep = Annotated[DeviceCommandService, Depends(get_device_command_service)]

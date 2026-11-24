@@ -117,6 +117,8 @@ class TopologyService:
         if node.device_id is not None:
             device = await self._device_repo.find_by_id(node.device_id)
             if device and device.organization_id == organization_id:
+                if hasattr(device, "isolate") and callable(device.isolate):
+                    device.isolate()
                 device.status = "MAINTENANCE"
                 device.is_paused = True
                 await self._device_repo.save(device)

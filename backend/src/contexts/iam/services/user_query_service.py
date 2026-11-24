@@ -6,15 +6,16 @@ recuperação de perfis de usuário, sem mutação de estado transacional.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.iam.database.models import UserModel
 from src.contexts.iam.repositories.user_repository import UserRepository
 from src.core.exceptions import NotFoundError
+
+if TYPE_CHECKING:
+    from src.contexts.iam.database.models import UserModel
 
 
 class UserQueryService:
@@ -51,18 +52,11 @@ class UserQueryService:
         limit: int = 50,
     ) -> tuple[list[UserModel], int]:
         """Lista usuários paginados com filtro opcional por organização/tenant."""
-        query = select(UserModel).options(joinedload(UserModel.organization))
-        count_query = select(func.count()).select_from(UserModel)
-
-        if organization_id is not None:
-            query = query.where(UserModel.organization_id == organization_id)
-            count_query = count_query.where(UserModel.organization_id == organization_id)
-
-        query = query.order_by(UserModel.created_at.desc()).offset(offset).limit(limit)
-        items_res = await self.session.execute(query)
-        count_res = await self.session.execute(count_query)
-
-        return list(items_res.scalars().all()), int(count_res.scalar_one())
+        return await self.user_repo.list_paginated(
+            organization_id=organization_id,
+            offset=offset,
+            limit=limit,
+        )
 
 
 __all__ = ["UserQueryService"]

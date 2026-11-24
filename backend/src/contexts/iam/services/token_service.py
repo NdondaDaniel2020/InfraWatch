@@ -17,12 +17,13 @@ from uuid import UUID
 
 import redis.asyncio as aioredis
 from redis.exceptions import RedisError
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from src.contexts.iam.database.models import RefreshTokenModel, UserModel
+from src.contexts.iam.database.models import UserModel
 from src.contexts.iam.domain.events import UserLoggedOutEvent
+from src.contexts.iam.repositories.refresh_token_repository import (
+    RefreshTokenRepository,
+)
 from src.contexts.iam.security.tokens import (
     create_access_token,
     decode_access_token,
@@ -99,8 +100,10 @@ class TokenService:
         session: AsyncSession,
         redis_client: aioredis.Redis | None = None,
         grace_period_seconds: int | None = None,
+        refresh_token_repository: RefreshTokenRepository | None = None,
     ) -> None:
         self.session = session
+        self.refresh_token_repo = refresh_token_repository or RefreshTokenRepository(session)
         self._redis = redis_client
         settings = get_settings()
         self._grace_period_seconds = (
@@ -141,18 +144,15 @@ class TokenService:
 
         # 4. Persistir o hash do Refresh Token no banco relacional com o ID da sessão
         expires_at = now + timedelta(days=settings.JWT_REFRESH_DAYS)
-        token_record = RefreshTokenModel(
-            id=session_id,
+        await self.refresh_token_repo.create(
+            session_id=session_id,
             user_id=user.id,
             token_hash=token_hash,
             expires_at=expires_at,
-            is_revoked=False,
             ip_address=ip_address,
             user_agent=user_agent,
             device_name=effective_device_name,
         )
-        self.session.add(token_record)
-        await self.session.flush()
 
         return TokenPairResponse(
             access_token=access_token,
@@ -181,13 +181,7 @@ class TokenService:
         token_hash = hash_token(raw_refresh_token)
 
         # Busca o token no banco com o usuário associado
-        query = (
-            select(RefreshTokenModel)
-            .options(selectinload(RefreshTokenModel.user))
-            .where(RefreshTokenModel.token_hash == token_hash)
-        )
-        result = await self.session.execute(query)
-        token_record = result.scalar_one_or_none()
+        token_record = await self.refresh_token_repo.get_by_token_hash(token_hash, load_user=True)
 
         if token_record is None:
             raise InvalidTokenError("Refresh token inválido ou não encontrado.")
@@ -229,15 +223,7 @@ class TokenService:
                 token_record.user_id,
             )
             # Revogação atômica de todas as sessões ativas do usuário
-            await self.session.execute(
-                update(RefreshTokenModel)
-                .where(
-                    RefreshTokenModel.user_id == token_record.user_id,
-                    RefreshTokenModel.is_revoked.is_(False),
-                )
-                .values(is_revoked=True, revoked_at=now)
-            )
-            await self.session.flush()
+            await self.refresh_token_repo.revoke_all_for_user(token_record.user_id)
             await self.session.commit()
 
             raise TokenReuseDetectedError(
@@ -269,18 +255,15 @@ class TokenService:
         )
 
         # Persiste o novo token rotacionado com ID explícito
-        new_token_record = RefreshTokenModel(
-            id=new_session_id,
+        await self.refresh_token_repo.create(
+            session_id=new_session_id,
             user_id=token_record.user_id,
             token_hash=new_token_hash,
             expires_at=now + timedelta(days=settings.JWT_REFRESH_DAYS),
-            is_revoked=False,
             ip_address=ip_address or token_record.ip_address,
             user_agent=user_agent or token_record.user_agent,
             device_name=effective_device_name,
         )
-        self.session.add(new_token_record)
-        await self.session.flush()
         await self.session.commit()
 
         return TokenPairResponse(
@@ -300,13 +283,7 @@ class TokenService:
         now = datetime.now(UTC)
         token_hash = hash_token(raw_refresh_token)
 
-        query = (
-            select(RefreshTokenModel)
-            .options(selectinload(RefreshTokenModel.user))
-            .where(RefreshTokenModel.token_hash == token_hash)
-        )
-        result = await self.session.execute(query)
-        token_record = result.scalar_one_or_none()
+        token_record = await self.refresh_token_repo.get_by_token_hash(token_hash, load_user=True)
 
         if token_record and not token_record.is_revoked:
             token_record.is_revoked = True
@@ -343,16 +320,7 @@ class TokenService:
 
     async def revoke_all_user_tokens(self, user_id: UUID) -> None:
         """Revoga todas as sessões ativas pertencentes a um usuário."""
-        now = datetime.now(UTC)
-        await self.session.execute(
-            update(RefreshTokenModel)
-            .where(
-                RefreshTokenModel.user_id == user_id,
-                RefreshTokenModel.is_revoked.is_(False),
-            )
-            .values(is_revoked=True, revoked_at=now)
-        )
-        await self.session.flush()
+        await self.refresh_token_repo.revoke_all_for_user(user_id)
 
     async def blacklist_access_token(self, jti: str, ttl_seconds: int = 900) -> None:
         """Adiciona o JTI de um Access Token à blacklist com TTL igual ao tempo restante de vida."""

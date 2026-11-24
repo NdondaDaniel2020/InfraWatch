@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.contexts.iam.database.models import RefreshTokenModel
 
@@ -23,12 +24,43 @@ class RefreshTokenRepository:
         await self.session.flush()
         return record
 
+    async def create(
+        self,
+        *,
+        session_id: UUID,
+        user_id: UUID,
+        token_hash: str,
+        expires_at: datetime,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        device_name: str | None = None,
+    ) -> RefreshTokenModel:
+        """Cria e persiste um novo token de refresh."""
+        record = RefreshTokenModel(
+            id=session_id,
+            user_id=user_id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+            is_revoked=False,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            device_name=device_name,
+        )
+        self.session.add(record)
+        await self.session.flush()
+        return record
+
     async def get_by_id(self, session_id: UUID) -> RefreshTokenModel | None:
 
         return await self.session.get(RefreshTokenModel, session_id)
 
-    async def get_by_token_hash(self, token_hash: str) -> RefreshTokenModel | None:
+    async def get_by_token_hash(
+        self, token_hash: str, *, load_user: bool = False
+    ) -> RefreshTokenModel | None:
+        """Busca token por hash, opcionalmente carregando o relacionamento user."""
         query = select(RefreshTokenModel).where(RefreshTokenModel.token_hash == token_hash)
+        if load_user:
+            query = query.options(selectinload(RefreshTokenModel.user))
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
@@ -89,6 +121,20 @@ class RefreshTokenRepository:
         await self.session.execute(stmt)
         await self.session.flush()
         return session_ids
+
+    async def revoke_all_for_user(self, user_id: UUID) -> None:
+        """Revoga todas as sessões ativas pertencentes a um usuário."""
+        now = datetime.now(UTC)
+        stmt = (
+            update(RefreshTokenModel)
+            .where(
+                RefreshTokenModel.user_id == user_id,
+                RefreshTokenModel.is_revoked.is_(False),
+            )
+            .values(is_revoked=True, revoked_at=now)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
 
     async def revoke_other_sessions(
         self, user_id: UUID, current_token_hash: str | None = None

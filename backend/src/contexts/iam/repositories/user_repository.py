@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from src.contexts.iam.database.models import UserModel
 from src.contexts.iam.domain.aggregate import User
@@ -160,6 +160,30 @@ class UserRepository:
 
         result = await self.session.execute(query)
         return int(result.scalar_one())
+
+    async def list_paginated(
+        self,
+        *,
+        organization_id: UUID | None = None,
+        offset: int = 0,
+        limit: int = 50,
+        load_organization: bool = True,
+    ) -> tuple[list[UserModel], int]:
+        """Lista usuários paginados com filtro opcional por tenant e retorna a contagem total."""
+        query = select(UserModel)
+        if load_organization:
+            query = query.options(joinedload(UserModel.organization))
+        count_query = select(func.count()).select_from(UserModel)
+
+        if organization_id is not None:
+            query = query.where(UserModel.organization_id == organization_id)
+            count_query = count_query.where(UserModel.organization_id == organization_id)
+
+        query = query.order_by(UserModel.created_at.desc()).offset(offset).limit(limit)
+        items_res = await self.session.execute(query)
+        count_res = await self.session.execute(count_query)
+
+        return list(items_res.scalars().all()), int(count_res.scalar_one())
 
     async def set_active_status(self, user_id: UUID, is_active: bool) -> None:
         """Atualiza o estado de ativação do usuário."""
