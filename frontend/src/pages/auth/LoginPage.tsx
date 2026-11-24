@@ -375,11 +375,6 @@ export const LoginPage: React.FC = () => {
                     Criar conta
                   </button>
                 </div>
-                <div>
-                  <Link to="/login-test" className="text-[11.5px] text-slate-500 hover:text-slate-400 underline transition-colors">
-                    Seletor Rápido (Dev / Testes)
-                  </Link>
-                </div>
               </div>
             </form>
           </div>

@@ -3,7 +3,7 @@
  * Segue o padrão híbrido:
  * 1. Prioridade para a URL direta recebida do backend (incident.glpi_url).
  * 2. Variável de ambiente configurada no frontend (VITE_GLPI_UI_URL ou VITE_GLPI_BASE_URL).
- * 3. Fallback canônico seguro: https://glpi.infrawatch.ao.
+ * 3. Sem fallback arbitrário de URL externa: utiliza caminho relativo caso omitida.
  */
 
 const rawGlpiUiUrl = (
@@ -17,7 +17,7 @@ const normalizedGlpiBase = rawGlpiUiUrl
   ? rawGlpiUiUrl.replace(/\/apirest\.php\/?$/, "").replace(/\/+$/, "")
   : "";
 
-export const DEFAULT_GLPI_BASE_URL = normalizedGlpiBase || "https://glpi.infrawatch.ao";
+export const DEFAULT_GLPI_BASE_URL = normalizedGlpiBase;
 
 /**
  * Retorna a Base URL da interface Web do GLPI para o navegador.
@@ -42,10 +42,12 @@ export function getGlpiTicketUrl(
     return backendUrl.trim();
   }
   if (!ticketId) {
-    return `${DEFAULT_GLPI_BASE_URL}/front/ticket.php`;
+    return DEFAULT_GLPI_BASE_URL ? `${DEFAULT_GLPI_BASE_URL}/front/ticket.php` : "/front/ticket.php";
   }
   const cleanId = String(ticketId).trim().replace(/^#/, "");
-  return `${DEFAULT_GLPI_BASE_URL}/front/ticket.form.php?id=${cleanId}`;
+  return DEFAULT_GLPI_BASE_URL
+    ? `${DEFAULT_GLPI_BASE_URL}/front/ticket.form.php?id=${cleanId}`
+    : `/front/ticket.form.php?id=${cleanId}`;
 }
 
 /**
@@ -57,5 +59,5 @@ export function getGlpiHelpdeskUrl(backendUrl?: string | null): string {
       ? backendUrl.replace(/\/front\/ticket\.form\.php.*$/, "/front/ticket.php")
       : backendUrl.trim();
   }
-  return `${DEFAULT_GLPI_BASE_URL}/front/ticket.php`;
+  return DEFAULT_GLPI_BASE_URL ? `${DEFAULT_GLPI_BASE_URL}/front/ticket.php` : "/front/ticket.php";
 }

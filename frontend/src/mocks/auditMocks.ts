@@ -108,7 +108,7 @@ export const mockAuditLogs: AuditLogEntry[] = [
     result: "SUCCESS",
     details: {
       ticket_id: 8492,
-      glpi_url: "https://glpi.infrawatch.ao/tickets/8492",
+      glpi_url: "http://localhost:8080/tickets/8492",
       status_transition: "Novo -> Em Atendimento",
       event_source: "Transactional Outbox Relay Worker",
     },

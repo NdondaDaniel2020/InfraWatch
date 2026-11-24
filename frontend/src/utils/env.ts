@@ -78,9 +78,9 @@ export const ENV = {
 
   /**
    * URL Base da interface Web do GLPI (acesso humano/navegador).
-   * Configurável via VITE_GLPI_UI_URL no .env.
+   * Configurável via VITE_GLPI_UI_URL no .env. Sem fallback arbitrário de domínio.
    */
-  GLPI_UI_URL: normalizedGlpiBase || "https://glpi.infrawatch.ao",
+  GLPI_UI_URL: normalizedGlpiBase,
 } as const;
 
 /**

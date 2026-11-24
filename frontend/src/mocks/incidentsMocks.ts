@@ -27,7 +27,7 @@ export const INITIAL_CANONICAL_INCIDENTS: IncidentItem[] = [
     duration_str: "00h 08m 12s",
     sla_remaining_str: "SLA Restante: 06m 48s",
     glpi_ticket_id: 8492,
-    glpi_url: "https://glpi.infrawatch.ao/front/ticket.form.php?id=8492",
+    glpi_url: "http://localhost:8080/front/ticket.form.php?id=8492",
     priority_label: "P1 CRÍTICO (DOWN)",
     assigned_operator: null,
     timeline: [
@@ -72,7 +72,7 @@ export const INITIAL_CANONICAL_INCIDENTS: IncidentItem[] = [
     duration_str: "01h 39m 48s",
     sla_remaining_str: "SLA: 02h 20m restante",
     glpi_ticket_id: 8488,
-    glpi_url: "https://glpi.infrawatch.ao/front/ticket.form.php?id=8488",
+    glpi_url: "http://localhost:8080/front/ticket.form.php?id=8488",
     priority_label: "P2 ALTO (DEGRADADO)",
     assigned_operator: {
       id: "usr-dn",
@@ -153,7 +153,7 @@ export const INITIAL_CANONICAL_INCIDENTS: IncidentItem[] = [
     duration_str: "00h 04m 12s",
     sla_remaining_str: "Concluído dentro do SLA",
     glpi_ticket_id: 8470,
-    glpi_url: "https://glpi.infrawatch.ao/front/ticket.form.php?id=8470",
+    glpi_url: "http://localhost:8080/front/ticket.form.php?id=8470",
     priority_label: "P3 RESOLVIDO",
     assigned_operator: {
       id: "bot-auto",
@@ -200,7 +200,7 @@ export const INITIAL_CANONICAL_INCIDENTS: IncidentItem[] = [
     duration_str: "00h 11m 30s",
     sla_remaining_str: "Concluído dentro do SLA",
     glpi_ticket_id: 8465,
-    glpi_url: "https://glpi.infrawatch.ao/front/ticket.form.php?id=8465",
+    glpi_url: "http://localhost:8080/front/ticket.form.php?id=8465",
     priority_label: "P3 RESOLVIDO",
     assigned_operator: {
       id: "usr-cs",

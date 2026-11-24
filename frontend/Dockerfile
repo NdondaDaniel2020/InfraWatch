@@ -22,6 +22,7 @@ WORKDIR /app
 
 # Copia os artefatos compilados do estágio builder
 COPY --from=builder /app/dist /app/dist
+COPY --from=builder /app/.env.production* /app/
 
 # Verifica se o volume montado está disponível; se não, usa o diretório local
 # Este estágio apenas prepara os arquivos para serem montados via volume
@@ -43,6 +44,7 @@ COPY default.conf /etc/nginx/conf.d/default.conf
 # Copia os artefatos compilados para /app/dist e para o diretório padrão
 COPY --from=exporter /app/dist /app/dist
 COPY --from=exporter /app/dist /usr/share/nginx/html
+COPY --from=exporter /app/.env.production* /app/
 
 # Copia e configura o script de inicialização para sincronização do volume compartilhado
 COPY entrypoint.sh /entrypoint.sh

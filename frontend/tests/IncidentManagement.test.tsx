@@ -81,7 +81,7 @@ vi.mock("../src/services/incidentsApi", async () => {
           inMemoryTestIncidents[idx] = {
             ...inMemoryTestIncidents[idx],
             glpi_ticket_id: ticketId,
-            glpi_url: `https://glpi.infrawatch.ao/front/ticket.form.php?id=${ticketId}`,
+            glpi_url: `http://localhost:8080/front/ticket.form.php?id=${ticketId}`,
           };
           notifyTestSubscribers();
           return inMemoryTestIncidents[idx];
@@ -170,7 +170,7 @@ describe("Painel de Incidentes, Status GLPI e Ações Rápidas (Issue #32)", () 
       const link = screen.getByTestId("glpi-ticket-link-inc-8492");
       expect(link).toBeInTheDocument();
       expect(link).toHaveTextContent("Ticket #8492 • GLPI");
-      expect(link).toHaveAttribute("href", "https://glpi.infrawatch.ao/front/ticket.form.php?id=8492");
+      expect(link).toHaveAttribute("href", "/front/ticket.form.php?id=8492");
       expect(link).toHaveAttribute("target", "_blank");
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
     });
