@@ -208,3 +208,88 @@ async def test_orm_level_prevents_audit_log_delete(async_session: AsyncSession) 
         await async_session.flush()
 
     assert "estritamente proibidas" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_audit_service_multi_tenant_interleaved_chain(
+    async_session: AsyncSession,
+) -> None:
+    """Garante que a cadeia de custódia global funciona corretamente com eventos intercalados entre múltiplas organizações."""
+    service = AuditService(async_session)
+    actor_id = uuid4()
+    org_a = uuid4()
+    org_b = uuid4()
+
+    # 1. Registro da Org A (Gênese)
+    r1 = await service.record_action(
+        action="ORGANIZATION_CREATED",
+        resource_type="Organization",
+        resource_id=str(org_a),
+        actor_user_id=actor_id,
+        organization_id=org_a,
+        details={"name": "Org A"},
+    )
+    assert r1.previous_hash is None or r1.previous_hash == GENESIS_HASH
+
+    # 2. Registro da Org B
+    r2 = await service.record_action(
+        action="ORGANIZATION_CREATED",
+        resource_type="Organization",
+        resource_id=str(org_b),
+        actor_user_id=actor_id,
+        organization_id=org_b,
+        details={"name": "Org B"},
+    )
+    assert r2.previous_hash == r1.hash
+
+    # 3. Registro do Sistema (sem organização)
+    r3 = await service.record_action(
+        action="SYSTEM_MAINTENANCE",
+        resource_type="System",
+        resource_id="scheduler",
+        actor_user_id=actor_id,
+        organization_id=None,
+    )
+    assert r3.previous_hash == r2.hash
+
+    # 4. Segundo registro da Org A
+    r4 = await service.record_action(
+        action="DEVICE_PAUSED",
+        resource_type="Device",
+        resource_id=str(uuid4()),
+        actor_user_id=actor_id,
+        organization_id=org_a,
+    )
+    assert r4.previous_hash == r3.hash
+
+    # 5. Segundo registro da Org B
+    r5 = await service.record_action(
+        action="DEVICE_RESUMED",
+        resource_type="Device",
+        resource_id=str(uuid4()),
+        actor_user_id=actor_id,
+        organization_id=org_b,
+    )
+    assert r5.previous_hash == r4.hash
+
+    # Verificação para a Org A: deve ser íntegra, com 2 registros próprios e último hash sendo r4
+    valid_a, errs_a, count_a, last_a = await service.verify_integrity_report(organization_id=org_a)
+    assert valid_a is True
+    assert errs_a == []
+    assert count_a == 2
+    assert last_a == r4.hash
+
+    # Verificação para a Org B: deve ser íntegra, com 2 registros próprios e último hash sendo r5
+    valid_b, errs_b, count_b, last_b = await service.verify_integrity_report(organization_id=org_b)
+    assert valid_b is True
+    assert errs_b == []
+    assert count_b == 2
+    assert last_b == r5.hash
+
+    # Verificação global (Super Admin): deve ser íntegra, com 5 registros no total e último hash sendo r5
+    valid_all, errs_all, count_all, last_all = await service.verify_integrity_report(organization_id=None)
+    assert valid_all is True
+    assert errs_all == []
+    assert count_all == 5
+    assert last_all == r5.hash
+

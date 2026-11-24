@@ -75,6 +75,7 @@ async def list_audit_logs(
     dependencies=[Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN))],
 )
 async def verify_audit_integrity(
+    current_user: CurrentUserDep,
     audit_service: AuditServiceDep,
     organization_id: Annotated[UUID | None, Query()] = None,
 ) -> AuditIntegrityVerificationResponse:
@@ -82,9 +83,13 @@ async def verify_audit_integrity(
 
     Detecta imediatamente se qualquer registro foi modificado, deletado ou injetado fora de ordem.
     """
+    target_org_id = organization_id
+    if current_user.role != UserRole.SUPER_ADMIN and current_user.organization_id:
+        target_org_id = UUID(current_user.organization_id)
+
     start_t = time.perf_counter()
     is_valid, violations, total_records, last_hash = await audit_service.verify_integrity_report(
-        organization_id=organization_id
+        organization_id=target_org_id
     )
     duration_ms = max(1, int((time.perf_counter() - start_t) * 1000))
 
