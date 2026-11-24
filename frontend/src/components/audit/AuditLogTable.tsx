@@ -134,17 +134,17 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
       className="bg-obsidian-900 rounded-xl border border-obsidian-800 overflow-hidden flex flex-col"
     >
       {/* Header da Tabela */}
-      <div className="px-4 py-3 border-b border-obsidian-800 flex items-center justify-between bg-obsidian-950/60">
-        <div className="flex items-center gap-2">
-          <Receipt size={16} className="text-emerald-400" />
-          <span className="text-xs font-display font-bold text-white">
+      <div className="px-3.5 sm:px-4 py-3 border-b border-obsidian-800 flex items-center justify-between flex-wrap gap-2 bg-obsidian-950/60 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Receipt size={16} className="text-emerald-400 shrink-0" />
+          <span className="text-xs font-display font-bold text-white truncate">
             Registro de Transações Criptografadas
           </span>
-          <span className="px-1.5 py-0.5 rounded bg-obsidian-850 text-[10px] text-slate-400 font-mono">
+          <span className="px-1.5 py-0.5 rounded bg-obsidian-850 text-[10px] text-slate-400 font-mono shrink-0">
             {totalCount.toLocaleString("pt-BR")} eventos
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-slate-400 font-mono tabular-nums text-xs">
+        <div className="flex items-center gap-1.5 text-slate-400 font-mono tabular-nums text-xs shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span>Integridade 100%</span>
         </div>
@@ -313,13 +313,13 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
       </div>
 
       {/* Paginação */}
-      <div className="px-4 py-2.5 border-t border-obsidian-800 flex flex-col sm:flex-row items-center justify-between gap-2 bg-obsidian-950/60 text-xs font-mono text-slate-400">
-        <div className="flex items-center gap-2">
+      <div className="px-3 sm:px-4 py-2.5 border-t border-obsidian-800 flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-obsidian-950/60 text-xs font-mono text-slate-400">
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-2 text-[11px] text-center sm:text-left">
           <span>
             Exibindo {logs.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
             {Math.min(currentPage * pageSize, totalCount)} de {totalCount} registros
           </span>
-          <span className="text-obsidian-700">|</span>
+          <span className="text-obsidian-700 hidden sm:inline">|</span>
           <span className="text-emerald-400">
             Tamanho do Bloco: {totalCount > 500 ? `${((totalCount * 1.8) / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(totalCount * 1.8))} KB`}
           </span>
