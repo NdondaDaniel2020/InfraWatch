@@ -5,7 +5,6 @@ import {
   Building2,
   Calendar,
   Lock,
-  AlertCircle,
   FileDown,
   Loader2,
   ShieldCheck,
@@ -15,6 +14,7 @@ import { SlaDailyHistogram } from "../../components/sla/SlaDailyHistogram";
 import { SlaExportActions } from "../../components/sla/SlaExportActions";
 import { SlaDeviceBreakdownTable } from "../../components/sla/SlaDeviceBreakdownTable";
 import { SlaEndpointsTable } from "../../components/sla/SlaEndpointsTable";
+import { RfcErrorBanner } from "../../components/common";
 import { slaApi, resolveSlaPeriodRange } from "../../services/slaApi";
 import { adminApi } from "../../services/adminApi";
 import { clientPortalApi } from "../../services/clientPortalApi";
@@ -235,32 +235,18 @@ export const SlaReportsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. Overlay de Erro de Cálculo */}
+      {/* 2. Banner Canônico de Erro de Cálculo RFC */}
       {currentState === "error" && (
-        <section
-          data-testid="sla-error-overlay"
-          className="bg-rose-950/40 border border-rose-500/60 p-4 rounded-xl flex items-center justify-between gap-4 text-xs font-mono"
-        >
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-6 h-6 text-rose-400 shrink-0 animate-pulse" />
-            <div>
-              <strong className="text-rose-300 block font-bold">
-                FALHA NO MOTOR DE CÁLCULO DE DISPONIBILIDADE LÍQUIDA
-              </strong>
-              <span className="text-rose-400/80">{errorMessage}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (isGlobalOperator) refetchOrganizations();
-              refetch();
-            }}
-            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold transition-colors shrink-0 cursor-pointer"
-          >
-            Recalcular SLA
-          </button>
-        </section>
+        <RfcErrorBanner
+          testId="sla-error-overlay"
+          title="FALHA NO MOTOR DE CÁLCULO DE DISPONIBILIDADE LÍQUIDA"
+          rfcCode="RFC 5424 • ERR_SLA_CALCULATION_ENGINE"
+          message={errorMessage}
+          onRetry={() => {
+            if (isGlobalOperator) refetchOrganizations();
+            refetch();
+          }}
+        />
       )}
 
       {/* 3. Barra de Filtro de Contratante & Metas Fixadas */}

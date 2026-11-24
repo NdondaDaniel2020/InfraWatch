@@ -7,8 +7,6 @@ import {
   Bell,
   Server,
   RefreshCw,
-  Loader2,
-  AlertCircle,
 } from "lucide-react";
 import { settingsApi } from "../../services/settingsApi";
 import type { IntegrationStatusResponse } from "../../types/settings";
@@ -16,6 +14,7 @@ import { GlpiSettingsTab } from "../../components/settings/GlpiSettingsTab";
 import { ZabbixSettingsTab } from "../../components/settings/ZabbixSettingsTab";
 import { NotificationSettingsTab } from "../../components/settings/NotificationSettingsTab";
 import { InfraClusterSettingsTab } from "../../components/settings/InfraClusterSettingsTab";
+import { RfcErrorBanner } from "../../components/common";
 
 type TabId = "glpi" | "zabbix" | "notifications" | "cluster";
 
@@ -143,10 +142,13 @@ export const SystemSettingsPage: React.FC = () => {
 
       {/* Error state */}
       {error && (
-        <div className="p-4 bg-rose-950/30 border border-rose-500/30 rounded-xl flex items-center gap-3 text-rose-300 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <span>{error}</span>
-        </div>
+        <RfcErrorBanner
+          title="FALHA NA COMUNICAÇÃO COM O SUBSISTEMA DE INTEGRAÇÕES"
+          rfcCode="RFC 5424 • ERR_INTEGRATION_GATEWAY_UNAVAILABLE"
+          message={error}
+          onRetry={fetchStatus}
+          isRetrying={loading}
+        />
       )}
 
       {/* Tabs Navigation com tamanhos perfeitamente equalizados mantendo a base */}
@@ -182,9 +184,33 @@ export const SystemSettingsPage: React.FC = () => {
 
       {/* Tab Panels */}
       {loading && !statusData ? (
-        <div className="flex flex-col items-center justify-center p-16 text-slate-400 space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
-          <p className="text-xs">Consultando estado das integrações em memória...</p>
+        <div className="space-y-4" data-testid="settings-skeleton">
+          <p className="sr-only">Consultando estado das integrações em memória...</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pulse">
+            <div className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-48 bg-obsidian-800 rounded" />
+                <div className="h-5 w-20 bg-obsidian-800 rounded-full" />
+              </div>
+              <div className="space-y-3 pt-2">
+                <div className="h-3 w-32 bg-obsidian-800/80 rounded" />
+                <div className="h-9 w-full bg-obsidian-950 border border-obsidian-800 rounded-lg" />
+                <div className="h-3 w-28 bg-obsidian-800/80 rounded pt-2" />
+                <div className="h-9 w-full bg-obsidian-950 border border-obsidian-800 rounded-lg" />
+              </div>
+            </div>
+            <div className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-40 bg-obsidian-800 rounded" />
+                <div className="h-5 w-16 bg-obsidian-800 rounded-full" />
+              </div>
+              <div className="space-y-3 pt-2">
+                <div className="h-3 w-36 bg-obsidian-800/80 rounded" />
+                <div className="h-9 w-full bg-obsidian-950 border border-obsidian-800 rounded-lg" />
+                <div className="h-8 w-28 bg-obsidian-800 rounded mt-4" />
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <div>

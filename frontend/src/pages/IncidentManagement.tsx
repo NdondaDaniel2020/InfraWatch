@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { CheckCircle2, CloudOff } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import {
   IncidentItem,
   IncidentSeverity,
@@ -14,6 +14,7 @@ import { IncidentTable } from "../components/incidents/IncidentTable";
 import { IncidentDetailDrawer } from "../components/incidents/IncidentDetailDrawer";
 import { AcknowledgeModal } from "../components/incidents/AcknowledgeModal";
 import { ResolveIncidentModal } from "../components/incidents/ResolveIncidentModal";
+import { RfcErrorBanner } from "../components/common";
 import { useAuth } from "../context/AuthContext";
 
 export interface IncidentManagementProps {
@@ -276,31 +277,18 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
 
       {/* 2. Overlay de Erro de Conexão SSE / GLPI API (Estado Error) */}
       {viewState === "error" && (
-        <section
-          data-testid="state-overlay-error"
-          className="bg-rose-950/40 border border-rose-500/60 p-4 rounded-xl flex items-center justify-between gap-4 text-xs font-mono animate-in fade-in duration-200"
-        >
-          <div className="flex items-center gap-3">
-            <CloudOff size={24} className="text-rose-400 animate-pulse shrink-0" aria-hidden="true" />
-            <div>
-              <div className="font-bold text-rose-300">FALHA DE SINCRONIZAÇÃO SSE / GLPI API</div>
-              <div className="text-rose-400/80">
-                Conexão WebSocket interrompida com cluster LUANDA-01. Tentando reconexão exponencial em 4s…
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            data-testid="btn-reconnect-sse"
-            onClick={() => {
-              setViewState("nominal");
-              showToast("Reconectado com sucesso ao cluster de incidentes.");
-            }}
-            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold transition-colors cursor-pointer"
-          >
-            Reconectar Agora
-          </button>
-        </section>
+        <RfcErrorBanner
+          testId="state-overlay-error"
+          retryButtonTestId="btn-reconnect-sse"
+          title="FALHA DE SINCRONIZAÇÃO SSE / GLPI API"
+          rfcCode="RFC 5424 • ERR_INCIDENTS_STREAM_INTERRUPTED"
+          message="Conexão WebSocket interrompida com cluster LUANDA-01. Tentando reconexão exponencial em 4s…"
+          onRetry={() => {
+            setViewState("nominal");
+            loadIncidents(true);
+            showToast("Reconectado com sucesso ao cluster de incidentes.");
+          }}
+        />
       )}
 
       {/* 3. Indicadores Chave (KPI Cards) */}

@@ -16,6 +16,7 @@ import {
   AuditLogEntry,
 } from "../../types/audit";
 import { CustodyIntegrityBanner } from "../../components/audit/CustodyIntegrityBanner";
+import { RfcErrorBanner } from "../../components/common";
 import { AuditFilterBar } from "../../components/audit/AuditFilterBar";
 import { useAuth } from "../../context/AuthContext";
 import { AuditLogTable } from "../../components/audit/AuditLogTable";
@@ -65,6 +66,8 @@ export const AuditLogsPage: React.FC = () => {
   const {
     data: logsResponse,
     isLoading: isLoadingLogs,
+    isError: isLogsError,
+    error: logsError,
     refetch: refetchLogs,
   } = useQuery({
     queryKey: ["auditLogs", effectiveFilters],
@@ -201,11 +204,21 @@ export const AuditLogsPage: React.FC = () => {
         </div>
       </section>
 
+      {/* 2. Banner de Erro RFC (Gerenciado automaticamente via ciclo da API) */}
+      {isLogsError && (
+        <RfcErrorBanner
+          title="FALHA NA CONSULTA DO LEDGER FORENSE E AUDITORIA"
+          rfcCode="RFC 3161 / RFC 5424 • ERR_LEDGER_SYNC_FAILED"
+          error={logsError}
+          onRetry={() => refetchLogs()}
+        />
+      )}
+
       {/* 2. Banner de Verificação Criptográfica da Cadeia de Custódia */}
       <CustodyIntegrityBanner
         status={custodyStatus}
         onVerify={handleVerifyIntegrity}
-        isLoading={isVerifying || isLoadingIntegrity}
+        isLoading={isVerifying || isLoadingIntegrity || isLoadingLogs}
       />
 
       {/* 3. Barra de Filtros e Busca em Tempo Real */}
