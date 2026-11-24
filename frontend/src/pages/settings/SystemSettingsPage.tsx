@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { Sliders, Ticket, Activity, Bell, Server, RefreshCw, Loader2, AlertCircle } from "lucide-react";
+import { Link, useInRouterContext } from "react-router-dom";
+import {
+  Sliders,
+  Ticket,
+  Activity,
+  Bell,
+  Server,
+  RefreshCw,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { settingsApi } from "../../services/settingsApi";
 import type { IntegrationStatusResponse } from "../../types/settings";
 import { GlpiSettingsTab } from "../../components/settings/GlpiSettingsTab";
@@ -8,6 +18,26 @@ import { NotificationSettingsTab } from "../../components/settings/NotificationS
 import { InfraClusterSettingsTab } from "../../components/settings/InfraClusterSettingsTab";
 
 type TabId = "glpi" | "zabbix" | "notifications" | "cluster";
+
+const BreadcrumbLink: React.FC<{
+  to: string;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ to, className, children }) => {
+  const inRouter = useInRouterContext();
+  if (inRouter) {
+    return (
+      <Link to={to} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <a href={to} className={className}>
+      {children}
+    </a>
+  );
+};
 
 export const SystemSettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>("glpi");
@@ -68,32 +98,48 @@ export const SystemSettingsPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-cyan-400">
-              <Sliders className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Central de Configurações do Sistema</h1>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Diagnóstico in-process e validação em tempo real de integrações externas e recursos do cluster.
-              </p>
-            </div>
-          </div>
+    <main
+      data-testid="system-settings-page"
+      role="main"
+      className="p-4 md:p-6 flex flex-col gap-6 w-full text-slate-100 bg-obsidian-950 min-h-screen"
+    >
+      {/* 1. Header com Breadcrumb Institucional (Padrão Ouro Obsidian Dark) */}
+      <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
+        <div className="flex flex-col gap-1">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono">
+            <BreadcrumbLink to="/noc" className="text-slate-400 hover:text-slate-200 transition-colors">
+              Cockpit NOC
+            </BreadcrumbLink>
+            <span className="text-obsidian-700">/</span>
+            <span className="text-emerald-400 font-semibold">
+              Configurações do Sistema
+            </span>
+          </nav>
+          <h1 className="text-2xl font-bold font-display text-white tracking-tight">
+            Central de Configurações do Sistema
+          </h1>
+          <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
+            Diagnóstico in-process e validação em tempo real de integrações externas e recursos do cluster.
+          </p>
         </div>
 
-        <button
-          onClick={fetchStatus}
-          disabled={loading}
-          className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition border border-slate-700"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Recarregar Status
-        </button>
-      </div>
+        <div className="flex items-center gap-3">
+          <div className="bg-obsidian-900 border border-obsidian-800 text-slate-300 font-mono text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-sm">
+            <Sliders className="w-4 h-4 text-emerald-400" />
+            <span>{statusData?.environment ? `ENV: ${statusData.environment.toUpperCase()}` : "DIAGNOSTIC ENGINE"}</span>
+          </div>
+
+          <button
+            onClick={fetchStatus}
+            disabled={loading}
+            className="flex items-center gap-2 px-3.5 py-1.5 bg-obsidian-850 hover:bg-obsidian-800 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-mono font-semibold transition border border-obsidian-800 cursor-pointer shadow-sm"
+            title="Recarregar status de diagnóstico em tempo real"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${loading ? "animate-spin" : ""}`} />
+            Recarregar Status
+          </button>
+        </div>
+      </header>
 
       {/* Error state */}
       {error && (
@@ -103,8 +149,8 @@ export const SystemSettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs Navigation com tamanhos perfeitamente equalizados */}
-      <div className="grid grid-cols-2 md:grid-cols-4 border-b border-slate-800 gap-2">
+      {/* Tabs Navigation com tamanhos perfeitamente equalizados mantendo a base */}
+      <div className="grid grid-cols-2 md:grid-cols-4 border-b border-obsidian-800 gap-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -112,10 +158,10 @@ export const SystemSettingsPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center justify-center gap-2 px-3 py-3 border-b-2 text-xs font-medium transition-all ${
+              className={`flex items-center justify-center gap-2 px-3 py-3 border-b-2 text-xs font-medium transition-all cursor-pointer ${
                 isActive
                   ? "border-cyan-500 text-cyan-400 bg-cyan-500/5 font-semibold"
-                  : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30"
+                  : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-obsidian-900/60"
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -124,7 +170,7 @@ export const SystemSettingsPage: React.FC = () => {
                 className={`text-[10px] px-2 py-0.5 rounded-full font-mono shrink-0 ${
                   isActive
                     ? "bg-cyan-500/20 text-cyan-300"
-                    : "bg-slate-800 text-slate-400"
+                    : "bg-obsidian-850 text-slate-400 border border-obsidian-800"
                 }`}
               >
                 {tab.count}
@@ -163,6 +209,6 @@ export const SystemSettingsPage: React.FC = () => {
           )}
         </div>
       )}
-    </div>
+    </main>
   );
 };
