@@ -112,9 +112,9 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#0d1424] border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-2xl text-slate-100">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-obsidian-900 border border-obsidian-800 rounded-xl p-6 sm:p-8 flex flex-col gap-6 shadow-2xl text-slate-100">
         {/* Cabeçalho */}
-        <div className="flex items-start justify-between gap-4 pb-4 border-b border-white/10">
+        <div className="flex items-start justify-between gap-4 pb-4 border-b border-obsidian-800">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400">
@@ -126,11 +126,11 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
             </div>
             <h2
               id="client-support-title"
-              className="text-lg sm:text-xl font-bold text-white tracking-tight m-0"
+              className="text-lg sm:text-xl font-bold text-white tracking-tight m-0 font-sans"
             >
               Atendimento Técnico & Abertura de Chamados
             </h2>
-            <p className="text-xs text-slate-400 mt-1 mb-0">
+            <p className="text-xs font-mono text-slate-400 mt-1 mb-0">
               Canal oficial integrado diretamente à API REST do GLPI e monitoramento em tempo real.
             </p>
           </div>
@@ -140,7 +140,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
             data-testid="close-support-modal-btn"
             onClick={onClose}
             aria-label="Fechar suporte"
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 text-slate-400 hover:text-white transition-colors cursor-pointer border border-obsidian-750"
           >
             <X size={18} />
           </button>
@@ -168,7 +168,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#080c14]/60 border border-white/5 text-xs font-mono text-slate-300 flex flex-col gap-2">
+              <div className="p-4 rounded-xl bg-obsidian-950 border border-obsidian-800/80 text-xs font-mono text-slate-300 flex flex-col gap-2">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Assunto:</span>
                   <span className="text-white font-medium">{createdTicket.title}</span>
@@ -227,7 +227,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Ex: Lentidão intermitente no canal Internet Banking"
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#080c14] border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
+                  className="w-full px-4 py-2.5 rounded-lg bg-obsidian-950 border border-obsidian-800 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
                   required
                 />
               </div>
@@ -245,7 +245,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                     data-testid="ticket-service-select"
                     value={selectedServiceId}
                     onChange={(e) => setSelectedServiceId(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#080c14] border border-white/10 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors cursor-pointer"
+                    className="w-full px-3 py-2.5 rounded-lg bg-obsidian-950 border border-obsidian-800 text-xs font-mono text-white focus:outline-none focus:border-emerald-500/50 transition-colors cursor-pointer"
                   >
                     <option value="">Geral / Infraestrutura Contratada</option>
                     {services.map((svc) => (
@@ -270,7 +270,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                     onChange={(e) =>
                       setSeverity(e.target.value as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL")
                     }
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#080c14] border border-white/10 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors cursor-pointer"
+                    className="w-full px-3 py-2.5 rounded-lg bg-obsidian-950 border border-obsidian-800 text-xs font-mono text-white focus:outline-none focus:border-emerald-500/50 transition-colors cursor-pointer"
                   >
                     <option value="CRITICAL">P1 • Crítico (Queda Total do Serviço)</option>
                     <option value="HIGH">P2 • Alto (Degradação Severa)</option>
@@ -294,19 +294,19 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Descreva o comportamento observado, horários do incidente, mensagens de erro e o impacto no negócio..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#080c14] border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors resize-none"
+                  className="w-full px-4 py-2.5 rounded-lg bg-obsidian-950 border border-obsidian-800 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors resize-none"
                   required
                 />
               </div>
 
               {/* Régua de Prazos de Resposta SLA Integrada */}
-              <div data-testid="sla-ruler" className="p-3.5 rounded-2xl bg-[#080c14] border border-white/10 flex flex-col gap-2">
+              <div data-testid="sla-ruler" className="p-3.5 rounded-xl bg-obsidian-950 border border-obsidian-800 flex flex-col gap-2">
                 <span className="text-[11px] font-mono text-slate-400 block">
                   Prazos Contratuais de Resposta (SLA Máximo de Atendimento):
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
                   <div
-                    className={`p-2 rounded-xl border transition-all ${
+                    className={`p-2 rounded-lg border transition-all ${
                       severity === "CRITICAL"
                         ? "bg-rose-500/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/40"
                         : "bg-rose-500/5 border-rose-500/10 text-rose-300/60"
@@ -316,7 +316,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                     <strong className="text-sm">≤ 15 min</strong>
                   </div>
                   <div
-                    className={`p-2 rounded-xl border transition-all ${
+                    className={`p-2 rounded-lg border transition-all ${
                       severity === "HIGH"
                         ? "bg-amber-500/20 border-amber-500/50 text-amber-300 ring-1 ring-amber-500/40"
                         : "bg-amber-500/5 border-amber-500/10 text-amber-300/60"
@@ -326,7 +326,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                     <strong className="text-sm">≤ 1 hora</strong>
                   </div>
                   <div
-                    className={`p-2 rounded-xl border transition-all ${
+                    className={`p-2 rounded-lg border transition-all ${
                       severity === "MEDIUM"
                         ? "bg-sky-500/20 border-sky-500/50 text-sky-300 ring-1 ring-sky-500/40"
                         : "bg-sky-500/5 border-sky-500/10 text-sky-300/60"
@@ -336,7 +336,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                     <strong className="text-sm">≤ 4 horas</strong>
                   </div>
                   <div
-                    className={`p-2 rounded-xl border transition-all ${
+                    className={`p-2 rounded-lg border transition-all ${
                       severity === "LOW"
                         ? "bg-slate-500/20 border-slate-400/50 text-slate-200 ring-1 ring-slate-400/40"
                         : "bg-slate-500/5 border-slate-500/10 text-slate-400"
@@ -353,7 +353,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                   type="button"
                   data-testid="ticket-cancel-btn"
                   onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-750 text-slate-300 text-xs font-mono transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -361,7 +361,7 @@ export const ClientSupportModal: React.FC<ClientSupportModalProps> = ({
                   type="submit"
                   data-testid="ticket-submit-btn"
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-slate-950 font-bold text-xs font-mono transition-colors cursor-pointer shadow-md"
+                  className="flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-obsidian-950 font-bold text-xs font-mono transition-colors cursor-pointer shadow-sm"
                 >
                   <Send size={14} />
                   <span>{isSubmitting ? "Enviando..." : "Registrar Chamado no GLPI"}</span>

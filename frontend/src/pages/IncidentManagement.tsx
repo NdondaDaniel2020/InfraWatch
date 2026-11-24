@@ -250,9 +250,10 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
   };
 
   return (
-    <div
-      className="p-4 md:p-6 space-y-5 bg-obsidian-950 text-slate-100 min-h-screen"
+    <main
+      className="p-4 md:p-6 flex flex-col gap-6 w-full text-slate-100 bg-obsidian-950 min-h-screen"
       data-testid="incidents-page"
+      role="main"
     >
       {/* Toast Alert */}
       {toastMessage && (
@@ -372,6 +373,6 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
         onOpenGlpiTicket={handleOpenGlpiTicket}
         isOpeningGlpiId={isOpeningGlpiId}
       />
-    </div>
+    </main>
   );
 };

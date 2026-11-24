@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Database, Radio, Network, Server, WifiOff } from "lucide-react";
 import type { MonitoredDevice } from "../../types/telemetry";
 import { getNormalizedStatus, type NormalizedStatus } from "./statusConfig";
+import { getGlpiTicketUrl } from "../../utils/glpi";
 
 export type { NormalizedStatus };
 
@@ -62,15 +63,18 @@ export const STATUS_VISUALS: Record<NormalizedStatus, StatusVisualConfig> = {
     metric4Label: "Downtime: ",
     metric4Color: "text-rose-400",
     getMetric4Value: (device) => device.downtime_duration ?? "--:--:--",
-    renderFooterStatus: (device, onSelect) => (
+    renderFooterStatus: (device, _onSelect) => (
       device.ticket_id ? (
-        <button
-          type="button"
-          onClick={() => onSelect?.(device)}
-          className="text-rose-400 font-bold hover:underline cursor-pointer"
+        <a
+          href={getGlpiTicketUrl(device.ticket_id)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-rose-400 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+          title="Abrir chamado no GLPI ITSM"
+          onClick={(e) => e.stopPropagation()}
         >
           Ticket #{device.ticket_id} ↗
-        </button>
+        </a>
       ) : (
         <span className="text-rose-400/80 font-mono text-[11px]">Sem ticket</span>
       )

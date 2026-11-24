@@ -143,9 +143,9 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-5xl max-h-[94vh] overflow-y-auto bg-[#0d1424] border border-white/10 rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col gap-4 sm:gap-5 shadow-2xl text-slate-100 custom-scrollbar">
+      <div className="relative w-full max-w-5xl max-h-[94vh] overflow-y-auto bg-obsidian-900 border border-obsidian-800 rounded-xl p-5 sm:p-6 flex flex-col gap-4 sm:gap-5 shadow-2xl text-slate-100 custom-scrollbar">
         {/* Cabeçalho do Modal */}
-        <div className="flex items-start justify-between gap-4 pb-3 border-b border-white/10 flex-shrink-0">
+        <div className="flex items-start justify-between gap-4 pb-3 border-b border-obsidian-800 flex-shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
@@ -157,11 +157,11 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
             </div>
             <h2
               id="sla-history-title"
-              className="text-lg sm:text-xl font-bold text-white tracking-tight m-0"
+              className="text-lg sm:text-xl font-bold text-white tracking-tight m-0 font-sans"
             >
               Histórico de Desempenho e Metas • {tenantName}
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5 mb-0">
+            <p className="text-xs font-mono text-slate-400 mt-0.5 mb-0">
               Série temporal auditável com expurgo de manutenções homologadas (ADR-009).
             </p>
           </div>
@@ -171,7 +171,7 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
             data-testid="close-history-modal-btn"
             onClick={onClose}
             aria-label="Fechar histórico"
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 text-slate-400 hover:text-white transition-colors cursor-pointer border border-obsidian-750"
           >
             <X size={18} />
           </button>
@@ -181,7 +181,7 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
         <div className="flex items-center justify-between flex-wrap gap-3 flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-slate-400">Janela de Análise:</span>
-            <div className="flex items-center gap-1 p-1 bg-[#080c14] border border-white/10 rounded-xl">
+            <div className="flex items-center gap-1 p-1 bg-obsidian-950 border border-obsidian-800 rounded-lg">
               {[3, 6, 12].map((m) => (
                 <button
                   key={m}
@@ -205,12 +205,12 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
             data-testid="history-export-pdf-btn"
             onClick={handleExportClick}
             disabled={!hasHistory || isExportingPdf || isLoading}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed border border-white/10 text-xs font-mono text-white transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-mono font-bold text-obsidian-950 transition-colors cursor-pointer shadow-sm"
           >
             {isExportingPdf ? (
-              <Loader2 size={14} className="animate-spin text-emerald-400" />
+              <Loader2 size={14} className="animate-spin text-obsidian-950" />
             ) : (
-              <Download size={14} className="text-emerald-400" />
+              <Download size={14} className="text-obsidian-950" />
             )}
             <span>{isExportingPdf ? "Compilando PDF..." : "Exportar Laudo Oficial"}</span>
           </button>
@@ -218,43 +218,43 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
 
         {/* Cards Resumo do Período */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 flex-shrink-0">
-          <div className="p-2.5 sm:p-3 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80 flex flex-col justify-between">
             <span className="text-[10px] font-mono text-slate-400 block mb-0.5">
               Disponibilidade Média
             </span>
             <span className="text-lg sm:text-xl font-bold font-mono text-emerald-400">
               {avgUptime !== null ? `${avgUptime}%` : "—"}
             </span>
-            <span className="text-[10px] text-slate-500 block mt-0.5">
+            <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">
               {targetPct !== undefined ? `Meta: ${targetPct.toFixed(2)}%` : "Meta indisponível"}
             </span>
           </div>
 
-          <div className="p-2.5 sm:p-3 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80 flex flex-col justify-between">
             <span className="text-[10px] font-mono text-slate-400 block mb-0.5">
               Total de Ocorrências
             </span>
             <span className="text-lg sm:text-xl font-bold font-mono text-white">
               {totalIncidents}
             </span>
-            <span className="text-[10px] text-slate-500 block mt-0.5">
+            <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">
               {selectedMonths} meses observados
             </span>
           </div>
 
-          <div className="p-2.5 sm:p-3 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80 flex flex-col justify-between">
             <span className="text-[10px] font-mono text-slate-400 block mb-0.5">
               MTTR Médio
             </span>
             <span className="text-lg sm:text-xl font-bold font-mono text-sky-400">
               {avgMttr !== null ? `${avgMttr}m` : "—"}
             </span>
-            <span className="text-[10px] text-slate-500 block mt-0.5">
+            <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">
               Tempo Médio de Resolução
             </span>
           </div>
 
-          <div className="p-2.5 sm:p-3 rounded-xl bg-[#080c14] border border-white/5 flex flex-col justify-between">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80 flex flex-col justify-between">
             <span className="text-[10px] font-mono text-slate-400 block mb-0.5">
               Conformidade Geral
             </span>
@@ -275,7 +275,7 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
         </div>
 
         {/* Gráfico de Barras de Tendência Mensal */}
-        <div className="p-3.5 sm:p-4 rounded-xl bg-[#080c14] border border-white/5 flex flex-col gap-2 flex-shrink-0">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-obsidian-950 border border-obsidian-800/80 flex flex-col gap-2 flex-shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-bold text-slate-300 flex items-center gap-1.5">
               <TrendingUp size={13} className="text-emerald-400" />
@@ -346,9 +346,9 @@ export const SlaHistoryModal: React.FC<SlaHistoryModalProps> = ({
             </span>
           </div>
 
-          <div className="w-full overflow-x-auto overflow-y-auto h-[230px] sm:h-[260px] rounded-xl border border-white/10 bg-[#080c14] custom-scrollbar shadow-inner">
+          <div className="w-full overflow-x-auto overflow-y-auto h-[230px] sm:h-[260px] rounded-xl border border-obsidian-800 bg-obsidian-950 custom-scrollbar shadow-inner">
             <table className="w-full text-left text-xs font-mono border-collapse min-w-[680px]">
-              <thead className="sticky top-0 bg-[#080c14] z-10 shadow-sm border-b border-white/10">
+              <thead className="sticky top-0 bg-obsidian-950 z-10 shadow-sm border-b border-obsidian-800">
                 <tr className="text-slate-400 text-[11px]">
                   <th className="py-2.5 px-3.5 font-semibold">Mês / Ciclo</th>
                   <th className="py-2.5 px-3.5 font-semibold">Uptime Líquido</th>

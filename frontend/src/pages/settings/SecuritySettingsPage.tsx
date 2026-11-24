@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { Link, useInRouterContext } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "../../context/AuthContext";
 import { securityApi } from "../../services/securityApi";
@@ -12,6 +13,7 @@ import {
   CheckCircle2,
   Copy,
   Download,
+  Key,
   Laptop,
   LogOut,
   ShieldAlert,
@@ -19,6 +21,26 @@ import {
   Smartphone,
   Trash2,
 } from "lucide-react";
+
+const BreadcrumbLink: React.FC<{
+  to: string;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ to, className, children }) => {
+  const inRouter = useInRouterContext();
+  if (inRouter) {
+    return (
+      <Link to={to} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <a href={to} className={className}>
+      {children}
+    </a>
+  );
+};
 
 export const SecuritySettingsPage: React.FC = () => {
   const { user, setUser } = useAuth();
@@ -235,18 +257,124 @@ export const SecuritySettingsPage: React.FC = () => {
   };
 
   return (
-    <div
+    <main
       data-testid="security-settings-page"
-      className="max-w-4xl mx-auto flex flex-col gap-6"
+      role="main"
+      className="p-4 md:p-6 flex flex-col gap-6 w-full text-slate-100 bg-obsidian-950 min-h-screen"
     >
-      <div>
-        <h1 className="text-2xl font-bold font-display text-white tracking-tight mb-1">
-          Segurança da Conta &amp; Gestão de Acessos
-        </h1>
-        <p className="text-sm text-slate-400">
-          Gerencie a proteção de login em duas etapas (MFA) e controle os dispositivos com sessões ativas
-        </p>
-      </div>
+      {/* 1. Header com Breadcrumb Institucional */}
+      <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
+        <div className="flex flex-col gap-1">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono">
+            <BreadcrumbLink to="/noc" className="text-slate-400 hover:text-slate-200 transition-colors">
+              Cockpit NOC
+            </BreadcrumbLink>
+            <span className="text-obsidian-700">/</span>
+            <span className="text-emerald-400 font-semibold">
+              Segurança &amp; Gestão de Acessos
+            </span>
+          </nav>
+          <h1 className="text-2xl font-bold font-display text-white tracking-tight">
+            Segurança da Conta &amp; Gestão de Acessos
+          </h1>
+          <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
+            Gerencie a proteção de login em duas etapas (MFA) e controle os dispositivos com sessões ativas
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          <span className="px-2.5 py-1 rounded-md bg-obsidian-900 border border-obsidian-800 text-xs font-mono text-slate-300 flex items-center gap-1.5">
+            <ShieldCheck size={14} className="text-emerald-400" />
+            <span>RFC 6238 TOTP</span>
+          </span>
+        </div>
+      </header>
+
+      {/* 2. Grid Tático de Indicadores (DNA Visual do InfraWatch) */}
+      <section
+        aria-label="Indicadores de Segurança da Conta"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        data-testid="security-kpis-grid"
+      >
+        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+              Status MFA
+            </span>
+            {isMfaActive ? (
+              <ShieldCheck size={18} className="text-emerald-400" />
+            ) : (
+              <ShieldAlert size={18} className="text-amber-400" />
+            )}
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span
+              className={`text-2xl font-bold font-mono tabular-nums ${
+                isMfaActive ? "text-emerald-400" : "text-amber-400"
+              }`}
+            >
+              {isMfaActive ? "ATIVO" : "INATIVO"}
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono mt-1">
+            {isMfaActive ? "Protegido por Authenticator (TOTP)" : "Camada extra recomendada"}
+          </span>
+        </article>
+
+        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+              Sessões Ativas
+            </span>
+            <Laptop size={18} className="text-sky-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-mono text-white tabular-nums">
+              {totalSessions}
+            </span>
+            <span className="text-xs font-mono text-sky-400">
+              dispositivo(s)
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono mt-1">
+            Refresh tokens com rotação segura
+          </span>
+        </article>
+
+        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+              Algoritmo
+            </span>
+            <Key size={18} className="text-slate-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-xl font-bold font-mono text-white tabular-nums">
+              SHA-1 (TOTP)
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono mt-1">
+            Padrão RFC 6238 (código 30s)
+          </span>
+        </article>
+
+        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+              Revogação Remota
+            </span>
+            <LogOut size={18} className="text-emerald-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-xl font-bold font-mono text-emerald-400">
+              DISPONÍVEL
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono mt-1">
+            Encerramento instantâneo de sessões
+          </span>
+        </article>
+      </section>
 
       {feedbackMessage && (
         <div
@@ -266,8 +394,8 @@ export const SecuritySettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* 1. SEÇÃO DE AUTENTICAÇÃO EM DUAS ETAPAS (MFA TOTP) */}
-      <section className="bg-obsidian-900 border border-white/10 rounded-2xl p-6 shadow-card-glass space-y-5">
+      {/* 3. SEÇÃO DE AUTENTICAÇÃO EM DUAS ETAPAS (MFA TOTP) */}
+      <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex justify-between items-start flex-wrap gap-3">
           <div>
             <h2 className="text-lg font-bold text-white tracking-tight">
@@ -282,13 +410,13 @@ export const SecuritySettingsPage: React.FC = () => {
           </Badge>
         </div>
 
-        <div className="flex items-center justify-between p-4 rounded-xl bg-obsidian-950/80 border border-white/5 flex-wrap gap-4">
+        <div className="flex items-center justify-between p-4 rounded-xl bg-obsidian-950 border border-obsidian-800 flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <div
               className={`flex items-center justify-center w-11 h-11 rounded-xl ${
                 isMfaActive
                   ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                  : "bg-white/5 text-slate-400 border border-white/10"
+                  : "bg-white/5 text-slate-400 border border-obsidian-800"
               }`}
             >
               {isMfaActive ? <ShieldCheck size={24} /> : <ShieldAlert size={24} />}
@@ -330,8 +458,8 @@ export const SecuritySettingsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. SEÇÃO DE DISPOSITIVOS E SESSÕES ATIVAS */}
-      <section className="bg-obsidian-900 border border-white/10 rounded-2xl p-6 shadow-card-glass space-y-5">
+      {/* 4. SEÇÃO DE DISPOSITIVOS E SESSÕES ATIVAS */}
+      <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex justify-between items-start flex-wrap gap-3">
           <div>
             <h2 className="text-lg font-bold text-white tracking-tight">
@@ -365,7 +493,7 @@ export const SecuritySettingsPage: React.FC = () => {
               {paginatedSessions.map((session) => (
                 <article
                   key={session.id}
-                  className="flex items-center justify-between p-3.5 rounded-xl bg-obsidian-950/80 border border-white/5 hover:border-white/10 transition-colors"
+                  className="flex items-center justify-between p-3.5 rounded-xl bg-obsidian-950 border border-obsidian-800 hover:border-obsidian-700 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="text-slate-400">
@@ -418,7 +546,7 @@ export const SecuritySettingsPage: React.FC = () => {
                 pageSizeOptions={[5]}
                 itemLabel="sessões"
                 testIdPrefix="sessions-pagination"
-                className="rounded-xl border border-white/5 mt-2"
+                className="rounded-xl border border-obsidian-800 mt-2"
               />
             </div>
           )}
@@ -615,6 +743,6 @@ export const SecuritySettingsPage: React.FC = () => {
           </div>
         </form>
       </Modal>
-    </div>
+    </main>
   );
 };
