@@ -200,18 +200,29 @@ export const SlaDailyHistogram: React.FC<SlaDailyHistogramProps> = ({
             </div>
           </div>
 
-          {/* Rótulos dos Dias */}
+          {/* Rótulos dos Dias (Adaptativo: intervalos limpos em mobile, todos em telas maiores) */}
           <div className="flex gap-1 w-full pt-2 border-t border-obsidian-800 text-center font-mono text-[10px] text-slate-400">
-            {daysData.map((d) => (
-              <span
-                key={d.day}
-                className={`flex-1 min-w-0 ${
-                  d.type === "today" ? "text-emerald-400 font-bold" : ""
-                }`}
-              >
-                {d.day}
-              </span>
-            ))}
+            {daysData.map((d, index) => {
+              const dayNum = parseInt(d.day, 10) || index + 1;
+              const isMajor =
+                dayNum === 1 ||
+                dayNum % 5 === 0 ||
+                dayNum === daysData.length ||
+                d.type === "today";
+
+              return (
+                <span
+                  key={d.day}
+                  className={`flex-1 min-w-0 ${
+                    d.type === "today" ? "text-emerald-400 font-bold" : ""
+                  }`}
+                >
+                  <span className={isMajor ? "inline" : "hidden sm:inline"}>
+                    {d.day}
+                  </span>
+                </span>
+              );
+            })}
           </div>
         </div>
       </div>

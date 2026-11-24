@@ -176,14 +176,14 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
       {/* Rodapé com Paginação de 5 por página */}
       <div
         data-testid="sla-devices-pagination"
-        className="px-4 py-3 bg-obsidian-950/60 border-t border-obsidian-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-slate-400"
+        className="px-3 sm:px-4 py-3 bg-obsidian-950/60 border-t border-obsidian-800 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs font-mono text-slate-400 min-w-0 max-w-full"
       >
-        <span>
+        <span className="text-center sm:text-left text-[11px]">
           Mostrando <strong>{startRecord}</strong> a <strong>{endRecord}</strong> de{" "}
           <strong>{filteredDevices.length}</strong> ativos
         </span>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-slate-500">Exibir:</span>
             <select
@@ -192,7 +192,7 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="bg-obsidian-900 border border-obsidian-800 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none"
+              className="bg-obsidian-900 border border-obsidian-800 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none cursor-pointer"
             >
               <option value={5}>5 / pág</option>
               <option value={10}>10 / pág</option>
@@ -201,19 +201,19 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               type="button"
               data-testid="sla-devices-pagination-prev"
               disabled={safeCurrentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-obsidian-900 border border-obsidian-800 text-xs text-slate-300 hover:text-white hover:bg-obsidian-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-obsidian-900 border border-obsidian-800 text-xs text-slate-300 hover:text-white hover:bg-obsidian-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               <span>Anterior</span>
             </button>
 
-            <span data-testid="sla-devices-pagination-page" className="px-2 text-slate-300">
+            <span data-testid="sla-devices-pagination-page" className="px-1.5 text-slate-300 text-[11px]">
               Página <strong>{safeCurrentPage}</strong> de <strong>{totalPages}</strong>
             </span>
 
@@ -222,7 +222,7 @@ export const SlaDeviceBreakdownTable: React.FC<SlaDeviceBreakdownTableProps> = (
               data-testid="sla-devices-pagination-next"
               disabled={safeCurrentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-obsidian-900 border border-obsidian-800 text-xs text-slate-300 hover:text-white hover:bg-obsidian-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-obsidian-900 border border-obsidian-800 text-xs text-slate-300 hover:text-white hover:bg-obsidian-850 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <span>Próxima</span>
               <ChevronRight className="w-3.5 h-3.5" />
