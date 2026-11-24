@@ -151,6 +151,8 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
     }
     setPauseReason("");
     setMaintenancePayload({ until: "", title: "", reason: "" });
+    setIsOpen(false);
+    setSelectedAction(null);
   };
 
   const canPause = healthStatus !== "PAUSED" && healthStatus !== "MAINT";
@@ -209,6 +211,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
             </p>
             <div>
               <label
+                htmlFor="menu-maintenance-title"
                 style={{
                   display: "block",
                   fontSize: "0.875rem",
@@ -220,10 +223,12 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                 Título da manutenção
               </label>
               <input
+                id="menu-maintenance-title"
                 type="text"
                 value={maintenancePayload.title}
                 onChange={(e) => setMaintenancePayload({ ...maintenancePayload, title: e.target.value })}
                 placeholder="Ex: Manutenção de firmware do roteador core"
+                data-testid="maintenance-title-input"
                 style={{
                   width: "100%",
                   padding: "10px 12px",
@@ -239,6 +244,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
             </div>
             <div>
               <label
+                htmlFor="menu-maintenance-until"
                 style={{
                   display: "block",
                   fontSize: "0.875rem",
@@ -250,9 +256,11 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                 Prazo final (ISO 8601)
               </label>
               <input
+                id="menu-maintenance-until"
                 type="datetime-local"
                 value={maintenancePayload.until}
                 onChange={(e) => setMaintenancePayload({ ...maintenancePayload, until: e.target.value })}
+                data-testid="maintenance-until-input"
                 style={{
                   width: "100%",
                   padding: "10px 12px",
@@ -268,6 +276,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
             </div>
             <div>
               <label
+                htmlFor="menu-maintenance-reason"
                 style={{
                   display: "block",
                   fontSize: "0.875rem",
@@ -279,9 +288,11 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                 Justificativa
               </label>
               <textarea
+                id="menu-maintenance-reason"
                 value={maintenancePayload.reason}
                 onChange={(e) => setMaintenancePayload({ ...maintenancePayload, reason: e.target.value })}
                 placeholder="Descreva a manutenção planejada..."
+                data-testid="maintenance-reason-input"
                 style={{
                   width: "100%",
                   minHeight: "80px",
