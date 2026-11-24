@@ -159,7 +159,7 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
             Livro-Razão de Snapshots &amp; Auditoria Forense
           </h2>
           <span className="text-[10px] font-mono uppercase bg-[#0c1830] text-slate-400 border border-[#172747] px-2 py-0.5 rounded font-medium">
-            {filteredItems.length} REGISTROS VERIFICADOS
+            {isLoading ? "CARREGANDO SNAPSHOTS..." : `${filteredItems.length} REGISTROS VERIFICADOS`}
           </span>
         </div>
 
@@ -253,7 +253,38 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#121e35] text-slate-300">
-            {paginatedItems.length === 0 ? (
+            {isLoading ? (
+              [1, 2, 3, 4, 5].map((idx) => (
+                <tr key={idx} className="animate-pulse" data-testid="backup-row-skeleton">
+                  <td className="py-3 px-4 whitespace-nowrap">
+                    <div className="h-3.5 w-24 bg-[#14233f] rounded mb-1" />
+                    <div className="h-2.5 w-16 bg-[#14233f]/60 rounded" />
+                  </td>
+                  <td className="py-3 px-3">
+                    <div className="h-3.5 w-48 bg-[#14233f] rounded mb-1" />
+                    <div className="h-2.5 w-28 bg-[#14233f]/60 rounded" />
+                  </td>
+                  <td className="py-3 px-3">
+                    <div className="h-4 w-20 bg-[#14233f] rounded" />
+                  </td>
+                  <td className="py-3 px-3">
+                    <div className="h-3.5 w-14 bg-[#14233f] rounded" />
+                  </td>
+                  <td className="py-3 px-3">
+                    <div className="h-3.5 w-28 bg-[#14233f] rounded" />
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <div className="h-4 w-12 bg-[#14233f] rounded mx-auto" />
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <div className="h-4 w-12 bg-[#14233f] rounded mx-auto" />
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <div className="h-4 w-12 bg-[#14233f] rounded mx-auto" />
+                  </td>
+                </tr>
+              ))
+            ) : paginatedItems.length === 0 ? (
               <tr>
                 <td colSpan={8} className="py-12 text-center text-slate-500 font-mono text-xs">
                   Nenhum snapshot encontrado para os filtros selecionados.
@@ -380,24 +411,32 @@ export const BackupHistoryTable: React.FC<BackupHistoryTableProps> = ({
               strokeWidth="2"
             />
           </svg>
-          <span>
-            Exibindo{" "}
-            <strong className="text-white">
-              {filteredItems.length === 0
-                ? 0
-                : (safeCurrentPage - 1) * pageSize + 1}
-              -
-              {Math.min(safeCurrentPage * pageSize, filteredItems.length)}
-            </strong>{" "}
-            de <strong className="text-white">{filteredItems.length}</strong>{" "}
-            snapshots persistidos
-          </span>
+          {isLoading ? (
+            <div className="h-3.5 w-56 bg-[#14233f] rounded animate-pulse" />
+          ) : (
+            <span>
+              Exibindo{" "}
+              <strong className="text-white">
+                {filteredItems.length === 0
+                  ? 0
+                  : (safeCurrentPage - 1) * pageSize + 1}
+                -
+                {Math.min(safeCurrentPage * pageSize, filteredItems.length)}
+              </strong>{" "}
+              de <strong className="text-white">{filteredItems.length}</strong>{" "}
+              snapshots persistidos
+            </span>
+          )}
           <span className="text-slate-600">|</span>
           <span className="text-slate-400">
             Merkle Tree Hash:{" "}
-            <code className="text-emerald-400 font-mono">
-              {merkleTreeHash} {merkleTreeHash !== "—" ? "(OK)" : ""}
-            </code>
+            {isLoading ? (
+              <span className="inline-block h-3 w-16 bg-[#14233f] rounded animate-pulse align-middle" />
+            ) : (
+              <code className="text-emerald-400 font-mono">
+                {merkleTreeHash} {merkleTreeHash !== "—" ? "(OK)" : ""}
+              </code>
+            )}
           </span>
         </div>
 

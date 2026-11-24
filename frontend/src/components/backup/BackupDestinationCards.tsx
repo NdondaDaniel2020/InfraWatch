@@ -5,11 +5,13 @@ import { BackupStorageResponse } from "../../types/backup";
 
 interface BackupDestinationCardsProps {
   storage: BackupStorageResponse | null;
+  isLoading?: boolean;
   onConnectGDrive?: () => void;
 }
 
 export const BackupDestinationCards: React.FC<BackupDestinationCardsProps> = ({
   storage,
+  isLoading = false,
   onConnectGDrive,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -25,6 +27,134 @@ export const BackupDestinationCards: React.FC<BackupDestinationCardsProps> = ({
   const local = storage?.local;
   const gdrive = storage?.gdrive;
   const r2 = storage?.r2;
+
+  // Estado Canônico: Skeleton Shimmer durante o carregamento de dados do storage
+  if (isLoading || !storage) {
+    return (
+      <section
+        data-testid="backup-destination-cards"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+        aria-label="Topologia de Destinos de Backup 3-2-1"
+      >
+        {/* Skeleton Card 1: NVMe Host */}
+        <article
+          className="bg-[#091122] border border-[#14233f] rounded-xl p-4 flex flex-col justify-between shadow-sm animate-pulse min-h-[220px]"
+          data-testid="backup-card-skeleton-1"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2 text-slate-400 font-semibold text-sm">
+                <HardDrive className="w-4 h-4 text-emerald-400/50" />
+                <h3>Destino 1: NVMe Host</h3>
+              </div>
+              <div className="h-5 w-24 bg-[#14233f] rounded" />
+            </div>
+            <div className="space-y-1.5 mb-4">
+              <div className="flex justify-between">
+                <div className="h-3 w-20 bg-[#14233f] rounded" />
+                <div className="h-3 w-28 bg-[#14233f] rounded" />
+              </div>
+              <div className="w-full bg-[#111c33] h-1.5 rounded-full overflow-hidden">
+                <div className="bg-[#14233f] h-full w-2/5 rounded-full" />
+              </div>
+            </div>
+            <div className="space-y-1 mb-3.5">
+              <div className="h-2.5 w-28 bg-[#14233f] rounded" />
+              <div className="h-8 w-full bg-[#050913] border border-[#14213a] rounded-md" />
+            </div>
+          </div>
+          <div className="border-t border-[#131f38] pt-2.5 space-y-1">
+            <div className="flex justify-between">
+              <div className="h-3 w-28 bg-[#14233f] rounded" />
+              <div className="h-3 w-20 bg-[#14233f] rounded" />
+            </div>
+            <div className="flex justify-between">
+              <div className="h-3 w-24 bg-[#14233f] rounded" />
+              <div className="h-3 w-16 bg-[#14233f] rounded" />
+            </div>
+          </div>
+        </article>
+
+        {/* Skeleton Card 2: Google Drive */}
+        <article
+          className="bg-[#091122] border border-[#14233f] rounded-xl p-4 flex flex-col justify-between shadow-sm animate-pulse min-h-[220px]"
+          data-testid="backup-card-skeleton-2"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2 text-slate-400 font-semibold text-sm">
+                <Cloud className="w-4 h-4 text-amber-400/50" />
+                <h3>Destino 2: Google Drive</h3>
+              </div>
+              <div className="h-5 w-24 bg-[#14233f] rounded" />
+            </div>
+            <div className="space-y-1.5 mb-4">
+              <div className="flex justify-between">
+                <div className="h-3 w-20 bg-[#14233f] rounded" />
+                <div className="h-3 w-28 bg-[#14233f] rounded" />
+              </div>
+              <div className="w-full bg-[#111c33] h-1.5 rounded-full overflow-hidden">
+                <div className="bg-[#14233f] h-full w-1/3 rounded-full" />
+              </div>
+            </div>
+            <div className="space-y-1 mb-3.5">
+              <div className="h-2.5 w-28 bg-[#14233f] rounded" />
+              <div className="h-8 w-full bg-[#050913] border border-[#14213a] rounded-md" />
+            </div>
+          </div>
+          <div className="border-t border-[#131f38] pt-2.5 space-y-1">
+            <div className="flex justify-between">
+              <div className="h-3 w-28 bg-[#14233f] rounded" />
+              <div className="h-3 w-20 bg-[#14233f] rounded" />
+            </div>
+            <div className="flex justify-between">
+              <div className="h-3 w-24 bg-[#14233f] rounded" />
+              <div className="h-3 w-16 bg-[#14233f] rounded" />
+            </div>
+          </div>
+        </article>
+
+        {/* Skeleton Card 3: Cloudflare R2 */}
+        <article
+          className="bg-[#091122] border border-[#14233f] rounded-xl p-4 flex flex-col justify-between shadow-sm animate-pulse min-h-[220px]"
+          data-testid="backup-card-skeleton-3"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2 text-slate-400 font-semibold text-sm">
+                <Globe className="w-4 h-4 text-sky-400/50" />
+                <h3>Destino 3: Cloudflare R2</h3>
+              </div>
+              <div className="h-5 w-24 bg-[#14233f] rounded" />
+            </div>
+            <div className="space-y-1.5 mb-4">
+              <div className="flex justify-between">
+                <div className="h-3 w-20 bg-[#14233f] rounded" />
+                <div className="h-3 w-28 bg-[#14233f] rounded" />
+              </div>
+              <div className="w-full bg-[#111c33] h-1.5 rounded-full overflow-hidden">
+                <div className="bg-[#14233f] h-full w-1/4 rounded-full" />
+              </div>
+            </div>
+            <div className="space-y-1 mb-3.5">
+              <div className="h-2.5 w-28 bg-[#14233f] rounded" />
+              <div className="h-8 w-full bg-[#050913] border border-[#14213a] rounded-md" />
+            </div>
+          </div>
+          <div className="border-t border-[#131f38] pt-2.5 space-y-1">
+            <div className="flex justify-between">
+              <div className="h-3 w-28 bg-[#14233f] rounded" />
+              <div className="h-3 w-20 bg-[#14233f] rounded" />
+            </div>
+            <div className="flex justify-between">
+              <div className="h-3 w-24 bg-[#14233f] rounded" />
+              <div className="h-3 w-16 bg-[#14233f] rounded" />
+            </div>
+          </div>
+        </article>
+      </section>
+    );
+  }
 
   return (
     <section
