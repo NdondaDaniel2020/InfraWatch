@@ -7,8 +7,7 @@ import time
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import text
-
+from src.contexts.system.database.repository import SystemSettingsRepository
 from src.contexts.system.schemas.settings import (
     GlpiTestRequest,
     GlpiTestResponse,
@@ -433,10 +432,8 @@ class IntegrationTesterService:
         start_pg = time.perf_counter()
         try:
             async with self.session_factory() as session:
-                res = await session.execute(
-                    text("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')")
-                )
-                timescale_active = bool(res.scalar())
+                repo = SystemSettingsRepository(session)
+                timescale_active = await repo.check_timescaledb_extension()
                 pg_ms = round((time.perf_counter() - start_pg) * 1000, 2)
                 pg_ok = True
         except Exception as exc:  # noqa: BLE001

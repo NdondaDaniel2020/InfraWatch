@@ -1,9 +1,13 @@
+"""Serviço de aplicação para consultas de dispositivos de rede e inventário."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.inventory.database.models import DeviceModel
+from src.contexts.inventory.repositories.device_repository import DeviceRepository
 from src.contexts.inventory.schemas.device_schemas import (
     DeviceDetail,
     DeviceInterfaceResponse,
@@ -13,13 +17,28 @@ from src.contexts.inventory.schemas.device_schemas import (
     DeviceSearchResult,
     DeviceTimescaleMetricsResponse,
 )
-from src.contexts.inventory.schemas.filters import DeviceFilters
+from src.contexts.telemetry.services.telemetry_query_service import TelemetryQueryService
 from src.core.web.pagination import PaginatedResponse, PaginationParams
+
+if TYPE_CHECKING:
+    from src.contexts.inventory.schemas.filters import DeviceFilters
 
 
 class DeviceQueryService:
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+        repository: DeviceRepository | None = None,
+        telemetry_service: TelemetryQueryService | None = None,
+        telemetry_repo: Any | None = None,
+    ) -> None:
         self.session = session
+        self.repository = repository or DeviceRepository(session)
+        self.telemetry_service = telemetry_service or (
+            telemetry_repo
+            if hasattr(telemetry_repo, "get_device_timescale_buckets")
+            else TelemetryQueryService(session)
+        )
 
     async def list_devices(
         self,
@@ -28,70 +47,12 @@ class DeviceQueryService:
         pagination: PaginationParams,
         is_viewer: bool = False,
     ) -> PaginatedResponse[DeviceListItem]:
-        stmt = select(DeviceModel)
-        if org_id is not None:
-            stmt = stmt.where(DeviceModel.organization_id == org_id)
-
-        # 1. Busca textual por nome, IP ou hostname
-        search_term = filters.search or filters.q
-        if search_term and search_term.strip():
-            term = f"%{search_term.strip()}%"
-            stmt = stmt.where(
-                (DeviceModel.name.ilike(term))
-                | (DeviceModel.ip_address.ilike(term))
-                | (DeviceModel.hostname.ilike(term))
-            )
-
-        # 2. Status de Saúde / Ciclo Operacional
-        raw_status = (filters.status or filters.health_status or "").upper().strip()
-        if raw_status:
-            if raw_status == "PAUSED":
-                stmt = stmt.where(
-                    (DeviceModel.is_paused.is_(True)) | (func.upper(DeviceModel.status) == "PAUSED")
-                )
-            elif raw_status in ("MAINT", "MAINTENANCE"):
-                stmt = stmt.where(
-                    (DeviceModel.maintenance_until > func.now())
-                    | (func.upper(DeviceModel.status).in_(["MAINT", "MAINTENANCE"]))
-                )
-            elif raw_status in ("DEG", "DEGRADED"):
-                stmt = stmt.where(
-                    (DeviceModel.is_paused.is_(False))
-                    & (func.upper(DeviceModel.status).in_(["DEG", "DEGRADED"]))
-                )
-            elif raw_status == "UP":
-                stmt = stmt.where(
-                    (DeviceModel.is_paused.is_(False))
-                    & (func.upper(DeviceModel.status) == "UP")
-                )
-            elif raw_status == "DOWN":
-                stmt = stmt.where(
-                    (DeviceModel.is_paused.is_(False))
-                    & (func.upper(DeviceModel.status) == "DOWN")
-                )
-            else:
-                stmt = stmt.where(func.upper(DeviceModel.status) == raw_status)
-
-        # 3. Categoria de equipamento (Case-insensitive)
-        if filters.category and filters.category.strip():
-            stmt = stmt.where(func.upper(DeviceModel.category) == filters.category.strip().upper())
-
-        # 4. Protocolo de sondagem (Case-insensitive)
-        if filters.protocol and filters.protocol.strip():
-            stmt = stmt.where(func.lower(DeviceModel.protocol) == filters.protocol.strip().lower())
-
-        # 5. Pausado explicitamente
-        if filters.is_paused is not None:
-            stmt = stmt.where(DeviceModel.is_paused == filters.is_paused)
-
-        count_stmt = select(func.count()).select_from(stmt.subquery())
-        total = await self.session.scalar(count_stmt) or 0
-
-        stmt = stmt.order_by(DeviceModel.created_at.desc())
-        stmt = stmt.limit(pagination.limit).offset(pagination.offset)
-
-        result = await self.session.execute(stmt)
-        devices = result.scalars().all()
+        devices, total = await self.repository.list_with_filters(
+            organization_id=org_id,
+            filters=filters,
+            limit=pagination.limit,
+            offset=pagination.offset,
+        )
 
         items = [DeviceListItem.model_validate(d) for d in devices]
         if is_viewer:
@@ -111,32 +72,12 @@ class DeviceQueryService:
         pagination: PaginationParams,
         is_viewer: bool = False,
     ) -> PaginatedResponse[DeviceSearchResult]:
-        stmt = select(DeviceModel)
-        if org_id is not None:
-            stmt = stmt.where(DeviceModel.organization_id == org_id)
-
-        if query:
-            dialect_name = self.session.bind.dialect.name if self.session.bind else ""
-            if dialect_name == "sqlite":
-                stmt = stmt.where(
-                    (DeviceModel.name.ilike(f"%{query}%"))
-                    | (DeviceModel.ip_address.ilike(f"%{query}%"))
-                    | (DeviceModel.hostname.ilike(f"%{query}%"))
-                )
-            else:
-                ts_query = func.websearch_to_tsquery("portuguese", query)
-                stmt = stmt.where(DeviceModel.search_vector.op("@@")(ts_query))
-                stmt = stmt.order_by(func.ts_rank_cd(DeviceModel.search_vector, ts_query).desc())
-        else:
-            stmt = stmt.order_by(DeviceModel.created_at.desc())
-
-        count_stmt = select(func.count()).select_from(stmt.subquery())
-        total = await self.session.scalar(count_stmt) or 0
-
-        stmt = stmt.limit(pagination.limit).offset(pagination.offset)
-
-        result = await self.session.execute(stmt)
-        devices = result.scalars().all()
+        devices, total = await self.repository.search_devices_paginated(
+            organization_id=org_id,
+            query=query,
+            limit=pagination.limit,
+            offset=pagination.offset,
+        )
 
         items = [DeviceSearchResult.model_validate(d) for d in devices]
         if is_viewer:
@@ -152,12 +93,7 @@ class DeviceQueryService:
     async def get_device_detail(
         self, org_id: UUID | None, device_id: UUID, is_viewer: bool = False
     ) -> DeviceDetail | None:
-        stmt = select(DeviceModel).where(DeviceModel.id == device_id)
-        if org_id is not None:
-            stmt = stmt.where(DeviceModel.organization_id == org_id)
-        result = await self.session.execute(stmt)
-        device = result.scalar_one_or_none()
-
+        device = await self.repository.get_by_id(device_id, organization_id=org_id)
         if not device:
             return None
 
@@ -221,39 +157,10 @@ class DeviceQueryService:
         if not device:
             return None
 
-        interval_sql = "INTERVAL '10 minutes'"
-        limit_buckets = 60
-        if period == "1h":
-            interval_sql = "INTERVAL '1 minute'"
-            limit_buckets = 60
-        elif period == "7d":
-            interval_sql = "INTERVAL '1 hour'"
-            limit_buckets = 168
-        elif period == "30d":
-            interval_sql = "INTERVAL '4 hours'"
-            limit_buckets = 180
-
-        dialect_name = self.session.bind.dialect.name if self.session.bind else ""
-        rows = []
-        if dialect_name != "sqlite":
-            query_sql = f"""
-                SELECT 
-                    time_bucket({interval_sql}, timestamp) AS bucket,
-                    MIN(value) as min_rtt,
-                    AVG(value) as avg_rtt,
-                    MAX(value) as max_rtt,
-                    AVG(packet_loss) as avg_loss
-                FROM metrics
-                WHERE device_id = :dev_id AND metric_type = 'latency_ms'
-                GROUP BY bucket
-                ORDER BY bucket DESC
-                LIMIT :limit_b;
-            """
-            result = await self.session.execute(text(query_sql), {
-                "dev_id": device_id,
-                "limit_b": limit_buckets,
-            })
-            rows = list(reversed(result.fetchall()))
+        rows = await self.telemetry_service.get_device_timescale_buckets(
+            device_id=device_id,
+            period=period,
+        )
 
         if not rows:
             return DeviceTimescaleMetricsResponse(
@@ -267,14 +174,22 @@ class DeviceQueryService:
         loss_values: list[float] = []
 
         for r in rows:
-            min_v = round(float(r.min_rtt or 0.0), 2)
-            avg_v = round(float(r.avg_rtt or 0.0), 2)
-            max_v = round(float(r.max_rtt or 0.0), 2)
-            loss_v = round(float(r.avg_loss or 0.0), 2)
+            if isinstance(r, dict):
+                min_v = round(float(r.get("min_rtt") or 0.0), 2)
+                avg_v = round(float(r.get("avg_rtt") or 0.0), 2)
+                max_v = round(float(r.get("max_rtt") or 0.0), 2)
+                loss_v = round(float(r.get("avg_loss") or 0.0), 2)
+                bucket_val = r.get("bucket")
+            else:
+                min_v = round(float(getattr(r, "min_rtt", 0.0) or 0.0), 2)
+                avg_v = round(float(getattr(r, "avg_rtt", 0.0) or 0.0), 2)
+                max_v = round(float(getattr(r, "max_rtt", 0.0) or 0.0), 2)
+                loss_v = round(float(getattr(r, "avg_loss", 0.0) or 0.0), 2)
+                bucket_val = getattr(r, "bucket", "")
 
             buckets.append(
                 DeviceMetricBucket(
-                    timestamp=r.bucket.isoformat() if hasattr(r.bucket, "isoformat") else str(r.bucket),
+                    timestamp=bucket_val.isoformat() if hasattr(bucket_val, "isoformat") else str(bucket_val),
                     rtt_min_ms=min_v,
                     rtt_p95_ms=avg_v,
                     rtt_max_ms=max_v,

@@ -7,9 +7,9 @@ import hashlib
 import html
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.alerting.database.repository import IncidentRepository
@@ -17,7 +17,6 @@ from src.contexts.alerting.domain.incident import Incident
 from src.contexts.iam.repositories.organization_repository import OrganizationRepository
 from src.contexts.inventory.domain.aggregate import Device
 from src.contexts.inventory.repositories.device_repository import DeviceRepository
-from src.contexts.sla.database.models import MaintenanceWindowModel
 from src.contexts.sla.database.repository import MaintenanceWindowRepository
 from src.contexts.sla.domain.calculator import calculate_sla
 from src.contexts.sla.domain.models import DowntimePeriod, MaintenanceWindow
@@ -287,29 +286,11 @@ class SlaService:
         now = datetime.now(UTC)
         start_of_month = datetime(now.year, now.month, 1, tzinfo=UTC)
 
-        stmt_active = select(func.count(MaintenanceWindowModel.id)).where(
-            MaintenanceWindowModel.start_time <= now,
-            MaintenanceWindowModel.end_time >= now,
+        active_now, scheduled, approved_windows = await self._repo.get_kpis(
+            now=now,
+            start_of_month=start_of_month,
+            organization_id=organization_id,
         )
-        if organization_id:
-            stmt_active = stmt_active.where(MaintenanceWindowModel.organization_id == organization_id)
-        active_now = (await self._session.execute(stmt_active)).scalar_one() or 0
-
-        stmt_scheduled = select(func.count(MaintenanceWindowModel.id)).where(
-            MaintenanceWindowModel.start_time > now,
-        )
-        if organization_id:
-            stmt_scheduled = stmt_scheduled.where(MaintenanceWindowModel.organization_id == organization_id)
-        scheduled = (await self._session.execute(stmt_scheduled)).scalar_one() or 0
-
-        stmt_exempted = select(MaintenanceWindowModel).where(
-            MaintenanceWindowModel.is_approved.is_(True),
-            MaintenanceWindowModel.start_time >= start_of_month,
-        )
-        if organization_id:
-            stmt_exempted = stmt_exempted.where(MaintenanceWindowModel.organization_id == organization_id)
-        res_exempted = await self._session.execute(stmt_exempted)
-        approved_windows = res_exempted.scalars().all()
 
         total_exempted_minutes = 0.0
         for w in approved_windows:
@@ -663,7 +644,9 @@ class SlaService:
                 created_at=now,
             )
         else:
-            from src.contexts.sla.api.presenters.support_ticket_presenter import format_support_ticket_html
+            from src.contexts.sla.api.presenters.support_ticket_presenter import (
+                format_support_ticket_html,
+            )
 
             ticket_html = format_support_ticket_html(
                 organization_name=org_name,
@@ -755,39 +738,12 @@ class SlaService:
             )
 
         # 5. Busca em lote todas as janelas de manutenção aprovadas do mês
-        mw_conditions = [
-            MaintenanceWindowModel.is_approved.is_(True),
-            MaintenanceWindowModel.start_time < month_end,
-            MaintenanceWindowModel.end_time > month_start,
-        ]
-        org_mw_filter = [MaintenanceWindowModel.organization_id == organization_id]
-        if device_ids:
-            org_mw_filter.append(MaintenanceWindowModel.device_id.in_(device_ids))
-
-        mw_stmt = (
-            select(MaintenanceWindowModel)
-            .where(*mw_conditions)
-            .where(or_(*org_mw_filter))
+        domain_windows = await self._repo.find_for_sla_period(
+            month_start=month_start,
+            month_end=month_end,
+            organization_id=organization_id,
+            device_ids=device_ids,
         )
-        mw_res = await self._session.execute(mw_stmt)
-        approved_windows = list(mw_res.scalars().all())
-
-        domain_windows: list[MaintenanceWindow] = []
-        for w in approved_windows:
-            s_time = _ensure_utc(w.start_time) or w.start_time
-            e_time = _ensure_utc(w.end_time) or w.end_time
-            if e_time > s_time:
-                domain_windows.append(
-                    MaintenanceWindow(
-                        id=w.id,
-                        device_id=w.device_id,
-                        organization_id=w.organization_id,
-                        start_time=s_time,
-                        end_time=e_time,
-                        is_approved=w.is_approved,
-                        description=w.description,
-                    )
-                )
 
         meses_extenso = [
             "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -812,7 +768,7 @@ class SlaService:
             # Dia futuro no mês atual
             if is_current_month and d > now.day:
                 future_windows = [
-                    w for w in approved_windows
+                    w for w in domain_windows
                     if (_ensure_utc(w.start_time) or w.start_time) < day_end
                     and (_ensure_utc(w.end_time) or w.end_time) > day_start
                 ]
@@ -887,7 +843,7 @@ class SlaService:
             if incidents_count > 0 and day_uptime_avg < target_pct:
                 item_type = "incident"
                 mins = int(dev_unplanned_mins)
-                secs = int(round((dev_unplanned_mins - mins) * 60))
+                secs = round((dev_unplanned_mins - mins) * 60)
                 note = f"Incidente registrado • Downtime: {mins}m {secs:02d}s"
             elif maint_count > 0:
                 item_type = "maint"

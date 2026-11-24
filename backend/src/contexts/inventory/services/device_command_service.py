@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,9 +24,11 @@ from src.contexts.inventory.schemas.requests import (
     TestProbeResponse,
     UpdateDeviceRequest,
 )
+from src.contexts.system.services.dynamic_settings_provider import DynamicSettingsProvider
 from src.core.database.outbox_repository import OutboxRepository
 from src.core.database.unit_of_work import AbstractUnitOfWork, SqlAlchemyUnitOfWork
 from src.core.domain.entity import generate_uuid7
+from src.integrations.zabbix.client import ZabbixClient
 from src.workers.probers.executor import ProbeExecutor
 from src.workers.scheduler.in_memory_inventory import ProbeTarget
 
@@ -36,6 +39,8 @@ class DeviceCommandService:
         uow_or_session: AbstractUnitOfWork | AsyncSession | None = None,
         repository: DeviceRepository | None = None,
         session: AsyncSession | None = None,
+        probe_executor: ProbeExecutor | None = None,
+        dynamic_settings: DynamicSettingsProvider | None = None,
     ):
         target = uow_or_session if uow_or_session is not None else session
         if target is None:
@@ -50,6 +55,8 @@ class DeviceCommandService:
 
         self.repository = repository or DeviceRepository(self.session)
         self.audit_service = AuditService(self.session)
+        self.probe_executor = probe_executor or ProbeExecutor(max_concurrent=10)
+        self.dynamic_settings = dynamic_settings or DynamicSettingsProvider(self.session)
 
     async def create_device(
         self,
@@ -365,8 +372,7 @@ class DeviceCommandService:
             interval_seconds=60,
         )
 
-        executor = ProbeExecutor(max_concurrent=10)
-        result = await executor.execute(target, timeout_ms=cmd.timeout_ms)
+        result = await self.probe_executor.execute(target, timeout_ms=cmd.timeout_ms)
 
         success = result.status in ("UP", "DEGRADED")
         if success:
@@ -415,50 +421,16 @@ class DeviceCommandService:
             interval_seconds=device.interval_seconds,
         )
 
-        executor = ProbeExecutor(max_concurrent=10)
-        result = await executor.execute(target, timeout_ms=3000)
+        result = await self.probe_executor.execute(target, timeout_ms=3000)
 
         success = result.status in ("UP", "DEGRADED")
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
 
         zabbix_status = None
         thresholds = device.thresholds or {}
         zh_id = thresholds.get("zabbix_host_id") or thresholds.get("hostid")
         if zh_id:
-            try:
-                from src.contexts.system.services.dynamic_settings_provider import DynamicSettingsProvider
-                from src.integrations.zabbix.client import ZabbixClient
-
-                dyn_provider = DynamicSettingsProvider(self.session)
-                zabbix_cfg = await dyn_provider.get_zabbix_config()
-                if zabbix_cfg.get("enabled", False) and zabbix_cfg.get("api_url"):
-                    async with ZabbixClient(
-                        api_url=zabbix_cfg["api_url"],
-                        api_token=zabbix_cfg.get("api_token"),
-                        username=zabbix_cfg.get("user") or "Admin",
-                        password=zabbix_cfg.get("password") or "zabbix",
-                        timeout=2.0,
-                    ) as zbx:
-                        hosts = await zbx.get_hosts(hostids=[str(zh_id)])
-                        if hosts:
-                            h = hosts[0]
-                            snmp_avail = str(h.get("snmp_available", "0"))
-                            agent_avail = str(h.get("available", "0"))
-                            is_avail = snmp_avail == "1" or agent_avail == "1"
-                            zabbix_status = {
-                                "host_id": str(zh_id),
-                                "host_name": h.get("name") or h.get("host"),
-                                "status": "UP" if is_avail else "DOWN",
-                                "snmp_available": snmp_avail == "1",
-                                "agent_available": agent_avail == "1",
-                                "message": "Host verificado no Zabbix Server (SNMP / Agent Telemetry)." if is_avail else "Host inalcançável no Zabbix Server.",
-                            }
-            except Exception as exc:
-                zabbix_status = {
-                    "host_id": str(zh_id),
-                    "status": "UNKNOWN",
-                    "message": f"Diagnóstico Zabbix indisponível: {exc!s}",
-                }
+            zabbix_status = await self._check_zabbix_status(str(zh_id))
 
         if success:
             detail_msg = f"Sonda concluída com status {result.status}. Latência média: {round(result.latency_ms, 2)} ms."
@@ -482,3 +454,39 @@ class DeviceCommandService:
             target_ip=device.ip_address,
             zabbix_status=zabbix_status,
         )
+
+    async def _check_zabbix_status(self, zh_id: str) -> dict[str, Any] | None:
+        """Consulta diagnóstico do host Zabbix de forma isolada."""
+        try:
+            zabbix_cfg = await self.dynamic_settings.get_zabbix_config()
+            if not (zabbix_cfg.get("enabled", False) and zabbix_cfg.get("api_url")):
+                return None
+
+            async with ZabbixClient(
+                api_url=zabbix_cfg["api_url"],
+                api_token=zabbix_cfg.get("api_token"),
+                username=zabbix_cfg.get("user") or "Admin",
+                password=zabbix_cfg.get("password") or "zabbix",
+                timeout=2.0,
+            ) as zbx:
+                hosts = await zbx.get_hosts(hostids=[zh_id])
+                if not hosts:
+                    return None
+                h = hosts[0]
+                snmp_avail = str(h.get("snmp_available", "0"))
+                agent_avail = str(h.get("available", "0"))
+                is_avail = snmp_avail == "1" or agent_avail == "1"
+                return {
+                    "host_id": zh_id,
+                    "host_name": h.get("name") or h.get("host"),
+                    "status": "UP" if is_avail else "DOWN",
+                    "snmp_available": snmp_avail == "1",
+                    "agent_available": agent_avail == "1",
+                    "message": "Host verificado no Zabbix Server (SNMP / Agent Telemetry)." if is_avail else "Host inalcançável no Zabbix Server.",
+                }
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "host_id": zh_id,
+                "status": "UNKNOWN",
+                "message": f"Diagnóstico Zabbix indisponível: {exc!s}",
+            }

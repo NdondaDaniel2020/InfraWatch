@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.system.database.models import SystemSettingModel
@@ -135,6 +135,12 @@ class SystemSettingsRepository:
         result = await self.session.execute(stmt)
         await self.session.flush()
         return int(getattr(result, "rowcount", 0) or 0)
+
+    async def check_timescaledb_extension(self) -> bool:
+        """Verifica se a extensão timescaledb está instalada no PostgreSQL."""
+        stmt = text("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')")
+        res = await self.session.execute(stmt)
+        return bool(res.scalar())
 
 
 __all__ = ["SystemSettingsRepository"]

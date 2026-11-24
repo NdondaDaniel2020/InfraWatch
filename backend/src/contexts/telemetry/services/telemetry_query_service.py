@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.iam.domain.authenticated_user import AuthenticatedUser
 from src.contexts.inventory.repositories.device_repository import DeviceRepository
 from src.contexts.network_topology.database.repository import TopologyRepository
 from src.contexts.telemetry.database.models import MetricModel
+from src.contexts.telemetry.database.repository import TelemetryRepository
 from src.contexts.telemetry.schemas.telemetry import (
     MonitoredDeviceDetail,
     MonitoredDeviceItem,
@@ -32,10 +33,12 @@ class TelemetryQueryService:
         session: AsyncSession,
         device_repo: DeviceRepository | None = None,
         topology_repo: TopologyRepository | None = None,
+        telemetry_repo: TelemetryRepository | None = None,
     ) -> None:
         self._session = session
         self._device_repo = device_repo or DeviceRepository(session)
         self._topology_repo = topology_repo or TopologyRepository(session)
+        self._telemetry_repo = telemetry_repo or TelemetryRepository(session)
 
     async def get_latest_metrics_for_devices(
         self, device_ids: list[UUID]
@@ -44,21 +47,7 @@ class TelemetryQueryService:
         if not device_ids:
             return {}
 
-        latest_subq = (
-            select(
-                MetricModel.device_id,
-                func.max(MetricModel.timestamp).label("max_ts"),
-            )
-            .where(MetricModel.device_id.in_(device_ids))
-            .group_by(MetricModel.device_id)
-            .subquery()
-        )
-        metrics_stmt = select(MetricModel).join(
-            latest_subq,
-            (MetricModel.device_id == latest_subq.c.device_id)
-            & (MetricModel.timestamp == latest_subq.c.max_ts),
-        )
-        metrics_result = (await self._session.execute(metrics_stmt)).scalars().all()
+        metrics_result = await self._telemetry_repo.get_latest_metrics_by_devices(device_ids)
 
         device_metrics: dict[UUID, dict[str, float]] = {}
         for m in metrics_result:
@@ -108,22 +97,7 @@ class TelemetryQueryService:
         device_ids = [d.id for d in devices]
 
         # Busca a última métrica de cada dispositivo em lote
-        latest_subq = (
-            select(
-                MetricModel.device_id,
-                func.max(MetricModel.timestamp).label("max_ts"),
-            )
-            .where(MetricModel.device_id.in_(device_ids))
-            .group_by(MetricModel.device_id)
-            .subquery()
-        )
-
-        metrics_stmt = select(MetricModel).join(
-            latest_subq,
-            (MetricModel.device_id == latest_subq.c.device_id)
-            & (MetricModel.timestamp == latest_subq.c.max_ts),
-        )
-        metrics_result = (await self._session.execute(metrics_stmt)).scalars().all()
+        metrics_result = await self._telemetry_repo.get_latest_metrics_by_devices(device_ids)
         latencies_by_dev: dict[UUID, float] = {}
         losses_by_dev: dict[UUID, float] = {}
         timestamps_by_dev: dict[UUID, datetime] = {}
@@ -134,8 +108,8 @@ class TelemetryQueryService:
         if self._topology_repo is not None:
             try:
                 cluster_by_dev = await self._topology_repo.get_clusters_by_device_ids(device_ids)
-            except Exception:
-                pass
+            except (RuntimeError, ValueError, AttributeError, KeyError):
+                cluster_by_dev = {}
 
         for m in metrics_result:
             timestamps_by_dev[m.device_id] = m.timestamp
@@ -208,13 +182,9 @@ class TelemetryQueryService:
             raise TelemetryDeviceNotFoundError("Dispositivo não encontrado")
 
         # Busca série temporal recente de métricas para este dispositivo
-        metrics_stmt = (
-            select(MetricModel)
-            .where(MetricModel.device_id == device_id)
-            .order_by(MetricModel.timestamp.desc())
-            .limit(metric_limit)
+        metric_rows = await self._telemetry_repo.get_recent_metrics_for_device(
+            device_id, limit=metric_limit
         )
-        metric_rows = (await self._session.execute(metrics_stmt)).scalars().all()
 
         recent_metrics = [
             TelemetryMetricPoint(
@@ -270,6 +240,28 @@ class TelemetryQueryService:
             else (0.0 if last_timestamp else None),
             last_monitored_at=last_timestamp,
             recent_metrics=recent_metrics,
+        )
+
+    async def get_device_timescale_buckets(
+        self, device_id: UUID, period: str = "24h"
+    ) -> list[dict[str, Any]]:
+        """Recupera buckets agregados do TimescaleDB delegando ao TelemetryRepository."""
+        interval_sql = "INTERVAL '10 minutes'"
+        limit_buckets = 60
+        if period == "1h":
+            interval_sql = "INTERVAL '1 minute'"
+            limit_buckets = 60
+        elif period == "7d":
+            interval_sql = "INTERVAL '1 hour'"
+            limit_buckets = 168
+        elif period == "30d":
+            interval_sql = "INTERVAL '4 hours'"
+            limit_buckets = 180
+
+        return await self._telemetry_repo.get_timescale_buckets(
+            device_id=device_id,
+            interval_sql=interval_sql,
+            limit_buckets=limit_buckets,
         )
 
 

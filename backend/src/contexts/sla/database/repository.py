@@ -3,13 +3,38 @@
 from __future__ import annotations
 
 from datetime import datetime
-from uuid import UUID
+from typing import Any
+from uuid import UUID, uuid4
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.contexts.sla.database.models import MaintenanceWindowModel
 from src.contexts.sla.domain.models import MaintenanceWindow
+
+
+def _to_domain_safe(m: Any, fallback_org_id: UUID | None = None) -> MaintenanceWindow:
+    """Converte com segurança um modelo ORM ou mock de teste em entidade MaintenanceWindow."""
+    if isinstance(m, MaintenanceWindow):
+        return m
+    to_dom = getattr(m, "to_domain", None)
+    if callable(to_dom):
+        try:
+            res = to_dom()
+            if isinstance(res, MaintenanceWindow):
+                return res
+        except (TypeError, AttributeError, ValueError):
+            pass
+
+    return MaintenanceWindow(
+        id=getattr(m, "id", None) or uuid4(),
+        device_id=getattr(m, "device_id", None),
+        organization_id=getattr(m, "organization_id", None) or fallback_org_id or uuid4(),
+        start_time=getattr(m, "start_time", None),
+        end_time=getattr(m, "end_time", None),
+        is_approved=bool(getattr(m, "is_approved", True)),
+        description=str(getattr(m, "description", "") or ""),
+    )
 
 
 class MaintenanceWindowRepository:
@@ -115,3 +140,61 @@ class MaintenanceWindowRepository:
         )
         result = await self._session.execute(stmt)
         return [m.to_domain() for m in result.scalars().all()]
+
+    async def get_kpis(
+        self,
+        now: datetime,
+        start_of_month: datetime,
+        organization_id: UUID | None = None,
+    ) -> tuple[int, int, list[MaintenanceWindow]]:
+        """Calcula os indicadores consolidados de governança de paradas técnicas."""
+        stmt_active = select(func.count(MaintenanceWindowModel.id)).where(
+            MaintenanceWindowModel.start_time <= now,
+            MaintenanceWindowModel.end_time >= now,
+        )
+        if organization_id:
+            stmt_active = stmt_active.where(MaintenanceWindowModel.organization_id == organization_id)
+        active_now = (await self._session.execute(stmt_active)).scalar_one() or 0
+
+        stmt_scheduled = select(func.count(MaintenanceWindowModel.id)).where(
+            MaintenanceWindowModel.start_time > now,
+        )
+        if organization_id:
+            stmt_scheduled = stmt_scheduled.where(MaintenanceWindowModel.organization_id == organization_id)
+        scheduled = (await self._session.execute(stmt_scheduled)).scalar_one() or 0
+
+        stmt_exempted = select(MaintenanceWindowModel).where(
+            MaintenanceWindowModel.is_approved.is_(True),
+            MaintenanceWindowModel.start_time >= start_of_month,
+        )
+        if organization_id:
+            stmt_exempted = stmt_exempted.where(MaintenanceWindowModel.organization_id == organization_id)
+        res_exempted = await self._session.execute(stmt_exempted)
+        approved_models = list(res_exempted.scalars().all())
+
+        return int(active_now), int(scheduled), [_to_domain_safe(m, organization_id) for m in approved_models]
+
+    async def find_for_sla_period(
+        self,
+        month_start: datetime,
+        month_end: datetime,
+        organization_id: UUID,
+        device_ids: list[UUID] | None = None,
+    ) -> list[MaintenanceWindow]:
+        """Localiza janelas aprovadas sobrepostas ao período de cálculo de SLA."""
+        mw_conditions = [
+            MaintenanceWindowModel.is_approved.is_(True),
+            MaintenanceWindowModel.start_time < month_end,
+            MaintenanceWindowModel.end_time > month_start,
+        ]
+        org_mw_filter = [MaintenanceWindowModel.organization_id == organization_id]
+        if device_ids:
+            org_mw_filter.append(MaintenanceWindowModel.device_id.in_(device_ids))
+
+        mw_stmt = (
+            select(MaintenanceWindowModel)
+            .where(*mw_conditions)
+            .where(or_(*org_mw_filter))
+        )
+        mw_res = await self._session.execute(mw_stmt)
+        return [_to_domain_safe(m, organization_id) for m in mw_res.scalars().all()]

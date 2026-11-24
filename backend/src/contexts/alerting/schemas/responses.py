@@ -31,23 +31,19 @@ class IncidentResponse(BaseModel):
     downtime_minutes: int | None = None
 
     @classmethod
-    def from_domain(cls, incident: Incident) -> IncidentResponse:
+    def from_domain(
+        cls, incident: Incident, glpi_url: str | None = None
+    ) -> IncidentResponse:
         """Constrói o DTO de resposta a partir da entidade de domínio Incident."""
-        glpi_url: str | None = None
-        if incident.glpi_ticket_id:
+        if glpi_url is None and incident.glpi_ticket_id:
             try:
-                from src.core.config import get_settings
-
-                settings = get_settings()
-                base_ui = (
-                    settings.GLPI_PUBLIC_URL.strip().rstrip("/")
-                    if getattr(settings, "GLPI_PUBLIC_URL", "")
-                    else getattr(settings, "GLPI_BASE_URL", "").replace("/apirest.php", "").rstrip("/")
+                from src.contexts.alerting.api.presenters.incident_presenter import (
+                    build_glpi_ticket_url,
                 )
-                if base_ui:
-                    glpi_url = f"{base_ui}/front/ticket.form.php?id={incident.glpi_ticket_id}"
-            except Exception:
-                pass
+
+                glpi_url = build_glpi_ticket_url(incident.glpi_ticket_id)
+            except (ImportError, AttributeError):
+                glpi_url = None
 
         return cls(
             id=incident.id,
