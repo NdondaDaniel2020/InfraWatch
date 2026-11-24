@@ -95,9 +95,9 @@ async def test_seed_all_creates_and_is_idempotent() -> None:
 
             # Topologia
             nodes = (await session.execute(select(TopologyNodeModel))).scalars().all()
-            assert len(nodes) == 4
+            assert len(nodes) == 13
             edges = (await session.execute(select(TopologyEdgeModel))).scalars().all()
-            assert len(edges) == 3
+            assert len(edges) == 9
 
             # Trilha de Auditoria
             audit_logs = (await session.execute(select(AuditLogModel))).scalars().all()
@@ -124,10 +124,10 @@ async def test_seed_all_creates_and_is_idempotent() -> None:
             assert len(windows_after) == 6
 
             nodes_after = (await session.execute(select(TopologyNodeModel))).scalars().all()
-            assert len(nodes_after) == 4
+            assert len(nodes_after) == 13
 
             edges_after = (await session.execute(select(TopologyEdgeModel))).scalars().all()
-            assert len(edges_after) == 3
+            assert len(edges_after) == 9
 
             audit_logs_after = (await session.execute(select(AuditLogModel))).scalars().all()
             assert len(audit_logs_after) == 5

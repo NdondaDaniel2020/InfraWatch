@@ -40,11 +40,22 @@ def test_require_admin_allows_admin_alias() -> None:
     assert result == admin_user
 
 
+def test_require_admin_allows_noc_operator() -> None:
+    """Valida que o papel NOC_OPERATOR ultrapassa a autorização de operador do sistema."""
+    noc_user = AuthenticatedUser(
+        id="usr-noc",
+        email="noc@infrawatch.ao",
+        role=UserRole.NOC_OPERATOR.value,
+    )
+    dep = require_admin()
+    result = dep(noc_user)
+    assert result == noc_user
+
+
 @pytest.mark.parametrize(
     "role",
     [
         UserRole.ORG_ADMIN.value,
-        UserRole.NOC_OPERATOR.value,
         UserRole.CLIENT_VIEWER.value,
     ],
 )
