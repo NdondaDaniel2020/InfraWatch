@@ -10,6 +10,8 @@ import {
   UserPlus,
   Shield,
   Mail,
+  ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { adminApi } from "../../services/adminApi";
@@ -188,21 +190,31 @@ export const AdminManagementPage: React.FC = () => {
     return matchesSearch && matchesRole;
   });
 
+  const userStats = React.useMemo(() => {
+    const items = usersData?.items || [];
+    const total = usersData?.total || items.length;
+    const active = items.filter((u) => u.is_active).length;
+    const admins = items.filter((u) => u.role === "SUPER_ADMIN" || u.role === "ORG_ADMIN").length;
+    const operators = items.filter((u) => u.role === "NOC_OPERATOR").length;
+    return { total, active, admins, operators };
+  }, [usersData]);
+
   return (
-    <div
+    <main
       data-testid="admin-management-page"
-      className="p-4 md:p-6 flex flex-col gap-6 max-w-7xl mx-auto w-full"
+      role="main"
+      className="p-4 md:p-6 flex flex-col gap-6 w-full text-slate-100 bg-obsidian-950 min-h-screen"
     >
       {/* 1. Header Administrativo */}
       <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
         <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <Link to="/noc" className="text-slate-400 hover:text-slate-200">
-              Cockpit
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono">
+            <Link to="/noc" className="text-slate-400 hover:text-slate-200 transition-colors">
+              Cockpit NOC
             </Link>
             <span className="text-obsidian-700">/</span>
             <span className="text-emerald-400 font-semibold">Administração &amp; RBAC</span>
-          </div>
+          </nav>
           <h1 className="text-2xl font-display font-extrabold text-white tracking-tight">
             Gestão Administrativa de Usuários e Organizações
           </h1>
@@ -217,7 +229,7 @@ export const AdminManagementPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab("users")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               activeTab === "users"
                 ? "bg-emerald-500 text-obsidian-950 font-bold"
                 : "text-slate-300 hover:text-white"
@@ -229,7 +241,7 @@ export const AdminManagementPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab("organizations")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               activeTab === "organizations"
                 ? "bg-emerald-500 text-obsidian-950 font-bold"
                 : "text-slate-300 hover:text-white"
@@ -239,6 +251,93 @@ export const AdminManagementPage: React.FC = () => {
             <span>Organizações Clientes ({orgsData?.total || 0})</span>
           </button>
         </div>
+      </section>
+
+      {/* 2. Grid Tático de KPIs (DNA Visual do InfraWatch) */}
+      <section
+        aria-label="Indicadores Chave de Governança"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        data-testid="admin-kpis-grid"
+      >
+        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+              Total Usuários
+            </span>
+            <Users size={18} className="text-slate-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-mono text-white tabular-nums">
+              {userStats.total}
+            </span>
+            <span className="text-xs font-mono text-emerald-400">
+              {userStats.active} ativos
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono mt-1">
+            Contas provisionadas no sistema
+          </span>
+        </article>
+
+        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+              Administradores
+            </span>
+            <ShieldCheck size={18} className="text-emerald-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-mono text-white tabular-nums">
+              {userStats.admins}
+            </span>
+            <span className="text-xs font-mono text-slate-400">
+              SUPER / ORG ADMIN
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono mt-1">
+            Acesso a governança e políticas
+          </span>
+        </article>
+
+        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+              Operadores NOC
+            </span>
+            <UserCheck size={18} className="text-sky-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-mono text-white tabular-nums">
+              {userStats.operators}
+            </span>
+            <span className="text-xs font-mono text-sky-400">
+              Triagem 24/7
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono mt-1">
+            Monitoramento de alarmes e sondas
+          </span>
+        </article>
+
+        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+              Organizações
+            </span>
+            <Building2 size={18} className="text-amber-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-mono text-white tabular-nums">
+              {orgsData?.total || 0}
+            </span>
+            <span className="text-xs font-mono text-emerald-400">
+              Multi-tenant OK
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono mt-1">
+            Isolamento de dados por organização
+          </span>
+        </article>
       </section>
 
       {/* 2. Aba de Usuários */}
@@ -740,6 +839,6 @@ export const AdminManagementPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 };
