@@ -20,7 +20,7 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-type AuthMode = "login" | "signup" | "forgot";
+type AuthMode = "login" | "forgot";
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -30,29 +30,21 @@ export const LoginPage: React.FC = () => {
   const from =
     (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
-  // Modo Interativo (login | signup | forgot) sincronizado com o hash da URL
+  // Modo Interativo (login | forgot) sincronizado com o hash da URL
   const [mode, setMode] = useState<AuthMode>(() => {
     if (typeof window !== "undefined") {
-      if (window.location.hash === "#signup") return "signup";
       if (window.location.hash === "#forgot") return "forgot";
     }
     return "login";
   });
 
-  // Alternadores de Senha
+  // Alternador de Senha
   const [showPassword, setShowPassword] = useState(false);
-  const [showSignupPassword, setShowSignupPassword] = useState(false);
 
   // Estados de Formulário
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-
-  // Estados de Cadastro
-  const [signupName, setSignupName] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupFeedback, setSignupFeedback] = useState<string | null>(null);
 
   // Estados de Recuperação de Senha
   const [forgotEmail, setForgotEmail] = useState("");
@@ -62,9 +54,7 @@ export const LoginPage: React.FC = () => {
 
   useEffect(() => {
     const handleHashChange = () => {
-      if (window.location.hash === "#signup") {
-        setMode("signup");
-      } else if (window.location.hash === "#forgot") {
+      if (window.location.hash === "#forgot") {
         setMode("forgot");
       } else {
         setMode("login");
@@ -79,7 +69,6 @@ export const LoginPage: React.FC = () => {
     setMode(newMode);
     setErrorMessage(null);
     setForgotError(null);
-    setSignupFeedback(null);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", `#${newMode}`);
     }
@@ -138,34 +127,6 @@ export const LoginPage: React.FC = () => {
           : "Não foi possível iniciar o login com o Google."
       );
     }
-  };
-
-  // Avaliador de Força de Senha
-  const getPasswordStrength = (val: string) => {
-    let score = 0;
-    if (val.length >= 8) score++;
-    if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
-    if (/[0-9]/.test(val)) score++;
-    if (/[^A-Za-z0-9]/.test(val)) score++;
-
-    if (val.length === 0) return { score: 0, label: "8+ caracteres", color: "bg-white/10", textColor: "text-slate-500" };
-    if (score <= 1) return { score: 1, label: "Fraca", color: "bg-rose-500", textColor: "text-rose-400" };
-    if (score === 2) return { score: 2, label: "Média", color: "bg-amber-500", textColor: "text-amber-400" };
-    if (score === 3) return { score: 3, label: "Forte", color: "bg-sky-500", textColor: "text-sky-400" };
-    return { score: 4, label: "Excelente", color: "bg-emerald-500", textColor: "text-emerald-400" };
-  };
-
-  const strength = getPasswordStrength(signupPassword);
-
-  const handleSignupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signupName.trim() || !signupEmail.trim() || !signupPassword) {
-      setSignupFeedback("Por favor, preencha todos os campos do formulário.");
-      return;
-    }
-    setSignupFeedback(
-      "Solicitação de conta enviada ao Administrador do NOC. Em ambiente local de desenvolvimento, utilize o Seletor Rápido de Testes."
-    );
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
@@ -362,26 +323,19 @@ export const LoginPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Rodapé: Alternar para Cadastro & Link Dev */}
-              <div className="text-center pt-2.5 space-y-1.5">
-                <div>
-                  <span className="text-[12.5px] text-slate-400 font-normal">Não tem uma conta?</span>
-                  <button
-                    type="button"
-                    id="btn-goto-signup"
-                    onClick={() => switchMode("signup")}
-                    className="text-[12.5px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
-                  >
-                    Criar conta
-                  </button>
-                </div>
+              {/* Rodapé Corporativo de Governança */}
+              <div className="text-center pt-3 border-t border-white/10 mt-4">
+                <p className="text-[12px] text-slate-400 font-normal leading-relaxed">
+                  Precisa de acesso? Solicite uma credencial ao{" "}
+                  <span className="text-slate-200 font-medium">Administrador do NOC</span> da sua organização.
+                </p>
               </div>
             </form>
           </div>
         </section>
 
         {/* ======================================================================= */}
-        {/* COLUNA DIREITA: FORMULÁRIOS INVERSOS (SIGN UP & FORGOT PASSWORD)        */}
+        {/* COLUNA DIREITA: FORMULÁRIO DE RECUPERAÇÃO DE SENHA                     */}
         {/* ======================================================================= */}
         <section
           id="right-column-container"
@@ -392,141 +346,7 @@ export const LoginPage: React.FC = () => {
           }`}
         >
           <div className="w-full max-w-[370px] mx-auto my-auto">
-            {/* SUB-VIEW 1: FORMULÁRIO DE CADASTRO / SIGN UP */}
-            {mode === "signup" && (
-              <div id="view-signup" className="w-full">
-                <header className="flex items-center justify-center gap-2.5 mb-4">
-                  <div className="w-8 h-8 rounded-xl bg-obsidian-950/80 border border-white/10 flex items-center justify-center p-1.5 shadow-sm">
-                    <svg className="w-full h-full shrink-0" viewBox="0 0 24 24" fill="none">
-                      <polygon points="12,3 20,7.5 12,12 4,7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.8" strokeLinejoin="round" />
-                      <polygon points="4,7.5 12,12 12,21 4,16.5" fill="var(--brand-primary, #eab308)" stroke="#ca8a04" strokeWidth="1.8" strokeLinejoin="round" />
-                      <polygon points="12,12 20,7.5 20,16.5 12,21" fill="#111827" stroke="#374151" strokeWidth="1.8" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                  <span className="font-display font-bold text-[20px] tracking-tight text-white">
-                    InfraWatch
-                  </span>
-                </header>
-
-                <div className="text-center mb-5">
-                  <h1 className="text-[24px] sm:text-[26px] font-bold font-display tracking-tight text-white leading-snug">
-                    Criar uma conta
-                  </h1>
-                  <p className="text-[12.5px] text-slate-400 font-normal mt-0.5">
-                    Inicie a avaliação de 14 dias sem cartão de crédito.
-                  </p>
-                </div>
-
-                {signupFeedback && (
-                  <div className="p-3 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[12px] leading-relaxed flex items-start gap-2">
-                    <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-400" />
-                    <span>{signupFeedback}</span>
-                  </div>
-                )}
-
-                <form className="space-y-3" onSubmit={handleSignupSubmit}>
-                  {/* Nome Completo */}
-                  <div className="border-b border-white/15 pb-1 focus-within:border-brand transition-colors">
-                    <label htmlFor="signup-name" className="block text-[11.5px] font-medium text-slate-400 mb-0.5">
-                      Nome Completo
-                    </label>
-                    <input
-                      type="text"
-                      id="signup-name"
-                      name="fullname"
-                      required
-                      value={signupName}
-                      onChange={(e) => setSignupName(e.target.value)}
-                      className="w-full bg-transparent p-0 border-0 text-[14px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
-                      placeholder="Daniel Ndonda"
-                    />
-                  </div>
-
-                  {/* Email Corporativo */}
-                  <div className="border-b border-white/15 pb-1 focus-within:border-brand transition-colors">
-                    <label htmlFor="signup-email" className="block text-[11.5px] font-medium text-slate-400 mb-0.5">
-                      Email de Trabalho
-                    </label>
-                    <input
-                      type="email"
-                      id="signup-email"
-                      name="email"
-                      required
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      className="w-full bg-transparent p-0 border-0 text-[14px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
-                      placeholder="operator@empresa.ao"
-                    />
-                  </div>
-
-                  {/* Password com Avaliador de Força */}
-                  <div className="border-b border-white/15 pb-1 focus-within:border-brand transition-colors">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="signup-password" className="block text-[11.5px] font-medium text-slate-400 mb-0.5">
-                        Palavra-passe
-                      </label>
-                      <span className={`text-[10px] font-medium ${strength.textColor}`}>
-                        {strength.label}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <input
-                        type={showSignupPassword ? "text" : "password"}
-                        id="signup-password"
-                        name="password"
-                        required
-                        value={signupPassword}
-                        onChange={(e) => setSignupPassword(e.target.value)}
-                        className="w-full bg-transparent p-0 border-0 text-[14px] font-normal text-white focus:ring-0 focus:outline-none placeholder:text-slate-500"
-                        placeholder="Mínimo de 8 caracteres"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowSignupPassword(!showSignupPassword)}
-                        className="text-slate-400 hover:text-white transition-colors p-1 shrink-0 cursor-pointer"
-                        title="Mostrar/Ocultar Senha"
-                        aria-label="Toggle password visibility"
-                      >
-                        {showSignupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Barra de Força da Senha */}
-                  <div className="flex gap-1.5 h-1 w-full pt-0.5">
-                    <div className={`h-full flex-1 rounded-full transition-colors duration-300 ${strength.score >= 1 ? strength.color : "bg-white/10"}`} />
-                    <div className={`h-full flex-1 rounded-full transition-colors duration-300 ${strength.score >= 2 ? strength.color : "bg-white/10"}`} />
-                    <div className={`h-full flex-1 rounded-full transition-colors duration-300 ${strength.score >= 3 ? strength.color : "bg-white/10"}`} />
-                    <div className={`h-full flex-1 rounded-full transition-colors duration-300 ${strength.score >= 4 ? strength.color : "bg-white/10"}`} />
-                  </div>
-
-                  {/* Botão de Envio */}
-                  <div className="space-y-2 pt-2">
-                    <button
-                      type="submit"
-                      className="w-full py-3 px-4 bg-brand hover:opacity-90 active:scale-[0.99] text-slate-950 font-bold text-[13.5px] rounded-full shadow-glow-brand transition-all duration-150 flex items-center justify-center cursor-pointer"
-                    >
-                      Começar Teste Grátis
-                    </button>
-                  </div>
-
-                  {/* Voltar ao Login */}
-                  <div className="text-center pt-2">
-                    <span className="text-[12px] text-slate-400 font-normal">Já tem uma conta?</span>
-                    <button
-                      type="button"
-                      id="btn-backto-login"
-                      onClick={() => switchMode("login")}
-                      className="text-[12px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
-                    >
-                      Iniciar sessão
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* SUB-VIEW 2: FORMULÁRIO DE RECUPERAÇÃO / FORGOT PASSWORD */}
+            {/* SUB-VIEW: FORMULÁRIO DE RECUPERAÇÃO / FORGOT PASSWORD */}
             {mode === "forgot" && (
               <div id="view-forgot" className="w-full">
                 <header className="flex items-center justify-center gap-2.5 mb-4">
@@ -611,27 +431,15 @@ export const LoginPage: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="text-center pt-1.5 space-y-1">
-                    <div>
-                      <span className="text-[12px] text-slate-400 font-normal">Lembrou-se da senha?</span>
-                      <button
-                        type="button"
-                        onClick={() => switchMode("login")}
-                        className="text-[12px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
-                      >
-                        Iniciar sessão
-                      </button>
-                    </div>
-                    <div>
-                      <span className="text-[12px] text-slate-400 font-normal">Não tem uma conta?</span>
-                      <button
-                        type="button"
-                        onClick={() => switchMode("signup")}
-                        className="text-[12px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
-                      >
-                        Criar conta
-                      </button>
-                    </div>
+                  <div className="text-center pt-2">
+                    <span className="text-[12px] text-slate-400 font-normal">Lembrou-se da senha?</span>
+                    <button
+                      type="button"
+                      onClick={() => switchMode("login")}
+                      className="text-[12px] font-semibold text-brand underline underline-offset-2 hover:opacity-90 transition-colors ml-1 cursor-pointer"
+                    >
+                      Iniciar sessão
+                    </button>
                   </div>
                 </form>
               </div>

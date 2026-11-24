@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = Field(
         default=24, alias="EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS"
     )
+    ENABLE_PUBLIC_REGISTRATION: bool = Field(
+        default=False, alias="ENABLE_PUBLIC_REGISTRATION"
+    )
 
     # Parâmetros Criptográficos Argon2id (RFC 9106)
     ARGON2_TIME_COST: int = Field(default=2, alias="ARGON2_TIME_COST")

@@ -141,6 +141,25 @@ describe("Módulo de Autenticação, IAM & Segurança (Issue #216)", () => {
       expect(passwordInput).toHaveAttribute("type", "text");
     });
 
+    it("deve exibir aviso corporativo de governança e não exibir opção pública de criação de conta", () => {
+      render(
+        <MemoryRouter>
+          <AuthProvider initialState={{ isLoading: false }}>
+            <LoginPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      // Não deve existir botão ou link de auto-cadastro na tela de login
+      expect(screen.queryByRole("button", { name: /criar conta/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/inicie a avaliação de 14 dias/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/começar teste grátis/i)).not.toBeInTheDocument();
+
+      // Deve exibir mensagem institucional de acesso via Administrador do NOC
+      expect(screen.getByText(/solicite uma credencial ao/i)).toBeInTheDocument();
+      expect(screen.getByText(/administrador do noc/i)).toBeInTheDocument();
+    });
+
     it("deve exibir alerta acessível ao tentar submeter com campos vazios", async () => {
       const user = userEvent.setup();
 

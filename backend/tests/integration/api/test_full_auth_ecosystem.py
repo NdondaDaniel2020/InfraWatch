@@ -119,8 +119,13 @@ async def test_user_registration_and_email_verification_lifecycle(
     override_db: None,
     integration_db: async_sessionmaker[AsyncSession],
     setup_org_and_users: tuple[OrganizationModel, UserModel, UserModel, str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Valida o registro de novo usuário e confirmação de e-mail através do token."""
+    from src.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "ENABLE_PUBLIC_REGISTRATION", True)
+
     org, _, _, _ = setup_org_and_users
 
     async with httpx.AsyncClient(
