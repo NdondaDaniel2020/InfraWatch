@@ -251,7 +251,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
 
   return (
     <main
-      className="p-4 md:p-6 flex flex-col gap-6 w-full text-slate-100 bg-obsidian-950 min-h-screen"
+      className="p-3.5 sm:p-4 md:p-6 flex flex-col gap-4 sm:gap-6 w-full min-w-0 overflow-x-hidden text-slate-100 bg-obsidian-950 min-h-screen"
       data-testid="incidents-page"
       role="main"
     >

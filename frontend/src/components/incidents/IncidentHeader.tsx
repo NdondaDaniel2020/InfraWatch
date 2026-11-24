@@ -21,9 +21,9 @@ export const IncidentHeader: React.FC<IncidentHeaderProps> = ({
   return (
     <header
       data-testid="incident-header"
-      className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800"
+      className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800 min-w-0"
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 min-w-0">
         <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono">
           <Link
             to="/noc"
@@ -39,7 +39,7 @@ export const IncidentHeader: React.FC<IncidentHeaderProps> = ({
 
         <div className="flex items-center gap-3 flex-wrap">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" aria-hidden="true" />
-          <h1 className="text-2xl font-display font-extrabold text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-display font-extrabold text-white tracking-tight break-words">
             Gestão Operacional de Incidentes
           </h1>
           <span className="px-2 py-0.5 rounded bg-obsidian-900 border border-obsidian-800 text-xs font-mono text-slate-300">
@@ -51,7 +51,7 @@ export const IncidentHeader: React.FC<IncidentHeaderProps> = ({
         </p>
       </div>
 
-      <div className="flex items-center flex-wrap gap-2.5 shrink-0">
+      <div className="flex items-center flex-wrap gap-2.5 shrink-0 max-w-full">
         <button
           type="button"
           onClick={onExportCsv}

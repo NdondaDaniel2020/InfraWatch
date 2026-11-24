@@ -35,17 +35,17 @@ export const Pagination: React.FC<PaginationProps> = ({
   return (
     <div
       data-testid={`${testIdPrefix}-container`}
-      className={`px-4 py-3 border-t border-obsidian-800 bg-obsidian-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-slate-400 select-none ${className}`}
+      className={`px-3 sm:px-4 py-3 border-t border-obsidian-800 bg-obsidian-950/60 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs font-mono text-slate-400 select-none min-w-0 max-w-full ${className}`}
     >
-      <div className="flex items-center gap-2">
-        <span>
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-center sm:text-left text-[11px]">
           Mostrando <strong className="text-white font-semibold">{startItem}</strong> a{" "}
           <strong className="text-white font-semibold">{endItem}</strong> de{" "}
           <strong className="text-white font-semibold">{totalItems}</strong> {itemLabel}
         </span>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:gap-3 min-w-0">
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-slate-500 hidden md:inline">Exibir:</span>

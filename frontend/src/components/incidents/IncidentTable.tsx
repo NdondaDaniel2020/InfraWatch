@@ -52,7 +52,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
 }) => {
   return (
     <section
-      className="bg-obsidian-900 rounded-xl border border-obsidian-800 overflow-hidden shadow-xl"
+      className="bg-obsidian-900 rounded-xl border border-obsidian-800 overflow-hidden shadow-xl min-w-0 max-w-full"
       aria-label="Tabela de Incidentes Operacionais"
     >
       {/* ESTADO VAZIO */}
@@ -94,12 +94,12 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
         </div>
       ) : (
         /* TABELA REAL DE DADOS */
-        <div className="overflow-x-auto" id="table-wrapper">
-          <table className="w-full text-left border-collapse" id="incidents-table" data-testid="incidents-table">
+        <div className="overflow-x-auto min-w-0 max-w-full" id="table-wrapper">
+          <table className="min-w-[850px] w-full text-left border-collapse" id="incidents-table" data-testid="incidents-table">
             <caption className="sr-only">Lista de incidentes operacionais de telemetria</caption>
             <thead>
               <tr className="bg-obsidian-950 border-b border-obsidian-800 text-slate-400 font-mono tabular-nums text-xs uppercase tracking-wider">
-                <th scope="col" className="py-3 px-4 w-10 text-center">
+                <th scope="col" className="py-3 px-4 w-10 text-center whitespace-nowrap">
                   <input
                     type="checkbox"
                     id="select-all-checkbox"
@@ -110,14 +110,14 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                     className="rounded bg-obsidian-900 border-obsidian-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-obsidian-950 cursor-pointer"
                   />
                 </th>
-                <th scope="col" className="py-3 px-4">Severidade</th>
-                <th scope="col" className="py-3 px-4">Ativo Afetado</th>
-                <th scope="col" className="py-3 px-4">Cliente / Org</th>
-                <th scope="col" className="py-3 px-4">Início (WAT)</th>
-                <th scope="col" className="py-3 px-4">Duração &amp; SLA</th>
-                <th scope="col" className="py-3 px-4">Chamado GLPI</th>
-                <th scope="col" className="py-3 px-4">Responsável</th>
-                <th scope="col" className="py-3 px-4 text-right">Ações Rápidas</th>
+                <th scope="col" className="py-3 px-4 whitespace-nowrap">Severidade</th>
+                <th scope="col" className="py-3 px-4 whitespace-nowrap">Ativo Afetado</th>
+                <th scope="col" className="py-3 px-4 whitespace-nowrap">Cliente / Org</th>
+                <th scope="col" className="py-3 px-4 whitespace-nowrap">Início (WAT)</th>
+                <th scope="col" className="py-3 px-4 whitespace-nowrap">Duração &amp; SLA</th>
+                <th scope="col" className="py-3 px-4 whitespace-nowrap">Chamado GLPI</th>
+                <th scope="col" className="py-3 px-4 whitespace-nowrap">Responsável</th>
+                <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Ações Rápidas</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-obsidian-800/60 text-xs" id="incidents-tbody">

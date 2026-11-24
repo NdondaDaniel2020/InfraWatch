@@ -36,13 +36,13 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
 }) => {
   return (
     <section
-      className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-obsidian-900/60 p-3 rounded-xl border border-obsidian-800 shadow"
+      className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-obsidian-900/60 p-3 rounded-xl border border-obsidian-800 shadow min-w-0 max-w-full"
       role="toolbar"
       aria-label="Filtros de incidentes"
     >
-      <div className="flex flex-wrap items-center gap-2.5 flex-1">
+      <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0 max-w-full">
         {/* Campo de Busca Monospaced */}
-        <div className="relative flex items-center bg-obsidian-950 border border-obsidian-800 rounded-lg px-3 py-1.5 w-full sm:w-80 focus-within:border-emerald-500 transition-colors">
+        <div className="relative flex items-center bg-obsidian-950 border border-obsidian-800 rounded-lg px-3 py-1.5 w-full sm:w-80 focus-within:border-emerald-500 transition-colors min-w-0">
           <Search size={18} className="text-slate-400 mr-2 shrink-0" aria-hidden="true" />
           <input
             type="text"
@@ -52,13 +52,13 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
             placeholder="Filtrar por ativo, IP ou chamado…"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="bg-transparent border-0 p-0 text-xs font-mono text-slate-200 placeholder-slate-500 focus:ring-0 w-full outline-none"
+            className="bg-transparent border-0 p-0 text-xs font-mono text-slate-200 placeholder-slate-500 focus:ring-0 w-full outline-none min-w-0"
           />
         </div>
 
         {/* Pills de Severidade */}
         <div
-          className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-lg border border-obsidian-800 text-xs font-mono"
+          className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-lg border border-obsidian-800 text-xs font-mono overflow-x-auto max-w-full scrollbar-none"
           role="group"
           aria-label="Filtrar por severidade"
         >
@@ -66,7 +66,7 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
             type="button"
             data-testid="filter-severity-all"
             onClick={() => onSeverityChange("all")}
-            className={`severity-btn px-2.5 py-1 rounded font-medium transition-colors cursor-pointer ${
+            className={`severity-btn px-2.5 py-1 rounded font-medium transition-colors cursor-pointer shrink-0 ${
               selectedSeverity === "all"
                 ? "bg-obsidian-800 text-white font-bold"
                 : "text-slate-400 hover:text-white"
@@ -79,7 +79,7 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
             type="button"
             data-testid="filter-severity-critical"
             onClick={() => onSeverityChange("critical")}
-            className={`severity-btn px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer ${
+            className={`severity-btn px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
               selectedSeverity === "critical"
                 ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold"
                 : "text-rose-400 hover:bg-obsidian-850"
@@ -92,7 +92,7 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
             type="button"
             data-testid="filter-severity-degraded"
             onClick={() => onSeverityChange("degraded")}
-            className={`severity-btn px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer ${
+            className={`severity-btn px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
               selectedSeverity === "degraded"
                 ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold"
                 : "text-amber-400 hover:bg-obsidian-850"
@@ -105,7 +105,7 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
             type="button"
             data-testid="filter-severity-resolved"
             onClick={() => onSeverityChange("resolved")}
-            className={`severity-btn px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer ${
+            className={`severity-btn px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
               selectedSeverity === "resolved"
                 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold"
                 : "text-emerald-400 hover:bg-obsidian-850"
@@ -118,14 +118,14 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
       </div>
 
       {/* Seletores de Organização & Período */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto min-w-0 max-w-full">
         {isGlobalOperator ? (
           <select
             data-testid="select-organization"
             aria-label="Filtrar por organização cliente"
             value={selectedOrg}
             onChange={(e) => onOrgChange(e.target.value)}
-            className="bg-obsidian-950 border border-obsidian-800 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:border-emerald-500 focus:ring-0 cursor-pointer outline-none"
+            className="bg-obsidian-950 border border-obsidian-800 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:border-emerald-500 focus:ring-0 cursor-pointer outline-none w-full sm:w-auto max-w-full truncate"
           >
             <option value="all">Todas as Organizações (Unitel, Banco Sol, Sonangol)</option>
             <option value="Unitel Angola">Unitel Angola</option>
@@ -135,14 +135,14 @@ export const IncidentFilterToolbar: React.FC<IncidentFilterToolbarProps> = ({
         ) : (
           <div
             data-testid="static-incident-tenant-badge"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono font-semibold"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono font-semibold shrink-0"
           >
             <Building2 size={15} className="shrink-0" aria-hidden="true" />
             <span>{userOrgName || "Sua Organização"}</span>
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 bg-obsidian-950 border border-obsidian-800 text-slate-300 text-xs rounded-lg px-3 py-1.5 font-mono">
+        <div className="flex items-center justify-center sm:justify-start gap-1.5 bg-obsidian-950 border border-obsidian-800 text-slate-300 text-xs rounded-lg px-3 py-1.5 font-mono shrink-0">
           <Calendar size={16} className="text-slate-400 shrink-0" aria-hidden="true" />
           <span>Hoje (Luanda NOC)</span>
         </div>
