@@ -264,18 +264,18 @@ export const SlaReportsPage: React.FC = () => {
       )}
 
       {/* 3. Barra de Filtro de Contratante & Metas Fixadas */}
-      <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow">
-        <div className="flex flex-wrap items-center gap-3">
+      <section className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto min-w-0 max-w-full">
           {/* Identificação / Seletor de Tenant */}
           {isGlobalOperator ? (
-            <div className="flex items-center gap-2 bg-obsidian-950 px-3 py-1.5 rounded-lg border border-obsidian-800">
+            <div className="flex items-center gap-2 bg-obsidian-950 px-3 py-1.5 rounded-lg border border-obsidian-800 w-full sm:w-auto min-w-0 max-w-full">
               <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <select
                 id="tenant-select"
                 aria-label="Selecionar Contratante Enterprise"
                 value={selectedTenantId ?? organizations[0]?.id ?? ""}
                 onChange={(e) => setSelectedTenantId(e.target.value)}
-                className="bg-transparent border-0 text-xs font-medium text-white focus:ring-0 p-0 pr-6 cursor-pointer outline-none"
+                className="bg-transparent border-0 text-xs font-medium text-white focus:ring-0 p-0 pr-6 cursor-pointer outline-none w-full sm:w-auto min-w-0 truncate"
               >
                 {organizations.length === 0 && (
                   <option value="" className="bg-[#0e1524] text-white">
@@ -294,22 +294,22 @@ export const SlaReportsPage: React.FC = () => {
           ) : (
             <div
               data-testid="static-tenant-badge"
-              className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold"
+              className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold w-full sm:w-auto min-w-0 max-w-full"
             >
               <Building2 className="w-4 h-4 shrink-0" />
-              <span>{user?.organization_name || overview?.tenantName || "Organização"}</span>
+              <span className="truncate">{user?.organization_name || overview?.tenantName || "Organização"}</span>
             </div>
           )}
 
           {/* Seletor de Período Temporal */}
-          <div className="flex items-center gap-2 bg-obsidian-950 px-3 py-1.5 rounded-lg border border-obsidian-800">
+          <div className="flex items-center gap-2 bg-obsidian-950 px-3 py-1.5 rounded-lg border border-obsidian-800 w-full sm:w-auto min-w-0 max-w-full">
             <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
             <select
               id="period-select"
               aria-label="Selecionar Período de Apuração"
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value as SlaReportingPeriod)}
-              className="bg-transparent border-0 text-xs font-mono text-slate-300 focus:ring-0 p-0 pr-6 cursor-pointer outline-none"
+              className="bg-transparent border-0 text-xs font-mono text-slate-300 focus:ring-0 p-0 pr-6 cursor-pointer outline-none w-full sm:w-auto min-w-0 truncate"
             >
               <option value="last_7d" className="bg-[#0e1524] text-white">Últimos 7 dias</option>
               <option value="last_30d" className="bg-[#0e1524] text-white">Últimos 30 dias</option>
@@ -321,9 +321,9 @@ export const SlaReportsPage: React.FC = () => {
           </div>
 
           {/* Meta Contratual Fixada */}
-          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg w-full sm:w-auto min-w-0 max-w-full shrink-0">
             <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span id="tenant-target-sla" className="text-xs font-mono text-emerald-400 font-bold">
+            <span id="tenant-target-sla" className="text-xs font-mono text-emerald-400 font-bold truncate">
               Meta Contratual:{" "}
               {typeof overview?.targetSlaPct === "number"
                 ? `${overview.targetSlaPct.toFixed(2)}%`
@@ -333,9 +333,9 @@ export const SlaReportsPage: React.FC = () => {
         </div>
 
         {/* Ciclo Vigente Countdown */}
-        <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>
+        <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2 w-full md:w-auto justify-start md:justify-end min-w-0 max-w-full shrink-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+          <span className="truncate">
             Ciclo Vigente: Fechamento em {overview?.daysRemainingInCycle ?? 13} dias
           </span>
         </div>
@@ -406,13 +406,13 @@ export const SlaReportsPage: React.FC = () => {
           {isGlobalOperator && (
             <div
               data-testid="sla-table-view-tabs"
-              className="flex items-center gap-2"
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto min-w-0 max-w-full"
             >
               <button
                 type="button"
                 data-testid="tab-view-endpoints"
                 onClick={() => setTableViewMode("endpoints")}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors cursor-pointer ${
+                className={`px-3.5 py-2 sm:py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors cursor-pointer text-center justify-center flex-1 sm:flex-initial ${
                   tableViewMode === "endpoints"
                     ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                     : "text-slate-400 hover:text-white hover:bg-obsidian-900 border border-transparent"
@@ -425,7 +425,7 @@ export const SlaReportsPage: React.FC = () => {
                 type="button"
                 data-testid="tab-view-devices"
                 onClick={() => setTableViewMode("devices")}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors cursor-pointer ${
+                className={`px-3.5 py-2 sm:py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors cursor-pointer text-center justify-center flex-1 sm:flex-initial ${
                   tableViewMode === "devices"
                     ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                     : "text-slate-400 hover:text-white hover:bg-obsidian-900 border border-transparent"
