@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { QueryClient, QueryClientContext, useQuery } from "@tanstack/react-query";
 import {
   X,
   Router,
@@ -16,7 +17,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { TopologyDeviceData } from "../../types/topology";
+import { deviceDetailApi } from "../../services/deviceDetailApi";
 import { Button } from "../ui/Button";
+
+const fallbackQueryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
 
 interface TopologyInspectorDrawerProps {
   device: TopologyDeviceData | null;
@@ -48,6 +54,47 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
 }) => {
   const [selectedPortId, setSelectedPortId] = useState<number>(1);
   const [alertsPaused, setAlertsPaused] = useState(false);
+
+  const queryContext = React.useContext(QueryClientContext);
+  const activeQueryClient = queryContext || fallbackQueryClient;
+
+  const targetDeviceId =
+    device?.deviceId ||
+    (device?.id && !device.id.startsWith("node-") ? device.id : null);
+
+  const { data: deviceDetail } = useQuery(
+    {
+      queryKey: ["topology-drawer-device-detail", targetDeviceId],
+      queryFn: async () => {
+        if (!targetDeviceId || targetDeviceId.startsWith("dev-mock")) return null;
+        try {
+          return await deviceDetailApi.getDeviceDetail(targetDeviceId);
+        } catch {
+          return null;
+        }
+      },
+      enabled: Boolean(isOpen && targetDeviceId),
+      staleTime: 60000,
+    },
+    activeQueryClient
+  );
+
+  const displayModel =
+    device?.model || (deviceDetail as any)?.model || device?.label;
+  const displaySerial =
+    device?.serialNumber ||
+    (deviceDetail as any)?.serialNumber ||
+    (deviceDetail as any)?.serial_number ||
+    "N/D";
+  const displayFirmware =
+    device?.firmware ||
+    (deviceDetail as any)?.firmwareVersion ||
+    (deviceDetail as any)?.firmware ||
+    "N/D";
+  const displayTemp =
+    device?.temperature || (deviceDetail as any)?.temperature || "N/D";
+  const displayUptime =
+    device?.uptime || (deviceDetail as any)?.uptimeDisplay || "—";
 
   if (!isOpen || !device) return null;
 
@@ -191,7 +238,7 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
               ESPECIFICAÇÕES DO HARDWARE
             </span>
             <span className="font-mono text-[10px] text-sky-400 font-semibold">
-              SN: {device.serialNumber || "N/D"}
+              SN: {displaySerial}
             </span>
           </div>
 
@@ -199,7 +246,7 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
             <div>
               <span className="text-slate-400 block text-[10px]">MODELO</span>
               <span className="text-slate-200 font-semibold truncate block">
-                {device.model || device.label}
+                {displayModel}
               </span>
             </div>
             <div>
@@ -214,17 +261,17 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
             </div>
             <div>
               <span className="text-slate-400 block text-[10px]">FIRMWARE / SO</span>
-              <span className="text-slate-200 truncate block">{device.firmware || "N/D"}</span>
+              <span className="text-slate-200 truncate block">{displayFirmware}</span>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px]">TEMPERATURA</span>
               <span className="text-emerald-400 font-bold block">
-                {device.temperature || "N/D"}
+                {displayTemp}
               </span>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px]">UPTIME</span>
-              <span className="text-slate-200 block">{device.uptime || "—"}</span>
+              <span className="text-slate-200 block">{displayUptime}</span>
             </div>
           </div>
         </section>

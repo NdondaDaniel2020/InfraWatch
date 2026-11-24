@@ -227,18 +227,33 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
 
             <div className="p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
               <div className="text-[10px] font-mono text-slate-400">PERDA PACOTES</div>
-              <div
-                className={`text-lg font-mono font-bold mt-1 ${
-                  isDown ? "text-rose-400" : "text-emerald-400"
-                }`}
-              >
-                {isDown ? "100%" : `${device.last_packet_loss ?? 0}%`}
-              </div>
+              {(() => {
+                const lossVal = isDown ? 100 : Number(device.last_packet_loss ?? 0);
+                const lossColor =
+                  lossVal >= 50
+                    ? "text-rose-400"
+                    : lossVal > 0
+                    ? "text-amber-400"
+                    : "text-emerald-400";
+                return (
+                  <div className={`text-lg font-mono font-bold mt-1 ${lossColor}`}>
+                    {lossVal}%
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="p-3 rounded-xl bg-obsidian-950 border border-obsidian-800/80">
               <div className="text-[10px] font-mono text-slate-400">DISPONIBILIDADE</div>
-              <div className="text-lg font-mono font-bold mt-1 text-emerald-400">
+              <div
+                className={`text-lg font-mono font-bold mt-1 ${
+                  isDown || availabilityDisplay === "0.00%"
+                    ? "text-rose-400"
+                    : availabilityDisplay === "--"
+                    ? "text-slate-400"
+                    : "text-emerald-400"
+                }`}
+              >
                 {availabilityDisplay}
               </div>
             </div>
