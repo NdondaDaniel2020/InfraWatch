@@ -183,10 +183,10 @@ export const ClientPortalPage: React.FC = () => {
         {/* Breadcrumb Institucional */}
         <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono text-slate-400">
           <BreadcrumbLink to="/portal" className="hover:text-slate-200 transition-colors">
-            Portal do Cliente
+            Portal Executivo
           </BreadcrumbLink>
           <span>/</span>
-          <span className="text-emerald-400 font-semibold">Visão Geral Executiva</span>
+          <span className="text-emerald-400 font-semibold">Visão Geral de Serviços</span>
         </nav>
 
         {/* Toolbar Superior */}
