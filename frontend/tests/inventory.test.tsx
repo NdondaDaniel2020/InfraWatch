@@ -8,6 +8,7 @@ import { DeviceListPage } from "../src/pages/inventory/DeviceListPage";
 import { DeviceFormModal } from "../src/components/inventory/DeviceFormModal";
 import { PauseDeviceModal } from "../src/components/inventory/PauseDeviceModal";
 import { MaintenanceModal } from "../src/components/inventory/MaintenanceModal";
+import { DeviceActionMenu } from "../src/components/inventory/DeviceActionMenu";
 import { devicesApi } from "../src/services/devicesApi";
 import {
   createMockDevice,
@@ -502,6 +503,124 @@ describe("Inventory Management — Issue #217", () => {
       expect(detailsBtn).toBeInTheDocument();
       expect(detailsBtn).toHaveTextContent("Detalhe");
       fireEvent.click(detailsBtn);
+    });
+  });
+
+  describe("DeviceActionMenu — Validação dos 3 Botões de Ação", () => {
+    it("deve exibir exatamente as 3 ações operacionais e não conter 'Ver Detalhes'", () => {
+      renderWithProviders(
+        <DeviceActionMenu
+          deviceId="dev-1"
+          deviceName="Switch Core"
+          healthStatus="UP"
+          onPause={vi.fn()}
+          onResume={vi.fn()}
+          onMaintenance={vi.fn()}
+        />
+      );
+
+      const trigger = screen.getByTestId("device-action-menu-trigger");
+      fireEvent.click(trigger);
+
+      expect(screen.getByTestId("action-pause")).toHaveTextContent("Pausar Monitoramento");
+      expect(screen.getByTestId("action-resume")).toHaveTextContent("Retomar Monitoramento");
+      expect(screen.getByTestId("action-maintenance")).toHaveTextContent("Janela de Manutenção");
+      expect(screen.queryByText(/ver detalhes/i)).not.toBeInTheDocument();
+    });
+
+    it("deve funcionar o botão Pausar Monitoramento com modal e justificativa", async () => {
+      const user = userEvent.setup();
+      const onPause = vi.fn();
+
+      renderWithProviders(
+        <DeviceActionMenu
+          deviceId="dev-1"
+          deviceName="Switch Core"
+          healthStatus="UP"
+          onPause={onPause}
+          onResume={vi.fn()}
+          onMaintenance={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId("device-action-menu-trigger"));
+      fireEvent.click(screen.getByTestId("action-pause"));
+
+      expect(screen.getByText(/Pausar o monitoramento de/i)).toBeInTheDocument();
+      const confirmBtn = screen.getByTestId("confirm-action-button");
+      expect(confirmBtn).toBeDisabled();
+
+      const input = screen.getByTestId("pause-reason-input");
+      await user.type(input, "Manutenção emergencial da porta óptica");
+      expect(confirmBtn).not.toBeDisabled();
+
+      fireEvent.click(confirmBtn);
+
+      expect(onPause).toHaveBeenCalledWith("dev-1", "Manutenção emergencial da porta óptica");
+      expect(screen.queryByTestId("pause-reason-input")).not.toBeInTheDocument();
+    });
+
+    it("deve funcionar o botão Retomar Monitoramento quando o dispositivo estiver pausado", () => {
+      const onResume = vi.fn();
+
+      renderWithProviders(
+        <DeviceActionMenu
+          deviceId="dev-1"
+          deviceName="Switch Core"
+          healthStatus="PAUSED"
+          onPause={vi.fn()}
+          onResume={onResume}
+          onMaintenance={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId("device-action-menu-trigger"));
+
+      const resumeBtn = screen.getByTestId("action-resume");
+      expect(resumeBtn).not.toBeDisabled();
+      fireEvent.click(resumeBtn);
+
+      expect(onResume).toHaveBeenCalledWith("dev-1");
+    });
+
+    it("deve funcionar o botão Janela de Manutenção com agendamento e fechamento de modal", async () => {
+      const onMaintenance = vi.fn();
+
+      renderWithProviders(
+        <DeviceActionMenu
+          deviceId="dev-1"
+          deviceName="Switch Core"
+          healthStatus="UP"
+          onPause={vi.fn()}
+          onResume={vi.fn()}
+          onMaintenance={onMaintenance}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId("device-action-menu-trigger"));
+      fireEvent.click(screen.getByTestId("action-maintenance"));
+
+      expect(screen.getByText(/Agendar janela de manutenção para/i)).toBeInTheDocument();
+      const confirmBtn = screen.getByTestId("confirm-action-button");
+      expect(confirmBtn).toBeDisabled();
+
+      const titleInput = screen.getByPlaceholderText(/Ex: Manutenção de firmware/i);
+      const untilInput = screen.getByLabelText(/Prazo final/i);
+      const reasonInput = screen.getByPlaceholderText(/Descreva a manutenção planejada/i);
+
+      fireEvent.change(titleInput, { target: { value: "Troca de ventoinhas" } });
+      fireEvent.change(untilInput, { target: { value: "2026-11-25T18:00" } });
+      fireEvent.change(reasonInput, { target: { value: "Substituição preventiva do módulo de resfriamento" } });
+
+      expect(confirmBtn).not.toBeDisabled();
+      fireEvent.click(confirmBtn);
+
+      expect(onMaintenance).toHaveBeenCalledWith("dev-1", {
+        title: "Troca de ventoinhas",
+        until: "2026-11-25T18:00",
+        reason: "Substituição preventiva do módulo de resfriamento",
+      });
+      expect(screen.queryByText(/Agendar janela de manutenção para/i)).not.toBeInTheDocument();
     });
   });
 });
