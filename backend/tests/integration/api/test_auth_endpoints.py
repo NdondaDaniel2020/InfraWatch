@@ -362,11 +362,38 @@ async def test_organizations_management_flow_and_rbac(
 
 
 @pytest.mark.asyncio
-async def test_register_forces_client_viewer_role(
+async def test_register_disabled_by_default(
     override_db: None,
     integration_db: async_sessionmaker[AsyncSession],
 ) -> None:
-    """Valida que auto-cadastro público não permite escalação de privilégios para SUPER_ADMIN."""
+    """Valida que auto-cadastro público é rejeitado com 403 Forbidden por padrão."""
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        res = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "user@infrawatch.ao",
+                "password": "StrongPassword123!@",
+                "full_name": "Usuário Não Autorizado",
+            },
+        )
+        assert res.status_code == status.HTTP_403_FORBIDDEN
+        assert "auto-cadastro público está desabilitado" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_register_forces_client_viewer_role(
+    override_db: None,
+    integration_db: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Valida que quando explicitamente habilitado, auto-cadastro força role CLIENT_VIEWER."""
+    from src.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "ENABLE_PUBLIC_REGISTRATION", True)
+
     async with (
         httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),

@@ -19,6 +19,7 @@ from src.contexts.iam.api.dependencies import (
     UserQueryServiceDep,
 )
 from src.contexts.iam.domain.enums import UserRole
+from src.core.config import get_settings
 from src.contexts.iam.schemas.auth import (
     EmailVerificationConfirm,
     LoginRequest,
@@ -61,7 +62,14 @@ async def register(
     body: UserCreate,
     user_command_service: UserCommandServiceDep,
 ) -> UserPublicResponse:
-    """Registra uma nova conta de usuário e dispara a geração de token de confirmação de e-mail."""
+    """Registra uma nova conta de usuário caso o auto-cadastro público esteja habilitado."""
+    settings = get_settings()
+    if not settings.ENABLE_PUBLIC_REGISTRATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="O auto-cadastro público está desabilitado. Contas de acesso devem ser provisionadas por um Administrador do sistema.",
+        )
+
     try:
         user, _ = await user_command_service.register_user(
             email=body.email,
