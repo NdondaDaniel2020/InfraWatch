@@ -155,9 +155,9 @@ describe("Módulo de Autenticação, IAM & Segurança (Issue #216)", () => {
       expect(screen.queryByText(/inicie a avaliação de 14 dias/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/começar teste grátis/i)).not.toBeInTheDocument();
 
-      // Deve exibir mensagem institucional de acesso via Administrador do NOC
+      // Deve exibir mensagem institucional de acesso via Administrador da organização
       expect(screen.getByText(/solicite uma credencial ao/i)).toBeInTheDocument();
-      expect(screen.getByText(/administrador do noc/i)).toBeInTheDocument();
+      expect(screen.getByText(/administrador da sua organização/i)).toBeInTheDocument();
     });
 
     it("deve exibir alerta acessível ao tentar submeter com campos vazios", async () => {
