@@ -327,7 +327,7 @@ export const LoginPage: React.FC = () => {
               <div className="text-center pt-3 border-t border-white/10 mt-4">
                 <p className="text-[12px] text-slate-400 font-normal leading-relaxed">
                   Precisa de acesso? Solicite uma credencial ao{" "}
-                  <span className="text-slate-200 font-medium">Administrador do NOC</span> da sua organização.
+                  <span className="text-slate-200 font-medium">Administrador da sua organização</span>.
                 </p>
               </div>
             </form>
