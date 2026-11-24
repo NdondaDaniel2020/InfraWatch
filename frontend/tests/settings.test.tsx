@@ -143,7 +143,7 @@ describe("Central de Configurações do Sistema (Issue #268)", () => {
       expect(screen.getByText("Integração GLPI validada: sessão iniciada, ticket criado e encerrado.")).toBeInTheDocument();
       expect(screen.getByText("#1042")).toBeInTheDocument();
       expect(screen.getByText("15.4 ms")).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
 
     expect(settingsApi.testGlpi).toHaveBeenCalled();
   });

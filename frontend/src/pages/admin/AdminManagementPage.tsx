@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { adminApi } from "../../services/adminApi";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
-import { Pagination } from "../../components/common";
+import { Pagination, RfcErrorBanner } from "../../components/common";
 import { useAuth } from "../../context/AuthContext";
 import { CreateOrganizationInput, CreateUserInput } from "../../types/admin";
 
@@ -62,6 +62,8 @@ export const AdminManagementPage: React.FC = () => {
   const {
     data: usersData,
     isLoading: isLoadingUsers,
+    isError: isUsersError,
+    error: usersError,
     refetch: refetchUsers,
   } = useQuery({
     queryKey: ["adminUsers", usersPage, usersPageSize],
@@ -69,7 +71,13 @@ export const AdminManagementPage: React.FC = () => {
   });
 
   // Query de Organizações
-  const { data: orgsData } = useQuery({
+  const {
+    data: orgsData,
+    isLoading: isLoadingOrgs,
+    isError: isOrgsError,
+    error: orgsError,
+    refetch: refetchOrgs,
+  } = useQuery({
     queryKey: ["adminOrgs", orgsPage, orgsPageSize],
     queryFn: () => adminApi.listOrganizations({ page: orgsPage, size: orgsPageSize }),
   });
@@ -253,92 +261,133 @@ export const AdminManagementPage: React.FC = () => {
         </div>
       </section>
 
+      {/* Banner Canônico de Erro RFC */}
+      {activeTab === "users" && isUsersError && (
+        <RfcErrorBanner
+          title="FALHA NO SUBSISTEMA DE GOVERNANÇA E CONTROLE DE ACESSO (IAM)"
+          rfcCode="RFC 5424 • ERR_IAM_GOVERNANCE_UNREACHABLE"
+          error={usersError}
+          onRetry={() => refetchUsers()}
+        />
+      )}
+
+      {activeTab === "organizations" && isOrgsError && (
+        <RfcErrorBanner
+          title="FALHA NA COMUNICAÇÃO COM O DIRETÓRIO DE ORGANIZAÇÕES"
+          rfcCode="RFC 5424 • ERR_MULTI_TENANT_DIRECTORY_FAILURE"
+          error={orgsError}
+          onRetry={() => refetchOrgs()}
+        />
+      )}
+
       {/* 2. Grid Tático de KPIs (DNA Visual do InfraWatch) */}
-      <section
-        aria-label="Indicadores Chave de Governança"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-        data-testid="admin-kpis-grid"
-      >
-        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-              Total Usuários
+      {isLoadingUsers && !usersData ? (
+        <section
+          aria-label="Indicadores Chave de Governança"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          data-testid="admin-kpis-skeleton"
+        >
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl animate-pulse flex flex-col justify-between h-[104px]"
+            >
+              <div className="flex justify-between items-start">
+                <div className="h-3 w-24 bg-obsidian-800 rounded" />
+                <div className="w-4 h-4 bg-obsidian-800 rounded" />
+              </div>
+              <div className="h-7 w-16 bg-obsidian-800 rounded mt-2" />
+              <div className="h-2 w-36 bg-obsidian-800/60 rounded mt-1" />
+            </div>
+          ))}
+        </section>
+      ) : (
+        <section
+          aria-label="Indicadores Chave de Governança"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          data-testid="admin-kpis-grid"
+        >
+          <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                Total Usuários
+              </span>
+              <Users size={18} className="text-slate-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-white tabular-nums">
+                {userStats.total}
+              </span>
+              <span className="text-xs font-mono text-emerald-400">
+                {userStats.active} ativos
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-500 font-mono mt-1">
+              Contas provisionadas no sistema
             </span>
-            <Users size={18} className="text-slate-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {userStats.total}
-            </span>
-            <span className="text-xs font-mono text-emerald-400">
-              {userStats.active} ativos
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono mt-1">
-            Contas provisionadas no sistema
-          </span>
-        </article>
+          </article>
 
-        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-              Administradores
+          <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                Administradores
+              </span>
+              <ShieldCheck size={18} className="text-emerald-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-white tabular-nums">
+                {userStats.admins}
+              </span>
+              <span className="text-xs font-mono text-slate-400">
+                SUPER / ORG ADMIN
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-500 font-mono mt-1">
+              Acesso a governança e políticas
             </span>
-            <ShieldCheck size={18} className="text-emerald-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {userStats.admins}
-            </span>
-            <span className="text-xs font-mono text-slate-400">
-              SUPER / ORG ADMIN
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono mt-1">
-            Acesso a governança e políticas
-          </span>
-        </article>
+          </article>
 
-        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-              Operadores NOC
+          <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                Operadores NOC
+              </span>
+              <UserCheck size={18} className="text-sky-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-white tabular-nums">
+                {userStats.operators}
+              </span>
+              <span className="text-xs font-mono text-sky-400">
+                Triagem 24/7
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-500 font-mono mt-1">
+              Monitoramento de alarmes e sondas
             </span>
-            <UserCheck size={18} className="text-sky-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {userStats.operators}
-            </span>
-            <span className="text-xs font-mono text-sky-400">
-              Triagem 24/7
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono mt-1">
-            Monitoramento de alarmes e sondas
-          </span>
-        </article>
+          </article>
 
-        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-              Organizações
+          <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                Organizações
+              </span>
+              <Building2 size={18} className="text-amber-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-white tabular-nums">
+                {orgsData?.total || 0}
+              </span>
+              <span className="text-xs font-mono text-emerald-400">
+                Multi-tenant OK
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-500 font-mono mt-1">
+              Isolamento de dados por organização
             </span>
-            <Building2 size={18} className="text-amber-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {orgsData?.total || 0}
-            </span>
-            <span className="text-xs font-mono text-emerald-400">
-              Multi-tenant OK
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono mt-1">
-            Isolamento de dados por organização
-          </span>
-        </article>
-      </section>
+          </article>
+        </section>
+      )}
 
       {/* 2. Aba de Usuários */}
       {activeTab === "users" && (
@@ -411,15 +460,34 @@ export const AdminManagementPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-obsidian-800/60 font-mono">
                 {isLoadingUsers ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400">
-                      Carregando usuários...
-                    </td>
-                  </tr>
+                  [1, 2, 3, 4, 5].map((idx) => (
+                    <tr key={idx} className="animate-pulse" data-testid="admin-user-skeleton-row">
+                      <td className="py-3 px-4">
+                        <div className="h-3.5 w-32 bg-obsidian-800 rounded mb-1.5" />
+                        <div className="h-2.5 w-44 bg-obsidian-800/60 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-3 w-28 bg-obsidian-800 rounded" />
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="h-5 w-24 bg-obsidian-800 rounded" />
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="h-4 w-14 bg-obsidian-800 rounded" />
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="h-6 w-16 bg-obsidian-800 rounded ml-auto" />
+                      </td>
+                    </tr>
+                  ))
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500 font-sans">
-                      Nenhum usuário corresponde aos filtros aplicados.
+                    <td colSpan={5} className="py-12 text-center text-slate-400 font-sans">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Users size={32} className="text-slate-600 mb-1" />
+                        <span className="font-semibold text-slate-300">Nenhum usuário encontrado</span>
+                        <span className="text-xs text-slate-500">Tente ajustar seus critérios de busca ou filtros de papel.</span>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -553,49 +621,79 @@ export const AdminManagementPage: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(orgsData?.items || []).map((org) => (
-              <div
-                key={org.id}
-                className="bg-obsidian-900 rounded-xl border border-obsidian-800 p-4 flex flex-col justify-between gap-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-xs">
-                      <Building2 size={16} />
+          {isLoadingOrgs ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="admin-orgs-skeleton">
+              {[1, 2, 3, 4, 5, 6].map((idx) => (
+                <div
+                  key={idx}
+                  className="bg-obsidian-900 rounded-xl border border-obsidian-800 p-4 flex flex-col justify-between gap-3 animate-pulse h-36"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-obsidian-800" />
+                      <div className="space-y-1.5">
+                        <div className="h-3.5 w-24 bg-obsidian-800 rounded" />
+                        <div className="h-2.5 w-16 bg-obsidian-800/60 rounded" />
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-display font-bold text-white text-sm">{org.name}</h4>
-                      <span className="text-[11px] font-mono text-slate-400">slug: {org.slug}</span>
-                    </div>
+                    <div className="h-4 w-12 bg-obsidian-800 rounded" />
                   </div>
-                  <Badge variant={org.is_active ? "healthy" : "critical"}>
-                    {org.is_active ? "Ativo" : "Inativo"}
-                  </Badge>
+                  <div className="h-3 w-40 bg-obsidian-800/60 rounded" />
+                  <div className="h-3 w-full bg-obsidian-800/40 rounded pt-2" />
                 </div>
-
-                <div className="flex flex-col gap-1.5 text-xs text-slate-300 font-sans pt-1">
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                    <Shield size={12} className="text-emerald-400" />
-                    <span>Tier: <strong className="text-white font-mono">{org.tier || "STANDARD"}</strong></span>
-                    <span className="text-obsidian-700">|</span>
-                    <span>Meta SLA: <strong className="text-white font-mono">{org.sla_target_default}%</strong></span>
+              ))}
+            </div>
+          ) : (orgsData?.items || []).length === 0 ? (
+            <div className="bg-obsidian-900 rounded-xl border border-obsidian-800 p-12 text-center flex flex-col items-center justify-center gap-2">
+              <Building2 size={36} className="text-slate-600 mb-1" />
+              <span className="font-semibold text-slate-300 text-sm">Nenhuma organização cliente cadastrada</span>
+              <span className="text-xs text-slate-500">Cadastre a primeira organização multi-tenant utilizando o botão acima.</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(orgsData?.items || []).map((org) => (
+                <div
+                  key={org.id}
+                  className="bg-obsidian-900 rounded-xl border border-obsidian-800 p-4 flex flex-col justify-between gap-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                        <Building2 size={16} />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-bold text-white text-sm">{org.name}</h4>
+                        <span className="text-[11px] font-mono text-slate-400">slug: {org.slug}</span>
+                      </div>
+                    </div>
+                    <Badge variant={org.is_active ? "healthy" : "critical"}>
+                      {org.is_active ? "Ativo" : "Inativo"}
+                    </Badge>
                   </div>
-                  {org.contact_email && (
+
+                  <div className="flex flex-col gap-1.5 text-xs text-slate-300 font-sans pt-1">
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                      <Mail size={12} className="text-sky-400" />
-                      <span className="truncate">{org.contact_email}</span>
+                      <Shield size={12} className="text-emerald-400" />
+                      <span>Tier: <strong className="text-white font-mono">{org.tier || "STANDARD"}</strong></span>
+                      <span className="text-obsidian-700">|</span>
+                      <span>Meta SLA: <strong className="text-white font-mono">{org.sla_target_default}%</strong></span>
                     </div>
-                  )}
-                </div>
+                    {org.contact_email && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        <Mail size={12} className="text-sky-400" />
+                        <span className="truncate">{org.contact_email}</span>
+                      </div>
+                    )}
+                  </div>
 
-                <div className="pt-2 border-t border-obsidian-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
-                  <span>Usuários: <strong className="text-white">{org.users_count ?? 0}</strong></span>
-                  <span className="text-emerald-400 font-semibold">{org.tier || "STANDARD"}</span>
+                  <div className="pt-2 border-t border-obsidian-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
+                    <span>Usuários: <strong className="text-white">{org.users_count ?? 0}</strong></span>
+                    <span className="text-emerald-400 font-semibold">{org.tier || "STANDARD"}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* Paginação de Organizações */}
           <Pagination

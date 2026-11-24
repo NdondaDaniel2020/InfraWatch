@@ -6,7 +6,7 @@ import { securityApi } from "../../services/securityApi";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
-import { Pagination } from "../../components/common/Pagination";
+import { Pagination, RfcErrorBanner } from "../../components/common";
 import type { ActiveSession, MfaSetupResponse } from "../../types/auth";
 import {
   AlertTriangle,
@@ -64,6 +64,7 @@ export const SecuritySettingsPage: React.FC = () => {
   // Estados de Sessões Conectadas
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [sessionPage, setSessionPage] = useState(1);
   const [sessionPageSize, setSessionPageSize] = useState(5);
   const [feedbackMessage, setFeedbackMessage] = useState<{
@@ -94,11 +95,12 @@ export const SecuritySettingsPage: React.FC = () => {
   // Carrega sessões ativas
   const fetchSessions = async () => {
     setIsLoadingSessions(true);
+    setSessionError(null);
     try {
       const res = await securityApi.listSessions();
       setSessions(res.sessions || []);
-    } catch {
-      // Ignora erro se rota não autorizada
+    } catch (err: unknown) {
+      setSessionError(err instanceof Error ? err.message : "Falha ao consultar sessões ativas");
     } finally {
       setIsLoadingSessions(false);
     }
@@ -482,8 +484,36 @@ export const SecuritySettingsPage: React.FC = () => {
         </div>
 
         <div>
+          {sessionError && (
+            <div className="mb-4">
+              <RfcErrorBanner
+                title="FALHA NO SUBSISTEMA DE CONTROLE DE SESSÕES ATIVAS"
+                rfcCode="RFC 6749 / RFC 7519 • ERR_SESSION_SYNC_FAILURE"
+                message={sessionError}
+                onRetry={fetchSessions}
+                isRetrying={isLoadingSessions}
+              />
+            </div>
+          )}
+
           {isLoadingSessions ? (
-            <p className="text-sm text-slate-400">Carregando lista de dispositivos...</p>
+            <div className="flex flex-col gap-2.5" data-testid="sessions-skeleton">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-16 bg-obsidian-950 border border-obsidian-800 rounded-xl p-3.5 flex items-center justify-between animate-pulse"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 bg-obsidian-800 rounded" />
+                    <div className="space-y-1.5">
+                      <div className="h-3.5 w-32 bg-obsidian-800 rounded" />
+                      <div className="h-2.5 w-48 bg-obsidian-800/60 rounded" />
+                    </div>
+                  </div>
+                  <div className="h-6 w-16 bg-obsidian-800 rounded" />
+                </div>
+              ))}
+            </div>
           ) : sessions.length === 0 ? (
             <div className="text-center p-6 text-slate-400 text-sm">
               Nenhuma outra sessão ativa encontrada.

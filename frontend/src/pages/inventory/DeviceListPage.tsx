@@ -18,6 +18,7 @@ import { DeviceFormModal } from "../../components/inventory/DeviceFormModal";
 import { PauseDeviceModal } from "../../components/inventory/PauseDeviceModal";
 import { MaintenanceModal } from "../../components/inventory/MaintenanceModal";
 import { DeviceActionMenu } from "../../components/inventory/DeviceActionMenu";
+import { RfcErrorBanner } from "../../components/common";
 import { devicesApi } from "../../services/devicesApi";
 import type {
   DeviceListItem,
@@ -252,7 +253,7 @@ export const DeviceListPage: React.FC = () => {
     };
   }, [searchDebounce]);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["devices", filters],
     queryFn: () => devicesApi.listDevices(filters),
     placeholderData: (previous) => previous,
@@ -429,98 +430,135 @@ export const DeviceListPage: React.FC = () => {
         </div>
       </header>
 
+      {/* Estado de Erro RFC (Gerenciado automaticamente via ciclo da API) */}
+      {isError && (
+        <RfcErrorBanner
+          title="FALHA NO SERVIÇO DE SINCRONIZAÇÃO DE ATIVOS DE REDE"
+          rfcCode="RFC 5424 • ERR_INVENTORY_SYNC_FAILURE"
+          error={error}
+          onRetry={() => refetch()}
+        />
+      )}
+
       {/* 2. Grid Tático de KPIs (DNA Visual do InfraWatch) */}
       <section
         aria-label="Indicadores de Inventário"
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         data-testid="inventory-kpis-grid"
       >
-        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-              Total de Ativos
-            </span>
-            <Server size={18} className="text-slate-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {totalItems}
-            </span>
-            <span className="text-xs font-mono text-emerald-400">
-              {stats.up} UP
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono mt-1">
-            Inventário cadastrado na base
-          </span>
-        </article>
+        {isLoading && devices.length === 0 ? (
+          <>
+            <div className="h-28 bg-obsidian-900 border border-obsidian-800 rounded-xl p-4 animate-pulse space-y-3">
+              <div className="h-3 w-24 bg-obsidian-850 rounded" />
+              <div className="h-7 w-16 bg-obsidian-800 rounded" />
+              <div className="h-2.5 w-32 bg-obsidian-850/60 rounded" />
+            </div>
+            <div className="h-28 bg-obsidian-900 border border-obsidian-800 rounded-xl p-4 animate-pulse space-y-3">
+              <div className="h-3 w-24 bg-obsidian-850 rounded" />
+              <div className="h-7 w-16 bg-obsidian-800 rounded" />
+              <div className="h-2.5 w-32 bg-obsidian-850/60 rounded" />
+            </div>
+            <div className="h-28 bg-obsidian-900 border border-obsidian-800 rounded-xl p-4 animate-pulse space-y-3">
+              <div className="h-3 w-24 bg-obsidian-850 rounded" />
+              <div className="h-7 w-16 bg-obsidian-800 rounded" />
+              <div className="h-2.5 w-32 bg-obsidian-850/60 rounded" />
+            </div>
+            <div className="h-28 bg-obsidian-900 border border-obsidian-800 rounded-xl p-4 animate-pulse space-y-3">
+              <div className="h-3 w-24 bg-obsidian-850 rounded" />
+              <div className="h-7 w-16 bg-obsidian-800 rounded" />
+              <div className="h-2.5 w-32 bg-obsidian-850/60 rounded" />
+            </div>
+          </>
+        ) : (
+          <>
+            <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                  Total de Ativos
+                </span>
+                <Server size={18} className="text-slate-400" />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-2xl font-bold font-mono text-white tabular-nums">
+                  {totalItems}
+                </span>
+                <span className="text-xs font-mono text-emerald-400">
+                  {stats.up} UP
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono mt-1">
+                Inventário cadastrado na base
+              </span>
+            </article>
 
-        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-              Operacionais (UP)
-            </span>
-            <CheckCircle2 size={18} className="text-emerald-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-emerald-400 tabular-nums">
-              {stats.up}
-            </span>
-            <span className="text-xs font-mono text-slate-400">
-              Sondas nominal
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono mt-1">
-            Respostas de sondagem dentro do SLA
-          </span>
-        </article>
+            <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                  Operacionais (UP)
+                </span>
+                <CheckCircle2 size={18} className="text-emerald-400" />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-2xl font-bold font-mono text-emerald-400 tabular-nums">
+                  {stats.up}
+                </span>
+                <span className="text-xs font-mono text-slate-400">
+                  Sondas nominal
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono mt-1">
+                Respostas de sondagem dentro do SLA
+              </span>
+            </article>
 
-        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-              Críticos (DOWN)
-            </span>
-            <AlertTriangle
-              size={18}
-              className={stats.down > 0 ? "text-rose-400 animate-pulse" : "text-slate-500"}
-            />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span
-              className={`text-2xl font-bold font-mono tabular-nums ${
-                stats.down > 0 ? "text-rose-400" : "text-white"
-              }`}
-            >
-              {stats.down}
-            </span>
-            <span className="text-xs font-mono text-slate-400">
-              falha ativa
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono mt-1">
-            Requer triagem imediata no NOC
-          </span>
-        </article>
+            <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                  Críticos (DOWN)
+                </span>
+                <AlertTriangle
+                  size={18}
+                  className={stats.down > 0 ? "text-rose-400 animate-pulse" : "text-slate-500"}
+                />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span
+                  className={`text-2xl font-bold font-mono tabular-nums ${
+                    stats.down > 0 ? "text-rose-400" : "text-white"
+                  }`}
+                >
+                  {stats.down}
+                </span>
+                <span className="text-xs font-mono text-slate-400">
+                  falha ativa
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono mt-1">
+                Requer triagem imediata no NOC
+              </span>
+            </article>
 
-        <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-              Manutenção / Pausados
-            </span>
-            <Wrench size={18} className="text-sky-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-white tabular-nums">
-              {stats.maint + stats.deg}
-            </span>
-            <span className="text-xs font-mono text-sky-400">
-              Isenção SLA
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono mt-1">
-            Supressão de alarmes ativa
-          </span>
-        </article>
+            <article className="bg-obsidian-900 border border-obsidian-800 p-4 rounded-xl relative overflow-hidden shadow-sm flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                  Manutenção / Pausados
+                </span>
+                <Wrench size={18} className="text-sky-400" />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-2xl font-bold font-mono text-white tabular-nums">
+                  {stats.maint + stats.deg}
+                </span>
+                <span className="text-xs font-mono text-sky-400">
+                  Isenção SLA
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono mt-1">
+                Supressão de alarmes ativa
+              </span>
+            </article>
+          </>
+        )}
       </section>
 
       {/* 3. Barra Tática de Filtros e Busca */}
