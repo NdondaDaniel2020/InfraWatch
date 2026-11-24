@@ -329,4 +329,40 @@ describe("Painel de Backup e Recuperação de Desastres — Issue #224 / ADR-032
       expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
     });
   });
+
+  it("deve renderizar o estado Skeleton enquanto carrega os dados", () => {
+    renderWithProviders(<BackupRecoveryPage initialViewState="skeleton" />);
+
+    expect(screen.getByTestId("backup-recovery-page")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-gdrive-skeleton")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-r2-skeleton")).toBeInTheDocument();
+    expect(screen.getByTestId("backup-card-skeleton-1")).toBeInTheDocument();
+    expect(screen.getAllByTestId("backup-row-skeleton").length).toBe(5);
+    expect(screen.getByText("CARREGANDO SNAPSHOTS...")).toBeInTheDocument();
+  });
+
+  it("deve renderizar o estado Vazio quando não houver snapshots", async () => {
+    vi.spyOn(backupApi, "getBackupHistory").mockResolvedValueOnce({
+      items: [],
+      total: 0,
+    });
+
+    renderWithProviders(<BackupRecoveryPage initialViewState="empty" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Nenhum snapshot encontrado para os filtros selecionados.")
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("deve renderizar o estado RFC Error Banner quando ocorrer erro no carregamento", async () => {
+    renderWithProviders(<BackupRecoveryPage initialViewState="error" />);
+
+    expect(screen.getByTestId("rfc-error-banner")).toBeInTheDocument();
+    expect(
+      screen.getByText(/FALHA NO SUBSISTEMA DE BACKUP & RECUPERAÇÃO DE DESASTRES/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/RFC 5424 • ERR_STORAGE_CATALOG_UNREACHABLE/i)).toBeInTheDocument();
+  });
 });

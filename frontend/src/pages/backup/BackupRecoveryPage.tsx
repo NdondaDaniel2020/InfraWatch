@@ -24,6 +24,7 @@ import { backupApi } from "../../services/backupApi";
 import { BackupProgressModal } from "../../components/backup/BackupProgressModal";
 import { BackupDestinationCards } from "../../components/backup/BackupDestinationCards";
 import { BackupHistoryTable } from "../../components/backup/BackupHistoryTable";
+import { RfcErrorBanner } from "../../components/common";
 
 export type BackupPageStateSimulation = "nominal" | "skeleton" | "empty" | "error";
 
@@ -41,7 +42,14 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
     totalStorageUsed: "—",
   });
   const [storage, setStorage] = useState<BackupStorageResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(initialViewState === "skeleton");
+  const [isLoading, setIsLoading] = useState(
+    initialViewState !== "empty" && initialViewState !== "error"
+  );
+  const [loadError, setLoadError] = useState<string | null>(
+    initialViewState === "error"
+      ? "Falha na sincronização do repositório de desastre (DR)"
+      : null
+  );
   const [gdriveStatus, setGDriveStatus] = useState<GDriveStatusResponse | null>(null);
   const [isConnectingGDrive, setIsConnectingGDrive] = useState(false);
 
@@ -62,6 +70,7 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
   // Carrega histórico, métricas de capacidade dos 3 destinos e status do Google Drive
   const loadData = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const [historyRes, gdriveRes, storageRes] = await Promise.all([
         backupApi.getBackupHistory().catch(() => ({ items: [], total: 0 })),
@@ -94,11 +103,12 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
         }
       }
     } catch (err) {
-      toast.error(
+      const msg =
         err instanceof Error
           ? err.message
-          : "Erro ao carregar catálogo de backups do storage."
-      );
+          : "Erro ao carregar catálogo de backups do storage.";
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -128,8 +138,17 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
   }, [searchParams, setSearchParams, loadData]);
 
   useEffect(() => {
+    if (initialViewState === "skeleton") {
+      setIsLoading(true);
+      return;
+    }
+    if (initialViewState === "error") {
+      setIsLoading(false);
+      setLoadError("Falha na sincronização do repositório de desastre (DR)");
+      return;
+    }
     loadData();
-  }, [loadData]);
+  }, [loadData, initialViewState]);
 
   // Redireciona para o Google OAuth para autorizar o Drive com os serviços Google
   const handleConnectGDrive = async () => {
@@ -309,6 +328,17 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
         </div>
       </header>
 
+      {/* 1.1 Banner de Erro RFC (RFC 5424) */}
+      {loadError && (
+        <RfcErrorBanner
+          title="FALHA NO SUBSISTEMA DE BACKUP & RECUPERAÇÃO DE DESASTRES (DR)"
+          rfcCode="RFC 5424 • ERR_STORAGE_CATALOG_UNREACHABLE"
+          message={loadError}
+          onRetry={loadData}
+          isRetrying={isLoading}
+        />
+      )}
+
       {/* 2. HeroExecutionCard: Execução Manual On-Demand [BLAST RADIUS ZERO] */}
       <section
         className="rounded-xl border border-emerald-500/25 bg-[#091222]/90 shadow-[0_0_20px_-3px_rgba(16,185,129,0.12)] p-4 lg:p-5 relative overflow-hidden"
@@ -340,7 +370,12 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
           <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
             <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
               {/* Botão Individual 1: Google Drive */}
-              {!isGDriveConfigured ? (
+              {isLoading ? (
+                <div
+                  data-testid="hero-gdrive-skeleton"
+                  className="w-28 h-8 rounded-lg bg-[#0c1830] border border-slate-800/80 animate-pulse"
+                />
+              ) : !isGDriveConfigured ? (
                 <button
                   type="button"
                   data-testid="hero-gdrive-btn-unconfigured"
@@ -393,7 +428,12 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
               )}
 
               {/* Botão Individual 2: Cloudflare R2 */}
-              {!isR2Configured ? (
+              {isLoading ? (
+                <div
+                  data-testid="hero-r2-skeleton"
+                  className="w-28 h-8 rounded-lg bg-[#0c1830] border border-slate-800/80 animate-pulse"
+                />
+              ) : !isR2Configured ? (
                 <span
                   data-testid="hero-r2-btn-unconfigured"
                   title="Cloudflare R2: Não configurado no servidor"
@@ -468,13 +508,17 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
               <span>
                 Última execução:{" "}
                 <strong className="text-slate-400 font-medium">
-                  {metrics.lastBackupAt
-                    ? `${new Date(metrics.lastBackupAt).toLocaleString("pt-BR", {
-                        timeZone: "UTC",
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })} UTC`
-                    : "Nenhum snapshot registrado"}
+                  {isLoading ? (
+                    <span className="inline-block w-28 h-3 bg-[#14233f] rounded animate-pulse align-middle" />
+                  ) : metrics.lastBackupAt ? (
+                    `${new Date(metrics.lastBackupAt).toLocaleString("pt-BR", {
+                      timeZone: "UTC",
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })} UTC`
+                  ) : (
+                    "Nenhum snapshot registrado"
+                  )}
                 </strong>
               </span>
             </div>
@@ -485,6 +529,7 @@ export const BackupRecoveryPage: React.FC<BackupRecoveryPageProps> = ({
       {/* 3. Topologia de Destinos de Backup 3-2-1 */}
       <BackupDestinationCards
         storage={storage}
+        isLoading={isLoading}
         onConnectGDrive={handleConnectGDrive}
       />
 
