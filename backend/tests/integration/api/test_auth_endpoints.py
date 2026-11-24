@@ -362,11 +362,11 @@ async def test_organizations_management_flow_and_rbac(
 
 
 @pytest.mark.asyncio
-async def test_register_disabled_by_default(
+async def test_register_requires_authentication(
     override_db: None,
     integration_db: async_sessionmaker[AsyncSession],
 ) -> None:
-    """Valida que auto-cadastro público é rejeitado com 403 Forbidden por padrão."""
+    """Valida que /register rejeita requisições anônimas com 401 Unauthorized."""
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
@@ -374,25 +374,57 @@ async def test_register_disabled_by_default(
         res = await client.post(
             "/api/v1/auth/register",
             json={
-                "email": "user@infrawatch.ao",
+                "email": "anonymous@infrawatch.ao",
                 "password": "StrongPassword123!@",
-                "full_name": "Usuário Não Autorizado",
+                "full_name": "Usuário Anônimo",
             },
         )
-        assert res.status_code == status.HTTP_403_FORBIDDEN
-        assert "auto-cadastro público está desabilitado" in res.json()["detail"]
+        assert res.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.asyncio
-async def test_register_forces_client_viewer_role(
+async def test_register_forbidden_for_unauthorized_roles(
     override_db: None,
     integration_db: async_sessionmaker[AsyncSession],
-    monkeypatch: pytest.MonkeyPatch,
+    seeded_user: tuple[UserModel, OrganizationModel, str],
 ) -> None:
-    """Valida que quando explicitamente habilitado, auto-cadastro força role CLIENT_VIEWER."""
-    from src.core.config import get_settings
+    """Valida que /register bloqueia papéis operacionais não autorizados (ex: CLIENT_VIEWER) com 403 Forbidden."""
+    _, org, _ = seeded_user
+    viewer_token = create_access_token(
+        data={
+            "sub": str(uuid4()),
+            "email": "viewer@bai.ao",
+            "role": UserRole.CLIENT_VIEWER,
+            "organization_id": str(org.id),
+        }
+    )
 
-    monkeypatch.setattr(get_settings(), "ENABLE_PUBLIC_REGISTRATION", True)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        res = await client.post(
+            "/api/v1/auth/register",
+            headers={"Authorization": f"Bearer {viewer_token}"},
+            json={
+                "email": "novo@bai.ao",
+                "password": "StrongPassword123!@",
+                "full_name": "Tentativa Não Autorizada",
+            },
+        )
+        assert res.status_code == status.HTTP_403_FORBIDDEN
+        assert "Acesso negado" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_register_allowed_for_super_admin_forces_client_viewer(
+    override_db: None,
+    integration_db: async_sessionmaker[AsyncSession],
+) -> None:
+    """Valida que SUPER_ADMIN pode registrar novo usuário e o papel resultante é forçado para CLIENT_VIEWER."""
+    admin_token = create_access_token(
+        data={"sub": str(uuid4()), "email": "admin@rcs.ao", "role": UserRole.SUPER_ADMIN}
+    )
 
     async with (
         httpx.AsyncClient(
@@ -402,15 +434,69 @@ async def test_register_forces_client_viewer_role(
     ):
         res = await client.post(
             "/api/v1/auth/register",
+            headers={"Authorization": f"Bearer {admin_token}"},
             json={
-                "email": "attacker@infrawatch.ao",
+                "email": "novo.analista@infrawatch.ao",
                 "password": "StrongPassword123!@",
-                "full_name": "Attacker Role Escalation",
+                "full_name": "Novo Analista",
                 "role": "SUPER_ADMIN",
             },
         )
         assert res.status_code == status.HTTP_201_CREATED
         data = res.json()
+        assert data["email"] == "novo.analista@infrawatch.ao"
         assert data["role"] == UserRole.CLIENT_VIEWER.value
         assert data["role"] != "SUPER_ADMIN"
+
+
+@pytest.mark.asyncio
+async def test_register_org_admin_tenant_isolation(
+    override_db: None,
+    integration_db: async_sessionmaker[AsyncSession],
+    seeded_user: tuple[UserModel, OrganizationModel, str],
+) -> None:
+    """Valida isolamento multi-tenant: ORG_ADMIN não pode cadastrar usuário em organização alheia."""
+    _, org, _ = seeded_user
+    org_admin_token = create_access_token(
+        data={
+            "sub": str(uuid4()),
+            "email": "orgadmin@cliente.ao",
+            "role": UserRole.ORG_ADMIN,
+            "organization_id": str(org.id),
+        }
+    )
+
+    alien_org_id = uuid4()
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        # Tentativa de registrar em organização alheia
+        res_alien = await client.post(
+            "/api/v1/auth/register",
+            headers={"Authorization": f"Bearer {org_admin_token}"},
+            json={
+                "email": "alien@outro.ao",
+                "password": "StrongPassword123!@",
+                "full_name": "Tentativa Outra Org",
+                "organization_id": str(alien_org_id),
+            },
+        )
+        assert res_alien.status_code == status.HTTP_403_FORBIDDEN
+        assert "ORG_ADMIN só pode cadastrar usuários dentro de sua própria organização" in res_alien.json()["detail"]
+
+        # Sucesso ao registrar dentro da sua própria organização
+        res_success = await client.post(
+            "/api/v1/auth/register",
+            headers={"Authorization": f"Bearer {org_admin_token}"},
+            json={
+                "email": "valido@cliente.ao",
+                "password": "StrongPassword123!@",
+                "full_name": "Usuário Válido Mesma Org",
+                "organization_id": str(org.id),
+            },
+        )
+        assert res_success.status_code == status.HTTP_201_CREATED
+        assert res_success.json()["email"] == "valido@cliente.ao"
 

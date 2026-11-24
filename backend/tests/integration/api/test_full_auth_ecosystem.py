@@ -119,22 +119,28 @@ async def test_user_registration_and_email_verification_lifecycle(
     override_db: None,
     integration_db: async_sessionmaker[AsyncSession],
     setup_org_and_users: tuple[OrganizationModel, UserModel, UserModel, str],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Valida o registro de novo usuário e confirmação de e-mail através do token."""
-    from src.core.config import get_settings
+    """Valida o registro de novo usuário por administrador e confirmação de e-mail através do token."""
+    org, _, admin_user, _ = setup_org_and_users
 
-    monkeypatch.setattr(get_settings(), "ENABLE_PUBLIC_REGISTRATION", True)
-
-    org, _, _, _ = setup_org_and_users
+    admin_token = create_access_token(
+        data={
+            "sub": str(admin_user.id),
+            "email": admin_user.email,
+            "role": admin_user.role.value,
+            "organization_id": str(admin_user.organization_id),
+        }
+    )
+    auth_headers = {"Authorization": f"Bearer {admin_token}"}
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
     ) as client:
-        # 1. Registro com sucesso
+        # 1. Registro com sucesso executado por Administrador
         reg_response = await client.post(
             "/api/v1/auth/register",
+            headers=auth_headers,
             json={
                 "email": "new.analyst@angolatelecom.ao",
                 "password": "CompliantPassword#2026",
@@ -151,6 +157,7 @@ async def test_user_registration_and_email_verification_lifecycle(
         # 2. Conflito ao tentar registrar o mesmo e-mail
         dup_response = await client.post(
             "/api/v1/auth/register",
+            headers=auth_headers,
             json={
                 "email": "new.analyst@angolatelecom.ao",
                 "password": "CompliantPassword#2026",

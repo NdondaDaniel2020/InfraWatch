@@ -17,6 +17,7 @@ from src.contexts.iam.api.dependencies import (
     TokenServiceDep,
     UserCommandServiceDep,
     UserQueryServiceDep,
+    require_roles,
 )
 from src.contexts.iam.domain.enums import UserRole
 from src.core.config import get_settings
@@ -56,26 +57,40 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
     "/register",
     response_model=UserPublicResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Cadastro de novo usuário",
+    summary="Cadastro de novo usuário (Apenas Administradores Autorizados)",
+    dependencies=[
+        Depends(
+            require_roles(
+                UserRole.SUPER_ADMIN,
+                UserRole.ORG_ADMIN,
+            )
+        )
+    ],
 )
 async def register(
     body: UserCreate,
     user_command_service: UserCommandServiceDep,
+    current_user: CurrentUserDep,
 ) -> UserPublicResponse:
-    """Registra uma nova conta de usuário caso o auto-cadastro público esteja habilitado."""
-    settings = get_settings()
-    if not settings.ENABLE_PUBLIC_REGISTRATION:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="O auto-cadastro público está desabilitado. Contas de acesso devem ser provisionadas por um Administrador do sistema.",
-        )
+    """Registra uma nova conta de usuário. Requer privilégio de SUPER_ADMIN ou ORG_ADMIN."""
+    if not current_user.is_super_admin:
+        if not current_user.organization_id or (
+            body.organization_id and str(body.organization_id) != current_user.organization_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ORG_ADMIN só pode cadastrar usuários dentro de sua própria organização.",
+            )
+        target_org = UUID(current_user.organization_id)
+    else:
+        target_org = body.organization_id
 
     try:
         user, _ = await user_command_service.register_user(
             email=body.email,
             password=body.password,
             full_name=body.full_name,
-            organization_id=body.organization_id,
+            organization_id=target_org,
             role=UserRole.CLIENT_VIEWER,
         )
     except EmailAlreadyExistsError:
