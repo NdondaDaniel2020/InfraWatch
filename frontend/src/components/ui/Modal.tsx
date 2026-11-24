@@ -67,6 +67,7 @@ export const Modal: React.FC<ModalProps> = ({
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
+    textAlign: "left",
     animation: "modal-in 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
   };
 
@@ -77,6 +78,7 @@ export const Modal: React.FC<ModalProps> = ({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: "16px",
+    textAlign: "left",
   };
 
   const titleStyle: React.CSSProperties = {
@@ -111,6 +113,7 @@ export const Modal: React.FC<ModalProps> = ({
     flex: 1,
     overflowY: "auto",
     color: "var(--color-text-primary)",
+    textAlign: "left",
   };
 
   const footerStyle: React.CSSProperties = {

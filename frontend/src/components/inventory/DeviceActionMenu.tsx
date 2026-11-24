@@ -167,8 +167,8 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
     switch (selectedAction) {
       case "pause":
         return (
-          <div>
-            <p style={{ color: "var(--color-text-secondary)", marginBottom: "16px" }}>
+          <div style={{ textAlign: "left" }}>
+            <p style={{ color: "var(--color-text-secondary)", marginBottom: "16px", textAlign: "left" }}>
               Pausar o monitoramento de <strong>{deviceName}</strong>. O dispositivo não será sondado até ser retomado manualmente.
             </p>
             <label
@@ -178,6 +178,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                 fontWeight: 500,
                 color: "var(--color-text-primary)",
                 marginBottom: "8px",
+                textAlign: "left",
               }}
             >
               Motivo da pausa (obrigatório)
@@ -198,20 +199,21 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                 fontSize: "0.875rem",
                 resize: "vertical",
                 outline: "none",
+                textAlign: "left",
               }}
               data-testid="pause-reason-input"
             />
-            <div style={{ marginTop: "8px", fontSize: "0.75rem" }}>
+            <div style={{ marginTop: "8px", fontSize: "0.75rem", textAlign: "left" }}>
               {pauseReason.trim().length === 0 ? (
-                <p style={{ color: "var(--color-text-secondary)" }}>
+                <p style={{ color: "var(--color-text-secondary)", textAlign: "left" }}>
                   Mínimo de 10 caracteres para registro de auditoria.
                 </p>
               ) : pauseReason.trim().length < 10 ? (
-                <p style={{ color: "var(--color-critical)" }}>
+                <p style={{ color: "var(--color-critical)", textAlign: "left" }}>
                   O motivo deve ter pelo menos 10 caracteres ({pauseReason.trim().length}/10).
                 </p>
               ) : (
-                <p style={{ color: "var(--color-healthy)" }}>
+                <p style={{ color: "var(--color-healthy)", textAlign: "left" }}>
                   ✓ Justificativa válida ({pauseReason.trim().length} caracteres).
                 </p>
               )}
@@ -220,11 +222,11 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
         );
       case "maintenance":
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <p style={{ color: "var(--color-text-secondary)", marginBottom: "8px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", textAlign: "left" }}>
+            <p style={{ color: "var(--color-text-secondary)", marginBottom: "8px", textAlign: "left" }}>
               Agendar janela de manutenção para <strong>{deviceName}</strong>. Alarmes serão suprimidos até o prazo final.
             </p>
-            <div>
+            <div style={{ textAlign: "left" }}>
               <label
                 htmlFor="menu-maintenance-title"
                 style={{
@@ -233,6 +235,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                   fontWeight: 500,
                   color: "var(--color-text-primary)",
                   marginBottom: "8px",
+                  textAlign: "left",
                 }}
               >
                 Título da manutenção
@@ -254,10 +257,11 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                   fontFamily: "var(--font-sans)",
                   fontSize: "0.875rem",
                   outline: "none",
+                  textAlign: "left",
                 }}
               />
             </div>
-            <div>
+            <div style={{ textAlign: "left" }}>
               <label
                 htmlFor="menu-maintenance-until"
                 style={{
@@ -266,6 +270,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                   fontWeight: 500,
                   color: "var(--color-text-primary)",
                   marginBottom: "8px",
+                  textAlign: "left",
                 }}
               >
                 Prazo final (ISO 8601)
@@ -286,10 +291,11 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                   fontFamily: "var(--font-sans)",
                   fontSize: "0.875rem",
                   outline: "none",
+                  textAlign: "left",
                 }}
               />
             </div>
-            <div>
+            <div style={{ textAlign: "left" }}>
               <label
                 htmlFor="menu-maintenance-reason"
                 style={{
@@ -298,6 +304,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                   fontWeight: 500,
                   color: "var(--color-text-primary)",
                   marginBottom: "8px",
+                  textAlign: "left",
                 }}
               >
                 Justificativa
@@ -320,6 +327,7 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
                   fontSize: "0.875rem",
                   resize: "vertical",
                   outline: "none",
+                  textAlign: "left",
                 }}
               />
             </div>
