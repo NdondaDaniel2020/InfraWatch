@@ -179,11 +179,11 @@ export const SlaReportsPage: React.FC = () => {
     <main
       role="main"
       data-testid="sla-reports-page"
-      className="p-4 md:p-6 flex flex-col gap-6 w-full"
+      className="p-3.5 sm:p-4 md:p-6 flex flex-col gap-4 sm:gap-6 w-full min-w-0 overflow-x-hidden"
     >
       {/* 1. Breadcrumb e Cabeçalho */}
-      <section className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
-        <div className="flex flex-col gap-1">
+      <section className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800 min-w-0">
+        <div className="flex flex-col gap-1 min-w-0">
           <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono">
             <Link
               to="/noc"
@@ -197,7 +197,7 @@ export const SlaReportsPage: React.FC = () => {
             </span>
           </nav>
 
-          <h1 className="text-2xl font-display font-extrabold text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-display font-extrabold text-white tracking-tight break-words">
             Relatórios Analíticos de SLA &amp; Disponibilidade Contratual
           </h1>
           <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
@@ -484,18 +484,19 @@ export const SlaReportsPage: React.FC = () => {
           )}
 
           {/* Demonstrativo Consolidado & Auditoria Regulatória BNA */}
-          <footer className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-mono text-slate-400 shadow">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>
+          <footer className="bg-obsidian-900 border border-obsidian-800 rounded-xl p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-mono text-slate-400 shadow min-w-0 max-w-full">
+            <div className="flex items-start sm:items-center gap-2 min-w-0">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+              <span className="leading-relaxed">
                 Apuração certificada sob protocolo <strong>ADR-009</strong> e normas <strong>BNA</strong>. Paradas programadas auditadas e excluídas do tempo de penalidade líquida.
               </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] text-slate-400 uppercase">HASH DIGITAL:</span>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-w-0 max-w-full pt-2 md:pt-0 border-t md:border-t-0 border-obsidian-800">
+              <span className="text-[10px] text-slate-400 uppercase shrink-0">HASH DIGITAL:</span>
               <span
                 id="bna-hash-value"
-                className="px-2 py-0.5 rounded bg-obsidian-950 text-slate-300 border border-obsidian-800 select-all font-mono text-[11px]"
+                className="px-2.5 py-1 rounded bg-obsidian-950 text-slate-300 border border-obsidian-800 select-all font-mono text-[11px] truncate max-w-full min-w-0"
+                title="SHA256: 4e8b39a7c3b2e8810fd8910ac7f2d4e8b39a7c3b2e8810fd8910ac7f2d4e"
               >
                 SHA256: 4e8b39a7c3b2e8810fd8910ac7f2d4e8b39a7c3b2e8810fd8910ac7f2d4e
               </span>
