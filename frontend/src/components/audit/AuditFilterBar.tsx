@@ -24,11 +24,11 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
   return (
     <section
       data-testid="audit-filter-bar"
-      className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-obsidian-900 p-3 rounded-xl border border-obsidian-800"
+      className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-obsidian-900 p-3 sm:p-3.5 rounded-xl border border-obsidian-800 min-w-0 max-w-full"
     >
-      <div className="flex flex-wrap items-center gap-2.5 flex-1">
+      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 flex-1 min-w-0 max-w-full">
         {/* Busca Textual */}
-        <div className="relative w-full lg:w-80">
+        <div className="relative w-full lg:w-80 min-w-0">
           <Search
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -52,7 +52,7 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
           aria-label="Filtrar por papel RBAC"
           value={filters.role || "ALL"}
           onChange={(e) => onChange({ ...filters, role: e.target.value, page: 1 })}
-          className="bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-300 focus-visible:outline-none focus-visible:border-emerald-500 focus-visible:ring-1 focus-visible:ring-emerald-500 transition-colors"
+          className="w-full sm:w-auto max-w-full truncate bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-300 focus-visible:outline-none focus-visible:border-emerald-500 focus-visible:ring-1 focus-visible:ring-emerald-500 transition-colors cursor-pointer"
         >
           {isGlobalAdmin ? (
             <>
@@ -77,7 +77,7 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
           aria-label="Filtrar por ação executada"
           value={filters.action || "ALL"}
           onChange={(e) => onChange({ ...filters, action: e.target.value, page: 1 })}
-          className="bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-300 focus-visible:outline-none focus-visible:border-emerald-500 focus-visible:ring-1 focus-visible:ring-emerald-500 transition-colors"
+          className="w-full sm:w-auto max-w-full truncate bg-obsidian-950 border border-obsidian-800 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-300 focus-visible:outline-none focus-visible:border-emerald-500 focus-visible:ring-1 focus-visible:ring-emerald-500 transition-colors cursor-pointer"
         >
           {isGlobalAdmin ? (
             <>
@@ -99,18 +99,18 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
         </select>
 
         {/* Filtro Data */}
-        <div className="inline-flex items-center gap-1.5 bg-obsidian-950 border border-obsidian-800 rounded-lg px-3 py-1.5 font-mono tabular-nums text-xs text-slate-300">
+        <div className="w-full sm:w-auto inline-flex items-center justify-center sm:justify-start gap-1.5 bg-obsidian-950 border border-obsidian-800 rounded-lg px-3 py-1.5 font-mono tabular-nums text-xs text-slate-300">
           <Calendar size={14} className="text-sky-400" />
           <span>Hoje (Últimas 24h)</span>
         </div>
       </div>
 
       {/* Live Stream Toggle & Refresh */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-obsidian-800/80">
         <button
           type="button"
           onClick={onToggleLiveStream}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border font-mono text-xs font-semibold transition-colors cursor-pointer ${
+          className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-mono text-xs font-semibold transition-colors cursor-pointer ${
             isLiveStream
               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
               : "bg-obsidian-950 border-obsidian-800 text-slate-400 hover:text-white"
@@ -130,7 +130,7 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
           onClick={onRefresh}
           disabled={isLoading}
           aria-label="Atualizar tabela agora"
-          className="w-8 h-8 rounded-lg bg-obsidian-950 border border-obsidian-800 hover:border-obsidian-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors disabled:opacity-50"
+          className="w-8 h-8 rounded-lg bg-obsidian-950 border border-obsidian-800 hover:border-obsidian-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
           title="Atualizar tabela agora"
         >
           <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />

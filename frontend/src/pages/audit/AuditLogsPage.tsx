@@ -139,21 +139,22 @@ export const AuditLogsPage: React.FC = () => {
   return (
     <div
       data-testid="audit-logs-page"
-      className="p-4 md:p-6 flex flex-col gap-6 w-full"
+      className="p-3.5 sm:p-4 md:p-6 flex flex-col gap-4 sm:gap-6 max-w-[1800px] mx-auto w-full min-w-0 overflow-x-hidden"
     >
-      {/* 1. Header da Página & Breadcrumb */}
-      <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-obsidian-800">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <Link to={isGlobalAdmin ? "/noc" : "/portal"} className="text-slate-400 hover:text-slate-200 transition-colors">
-              {isGlobalAdmin ? "Cockpit" : "Portal"}
+      {/* 1. Header Tático com Breadcrumb */}
+      <section className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-obsidian-800 min-w-0">
+        <div className="flex flex-col gap-1 min-w-0">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono">
+            <Link
+              to="/noc"
+              className="text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              Cockpit NOC
             </Link>
             <span className="text-obsidian-700">/</span>
-            <span className="text-emerald-400 font-semibold">
-              {isGlobalAdmin ? "Trilha de Auditoria Forense" : "Auditoria da Organização"}
-            </span>
-          </div>
-          <h1 className="text-2xl font-display font-extrabold text-white tracking-tight">
+            <span className="text-emerald-400 font-semibold">Trilha de Auditoria Forense</span>
+          </nav>
+          <h1 className="text-xl sm:text-2xl font-display font-extrabold text-white tracking-tight break-words">
             {isGlobalAdmin
               ? "Trilha de Auditoria Forense & Compliance (Append-Only)"
               : "Trilha de Auditoria da Organização & Governança"}
@@ -165,12 +166,12 @@ export const AuditLogsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Ações Rápidas do Topo */}
-        <div className="flex items-center flex-wrap gap-2.5 shrink-0">
+        {/* Ações Rápidas do Topo com flex wrapping para telas compactas */}
+        <div className="flex items-center flex-wrap gap-2 sm:gap-2.5 shrink-0 w-full xl:w-auto">
           <button
             type="button"
             onClick={handleExportLedger}
-            className="h-9 px-3 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors"
+            className="flex-1 sm:flex-initial justify-center h-9 px-3 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <FileDown size={16} className="text-sky-400" />
             <span>Exportar Ledger (.json)</span>
@@ -179,7 +180,7 @@ export const AuditLogsPage: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenRetentionPolicy}
-            className="h-9 px-3 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors"
+            className="flex-1 sm:flex-initial justify-center h-9 px-3 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Settings size={16} />
             <span>Retenção Legal</span>
@@ -191,7 +192,7 @@ export const AuditLogsPage: React.FC = () => {
               data-testid="verify-chain-button"
               onClick={handleVerifyIntegrity}
               disabled={isVerifying}
-              className="h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
+              className="w-full sm:w-auto justify-center h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
             >
               <ShieldCheck size={18} />
               <span>{isVerifying ? "Verificando..." : "Validar Cadeia SHA-256"}</span>
@@ -219,8 +220,8 @@ export const AuditLogsPage: React.FC = () => {
       />
 
       {/* 4. Layout Bento de 2 Colunas: Tabela (7 cols) + Inspector JSONB (5 cols) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-        <div className="xl:col-span-7 min-w-0">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start min-w-0 max-w-full">
+        <div className="xl:col-span-7 min-w-0 max-w-full">
           <AuditLogTable
             logs={logsResponse?.items || []}
             selectedLogId={selectedLog?.id || null}
@@ -233,28 +234,28 @@ export const AuditLogsPage: React.FC = () => {
           />
         </div>
 
-        <div className="xl:col-span-5 sticky top-4 min-w-0">
+        <div className="xl:col-span-5 xl:sticky xl:top-4 min-w-0 max-w-full">
           <AuditPayloadInspector log={selectedLog} />
         </div>
       </div>
 
       {/* 5. Rodapé de Compliance & Atestação Legal BNA / INACOM */}
-      <footer className="p-4 bg-obsidian-900 rounded-xl border border-obsidian-800 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-slate-400 font-mono">
-        <div className="flex items-center gap-2">
-          <Clock size={16} className="text-emerald-400 shrink-0" />
-          <span>
+      <footer className="p-3 sm:p-4 bg-obsidian-900 rounded-xl border border-obsidian-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-slate-400 font-mono min-w-0 max-w-full">
+        <div className="flex items-start sm:items-center gap-2 min-w-0">
+          <Clock size={16} className="text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+          <span className="break-words leading-relaxed">
             Conformidade com a <strong className="text-white">Norma de Retenção Regulamentar (BNA / INACOM)</strong>.
             Todos os registros possuem carimbo de tempo seguro (RFC 3161) e encadeamento imutável.
           </span>
         </div>
 
-        <div className="flex items-center gap-4 shrink-0 font-mono text-[11px]">
-          <span className="flex items-center gap-1.5">
-            <Key size={12} className="text-sky-400" />
+        <div className="flex items-center flex-wrap gap-2 sm:gap-4 shrink-0 font-mono text-[11px] pt-2 md:pt-0 border-t md:border-t-0 border-obsidian-800 w-full md:w-auto">
+          <span className="flex items-center gap-1.5 truncate">
+            <Key size={12} className="text-sky-400 shrink-0" />
             <span>Chave Pública:</span>
             <code className="text-sky-400">ed25519:9f8a...4b01</code>
           </span>
-          <span className="text-obsidian-700">|</span>
+          <span className="text-obsidian-700 hidden sm:inline">|</span>
           <span className="text-emerald-400 font-semibold">STATUS: ATTESTED / NOMINAL</span>
         </div>
       </footer>

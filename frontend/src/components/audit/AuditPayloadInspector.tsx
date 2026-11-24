@@ -275,11 +275,11 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
       </div>
 
       {/* Checksum Criptográfico SHA-256 */}
-      <div className="px-4 py-2 bg-obsidian-950 border-b border-obsidian-800 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="px-4 py-2 bg-obsidian-950 border-b border-obsidian-800 flex items-center justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Lock size={12} className="text-emerald-400 shrink-0" />
           <span className="text-[11px] font-mono text-slate-300 truncate">
-            SHA-256: <span className="text-slate-400 font-mono select-all">{log.hash}</span>
+            SHA-256: <span className="text-slate-400 font-mono select-all truncate">{log.hash}</span>
           </span>
         </div>
         <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-bold font-mono shrink-0 border border-emerald-500/30">
@@ -343,24 +343,24 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
       </div>
 
       {/* Raiz Merkle do Bloco */}
-      <div className="px-4 py-2.5 bg-obsidian-900 border-t border-obsidian-800 flex items-center justify-between text-xs font-mono">
-        <div className="flex items-center gap-2">
-          <Network size={14} className="text-slate-400" />
-          <span className="text-slate-400">Raiz Merkle do Bloco:</span>
-          <span className="text-slate-200">{merkleRoot}</span>
+      <div className="px-4 py-2.5 bg-obsidian-900 border-t border-obsidian-800 flex items-center justify-between gap-2 text-xs font-mono min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Network size={14} className="text-slate-400 shrink-0" />
+          <span className="text-slate-400 shrink-0">Raiz Merkle do Bloco:</span>
+          <span className="text-slate-200 truncate">{merkleRoot}</span>
         </div>
-        <span className="text-emerald-400 font-bold text-[10px] flex items-center gap-1">
+        <span className="text-emerald-400 font-bold text-[10px] flex items-center gap-1 shrink-0">
           <ShieldCheck size={12} /> PROVA VÁLIDA
         </span>
       </div>
 
       {/* Ações do Drawer/Inspector */}
-      <div className="p-3 bg-obsidian-900 border-t border-obsidian-800 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="p-3 bg-obsidian-900 border-t border-obsidian-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <button
             type="button"
             onClick={handleCopyJson}
-            className="px-3 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 hover:text-white font-mono text-xs transition-colors border border-obsidian-700 flex items-center gap-1.5"
+            className="flex-1 sm:flex-initial justify-center px-3 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 hover:text-white font-mono text-xs transition-colors border border-obsidian-700 flex items-center gap-1.5 cursor-pointer"
           >
             {copiedJson ? (
               <Check size={14} className="text-emerald-400" />
@@ -374,7 +374,7 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
             type="button"
             onClick={handleCopyPreviousHash}
             disabled={!log.previous_hash}
-            className="px-3 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 hover:text-white font-mono text-xs transition-colors border border-obsidian-700 flex items-center gap-1.5 disabled:opacity-40"
+            className="flex-1 sm:flex-initial justify-center px-3 py-1.5 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 text-slate-300 hover:text-white font-mono text-xs transition-colors border border-obsidian-700 flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
           >
             {copiedHash ? (
               <Check size={14} className="text-emerald-400" />
@@ -388,7 +388,7 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
         <button
           type="button"
           onClick={handleDownloadProofSig}
-          className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          className="w-full sm:w-auto justify-center px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <Download size={14} />
           <span>Baixar Prova (.sig)</span>
