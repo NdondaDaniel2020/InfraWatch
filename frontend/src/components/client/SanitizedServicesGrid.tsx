@@ -67,15 +67,15 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
       className="flex flex-col gap-5"
     >
       {/* Header com Totais */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/10 flex-wrap gap-3">
+      <div className="flex items-center justify-between pb-3 border-b border-obsidian-800 flex-wrap gap-3">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2.5 m-0">
+          <h3 className="text-base font-bold text-white flex items-center gap-2.5 m-0 font-sans">
             <span>Saúde dos Serviços Críticos Contratados</span>
-            <span className="px-2.5 py-0.5 text-xs font-mono rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <span className="px-2.5 py-0.5 text-xs font-mono rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 font-semibold">
               {services.filter((s) => s.status === "UP").length}/{services.length} Operacionais
             </span>
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5 mb-0">
+          <p className="text-xs font-mono text-slate-400 mt-0.5 mb-0">
             Visão consolidada para acompanhamento executivo e auditoria contratual.
           </p>
         </div>
@@ -87,7 +87,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
       </div>
 
       {/* Barra de Filtros e Busca Rápida */}
-      <div className="flex items-center justify-between flex-wrap gap-3 p-3 bg-[#0d1424]/60 border border-white/10 rounded-2xl">
+      <div className="flex items-center justify-between flex-wrap gap-3 p-3 bg-obsidian-900 border border-obsidian-800 rounded-xl">
         {/* Campo de Busca */}
         <div className="relative flex-1 min-w-[240px]">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -97,7 +97,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
             value={searchTerm}
             onChange={handleSearchChange}
             placeholder="Buscar por serviço, categoria ou tag..."
-            className="w-full pl-10 pr-4 py-2 text-xs font-sans rounded-xl bg-[#080c14] border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+            className="w-full pl-10 pr-4 py-2 text-xs font-mono rounded-lg bg-obsidian-950 border border-obsidian-800 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
           />
           {searchTerm && (
             <button
@@ -106,7 +106,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                 setSearchTerm("");
                 setCurrentPage(1);
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
             >
               <XCircle size={14} />
             </button>
@@ -121,10 +121,10 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
               type="button"
               data-testid={`filter-status-${st.toLowerCase()}`}
               onClick={() => handleStatusFilterChange(st)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-colors cursor-pointer border ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer border ${
                 statusFilter === st
-                  ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold"
-                  : "bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10"
+                  ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-bold"
+                  : "bg-obsidian-850 border-obsidian-800 text-slate-400 hover:text-white hover:bg-obsidian-800"
               }`}
             >
               {st === "ALL"
@@ -150,27 +150,28 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
               <article
                 key={svc.id}
                 data-testid={`service-card-${svc.id}`}
-                className={`p-5 rounded-2xl bg-[#0d1424] border flex flex-col justify-between transition-colors shadow-sm ${
+                className={`p-5 rounded-xl bg-obsidian-900 border flex flex-col justify-between transition-colors shadow-sm ${
                   isDeg
-                    ? "border-amber-500/30 hover:border-amber-500/50"
+                    ? "border-amber-500/40 hover:border-amber-500/60"
                     : svc.status === "DOWN"
-                    ? "border-rose-500/30 hover:border-rose-500/50"
-                    : "border-white/10 hover:border-white/20"
+                    ? "border-rose-500/40 hover:border-rose-500/60"
+                    : "border-obsidian-800 hover:border-obsidian-700"
                 }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className="text-[11px] font-mono text-slate-400 block">{svc.category}</span>
-                      <h4 className="text-base font-bold text-white mt-0.5 m-0">{svc.name}</h4>
+                      <span className="text-[10px] font-mono uppercase text-slate-400 block tracking-wider">{svc.category}</span>
+                      <h4 className="text-base font-bold text-white mt-0.5 m-0 font-sans">{svc.name}</h4>
                     </div>
                     <span
+                      data-testid={`service-status-badge-${svc.id}`}
                       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium ${
                         isUp
-                          ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                          ? "bg-emerald-500/10 border border-emerald-500/25 text-emerald-400"
                           : isDeg
-                          ? "bg-amber-500/10 border border-amber-500/20 text-amber-400"
-                          : "bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                          ? "bg-amber-500/10 border border-amber-500/25 text-amber-400"
+                          : "bg-rose-500/10 border border-rose-500/25 text-rose-400"
                       }`}
                     >
                       {isUp ? (
@@ -183,9 +184,9 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                   </div>
 
                   {/* Métricas Rápidas */}
-                  <div className="grid grid-cols-2 gap-3 my-4">
+                  <div className="grid grid-cols-2 gap-3 my-4 p-3 rounded-lg bg-obsidian-950 border border-obsidian-800/80">
                     <div>
-                      <span className="text-[11px] font-mono text-slate-400 block">Tempo de Resposta</span>
+                      <span className="text-[10px] font-mono uppercase text-slate-400 block">Tempo de Resposta</span>
                       <span
                         className={`text-sm font-mono font-bold tabular-nums mt-0.5 block ${
                           typeof svc.responseTimeMs !== "number"
@@ -205,7 +206,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                       </span>
                     </div>
                     <div>
-                      <span className="text-[11px] font-mono text-slate-400 block">
+                      <span className="text-[10px] font-mono uppercase text-slate-400 block">
                         {svc.tags.some((t) => t.toLowerCase() === "icmp")
                           ? "Perda de Pacotes"
                           : "Vazão / Capacidade"}
@@ -218,7 +219,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
 
                   {/* Alerta de Degradação (se houver) */}
                   {svc.advisoryAlert && (
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed mb-3">
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs font-mono text-amber-300 leading-relaxed mb-3">
                       {svc.advisoryAlert}
                     </div>
                   )}
@@ -228,7 +229,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                     {svc.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="px-2 py-0.5 rounded-lg bg-white/5 border border-white/5 text-[11px] font-mono text-slate-300"
+                        className="px-2 py-0.5 rounded bg-obsidian-850 border border-obsidian-800 text-[11px] font-mono text-slate-300"
                       >
                         {tag}
                       </span>
@@ -237,7 +238,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                 </div>
 
                 {/* Barra de Estabilidade 30 Dias */}
-                <div className="pt-3 border-t border-white/5">
+                <div className="pt-3 border-t border-obsidian-800/80">
                   <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-1.5">
                     <span>Estabilidade 30 dias</span>
                     <span
@@ -256,7 +257,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                         : "N/D"}
                     </span>
                   </div>
-                  <div className="h-1.5 w-full bg-[#080c14] rounded-full overflow-hidden">
+                  <div className="h-1.5 w-full bg-obsidian-950 rounded-full overflow-hidden border border-obsidian-800/40">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
                         isDeg
@@ -282,17 +283,17 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
         /* Empty State de Busca / Filtro */
         <div
           data-testid="services-filter-empty"
-          className="p-12 rounded-2xl bg-[#0d1424]/40 border border-white/10 flex flex-col items-center justify-center text-center"
+          className="p-12 rounded-xl bg-obsidian-900 border border-dashed border-obsidian-800 flex flex-col items-center justify-center text-center"
         >
           <Filter size={32} className="text-slate-500 mb-3" />
-          <h4 className="text-base font-bold text-white m-0">Nenhum serviço encontrado</h4>
-          <p className="text-xs text-slate-400 max-w-sm mt-1 mb-4">
+          <h4 className="text-base font-bold text-white m-0 font-sans">Nenhum serviço encontrado</h4>
+          <p className="text-xs font-mono text-slate-400 max-w-sm mt-1 mb-4">
             Não encontramos serviços ativos correspondentes aos filtros aplicados ({searchTerm || statusFilter}).
           </p>
           <button
             type="button"
             onClick={clearFilters}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-mono text-white transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-750 text-xs font-mono text-white transition-colors cursor-pointer"
           >
             Limpar Filtros de Busca
           </button>
@@ -303,7 +304,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
       {totalPages > 1 && (
         <div
           data-testid="services-pagination"
-          className="flex items-center justify-between pt-4 border-t border-white/10 flex-wrap gap-3"
+          className="flex items-center justify-between pt-4 border-t border-obsidian-800 flex-wrap gap-3"
         >
           <span className="text-xs font-mono text-slate-400">
             Página {safeCurrentPage} de {totalPages} ({filteredServices.length} ativos)
@@ -315,7 +316,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
               data-testid="pagination-prev-btn"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={safeCurrentPage === 1}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               aria-label="Página anterior"
             >
               <ChevronLeft size={16} />
@@ -327,10 +328,10 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
                 type="button"
                 data-testid={`pagination-page-${page}`}
                 onClick={() => setCurrentPage(page)}
-                className={`w-8 h-8 rounded-xl text-xs font-mono font-medium transition-colors cursor-pointer border ${
+                className={`w-8 h-8 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer border ${
                   safeCurrentPage === page
-                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold"
-                    : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-bold"
+                    : "bg-obsidian-850 border-obsidian-800 text-slate-400 hover:text-white hover:bg-obsidian-800"
                 }`}
               >
                 {page}
@@ -342,7 +343,7 @@ export const SanitizedServicesGrid: React.FC<SanitizedServicesGridProps> = ({ se
               data-testid="pagination-next-btn"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={safeCurrentPage === totalPages}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               aria-label="Próxima página"
             >
               <ChevronRight size={16} />

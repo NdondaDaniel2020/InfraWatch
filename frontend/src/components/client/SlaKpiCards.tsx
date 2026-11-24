@@ -27,7 +27,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
     <section
       data-testid="sla-banner"
       aria-label="Banner Executivo de Acordo de Nível de Serviço (SLA)"
-      className="rounded-3xl bg-[#0d1424] border border-white/10 p-6 lg:p-8 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-8 relative overflow-hidden shadow-2xl backdrop-blur-xl"
+      className="rounded-xl bg-obsidian-900 border border-obsidian-800 p-6 lg:p-7 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-8 relative overflow-hidden shadow-sm"
     >
       {/* Lado Esquerdo: Gauge SVG & Resumo Executivo */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 lg:gap-8">
@@ -47,7 +47,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
               cy="60"
               fill="transparent"
               r="50"
-              className="stroke-[#1b2640]"
+              className="stroke-obsidian-800"
               strokeWidth="8"
             />
             <circle
@@ -107,31 +107,31 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
       </div>
 
       {/* Lado Direito: KPIs & Ações Executivas */}
-      <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-6 border-t lg:border-t-0 lg:border-l border-white/10 pt-6 lg:pt-0 lg:pl-8">
+      <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-6 border-t lg:border-t-0 lg:border-l border-obsidian-800 pt-6 lg:pt-0 lg:pl-8">
         {/* Pílulas de Métrica */}
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-3 w-full sm:w-auto">
-          <div className="p-3.5 rounded-2xl bg-[#080c14] border border-white/5 flex flex-col">
+          <div className="p-3.5 rounded-xl bg-obsidian-950 border border-obsidian-800/80 flex flex-col">
             <span className="text-xs font-mono text-slate-400">Margem Downtime</span>
             <span className="text-lg font-mono font-bold text-white mt-1 tabular-nums">
               {summary.downtimeBalanceFormatted}
             </span>
-            <span className="text-[11px] text-slate-400 font-medium">Saldo contratual</span>
+            <span className="text-[11px] text-slate-400 font-medium font-mono">Saldo contratual</span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#080c14] border border-white/5 flex flex-col">
+          <div className="p-3.5 rounded-xl bg-obsidian-950 border border-obsidian-800/80 flex flex-col">
             <span className="text-xs font-mono text-slate-400">MTTR Médio</span>
             <span className="text-lg font-mono font-bold text-white mt-1 tabular-nums">
               {summary.mttrMinutesAvg} min
             </span>
-            <span className="text-[11px] text-slate-400 font-medium">MTTR apurado</span>
+            <span className="text-[11px] text-slate-400 font-medium font-mono">MTTR apurado</span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#080c14] border border-white/5 flex flex-col">
+          <div className="p-3.5 rounded-xl bg-obsidian-950 border border-obsidian-800/80 flex flex-col">
             <span className="text-xs font-mono text-slate-400">Próxima Janela</span>
             <span className="text-lg font-mono font-bold text-sky-400 mt-1 tabular-nums">
               {summary.nextMaintenanceWindow}
             </span>
-            <span className="text-[11px] text-slate-400">Isenta de SLA</span>
+            <span className="text-[11px] text-slate-400 font-mono">Isenta de SLA</span>
           </div>
         </div>
 
@@ -142,7 +142,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
             data-testid="download-pdf-btn"
             onClick={onDownloadPdf}
             disabled={isDownloadingPdf}
-            className="h-10 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
+            className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-obsidian-950 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
           >
             <Download size={16} />
             <span>{isDownloadingPdf ? "Gerando PDF..." : "Baixar Relatório (PDF)"}</span>
@@ -151,7 +151,7 @@ export const SlaKpiCards: React.FC<SlaKpiCardsProps> = ({
             type="button"
             data-testid="history-sla-btn"
             onClick={onViewHistory}
-            className="h-10 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-slate-200 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="h-10 px-4 rounded-lg bg-obsidian-850 hover:bg-obsidian-800 border border-obsidian-750 text-xs font-mono font-semibold text-slate-200 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <History size={15} />
             <span>Histórico de SLA</span>
