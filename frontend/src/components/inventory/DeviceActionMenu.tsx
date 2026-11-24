@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { MoreVertical, Pause, Play, Wrench, Eye } from "lucide-react";
+import { MoreVertical, Pause, Play, Wrench } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import type { DeviceHealthStatus } from "../../types/inventory";
@@ -11,7 +11,6 @@ interface DeviceActionMenuProps {
   onPause: (deviceId: string, reason: string) => void;
   onResume: (deviceId: string, reason?: string) => void;
   onMaintenance: (deviceId: string, payload: { until: string; title: string; reason: string }) => void;
-  onViewDetails: (deviceId: string) => void;
 }
 
 const actionItems = [
@@ -35,13 +34,6 @@ const actionItems = [
     icon: Wrench,
     variant: "info" as const,
     requiresConfirmation: true,
-  },
-  {
-    id: "details",
-    label: "Ver Detalhes",
-    icon: Eye,
-    variant: "default" as const,
-    requiresConfirmation: false,
   },
 ] as const;
 
@@ -108,7 +100,6 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
   onPause,
   onResume,
   onMaintenance,
-  onViewDetails,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<ActionId | null>(null);
@@ -156,9 +147,6 @@ export const DeviceActionMenu: React.FC<DeviceActionMenuProps> = ({
         if (maintenancePayload.until && maintenancePayload.title.trim() && maintenancePayload.reason.trim()) {
           onMaintenance(deviceId, maintenancePayload);
         }
-        break;
-      case "details":
-        onViewDetails(deviceId);
         break;
     }
     setPauseReason("");

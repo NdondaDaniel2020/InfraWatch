@@ -198,12 +198,12 @@ const DeviceRow: React.FC<{
             variant="outline"
             size="sm"
             onClick={() => onViewDetails(device.id)}
-            aria-label={`Ações para ${device.name}`}
+            aria-label={`Detalhes para ${device.name}`}
             data-testid={`device-details-${device.id}`}
             title="Acessar página de detalhes e telemetria do ativo"
             className="h-7 text-xs px-2.5"
           >
-            Ações
+            Detalhe
           </Button>
           {onPause && onResume && onMaintenance && (
             <DeviceActionMenu
@@ -213,7 +213,6 @@ const DeviceRow: React.FC<{
               onPause={onPause}
               onResume={onResume}
               onMaintenance={onMaintenance}
-              onViewDetails={onViewDetails}
             />
           )}
         </div>
