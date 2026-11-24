@@ -66,7 +66,7 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
     {
       queryKey: ["topology-drawer-device-detail", targetDeviceId],
       queryFn: async () => {
-        if (!targetDeviceId || targetDeviceId.startsWith("dev-mock")) return null;
+        if (!targetDeviceId) return null;
         try {
           return await deviceDetailApi.getDeviceDetail(targetDeviceId);
         } catch {

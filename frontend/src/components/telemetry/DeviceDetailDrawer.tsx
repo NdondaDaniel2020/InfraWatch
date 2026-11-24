@@ -57,7 +57,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
       queryKey: ["device-sla-drawer", device?.device_id],
       queryFn: async () => {
         try {
-          if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
+          if (!device?.device_id) return null;
           return await apiClient.get<any>(`/api/v1/sla/devices/${device.device_id}`);
         } catch {
           return null;
@@ -75,7 +75,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
       queryKey: ["device-timescale-metrics-drawer", device?.device_id],
       queryFn: async () => {
         try {
-          if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
+          if (!device?.device_id) return null;
           return await deviceDetailApi.getTimescaleMetrics(device.device_id, "24h");
         } catch {
           return null;
@@ -93,7 +93,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
       queryKey: ["device-interfaces-drawer", device?.device_id],
       queryFn: async () => {
         try {
-          if (!device?.device_id || device.device_id.startsWith("dev-mock")) return null;
+          if (!device?.device_id) return null;
           return await deviceDetailApi.getDeviceInterfaces(device.device_id);
         } catch {
           return null;

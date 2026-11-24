@@ -8,12 +8,10 @@ import {
   HardDrive,
   LayoutDashboard,
   Network,
-  Power,
   Server,
   ShieldAlert,
   ShieldCheck,
   Sliders,
-  Terminal,
   Users,
   Wrench,
   X,
@@ -48,8 +46,6 @@ export const NAV_ITEMS: NavItemConfig[] = [
     label: "Incidentes",
     icon: <AlertTriangle size={18} />,
     allowedRoles: ["SUPER_ADMIN", "NOC_OPERATOR", "ORG_ADMIN"],
-    badge: "1 CRIT",
-    badgeVariant: "critical",
   },
   {
     to: "/topology",
@@ -110,13 +106,11 @@ export const NAV_ITEMS: NavItemConfig[] = [
 export interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
-  onEmergencyDrain?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen = false,
   onClose,
-  onEmergencyDrain,
 }) => {
   const { hasRole } = useAuth();
 
@@ -211,43 +205,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Bottom Rail: Emergency Drain & Suporte */}
-        <div className="px-3 flex flex-col gap-2 pt-3 border-t border-obsidian-800/60">
-          <button
-            type="button"
-            data-testid="sidebar-emergency-drain-btn"
-            onClick={() => {
-              if (onEmergencyDrain) {
-                onEmergencyDrain();
-              } else {
-                const btn = document.querySelector('[data-testid="emergency-drain-btn"]') as HTMLButtonElement;
-                if (btn) btn.click();
-              }
-            }}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-rose-400 cursor-pointer"
+        {/* Bottom Rail: Documentação da API */}
+        <div className="px-3 flex flex-col gap-1 pt-3 border-t border-obsidian-800/60">
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="sidebar-docs-link"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-obsidian-900 text-xs transition-colors font-medium cursor-pointer"
+            title="Abrir documentação interativa OpenAPI/Swagger em nova aba"
           >
-            <Power size={16} aria-hidden="true" />
-            <span>Emergency Drain</span>
-          </button>
-
-          <div className="flex flex-col space-y-0.5">
-            <a
-              href="#docs"
-              onClick={(e) => e.preventDefault()}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-obsidian-900 text-xs transition-colors"
-            >
-              <BookOpen size={16} aria-hidden="true" />
-              <span>Documentação</span>
-            </a>
-            <a
-              href="#cli"
-              onClick={(e) => e.preventDefault()}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-obsidian-900 text-xs transition-colors"
-            >
-              <Terminal size={16} aria-hidden="true" />
-              <span>Console CLI</span>
-            </a>
-          </div>
+            <BookOpen size={16} aria-hidden="true" className="text-emerald-400" />
+            <span>Documentação da API</span>
+          </a>
         </div>
       </aside>
     </>

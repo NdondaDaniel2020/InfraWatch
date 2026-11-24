@@ -659,18 +659,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     setIsPingingId(device.device_id);
     showToast(`Sonda ICMP executada para ${device.name} (${device.ip_address}): disparando em tempo real...`, "info");
     try {
-      let probeResult: any = null;
-      if (device.device_id && !device.device_id.startsWith("dev-mock")) {
-        probeResult = await deviceDetailApi.triggerManualProbe(device.device_id);
-      } else {
-        probeResult = {
-          success: true,
-          rttMs: 12.4,
-          packetLossPct: 0,
-          status: "UP",
-          message: "Probe simulada com sucesso",
-        };
-      }
+      const probeResult = await deviceDetailApi.triggerManualProbe(device.device_id);
 
       const newLatency = Number(probeResult.rttMs) || 0;
       const newLoss = Number(probeResult.packetLossPct) ?? (probeResult.success ? 0 : 100);
@@ -712,7 +701,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     if (device.status === "MAINT") {
       try {
         setIsMaintenanceLoading(true);
-        if (device.device_id && !device.device_id.startsWith("dev-mock")) {
+        if (device.device_id) {
           await devicesApi.resumeDevice(device.device_id);
         }
         setSelectedDevice((prev) => (prev ? { ...prev, status: "UP" } : null));
@@ -734,7 +723,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     if (!maintenanceTargetDevice) return;
     try {
       setIsMaintenanceLoading(true);
-      if (maintenanceTargetDevice.device_id && !maintenanceTargetDevice.device_id.startsWith("dev-mock")) {
+      if (maintenanceTargetDevice.device_id) {
         await devicesApi.setMaintenance(maintenanceTargetDevice.device_id, payload);
       }
       setSelectedDevice((prev) => (prev ? { ...prev, status: "MAINT" } : null));
@@ -757,7 +746,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     try {
       if (devices.length > 0) {
         const firstDev = devices[0];
-        if (firstDev?.device_id && !firstDev.device_id.startsWith("dev-mock")) {
+        if (firstDev?.device_id) {
           await deviceDetailApi.triggerManualProbe(firstDev.device_id);
         }
       }

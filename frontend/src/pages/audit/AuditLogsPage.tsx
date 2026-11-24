@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   FileDown,
-  Settings,
   ShieldCheck,
   Clock,
   Key,
@@ -129,12 +128,6 @@ export const AuditLogsPage: React.FC = () => {
     toast.success("Download do Ledger criptográfico iniciado!");
   };
 
-  const handleOpenRetentionPolicy = () => {
-    toast.info(
-      "Política BNA/INACOM: Retenção obrigatória de 5 anos para trilhas de auditoria criptografadas."
-    );
-  };
-
   const handlePageChange = (newPage: number) => {
     setFilters((prev) => ({ ...prev, page: newPage }));
   };
@@ -178,15 +171,6 @@ export const AuditLogsPage: React.FC = () => {
           >
             <FileDown size={16} className="text-sky-400" />
             <span>Exportar Ledger (.json)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleOpenRetentionPolicy}
-            className="flex-1 sm:flex-initial justify-center h-9 px-3 rounded-lg bg-obsidian-900 hover:bg-obsidian-850 border border-obsidian-800 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Settings size={16} />
-            <span>Retenção Legal</span>
           </button>
 
           {isGlobalAdmin && (

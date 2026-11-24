@@ -3,8 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../components/layout/AppLayout";
 import { GlobalErrorBoundary } from "../components/common/GlobalErrorBoundary";
-import { LoginPage, LoginTestPage } from "../pages/auth/LoginPage";
-import { DeviceFormPreviewPage } from "../pages/dev/DeviceFormPreviewPage";
+import { LoginPage } from "../pages/auth/LoginPage";
 import { MfaChallengePage } from "../pages/auth/MfaChallengePage";
 import { GoogleCallbackPage } from "../pages/auth/GoogleCallbackPage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
@@ -47,9 +46,6 @@ export const AppRoutes: React.FC = () => {
         {/* ================================================================= */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/login/mfa-challenge" element={<MfaChallengePage />} />
-        <Route path="/login-test" element={<LoginTestPage />} />
-        <Route path="/dev/login" element={<LoginTestPage />} />
-        <Route path="/dev/device-form" element={<DeviceFormPreviewPage />} />
         <Route path="/auth/callback" element={<GoogleCallbackPage />} />
         <Route path="/auth/callback/google" element={<GoogleCallbackPage />} />
         <Route path="/password-reset" element={<ForgotPasswordPage />} />
