@@ -87,7 +87,7 @@ export const IncidentCard: React.FC<IncidentCardProps> = ({
               }
               className="text-slate-300 hover:text-white underline cursor-pointer"
             >
-              ACK
+              Reconhecer
             </button>
             <button
               type="button"
@@ -104,7 +104,7 @@ export const IncidentCard: React.FC<IncidentCardProps> = ({
           </div>
         ) : (
           <Link to="/incidents" className="text-sky-400 hover:underline">
-            Ver Timeline ↗
+            Ver Linha do Tempo ↗
           </Link>
         )}
       </div>

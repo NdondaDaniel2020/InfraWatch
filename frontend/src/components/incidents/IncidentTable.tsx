@@ -294,7 +294,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                           onClick={() => onOpenDrawer(incident)}
                           data-testid={`btn-open-drawer-${incident.id}`}
                           className="bg-obsidian-850 hover:bg-obsidian-800 text-slate-200 p-1.5 rounded-md border border-obsidian-700 transition-colors cursor-pointer"
-                          title="Abrir Slide-Over Drawer de Detalhes"
+                          title="Abrir Painel Lateral de Detalhes"
                           aria-label={`Abrir detalhes do incidente ${incident.code}`}
                         >
                           <ChevronRight size={16} className="shrink-0" aria-hidden="true" />

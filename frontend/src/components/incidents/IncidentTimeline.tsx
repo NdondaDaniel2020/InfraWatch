@@ -169,7 +169,7 @@ export const IncidentTimeline: React.FC<IncidentTimelineProps> = ({
             className="text-[11.5px] font-mono font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"
           >
             <History size={16} className="text-emerald-400 shrink-0" aria-hidden="true" />
-            Histórico Operacional (Timeline)
+            Histórico Operacional (Linha do Tempo)
           </h3>
           <span className="text-[11px] font-mono text-slate-500">
             {events.length} {events.length === 1 ? "evento" : "eventos"}
