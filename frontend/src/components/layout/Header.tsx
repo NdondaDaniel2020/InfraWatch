@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LogOut, Menu, Search } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "../../context/AuthContext";
+import { useTelemetry } from "../../context/TelemetryContext";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { notificationsApi } from "../../services/notificationsApi";
 import type { ClientNotification } from "../../types/clientPortal";
@@ -22,9 +24,11 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { isConnected, isReconnecting, subscribeToEvent } = useTelemetry();
   const [utcTime, setUtcTime] = useState<string>("");
   const [notifications, setNotifications] = useState<ClientNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const wasReconnectingRef = useRef(false);
 
   useEffect(() => {
     // Carrega contagem inicial de notificações não lidas
@@ -40,6 +44,131 @@ export const Header: React.FC<HeaderProps> = ({
         console.error("Falha ao consultar notificações:", err);
       });
   }, []);
+
+  // Escuta eventos ao vivo emitidos pelo stream SSE
+  useEffect(() => {
+    const handleIncomingNotification = (
+      title: string,
+      summary: string,
+      type: "advisory" | "maintenance" | "resolved",
+      severity: "info" | "warning" | "success",
+      id?: string
+    ) => {
+      const nowWat =
+        new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }) + " WAT";
+
+      const newNotif: ClientNotification = {
+        id: id || `sse-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        title,
+        summary,
+        timestampWat: nowWat,
+        impactSlaFormatted: "0m",
+        isRead: false,
+        type,
+        severity,
+      };
+
+      setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
+      setUnreadCount((prev) => prev + 1);
+
+      // Feedback visual imediato via Toast
+      if (severity === "warning") {
+        toast.warning(title, { description: summary });
+      } else if (severity === "success") {
+        toast.success(title, { description: summary });
+      } else {
+        toast.info(title, { description: summary });
+      }
+    };
+
+    const unsubNotification = subscribeToEvent("NotificationCreated", (payload) => {
+      handleIncomingNotification(
+        (payload.title as string) || "Novo Comunicado Técnico",
+        (payload.message as string) || "Atualização operacional registrada no NOC.",
+        payload.type === "maintenance" ? "maintenance" : "advisory",
+        payload.severity === "warning" ? "warning" : "info",
+        (payload.id as string) || (payload.notification_id as string)
+      );
+    });
+
+    const unsubAlarm = subscribeToEvent("AlarmTriggered", (payload) => {
+      handleIncomingNotification(
+        `Alarme: ${(payload.title as string) || (payload.device_name as string) || "Dispositivo Degradado"}`,
+        (payload.message as string) || (payload.description as string) || "Falha detectada pelo motor de sondagem.",
+        "advisory",
+        "warning",
+        (payload.event_id as string) || (payload.incident_id as string)
+      );
+    });
+
+    const unsubIncident = subscribeToEvent("IncidentCreated", (payload) => {
+      handleIncomingNotification(
+        `Incidente Aberto: ${(payload.title as string) || "Falha Crítica"}`,
+        (payload.message as string) || (payload.description as string) || "Incidente prioritário sob investigação do NOC.",
+        "advisory",
+        "warning",
+        payload.incident_id as string
+      );
+    });
+
+    const unsubResolved = subscribeToEvent("IncidentResolved", (payload) => {
+      handleIncomingNotification(
+        `Incidente Resolvido: ${(payload.title as string) || "Serviço Normalizado"}`,
+        (payload.message as string) || "O dispositivo retornou ao estado nominal de operação.",
+        "resolved",
+        "success",
+        payload.incident_id as string
+      );
+    });
+
+    const unsubMaintenance = subscribeToEvent("MaintenanceWindowApproved", (payload) => {
+      handleIncomingNotification(
+        `Janela RFC Aprovada: ${(payload.code as string) || (payload.title as string) || "Manutenção"}`,
+        (payload.message as string) || "Janela de manutenção homologada para isenção de SLA.",
+        "maintenance",
+        "info",
+        payload.maintenance_id as string
+      );
+    });
+
+    return () => {
+      unsubNotification();
+      unsubAlarm();
+      unsubIncident();
+      unsubResolved();
+      unsubMaintenance();
+    };
+  }, [subscribeToEvent]);
+
+  // Sincronização Catch-Up pós-reconexão do stream SSE
+  useEffect(() => {
+    if (isReconnecting) {
+      wasReconnectingRef.current = true;
+    } else if (isConnected && wasReconnectingRef.current) {
+      wasReconnectingRef.current = false;
+      const latestId = notifications[0]?.id;
+      notificationsApi
+        .syncSince(latestId)
+        .then((missedItems) => {
+          if (missedItems && missedItems.length > 0) {
+            setNotifications((prev) => {
+              const existingIds = new Set(prev.map((n) => n.id));
+              const newItems = missedItems.filter((item) => !existingIds.has(item.id));
+              if (newItems.length === 0) return prev;
+              setUnreadCount((c) => c + newItems.filter((i) => !i.isRead).length);
+              toast.info(`${newItems.length} comunicado(s) sincronizado(s).`);
+              return [...newItems, ...prev];
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Falha na sincronização Catch-Up de notificações:", err);
+        });
+    }
+  }, [isConnected, isReconnecting, notifications]);
 
   const handleMarkAllNotificationsRead = async () => {
     try {
