@@ -33,6 +33,23 @@ class TestDockerComposeConfig(unittest.TestCase):
         if init_secrets_script.exists():
             subprocess.run([str(init_secrets_script)], check=False, capture_output=True)
 
+        # Garante que o arquivo .env.production referenciado pelo docker-compose exista para validação do compose config
+        cls._created_temp_files = []
+        prod_env = cls.root_dir / "backend" / ".env.production"
+        if not prod_env.exists():
+            example_env = cls.root_dir / "backend" / ".env.example"
+            if example_env.exists():
+                shutil.copy(example_env, prod_env)
+            else:
+                prod_env.write_text("# dummy env for compose config validation\n")
+            cls._created_temp_files.append(prod_env)
+
+    @classmethod
+    def tearDownClass(cls):
+        for temp_file in getattr(cls, "_created_temp_files", []):
+            if temp_file.exists():
+                temp_file.unlink(missing_ok=True)
+
     def test_compose_file_exists_and_is_valid_yaml(self):
         """Valida se o docker-compose.yml existe e é um YAML válido."""
         self.assertIsInstance(self.compose_data, dict)
