@@ -17,6 +17,7 @@ from uuid import UUID
 from sqlalchemy import (
     DDL,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -76,6 +77,13 @@ class OrganizationModel(Base):
     audit_logs: Mapped[list[AuditLogModel]] = relationship(
         "AuditLogModel",
         back_populates="organization",
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "sla_target_default >= 50.00 AND sla_target_default <= 100.00",
+            name="chk_org_sla_target_range",
+        ),
     )
 
     def __repr__(self) -> str:

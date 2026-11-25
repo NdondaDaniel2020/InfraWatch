@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 from fastapi import status
-from sqlalchemy import event
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import StaticPool
 
 from src.contexts.alerting.database.models import IncidentModel
-from src.contexts.iam.database.models import OrganizationModel, UserModel
+from src.contexts.iam.database.models import AuditLogModel, OrganizationModel, UserModel
 from src.contexts.iam.domain.enums import UserRole
 from src.contexts.iam.security.tokens import create_access_token
 from src.contexts.inventory.database.models import DeviceModel
@@ -154,6 +154,11 @@ async def test_export_device_sla_csv_success(override_get_db, test_session_facto
     content = resp.text
     assert "Device ID" in content
     assert "Switch Core" in content
+
+    # Valida registro na trilha de auditoria (Checklist Hardening Ponto 8)
+    async with test_session_factory() as session:
+        audit_records = (await session.scalars(select(AuditLogModel))).all()
+        assert any(r.action == "SLA_REPORT_DOWNLOADED" for r in audit_records)
     assert "Uptime (%)" in content
 
 
@@ -202,6 +207,11 @@ async def test_export_organization_sla_csv_success(override_get_db, test_session
     content = resp.text
     assert "Device ID" in content
     assert "Switch Core" in content
+
+    # Valida registro na trilha de auditoria (Checklist Hardening Ponto 8)
+    async with test_session_factory() as session:
+        audit_records = (await session.scalars(select(AuditLogModel))).all()
+        assert any(r.action == "SLA_REPORT_DOWNLOADED" for r in audit_records)
 
 
 @pytest.mark.asyncio

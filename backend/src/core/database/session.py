@@ -47,12 +47,20 @@ def get_engine() -> AsyncEngine:
             engine_kwargs["poolclass"] = pool.StaticPool
     else:
         # Configurações de Pool para PostgreSQL em alta concorrência
+        # e proteção contra queries e locks lentos (Checklist Hardening Ponto 2)
+        connect_args: dict[str, Any] = {
+            "server_settings": {
+                "statement_timeout": str(settings.DB_STATEMENT_TIMEOUT_MS),
+                "lock_timeout": str(settings.DB_LOCK_TIMEOUT_MS),
+            }
+        }
         engine_kwargs.update(
             {
                 "pool_size": settings.DB_POOL_SIZE,
                 "max_overflow": settings.DB_MAX_OVERFLOW,
                 "pool_timeout": settings.DB_POOL_TIMEOUT,
                 "pool_pre_ping": settings.DB_POOL_PRE_PING,
+                "connect_args": connect_args,
             }
         )
 

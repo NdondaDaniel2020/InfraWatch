@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Computed, DateTime, Index, String, func
+from sqlalchemy import CheckConstraint, Computed, DateTime, Index, String, func
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -45,4 +45,10 @@ class DeviceModel(Base):
         nullable=True,  # Para nao quebrar no sqlite que nao suporta a funcao
     )
 
-    __table_args__ = (Index("ix_devices_search_vector", "search_vector", postgresql_using="gin"),)
+    __table_args__ = (
+        Index("ix_devices_search_vector", "search_vector", postgresql_using="gin"),
+        CheckConstraint(
+            "interval_seconds >= 5 AND interval_seconds <= 86400",
+            name="chk_device_interval_seconds",
+        ),
+    )

@@ -886,7 +886,7 @@ async def seed_maintenance_windows(
             "org_slug": "infrawatch-lab",
             "description": "Manutenção Preventiva e Atualização de Certificados TLS",
             "start_time": now - timedelta(days=4),
-            "end_time": now - timedelta(days=4, hours=2),
+            "end_time": now - timedelta(days=4) + timedelta(hours=2),
             "is_approved": True,
         },
         # Mocks Canônicos
@@ -1092,7 +1092,10 @@ async def seed_metrics(
             inserted_count += 1
 
         # Injeta métricas de hardware (CPU / RAM / Disco) para servidores e dispositivos SNMP
-        if dev.category in ("SERVER", "ROUTER", "SWITCH", "DATABASE") or str(dev.protocol).lower() == "snmp":
+        if (
+            dev.category in ("SERVER", "ROUTER", "SWITCH", "DATABASE")
+            or str(dev.protocol).lower() == "snmp"
+        ):
             cpu_val = round(15.0 + (dev.id.int % 40) + (base_latency % 10), 1)
             mem_val = round(35.0 + (dev.id.int % 30) + (base_latency % 8), 1)
             disk_val = round(28.0 + (dev.id.int % 25), 1)
@@ -1144,13 +1147,15 @@ async def seed_metrics(
                     cache_key = f"infrawatch:device:{dev.id}:hardware_telemetry"
                     await redis.set(
                         cache_key,
-                        json.dumps({
-                            "cpu_usage_pct": cpu_val,
-                            "memory_usage_pct": mem_val,
-                            "disk_usage_pct": disk_val,
-                            "collected_at": now.isoformat(),
-                            "zabbix_host_id": (dev.thresholds or {}).get("zabbix_host_id"),
-                        }),
+                        json.dumps(
+                            {
+                                "cpu_usage_pct": cpu_val,
+                                "memory_usage_pct": mem_val,
+                                "disk_usage_pct": disk_val,
+                                "collected_at": now.isoformat(),
+                                "zabbix_host_id": (dev.thresholds or {}).get("zabbix_host_id"),
+                            }
+                        ),
                         ex=86400,
                     )
             except Exception:
@@ -1330,8 +1335,12 @@ async def seed_topology(
         if existing:
             existing.ip_address = str(item["ip_address"]) if item["ip_address"] else None
             existing.cluster = str(item["cluster"]) if item["cluster"] else None
-            existing.position_x = float(item["position_x"]) if item["position_x"] is not None else None
-            existing.position_y = float(item["position_y"]) if item["position_y"] is not None else None
+            existing.position_x = (
+                float(item["position_x"]) if item["position_x"] is not None else None
+            )
+            existing.position_y = (
+                float(item["position_y"]) if item["position_y"] is not None else None
+            )
             if dev:
                 existing.device_id = dev.id
             nodes_map[(item["org_id"], label_str)] = existing
@@ -1645,7 +1654,11 @@ async def sync_zabbix_hosts_on_seed(
 
                 if protocol == "snmp" or snmp_conf or "zabbix_host_id" in thresholds:
                     host_key = device.hostname or name
-                    target_hostid = existing_map.get(host_key) or existing_name_map.get(name) or existing_map.get(name)
+                    target_hostid = (
+                        existing_map.get(host_key)
+                        or existing_name_map.get(name)
+                        or existing_map.get(name)
+                    )
 
                     interface_details = build_zabbix_snmp_interface_details(
                         snmp_config=snmp_conf,
@@ -1654,7 +1667,8 @@ async def sync_zabbix_hosts_on_seed(
                     )
 
                     is_network_device = any(
-                        k in name.lower() for k in ("router", "switch", "dwdm", "cisco", "sw-", "rt-")
+                        k in name.lower()
+                        for k in ("router", "switch", "dwdm", "cisco", "sw-", "rt-")
                     )
                     template_id = "10226" if is_network_device else "10248"
 
@@ -1669,7 +1683,11 @@ async def sync_zabbix_hosts_on_seed(
                                     "interfaces": [interface_details],
                                 },
                             )
-                            logger.info("Host Zabbix atualizado no seed: %s (hostid=%s)", name, target_hostid)
+                            logger.info(
+                                "Host Zabbix atualizado no seed: %s (hostid=%s)",
+                                name,
+                                target_hostid,
+                            )
                         except Exception as upd_err:
                             logger.debug("Aviso ao atualizar host %s no Zabbix: %s", name, upd_err)
                     else:
@@ -1684,9 +1702,18 @@ async def sync_zabbix_hosts_on_seed(
                                     "templates": [{"templateid": template_id}],
                                 },
                             )
-                            if res and isinstance(res, dict) and "hostids" in res and res["hostids"]:
+                            if (
+                                res
+                                and isinstance(res, dict)
+                                and "hostids" in res
+                                and res["hostids"]
+                            ):
                                 target_hostid = str(res["hostids"][0])
-                                logger.info("Host Zabbix criado com sucesso no seed: %s (hostid=%s)", name, target_hostid)
+                                logger.info(
+                                    "Host Zabbix criado com sucesso no seed: %s (hostid=%s)",
+                                    name,
+                                    target_hostid,
+                                )
                         except Exception as crt_err:
                             logger.warning("Falha ao criar host %s no Zabbix: %s", name, crt_err)
 

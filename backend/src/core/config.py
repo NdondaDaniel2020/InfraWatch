@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = Field(default=10, alias="DB_MAX_OVERFLOW")
     DB_POOL_TIMEOUT: int = Field(default=30, alias="DB_POOL_TIMEOUT")
     DB_POOL_PRE_PING: bool = Field(default=True, alias="DB_POOL_PRE_PING")
+    DB_STATEMENT_TIMEOUT_MS: int = Field(default=10000, alias="DB_STATEMENT_TIMEOUT_MS")
+    DB_LOCK_TIMEOUT_MS: int = Field(default=5000, alias="DB_LOCK_TIMEOUT_MS")
 
     # Redis (Cache, Streams, Lock Distribuído)
     REDIS_HOST: str = Field(default="localhost", alias="REDIS_HOST")
@@ -89,9 +91,7 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = Field(
         default=24, alias="EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS"
     )
-    ENABLE_PUBLIC_REGISTRATION: bool = Field(
-        default=False, alias="ENABLE_PUBLIC_REGISTRATION"
-    )
+    ENABLE_PUBLIC_REGISTRATION: bool = Field(default=False, alias="ENABLE_PUBLIC_REGISTRATION")
 
     # Parâmetros Criptográficos Argon2id (RFC 9106)
     ARGON2_TIME_COST: int = Field(default=2, alias="ARGON2_TIME_COST")
@@ -174,9 +174,7 @@ class Settings(BaseSettings):
     PROCESSED_EVENTS_RETENTION_DAYS: int = Field(
         default=30, alias="PROCESSED_EVENTS_RETENTION_DAYS"
     )
-    OUTBOX_EVENTS_RETENTION_DAYS: int = Field(
-        default=30, alias="OUTBOX_EVENTS_RETENTION_DAYS"
-    )
+    OUTBOX_EVENTS_RETENTION_DAYS: int = Field(default=30, alias="OUTBOX_EVENTS_RETENTION_DAYS")
 
     # Carga Inicial de Dados de Demonstração / Seed
     RUN_SEED_ON_STARTUP: bool = Field(default=False, alias="RUN_SEED_ON_STARTUP")
