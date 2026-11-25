@@ -273,7 +273,10 @@ async def test_create_support_ticket_blocks_other_org_device_idor(
         )
 
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Dispositivo informado não encontrado ou não pertence à sua organização" in resp.json()["detail"]
+    assert (
+        "Dispositivo informado não encontrado ou não pertence à sua organização"
+        in resp.json()["detail"]
+    )
     mock_glpi.open_ticket.assert_not_called()
 
 

@@ -23,7 +23,9 @@ class TelemetryRepository:
         model = MetricModel(
             id=metric.id,
             device_id=metric.device_id,
-            metric_type=metric.metric_type.value if hasattr(metric.metric_type, "value") else str(metric.metric_type),
+            metric_type=metric.metric_type.value
+            if hasattr(metric.metric_type, "value")
+            else str(metric.metric_type),
             value=metric.value,
             packet_loss=metric.packet_loss,
             timestamp=metric.timestamp,
@@ -40,7 +42,9 @@ class TelemetryRepository:
             MetricModel(
                 id=m.id,
                 device_id=m.device_id,
-                metric_type=m.metric_type.value if hasattr(m.metric_type, "value") else str(m.metric_type),
+                metric_type=m.metric_type.value
+                if hasattr(m.metric_type, "value")
+                else str(m.metric_type),
                 value=m.value,
                 packet_loss=m.packet_loss,
                 timestamp=m.timestamp,
@@ -60,9 +64,7 @@ class TelemetryRepository:
         """)
         await self.session.execute(insert_sql, batch)
 
-    async def get_latest_metrics_by_devices(
-        self, device_ids: list[UUID]
-    ) -> list[MetricModel]:
+    async def get_latest_metrics_by_devices(self, device_ids: list[UUID]) -> list[MetricModel]:
         """Recupera os registros de métricas mais recentes para um conjunto de dispositivos."""
         if not device_ids:
             return []

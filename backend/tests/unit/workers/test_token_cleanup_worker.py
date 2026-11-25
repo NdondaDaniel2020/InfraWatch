@@ -64,8 +64,12 @@ async def test_token_cleanup_worker_run_once_success(
             return_value=AsyncContextManager(mock_lock),
         ),
         patch.object(worker, "cleanup_expired_tokens", new_callable=AsyncMock) as mock_cleanup,
-        patch.object(worker, "cleanup_processed_events", new_callable=AsyncMock) as mock_events_cleanup,
-        patch.object(worker, "cleanup_outbox_events", new_callable=AsyncMock) as mock_outbox_cleanup,
+        patch.object(
+            worker, "cleanup_processed_events", new_callable=AsyncMock
+        ) as mock_events_cleanup,
+        patch.object(
+            worker, "cleanup_outbox_events", new_callable=AsyncMock
+        ) as mock_outbox_cleanup,
     ):
         mock_cleanup.return_value = 10
         mock_events_cleanup.return_value = 5
@@ -199,4 +203,3 @@ async def test_token_cleanup_worker_cleanup_processed_events_and_outbox(
             session=mock_session,
             retention_days=30,
         )
-

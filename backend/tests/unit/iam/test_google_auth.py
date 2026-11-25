@@ -57,9 +57,7 @@ class FakeGoogleIdentityProvider:
         self.exchange_error: Exception | None = None
         self.verify_error: Exception | None = None
 
-    async def exchange_code_for_id_token(
-        self, code: str, redirect_uri: str | None = None
-    ) -> str:
+    async def exchange_code_for_id_token(self, code: str, redirect_uri: str | None = None) -> str:
         self.last_exchange_redirect_uri = redirect_uri
         if self.exchange_error is not None:
             raise self.exchange_error
@@ -328,9 +326,7 @@ class TestGoogleAuthEndpoints:
             assert "state" in data
             assert "test-client-id" in data["authorization_url"]
 
-    async def test_get_url_with_custom_redirect_uri(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_get_url_with_custom_redirect_uri(self, monkeypatch: pytest.MonkeyPatch) -> None:
         settings = get_settings()
         monkeypatch.setattr(settings, "GOOGLE_LOGIN_ENABLED", True)
         monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-client-id")

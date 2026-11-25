@@ -24,9 +24,9 @@ def test_event_stream_mapping_values_are_valid_stream_topics() -> None:
     """Garante que todo valor registrado no dicionário EVENT_STREAM_MAPPING é membro válido de StreamTopics."""
     valid_topics = set(StreamTopics)
     for event_name, stream_target in EVENT_STREAM_MAPPING.items():
-        assert (
-            stream_target in valid_topics
-        ), f"Evento '{event_name}' mapeado para stream desconhecido '{stream_target}'"
+        assert stream_target in valid_topics, (
+            f"Evento '{event_name}' mapeado para stream desconhecido '{stream_target}'"
+        )
 
 
 @pytest.mark.parametrize(

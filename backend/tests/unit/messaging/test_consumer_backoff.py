@@ -69,14 +69,10 @@ async def test_redis_streams_should_process_retry_thresholds() -> None:
     assert await bus.should_process_retry("stream:incidents", "cg:workers", "msg-1") is True
 
     # 3ª tentativa (limiar: 60_000 ms)
-    mock_redis.xpending_range.return_value = [
-        ("msg-1", "w-1", 45000, 3)
-    ]
+    mock_redis.xpending_range.return_value = [("msg-1", "w-1", 45000, 3)]
     assert await bus.should_process_retry("stream:incidents", "cg:workers", "msg-1") is False
 
-    mock_redis.xpending_range.return_value = [
-        ("msg-1", "w-1", 60000, 3)
-    ]
+    mock_redis.xpending_range.return_value = [("msg-1", "w-1", 60000, 3)]
     assert await bus.should_process_retry("stream:incidents", "cg:workers", "msg-1") is True
 
     # 4ª tentativa (limiar: 180_000 ms)

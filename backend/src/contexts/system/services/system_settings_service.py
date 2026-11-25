@@ -80,22 +80,34 @@ class SystemSettingsService:
         cat = name.lower().strip()
         if cat == "glpi":
             glpi_req = GlpiSettingsUpdateRequest(**payload)
-            return await self.update_glpi_settings(glpi_req, updated_by=updated_by, ip_address=ip_address)
+            return await self.update_glpi_settings(
+                glpi_req, updated_by=updated_by, ip_address=ip_address
+            )
         elif cat == "zabbix":
             zabbix_req = ZabbixSettingsUpdateRequest(**payload)
-            return await self.update_zabbix_settings(zabbix_req, updated_by=updated_by, ip_address=ip_address)
+            return await self.update_zabbix_settings(
+                zabbix_req, updated_by=updated_by, ip_address=ip_address
+            )
         elif cat == "telegram":
             telegram_req = TelegramSettingsUpdateRequest(**payload)
-            return await self.update_telegram_settings(telegram_req, updated_by=updated_by, ip_address=ip_address)
+            return await self.update_telegram_settings(
+                telegram_req, updated_by=updated_by, ip_address=ip_address
+            )
         elif cat == "whatsapp":
             wa_req = WhatsappSettingsUpdateRequest(**payload)
-            return await self.update_whatsapp_settings(wa_req, updated_by=updated_by, ip_address=ip_address)
+            return await self.update_whatsapp_settings(
+                wa_req, updated_by=updated_by, ip_address=ip_address
+            )
         elif cat == "smtp":
             smtp_req = SmtpSettingsUpdateRequest(**payload)
-            return await self.update_smtp_settings(smtp_req, updated_by=updated_by, ip_address=ip_address)
+            return await self.update_smtp_settings(
+                smtp_req, updated_by=updated_by, ip_address=ip_address
+            )
         elif cat == "webhook":
             webhook_req = WebhookSettingsUpdateRequest(**payload)
-            return await self.update_webhook_settings(webhook_req, updated_by=updated_by, ip_address=ip_address)
+            return await self.update_webhook_settings(
+                webhook_req, updated_by=updated_by, ip_address=ip_address
+            )
         else:
             raise ValueError(
                 f"Integração '{name}' não é suportada. Opções: glpi, zabbix, telegram, whatsapp, smtp, webhook."
@@ -112,8 +124,12 @@ class SystemSettingsService:
 
         existing = await self.repository.get_category_dict("glpi")
 
-        effective_app_token = payload.app_token if payload.app_token else existing.get("glpi.app_token", "")
-        effective_user_token = payload.user_token if payload.user_token else existing.get("glpi.user_token", "")
+        effective_app_token = (
+            payload.app_token if payload.app_token else existing.get("glpi.app_token", "")
+        )
+        effective_user_token = (
+            payload.user_token if payload.user_token else existing.get("glpi.user_token", "")
+        )
 
         if payload.validate_connectivity:
             test_req = GlpiTestRequest(
@@ -209,13 +225,19 @@ class SystemSettingsService:
         existing = await self.repository.get_category_dict("zabbix")
 
         effective_api_token = (
-            payload.api_token if payload.api_token is not None else existing.get("zabbix.api_token", "")
+            payload.api_token
+            if payload.api_token is not None
+            else existing.get("zabbix.api_token", "")
         )
         effective_username = (
-            payload.username if payload.username is not None else existing.get("zabbix.user", "Admin")
+            payload.username
+            if payload.username is not None
+            else existing.get("zabbix.user", "Admin")
         )
         effective_password = (
-            payload.password if payload.password is not None else existing.get("zabbix.password", "")
+            payload.password
+            if payload.password is not None
+            else existing.get("zabbix.password", "")
         )
 
         if payload.validate_connectivity:
@@ -318,7 +340,9 @@ class SystemSettingsService:
         """Persiste parâmetros do Telegram Bot no banco de dados."""
         existing = await self.repository.get_category_dict("telegram")
         effective_bot_token = (
-            payload.bot_token if payload.bot_token is not None else existing.get("telegram.bot_token", "")
+            payload.bot_token
+            if payload.bot_token is not None
+            else existing.get("telegram.bot_token", "")
         )
 
         await self.repository.save_setting(
@@ -390,7 +414,9 @@ class SystemSettingsService:
 
         existing = await self.repository.get_category_dict("whatsapp")
         effective_api_token = (
-            payload.api_token if payload.api_token is not None else existing.get("whatsapp.api_token", "")
+            payload.api_token
+            if payload.api_token is not None
+            else existing.get("whatsapp.api_token", "")
         )
 
         await self.repository.save_setting(
@@ -437,7 +463,11 @@ class SystemSettingsService:
             resource_type="system_settings",
             resource_id="whatsapp",
             actor_user_id=updated_by,
-            details={"category": "whatsapp", "gateway_url": payload.gateway_url, "enabled": payload.enabled},
+            details={
+                "category": "whatsapp",
+                "gateway_url": payload.gateway_url,
+                "enabled": payload.enabled,
+            },
             ip_address=ip_address,
         )
 
@@ -471,10 +501,18 @@ class SystemSettingsService:
             updated_by=updated_by,
         )
         await self.repository.save_setting(
-            key="smtp.host", category="smtp", value=payload.host.strip(), is_secret=False, updated_by=updated_by
+            key="smtp.host",
+            category="smtp",
+            value=payload.host.strip(),
+            is_secret=False,
+            updated_by=updated_by,
         )
         await self.repository.save_setting(
-            key="smtp.port", category="smtp", value=str(payload.port), is_secret=False, updated_by=updated_by
+            key="smtp.port",
+            category="smtp",
+            value=str(payload.port),
+            is_secret=False,
+            updated_by=updated_by,
         )
         await self.repository.save_setting(
             key="smtp.tls",
@@ -484,15 +522,27 @@ class SystemSettingsService:
             updated_by=updated_by,
         )
         await self.repository.save_setting(
-            key="smtp.from", category="smtp", value=payload.from_address.strip(), is_secret=False, updated_by=updated_by
+            key="smtp.from",
+            category="smtp",
+            value=payload.from_address.strip(),
+            is_secret=False,
+            updated_by=updated_by,
         )
         if payload.user:
             await self.repository.save_setting(
-                key="smtp.user", category="smtp", value=payload.user.strip(), is_secret=False, updated_by=updated_by
+                key="smtp.user",
+                category="smtp",
+                value=payload.user.strip(),
+                is_secret=False,
+                updated_by=updated_by,
             )
         if effective_password:
             await self.repository.save_setting(
-                key="smtp.password", category="smtp", value=effective_password, is_secret=True, updated_by=updated_by
+                key="smtp.password",
+                category="smtp",
+                value=effective_password,
+                is_secret=True,
+                updated_by=updated_by,
             )
         if payload.default_recipient:
             await self.repository.save_setting(
@@ -541,7 +591,11 @@ class SystemSettingsService:
         if payload.url and payload.url.strip() and not payload.url.strip().endswith("••••••••"):
             _validate_url(payload.url, "url")
             await self.repository.save_setting(
-                key="webhook.url", category="webhook", value=payload.url.strip(), is_secret=True, updated_by=updated_by
+                key="webhook.url",
+                category="webhook",
+                value=payload.url.strip(),
+                is_secret=True,
+                updated_by=updated_by,
             )
             url_updated = True
 

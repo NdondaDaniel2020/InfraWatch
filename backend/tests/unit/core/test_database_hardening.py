@@ -198,7 +198,12 @@ def test_migration_019_tables_coverage():
     import importlib.util
     from pathlib import Path
 
-    migration_file = Path(__file__).parents[3] / "alembic" / "versions" / "019_enable_force_rls_and_revoke_public.py"
+    migration_file = (
+        Path(__file__).parents[3]
+        / "alembic"
+        / "versions"
+        / "019_enable_force_rls_and_revoke_public.py"
+    )
     spec = importlib.util.spec_from_file_location("mig_019", migration_file)
     assert spec is not None and spec.loader is not None
     mig_019 = importlib.util.module_from_spec(spec)
@@ -222,7 +227,12 @@ def test_migration_019_sqlite_safe():
     import importlib.util
     from pathlib import Path
 
-    migration_file = Path(__file__).parents[3] / "alembic" / "versions" / "019_enable_force_rls_and_revoke_public.py"
+    migration_file = (
+        Path(__file__).parents[3]
+        / "alembic"
+        / "versions"
+        / "019_enable_force_rls_and_revoke_public.py"
+    )
     spec = importlib.util.spec_from_file_location("mig_019", migration_file)
     mig_019 = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mig_019)
@@ -247,4 +257,3 @@ def test_audit_database_hardening_script_content():
     assert "SHOW statement_timeout" in content
     assert "search_path=" in content
     assert "chk_metric_packet_loss" in content
-

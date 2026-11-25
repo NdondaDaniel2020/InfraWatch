@@ -31,9 +31,7 @@ class IncidentResponse(BaseModel):
     downtime_minutes: int | None = None
 
     @classmethod
-    def from_domain(
-        cls, incident: Incident, glpi_url: str | None = None
-    ) -> IncidentResponse:
+    def from_domain(cls, incident: Incident, glpi_url: str | None = None) -> IncidentResponse:
         """Constrói o DTO de resposta a partir da entidade de domínio Incident."""
         if glpi_url is None and incident.glpi_ticket_id:
             try:

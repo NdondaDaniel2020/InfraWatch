@@ -69,7 +69,9 @@ class SystemSettingsRepository:
 
     async def list_all(self) -> list[SystemSetting]:
         """Lista todas as configurações cadastradas."""
-        stmt = select(SystemSettingModel).order_by(SystemSettingModel.category.asc(), SystemSettingModel.key.asc())
+        stmt = select(SystemSettingModel).order_by(
+            SystemSettingModel.category.asc(), SystemSettingModel.key.asc()
+        )
         result = await self.session.execute(stmt)
         models: Sequence[SystemSettingModel] = result.scalars().all()
         return [self._to_domain(m) for m in models]

@@ -43,8 +43,12 @@ class BackupHistoryItem(BaseModel):
     created_at: str = Field(description="Data e hora de criação no formato ISO 8601")
     sha256: str | None = Field(default=None, description="Hash criptográfico SHA-256")
     storage_path: str = Field(description="Caminho completo de armazenamento")
-    targets: BackupTargets = Field(default_factory=BackupTargets, description="Status de replicação por destino")
-    trigger: str = Field(default="scheduled", description="Gatilho de execução: manual ou scheduled")
+    targets: BackupTargets = Field(
+        default_factory=BackupTargets, description="Status de replicação por destino"
+    )
+    trigger: str = Field(
+        default="scheduled", description="Gatilho de execução: manual ou scheduled"
+    )
     notes: str | None = Field(default=None, description="Observações ou descrição da rotina")
 
 
@@ -72,12 +76,18 @@ class GDriveCallbackRequest(BaseModel):
 class GDriveStatusResponse(BaseModel):
     """Status da integração de backup com o Google Drive."""
 
-    configured: bool = Field(description="Indica se o client_id e client_secret do Google estão presentes")
+    configured: bool = Field(
+        description="Indica se o client_id e client_secret do Google estão presentes"
+    )
     authorized: bool = Field(description="Indica se existe refresh_token ativo no Rclone")
     email: str | None = Field(default=None, description="E-mail da conta vinculada (se disponível)")
     message: str | None = Field(default=None, description="Mensagem de status ou diagnóstico")
-    storage_limit_bytes: int | None = Field(default=None, description="Limite de armazenamento em bytes")
-    storage_usage_bytes: int | None = Field(default=None, description="Armazenamento utilizado em bytes")
+    storage_limit_bytes: int | None = Field(
+        default=None, description="Limite de armazenamento em bytes"
+    )
+    storage_usage_bytes: int | None = Field(
+        default=None, description="Armazenamento utilizado em bytes"
+    )
     storage_limit_human: str | None = Field(default=None, description="Limite legível (ex: 5.0 TB)")
     storage_usage_human: str | None = Field(default=None, description="Uso legível (ex: 8.7 GB)")
     storage_free_human: str | None = Field(default=None, description="Espaço livre legível")
@@ -87,8 +97,12 @@ class GDriveStatusResponse(BaseModel):
 class StorageDestinationLocal(BaseModel):
     """Métricas de armazenamento do ambiente local do container (NVMe Host)."""
 
-    status: str = Field(default="ONLINE & SINCRONIZADO", description="Status operacional do destino local")
-    path: str = Field(default="/var/backups/infrawatch", description="Caminho local atômico no filesystem")
+    status: str = Field(
+        default="ONLINE & SINCRONIZADO", description="Status operacional do destino local"
+    )
+    path: str = Field(
+        default="/var/backups/infrawatch", description="Caminho local atômico no filesystem"
+    )
     total_bytes: int = Field(default=0, description="Capacidade total do filesystem em bytes")
     used_bytes: int = Field(default=0, description="Espaço ocupado no filesystem em bytes")
     free_bytes: int = Field(default=0, description="Espaço livre no filesystem em bytes")
@@ -96,10 +110,16 @@ class StorageDestinationLocal(BaseModel):
     used_human: str = Field(default="0 B", description="Espaço ocupado legível (ex: 24.5 GB)")
     free_human: str = Field(default="0 B", description="Espaço livre legível (ex: 7.0 GB)")
     used_percent: float = Field(default=0.0, description="Percentual de ocupação do disco")
-    backups_size_bytes: int = Field(default=0, description="Volume total ocupado exclusivamente por backups")
-    backups_size_human: str = Field(default="0 B", description="Volume de backups legível (ex: 25.0 MB)")
+    backups_size_bytes: int = Field(
+        default=0, description="Volume total ocupado exclusivamente por backups"
+    )
+    backups_size_human: str = Field(
+        default="0 B", description="Volume de backups legível (ex: 25.0 MB)"
+    )
     retention_policy: str = Field(default="7 dias (FIFO)", description="Política de retenção local")
-    io_latency: str = Field(default="0.4ms (Direct-DMA)", description="Latência média de I/O medida")
+    io_latency: str = Field(
+        default="0.4ms (Direct-DMA)", description="Latência média de I/O medida"
+    )
 
 
 class StorageDestinationGDrive(BaseModel):
@@ -124,7 +144,9 @@ class StorageDestinationGDrive(BaseModel):
 class StorageDestinationR2(BaseModel):
     """Métricas de armazenamento e topologia Cloudflare R2 Object Storage."""
 
-    status: str = Field(default="Não Configurado", description="Status operacional do Cloudflare R2")
+    status: str = Field(
+        default="Não Configurado", description="Status operacional do Cloudflare R2"
+    )
     configured: bool = Field(default=False, description="Bucket R2 configurado")
     authorized: bool = Field(default=False, description="Bucket R2 acessível e autorizado")
     bucket: str = Field(default="—", description="Nome do bucket S3 compatível")
@@ -145,5 +167,3 @@ class BackupStorageResponse(BaseModel):
     local: StorageDestinationLocal = Field(default_factory=StorageDestinationLocal)
     gdrive: StorageDestinationGDrive = Field(default_factory=StorageDestinationGDrive)
     r2: StorageDestinationR2 = Field(default_factory=StorageDestinationR2)
-
-

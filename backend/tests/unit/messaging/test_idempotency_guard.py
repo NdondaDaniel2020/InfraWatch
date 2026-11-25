@@ -149,4 +149,3 @@ async def test_idempotency_guard_purge_processed_events(db_session_factory) -> N
     # Verificar que apenas o evento recente sobreviveu
     assert await guard.is_processed(old_event_id, consumer) is False
     assert await guard.is_processed(recent_event_id, consumer) is True
-

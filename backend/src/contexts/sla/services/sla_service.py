@@ -406,8 +406,18 @@ class SlaService:
 
         # Rótulo do ciclo
         meses = [
-            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+            "Janeiro",
+            "Fevereiro",
+            "Março",
+            "Abril",
+            "Maio",
+            "Junho",
+            "Julho",
+            "Agosto",
+            "Setembro",
+            "Outubro",
+            "Novembro",
+            "Dezembro",
         ]
         cycle_month_label = f"Ciclo Mensal: {meses[now.month - 1]} / {now.year}"
 
@@ -432,13 +442,20 @@ class SlaService:
         org_name = await self._org_repo.get_name_by_id(organization_id) or "Organização"
 
         now = datetime.now(UTC)
-        meses = [
-            "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-            "Jul", "Ago", "Set", "Out", "Nov", "Dez"
-        ]
+        meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
         meses_extenso = [
-            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+            "Janeiro",
+            "Fevereiro",
+            "Março",
+            "Abril",
+            "Maio",
+            "Junho",
+            "Julho",
+            "Agosto",
+            "Setembro",
+            "Outubro",
+            "Novembro",
+            "Dezembro",
         ]
 
         items: list[OrganizationSlaHistoryItem] = []
@@ -555,12 +572,16 @@ class SlaService:
 
         count = len(device_items)
         net_avg = round(sum(d.uptime_net_pct for d in device_items) / count, 2) if count else 99.98
-        gross_avg = round(sum(d.uptime_gross_pct for d in device_items) / count, 2) if count else 99.85
+        gross_avg = (
+            round(sum(d.uptime_gross_pct for d in device_items) / count, 2) if count else 99.85
+        )
         mttr_avg = round(sum(d.mttr_minutes for d in device_items) / count, 1) if count else 4.2
         mtbf_avg = 418.0
 
         # Assinatura digital SHA-256 do relatório
-        sig_payload = f"{organization_id}:{net_avg}:{unpl_total}:{start_p.isoformat()}:{end_p.isoformat()}"
+        sig_payload = (
+            f"{organization_id}:{net_avg}:{unpl_total}:{start_p.isoformat()}:{end_p.isoformat()}"
+        )
         digital_sig = f"SHA256:{hashlib.sha256(sig_payload.encode()).hexdigest()[:32].upper()}"
 
         period_label = f"{start_p.strftime('%d/%m/%Y')} a {end_p.strftime('%d/%m/%Y')} (UTC)"
@@ -746,11 +767,21 @@ class SlaService:
         )
 
         meses_extenso = [
-            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+            "Janeiro",
+            "Fevereiro",
+            "Março",
+            "Abril",
+            "Maio",
+            "Junho",
+            "Julho",
+            "Agosto",
+            "Setembro",
+            "Outubro",
+            "Novembro",
+            "Dezembro",
         ]
         period_label = f"{meses_extenso[calc_month - 1]} {calc_year}"
-        is_current_month = (calc_year == now.year and calc_month == now.month)
+        is_current_month = calc_year == now.year and calc_month == now.month
         current_day_number = (
             now.day
             if is_current_month
@@ -768,7 +799,8 @@ class SlaService:
             # Dia futuro no mês atual
             if is_current_month and d > now.day:
                 future_windows = [
-                    w for w in domain_windows
+                    w
+                    for w in domain_windows
                     if (_ensure_utc(w.start_time) or w.start_time) < day_end
                     and (_ensure_utc(w.end_time) or w.end_time) > day_start
                 ]
@@ -793,7 +825,8 @@ class SlaService:
             eval_end = min(day_end, now) if is_current_month and d == now.day else day_end
 
             day_incidents = [
-                inc for inc in all_incidents
+                inc
+                for inc in all_incidents
                 if (_ensure_utc(inc.started_at) or inc.started_at) < eval_end
                 and (
                     inc.resolved_at is None
@@ -802,8 +835,7 @@ class SlaService:
             ]
 
             day_windows = [
-                w for w in domain_windows
-                if w.start_time < eval_end and w.end_time > day_start
+                w for w in domain_windows if w.start_time < eval_end and w.end_time > day_start
             ]
 
             dev_uptimes: list[float] = []
@@ -817,7 +849,9 @@ class SlaService:
                     dev_incs = [inc for inc in day_incidents if inc.device_id == dev.id]
                     downtime_periods = [
                         DowntimePeriod(
-                            start_time=max(_ensure_utc(inc.started_at) or inc.started_at, day_start),
+                            start_time=max(
+                                _ensure_utc(inc.started_at) or inc.started_at, day_start
+                            ),
                             end_time=min(_ensure_utc(inc.resolved_at) or eval_end, eval_end),
                             incident_id=inc.id,
                         )
@@ -880,5 +914,3 @@ class SlaService:
             current_day=current_day_number,
             days=daily_items,
         )
-
-

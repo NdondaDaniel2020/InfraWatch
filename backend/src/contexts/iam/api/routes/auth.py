@@ -20,7 +20,6 @@ from src.contexts.iam.api.dependencies import (
     require_roles,
 )
 from src.contexts.iam.domain.enums import UserRole
-from src.core.config import get_settings
 from src.contexts.iam.schemas.auth import (
     EmailVerificationConfirm,
     LoginRequest,

@@ -20,7 +20,9 @@ from src.contexts.system.services.system_settings_service import SystemSettingsS
 @pytest.fixture
 def mock_settings_service() -> AsyncMock:
     service = AsyncMock(spec=SystemSettingsService)
-    service.update_integration_by_name = SystemSettingsService.update_integration_by_name.__get__(service)
+    service.update_integration_by_name = SystemSettingsService.update_integration_by_name.__get__(
+        service
+    )
     return service
 
 

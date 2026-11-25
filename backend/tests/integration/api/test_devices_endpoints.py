@@ -119,12 +119,24 @@ async def test_list_devices_with_filters(override_get_db):
         # Create 2 devices
         await client.post(
             "/api/v1/devices/",
-            json={"name": "Core-Router", "ip_address": "10.0.1.1", "port": 0, "protocol": "icmp", "category": "ROUTER"},
+            json={
+                "name": "Core-Router",
+                "ip_address": "10.0.1.1",
+                "port": 0,
+                "protocol": "icmp",
+                "category": "ROUTER",
+            },
             headers=headers,
         )
         await client.post(
             "/api/v1/devices/",
-            json={"name": "App-Server", "ip_address": "192.168.1.50", "port": 80, "protocol": "http", "category": "SERVER"},
+            json={
+                "name": "App-Server",
+                "ip_address": "192.168.1.50",
+                "port": 80,
+                "protocol": "http",
+                "category": "SERVER",
+            },
             headers=headers,
         )
 
@@ -326,7 +338,9 @@ async def test_get_device_interfaces_endpoint(override_get_db):
         assert switch_resp.status_code == status.HTTP_201_CREATED
         switch_id = switch_resp.json()["id"]
 
-        interfaces_resp = await client.get(f"/api/v1/devices/{switch_id}/interfaces", headers=headers)
+        interfaces_resp = await client.get(
+            f"/api/v1/devices/{switch_id}/interfaces", headers=headers
+        )
         assert interfaces_resp.status_code == status.HTTP_200_OK
         interfaces = interfaces_resp.json()
         assert len(interfaces) == 24
@@ -345,7 +359,9 @@ async def test_get_device_interfaces_endpoint(override_get_db):
         assert server_resp.status_code == status.HTTP_201_CREATED
         server_id = server_resp.json()["id"]
 
-        server_interfaces_resp = await client.get(f"/api/v1/devices/{server_id}/interfaces", headers=headers)
+        server_interfaces_resp = await client.get(
+            f"/api/v1/devices/{server_id}/interfaces", headers=headers
+        )
         assert server_interfaces_resp.status_code == status.HTTP_200_OK
         server_interfaces = server_interfaces_resp.json()
         assert len(server_interfaces) == 1
@@ -373,7 +389,9 @@ async def test_get_device_metrics_endpoint(override_get_db):
         assert resp.status_code == status.HTTP_201_CREATED
         device_id = resp.json()["id"]
 
-        metrics_resp = await client.get(f"/api/v1/devices/{device_id}/metrics?period=24h", headers=headers)
+        metrics_resp = await client.get(
+            f"/api/v1/devices/{device_id}/metrics?period=24h", headers=headers
+        )
         assert metrics_resp.status_code == status.HTTP_200_OK
         metrics = metrics_resp.json()
         assert metrics["period"] == "24h"

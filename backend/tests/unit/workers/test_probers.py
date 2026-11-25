@@ -204,7 +204,9 @@ async def test_probe_executor_routes_snmp_to_icmp(dummy_target):
         packet_loss_pct=0.0,
     )
 
-    with patch.object(executor.probers["icmp"], "probe", return_value=mock_icmp_result) as mock_probe:
+    with patch.object(
+        executor.probers["icmp"], "probe", return_value=mock_icmp_result
+    ) as mock_probe:
         result = await executor.execute(dummy_target)
         mock_probe.assert_called_once()
         assert result.status == "UP"

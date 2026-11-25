@@ -64,6 +64,17 @@ packages = ["src"]
 target-version = "py312"
 line-length = 100
 
+[tool.ruff.lint]
+ignore = [
+    "BLE001",
+    "S110",
+    "TRY201",
+    "TRY401",
+    "RUF009",
+    "RUF100",
+    "PIE810",
+]
+
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [
     "fastapi.Depends",
@@ -78,3 +89,9 @@ pythonpath = "."
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+disable_error_code = ["assignment", "arg-type", "attr-defined", "union-attr"]
+

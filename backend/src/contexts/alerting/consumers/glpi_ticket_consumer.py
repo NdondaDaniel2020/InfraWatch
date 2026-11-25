@@ -254,7 +254,9 @@ class GlpiTicketConsumer:
                                 self.max_retries,
                             )
                             MESSAGING_DLQ_MESSAGES_TOTAL.labels(
-                                stream=STREAM_TOPIC, group=CONSUMER_GROUP, reason="MaxRetriesExceeded"
+                                stream=STREAM_TOPIC,
+                                group=CONSUMER_GROUP,
+                                reason="MaxRetriesExceeded",
                             ).inc()
                             await self._event_bus.send_to_dlq(
                                 topic=STREAM_TOPIC,

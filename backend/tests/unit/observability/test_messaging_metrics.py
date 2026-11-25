@@ -165,9 +165,7 @@ async def test_collect_stream_metrics_updates_pel_gauge() -> None:
 
     bus = RedisStreamsEventBus(redis_client=mock_redis)
 
-    metrics = await bus.collect_stream_metrics(
-        StreamTopics.INCIDENTS, "cg:notification_workers"
-    )
+    metrics = await bus.collect_stream_metrics(StreamTopics.INCIDENTS, "cg:notification_workers")
 
     assert metrics["topic"] == StreamTopics.INCIDENTS
     assert metrics["group"] == "cg:notification_workers"

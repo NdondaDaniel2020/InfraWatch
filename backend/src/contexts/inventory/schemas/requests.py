@@ -72,7 +72,9 @@ class SnmpConfigSchema(BaseModel):
             # username / security_name
             sec_name = self.security_name or self.username
             if not sec_name:
-                raise ValueError("Para SNMPv3, o campo 'security_name' (ou 'username') é obrigatório.")
+                raise ValueError(
+                    "Para SNMPv3, o campo 'security_name' (ou 'username') é obrigatório."
+                )
             self.security_name = sec_name
             self.username = sec_name
 
@@ -104,7 +106,9 @@ class SnmpConfigSchema(BaseModel):
             # Validação para authNoPriv e authPriv
             if sec_level in ("authNoPriv", "authPriv"):
                 if not self.auth_protocol:
-                    raise ValueError(f"Para SNMPv3 no modo '{sec_level}', 'auth_protocol' é obrigatório.")
+                    raise ValueError(
+                        f"Para SNMPv3 no modo '{sec_level}', 'auth_protocol' é obrigatório."
+                    )
                 auth_pass = self.auth_passphrase or self.auth_password
                 if not auth_pass:
                     raise ValueError(
@@ -116,7 +120,9 @@ class SnmpConfigSchema(BaseModel):
             # Validação para authPriv
             if sec_level == "authPriv":
                 if not self.priv_protocol:
-                    raise ValueError("Para SNMPv3 no modo 'authPriv', 'priv_protocol' é obrigatório.")
+                    raise ValueError(
+                        "Para SNMPv3 no modo 'authPriv', 'priv_protocol' é obrigatório."
+                    )
                 priv_pass = self.priv_passphrase or self.priv_password
                 if not priv_pass:
                     raise ValueError(

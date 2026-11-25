@@ -484,7 +484,10 @@ async def test_register_org_admin_tenant_isolation(
             },
         )
         assert res_alien.status_code == status.HTTP_403_FORBIDDEN
-        assert "ORG_ADMIN só pode cadastrar usuários dentro de sua própria organização" in res_alien.json()["detail"]
+        assert (
+            "ORG_ADMIN só pode cadastrar usuários dentro de sua própria organização"
+            in res_alien.json()["detail"]
+        )
 
         # Sucesso ao registrar dentro da sua própria organização
         res_success = await client.post(
@@ -499,4 +502,3 @@ async def test_register_org_admin_tenant_isolation(
         )
         assert res_success.status_code == status.HTTP_201_CREATED
         assert res_success.json()["email"] == "valido@cliente.ao"
-

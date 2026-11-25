@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -116,7 +116,11 @@ class IncidentRepository:
         )
         res = await self._session.execute(stmt)
         scalars_fn = getattr(res, "scalars", None)
-        models = scalars_fn().all() if callable(scalars_fn) else (res.all() if hasattr(res, "all") else [])
+        models = (
+            scalars_fn().all()
+            if callable(scalars_fn)
+            else (res.all() if hasattr(res, "all") else [])
+        )
         incidents: list[Incident] = []
         for m in models:
             if isinstance(m, Incident):

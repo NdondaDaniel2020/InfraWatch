@@ -90,7 +90,11 @@ class DeviceRepository:
             stmt = stmt.where(DeviceModel.organization_id == organization_id)
         result = await self.session.execute(stmt)
         scalars_fn = getattr(result, "scalars", None)
-        models = scalars_fn().all() if callable(scalars_fn) else (result.all() if hasattr(result, "all") else [])
+        models = (
+            scalars_fn().all()
+            if callable(scalars_fn)
+            else (result.all() if hasattr(result, "all") else [])
+        )
         return [self._to_domain(m) for m in models]
 
     async def get_names_by_ids(self, device_ids: list[UUID]) -> dict[UUID, str]:
@@ -118,7 +122,11 @@ class DeviceRepository:
         )
         result = await self.session.execute(stmt)
         scalars_fn = getattr(result, "scalars", None)
-        items = scalars_fn().all() if callable(scalars_fn) else (result.all() if hasattr(result, "all") else [])
+        items = (
+            scalars_fn().all()
+            if callable(scalars_fn)
+            else (result.all() if hasattr(result, "all") else [])
+        )
         return [self._to_domain(m) for m in items]
 
     async def list_devices(
@@ -189,8 +197,10 @@ class DeviceRepository:
             )
 
         raw_status = (
-            getattr(filters, "status", None) or getattr(filters, "health_status", None) or ""
-        ).upper().strip()
+            (getattr(filters, "status", None) or getattr(filters, "health_status", None) or "")
+            .upper()
+            .strip()
+        )
         if raw_status:
             if raw_status == "PAUSED":
                 stmt = stmt.where(
@@ -208,13 +218,11 @@ class DeviceRepository:
                 )
             elif raw_status == "UP":
                 stmt = stmt.where(
-                    (DeviceModel.is_paused.is_(False))
-                    & (func.upper(DeviceModel.status) == "UP")
+                    (DeviceModel.is_paused.is_(False)) & (func.upper(DeviceModel.status) == "UP")
                 )
             elif raw_status == "DOWN":
                 stmt = stmt.where(
-                    (DeviceModel.is_paused.is_(False))
-                    & (func.upper(DeviceModel.status) == "DOWN")
+                    (DeviceModel.is_paused.is_(False)) & (func.upper(DeviceModel.status) == "DOWN")
                 )
             else:
                 stmt = stmt.where(func.upper(DeviceModel.status) == raw_status)

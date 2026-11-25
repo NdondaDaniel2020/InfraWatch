@@ -47,9 +47,7 @@ class MaintenanceKpiSummaryResponse(BaseModel):
 
     active_now_count: int = Field(default=0, description="Janelas em andamento no momento")
     scheduled_count: int = Field(default=0, description="Janelas agendadas para o futuro")
-    exempted_hours_month: float = Field(
-        default=0.0, description="Horas isentas homologadas no mês"
-    )
+    exempted_hours_month: float = Field(default=0.0, description="Horas isentas homologadas no mês")
     contractual_limit_hours: float = Field(
         default=8.0, description="Teto contratual mensal de horas isentas"
     )
@@ -223,5 +221,3 @@ class OrganizationDailySlaResponse(BaseModel):
     total_days: int
     current_day: int
     days: list[OrganizationDailySlaItem]
-
-

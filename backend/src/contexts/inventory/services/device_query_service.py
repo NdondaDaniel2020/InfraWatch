@@ -121,7 +121,11 @@ class DeviceQueryService:
                         port_name=f"100GE0/0/{port}",
                         speed="25GE SFP28" if port <= 20 else "100GE QSFP28",
                         status="UP" if is_active else "FREE",
-                        description=f"Uplink {port}" if port <= 4 else f"Acesso {port}" if is_active else "Porta Não Conectada",
+                        description=f"Uplink {port}"
+                        if port <= 4
+                        else f"Acesso {port}"
+                        if is_active
+                        else "Porta Não Conectada",
                         rx_power_dbm="-3.2 dBm" if is_active else "N/A",
                         tx_power_dbm="-2.1 dBm" if is_active else "N/A",
                         crc_errors_per_min=0,
@@ -137,7 +141,9 @@ class DeviceQueryService:
             DeviceInterfaceResponse(
                 port_number=1,
                 port_name="eth0",
-                speed="10GbE Virtual" if device.category.upper() in ("SERVER", "DATABASE") else "Bridge veth",
+                speed="10GbE Virtual"
+                if device.category.upper() in ("SERVER", "DATABASE")
+                else "Bridge veth",
                 status="UP" if device.status == "UP" else "DOWN",
                 description=f"Interface primária conectada ({device.ip_address})",
                 rx_power_dbm="N/A",
@@ -189,7 +195,9 @@ class DeviceQueryService:
 
             buckets.append(
                 DeviceMetricBucket(
-                    timestamp=bucket_val.isoformat() if hasattr(bucket_val, "isoformat") else str(bucket_val),
+                    timestamp=bucket_val.isoformat()
+                    if hasattr(bucket_val, "isoformat")
+                    else str(bucket_val),
                     rtt_min_ms=min_v,
                     rtt_p95_ms=avg_v,
                     rtt_max_ms=max_v,

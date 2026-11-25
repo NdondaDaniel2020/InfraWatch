@@ -25,7 +25,6 @@ from src.core.exceptions import (
 )
 from src.core.infrastructure.redis import get_redis_client
 
-
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login-form",
     auto_error=False,

@@ -82,7 +82,7 @@ class OutboxRepository:
     ) -> float:
         """Calcula atraso exponencial com jitter simétrico: base * 2^(retry-1) ± jitter."""
         exponent = max(0, retry_count - 1)
-        raw_delay = base_delay * (2 ** exponent)
+        raw_delay = base_delay * (2**exponent)
         jitter_range = raw_delay * jitter_pct
         jitter = random.uniform(-jitter_range, jitter_range)
         delay = raw_delay + jitter
@@ -146,4 +146,3 @@ class OutboxRepository:
         )
         result = await session.execute(stmt)
         return getattr(result, "rowcount", 0) or 0
-

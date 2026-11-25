@@ -97,12 +97,14 @@ def _update_rclone_conf_token(content: str, token_json: str) -> str:
         if in_gdrive or "[gdrive]" in content:
             new_lines.append(f"token = {token_json}")
         else:
-            new_lines.extend([
-                "",
-                "[gdrive]",
-                "type = drive",
-                f"token = {token_json}",
-            ])
+            new_lines.extend(
+                [
+                    "",
+                    "[gdrive]",
+                    "type = drive",
+                    f"token = {token_json}",
+                ]
+            )
     return "\n".join(new_lines) + "\n"
 
 
@@ -251,7 +253,9 @@ class BackupService:
                 try:
                     secret_file.write_text(current_conf, encoding="utf-8")
                     secret_file.chmod(0o600)
-                    logger.info("secrets/rclone_config.txt atualizado com novo token do Google Drive.")
+                    logger.info(
+                        "secrets/rclone_config.txt atualizado com novo token do Google Drive."
+                    )
                     break
                 except OSError as e:
                     logger.debug("Não foi possível salvar em %s: %s", secret_file, e)
@@ -340,7 +344,9 @@ class BackupService:
 
         refresh_token = token_payload.get("refresh_token")
         if not refresh_token:
-            logger.warning("Google não retornou refresh_token (talvez prompt=consent seja necessário).")
+            logger.warning(
+                "Google não retornou refresh_token (talvez prompt=consent seja necessário)."
+            )
 
         expiry = ""
         expires_in = token_payload.get("expires_in")
@@ -367,7 +373,9 @@ class BackupService:
                     "backup:config_update",
                     json.dumps({"rclone_conf_b64": b64_conf}),
                 )
-                logger.info("Configuração do Rclone transmitida para o contêiner de backup via Redis.")
+                logger.info(
+                    "Configuração do Rclone transmitida para o contêiner de backup via Redis."
+                )
             except RedisError as e:
                 logger.warning("Falha ao publicar atualização de config no Redis: %s", e)
 
@@ -723,7 +731,6 @@ class BackupService:
             gdrive=gdrive_dest,
             r2=r2_dest,
         )
-
 
     async def stream_backup_events(
         self,

@@ -439,7 +439,9 @@ class DeviceCommandService:
         elif result.packet_loss_pct == 100.0:
             detail_msg = f"Host inalcançável: 100% de perda de pacotes para o IP {device.ip_address} (sem resposta ICMP)."
         else:
-            detail_msg = f"Sonda finalizada com status {result.status} (perda de {result.packet_loss_pct}%)."
+            detail_msg = (
+                f"Sonda finalizada com status {result.status} (perda de {result.packet_loss_pct}%)."
+            )
 
         return DeviceManualProbeResult(
             success=success,
@@ -482,7 +484,9 @@ class DeviceCommandService:
                     "status": "UP" if is_avail else "DOWN",
                     "snmp_available": snmp_avail == "1",
                     "agent_available": agent_avail == "1",
-                    "message": "Host verificado no Zabbix Server (SNMP / Agent Telemetry)." if is_avail else "Host inalcançável no Zabbix Server.",
+                    "message": "Host verificado no Zabbix Server (SNMP / Agent Telemetry)."
+                    if is_avail
+                    else "Host inalcançável no Zabbix Server.",
                 }
         except Exception as exc:  # noqa: BLE001
             return {

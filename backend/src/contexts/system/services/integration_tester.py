@@ -90,10 +90,15 @@ class IntegrationTesterService:
         # URL genérica: mascara último segmento se longo (> 10 caracteres)
         try:
             from urllib.parse import urlparse
+
             parsed = urlparse(url)
             path_segments = [p for p in parsed.path.split("/") if p]
             if path_segments and len(path_segments[-1]) > 10:
-                masked_path = "/" + "/".join(path_segments[:-1]) + "/••••••••" if len(path_segments) > 1 else "/••••••••"
+                masked_path = (
+                    "/" + "/".join(path_segments[:-1]) + "/••••••••"
+                    if len(path_segments) > 1
+                    else "/••••••••"
+                )
                 return f"{parsed.scheme}://{parsed.netloc}{masked_path}"
             return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
         except Exception:  # noqa: BLE001
@@ -140,7 +145,9 @@ class IntegrationTesterService:
             IntegrationStatusItem(
                 name="telegram",
                 enabled=bool(telegram_cfg["enabled"]),
-                endpoint=telegram_cfg["default_chat_id"] if telegram_cfg["default_chat_id"] else "Chat ID não configurado",
+                endpoint=telegram_cfg["default_chat_id"]
+                if telegram_cfg["default_chat_id"]
+                else "Chat ID não configurado",
                 configured=bool(telegram_cfg["configured"]),
                 source=telegram_cfg["source"],
                 details={
@@ -183,11 +190,15 @@ class IntegrationTesterService:
             IntegrationStatusItem(
                 name="webhook",
                 enabled=bool(webhook_cfg["enabled"]),
-                endpoint=self.mask_webhook_url(webhook_cfg["url"]) if webhook_cfg["url"] else "Webhook não configurado",
+                endpoint=self.mask_webhook_url(webhook_cfg["url"])
+                if webhook_cfg["url"]
+                else "Webhook não configurado",
                 configured=bool(webhook_cfg["configured"]),
                 source=webhook_cfg["source"],
                 details={
-                    "url": self.mask_webhook_url(webhook_cfg["url"]) if webhook_cfg["url"] else None,
+                    "url": self.mask_webhook_url(webhook_cfg["url"])
+                    if webhook_cfg["url"]
+                    else None,
                     "default_webhook_configured": bool(webhook_cfg["configured"]),
                     "enabled": bool(webhook_cfg["enabled"]),
                 },

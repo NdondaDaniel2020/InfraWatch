@@ -250,7 +250,9 @@ async def test_isolate_node_with_associated_device(service, mock_repo, mock_devi
 
 
 @pytest.mark.asyncio
-async def test_get_graph_enriches_device_and_telemetry(service, mock_repo, mock_device_repo, mock_telemetry_service):
+async def test_get_graph_enriches_device_and_telemetry(
+    service, mock_repo, mock_device_repo, mock_telemetry_service
+):
     org_id = uuid4()
     dev_id = uuid4()
     node = TopologyNode(
@@ -287,6 +289,7 @@ async def test_update_edge(service, mock_repo):
     org_id = uuid4()
     edge_id = uuid4()
     from src.contexts.network_topology.domain.models import TopologyEdge
+
     edge = TopologyEdge(
         id=edge_id,
         source_node_id=uuid4(),

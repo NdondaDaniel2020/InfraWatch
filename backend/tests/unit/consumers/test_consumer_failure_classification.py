@@ -311,6 +311,7 @@ async def test_outbox_relay_worker_immediate_failed_on_poison_error(
     db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     """Valida que OutboxRelayWorker marca imediatamente FAILED sem retentativas em caso de PoisonMessage."""
+
     async def failing_poison_publisher(event_type: str, payload: dict) -> None:
         raise PoisonMessageError("Corrupted payload structure")
 
@@ -347,6 +348,7 @@ async def test_outbox_relay_worker_retains_pending_on_transient_error(
     db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     """Valida que OutboxRelayWorker agenda backoff e mantém PENDING em caso de erro transitório."""
+
     async def failing_transient_publisher(event_type: str, payload: dict) -> None:
         raise TransientMessageError("Broker temporary disconnect")
 

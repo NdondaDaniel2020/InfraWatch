@@ -138,9 +138,7 @@ async def stream_events(
 async def list_monitored_telemetry(
     current_user: CurrentUserDep,
     query_service: TelemetryQueryServiceDep,
-    org_id: UUID | None = Query(
-        None, description="Filtrar por organização proprietária"
-    ),
+    org_id: UUID | None = Query(None, description="Filtrar por organização proprietária"),
     status_filter: str | None = Query(
         None, alias="status", description="Filtrar por status operacional"
     ),

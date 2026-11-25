@@ -204,7 +204,9 @@ class TestUnifiedAuthDependency:
         )
 
         mock_redis = MagicMock()
-        mock_redis.get = AsyncMock(side_effect=lambda key: "1" if key == "blacklist:session:session-redis-999" else None)
+        mock_redis.get = AsyncMock(
+            side_effect=lambda key: "1" if key == "blacklist:session:session-redis-999" else None
+        )
 
         mock_app = MagicMock()
         mock_app.state.redis_client = mock_redis

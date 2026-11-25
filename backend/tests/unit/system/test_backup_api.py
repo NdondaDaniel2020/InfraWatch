@@ -163,7 +163,9 @@ async def test_gdrive_status_api(
     """Valida endpoint /gdrive/status para admin e bloqueio para não-admin."""
     from src.contexts.system.schemas.backup import GDriveStatusResponse
 
-    mock_status = GDriveStatusResponse(configured=True, authorized=False, message="Aguardando autorização")
+    mock_status = GDriveStatusResponse(
+        configured=True, authorized=False, message="Aguardando autorização"
+    )
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=backup_test_app),
@@ -230,7 +232,9 @@ async def test_gdrive_callback_api(
     """Valida endpoint POST /gdrive/callback salvando credenciais."""
     from src.contexts.system.schemas.backup import GDriveStatusResponse
 
-    mock_resp = GDriveStatusResponse(configured=True, authorized=True, message="Conectado com sucesso")
+    mock_resp = GDriveStatusResponse(
+        configured=True, authorized=True, message="Conectado com sucesso"
+    )
 
     with patch(
         "src.contexts.system.api.routes.backup.BackupService.complete_gdrive_auth",
@@ -315,5 +319,3 @@ async def test_get_backup_storage_success(
             assert data["local"]["used_percent"] == 73.8
             assert data["gdrive"]["email"] == "ndondadaniel2020@gmail.com"
             assert data["r2"]["bucket"] == "infrawatch-backup-luanda-dr"
-
-

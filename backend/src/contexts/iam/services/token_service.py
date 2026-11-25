@@ -398,7 +398,8 @@ async def blacklist_session_ids(
             return
         except (RedisError, ConnectionError, OSError) as exc:
             logger.warning(
-                "Falha ao registrar blacklist de sessões no Redis, utilizando fallback em memória: %s", exc
+                "Falha ao registrar blacklist de sessões no Redis, utilizando fallback em memória: %s",
+                exc,
             )
 
     _clean_expired_in_memory_blacklist()
@@ -420,7 +421,9 @@ async def is_session_blacklisted(
             val = await redis_client.get(f"blacklist:session:{sid}")
             return val is not None
         except (RedisError, ConnectionError, OSError) as exc:
-            logger.warning("Falha ao consultar blacklist de sessão no Redis, checando memória: %s", exc)
+            logger.warning(
+                "Falha ao consultar blacklist de sessão no Redis, checando memória: %s", exc
+            )
 
     _clean_expired_in_memory_blacklist()
     return sid in _in_memory_session_blacklist

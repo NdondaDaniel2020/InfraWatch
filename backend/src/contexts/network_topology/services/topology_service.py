@@ -74,7 +74,9 @@ class TopologyService:
     # Consultas do Grafo
     # ------------------------------------------------------------------
 
-    async def get_graph(self, organization_id: UUID) -> tuple[TopologyGraph, dict[UUID, dict[str, Any]]]:
+    async def get_graph(
+        self, organization_id: UUID
+    ) -> tuple[TopologyGraph, dict[UUID, dict[str, Any]]]:
         """Recupera o grafo completo e enriquece nós com status, telemetria e metadados do inventário."""
         graph = await self._repo.get_graph(organization_id)
 
@@ -99,7 +101,9 @@ class TopologyService:
                 }
 
             try:
-                metrics_by_dev = await self._telemetry_service.get_latest_metrics_for_devices(device_ids)
+                metrics_by_dev = await self._telemetry_service.get_latest_metrics_for_devices(
+                    device_ids
+                )
                 for dev_id, m_dict in metrics_by_dev.items():
                     if dev_id in device_enrichments:
                         device_enrichments[dev_id].update(m_dict)
@@ -286,9 +290,7 @@ class TopologyService:
         logger.info("Enlace topológico atualizado: %s na organização %s", edge_id, organization_id)
         return saved
 
-    async def get_available_devices(
-        self, organization_id: UUID
-    ) -> list[dict[str, Any]]:
+    async def get_available_devices(self, organization_id: UUID) -> list[dict[str, Any]]:
         """Lista dispositivos do inventário da organização marcando se já estão na topologia."""
         devices = await self._device_repo.find_by_organization(organization_id)
         graph = await self._repo.get_graph(organization_id)
@@ -296,14 +298,16 @@ class TopologyService:
 
         result: list[dict[str, Any]] = []
         for dev in devices:
-            result.append({
-                "id": dev.id,
-                "name": dev.name,
-                "category": dev.category,
-                "ip_address": dev.ip_address,
-                "status": dev.status,
-                "is_in_topology": dev.id in node_device_ids,
-            })
+            result.append(
+                {
+                    "id": dev.id,
+                    "name": dev.name,
+                    "category": dev.category,
+                    "ip_address": dev.ip_address,
+                    "status": dev.status,
+                    "is_in_topology": dev.id in node_device_ids,
+                }
+            )
         return result
 
     # ------------------------------------------------------------------

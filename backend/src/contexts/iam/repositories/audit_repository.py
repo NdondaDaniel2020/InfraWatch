@@ -119,7 +119,9 @@ class AuditRepository:
 
         if role and role != "ALL":
             query = query.join(AuditLogModel.actor_user).where(UserModel.role == role.strip())
-            count_query = count_query.join(AuditLogModel.actor_user).where(UserModel.role == role.strip())
+            count_query = count_query.join(AuditLogModel.actor_user).where(
+                UserModel.role == role.strip()
+            )
 
         if search and search.strip():
             term = f"%{search.strip().lower()}%"

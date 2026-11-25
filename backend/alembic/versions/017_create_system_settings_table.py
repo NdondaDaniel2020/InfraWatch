@@ -12,6 +12,7 @@ rastreabilidade de alteracao e indices por categoria.
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -37,7 +38,9 @@ def upgrade() -> None:
         sa.Column(
             "updated_by",
             sa.Uuid(),
-            sa.ForeignKey("users.id", ondelete="SET NULL", name=op.f("fk_system_settings_updated_by_users")),
+            sa.ForeignKey(
+                "users.id", ondelete="SET NULL", name=op.f("fk_system_settings_updated_by_users")
+            ),
             nullable=True,
         ),
         sa.PrimaryKeyConstraint("key", name=op.f("pk_system_settings")),

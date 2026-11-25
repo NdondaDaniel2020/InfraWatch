@@ -35,7 +35,9 @@ async def list_audit_logs(
     pagination: PaginationParamsDep,
     audit_service: AuditServiceDep,
     organization_id: Annotated[UUID | None, Query()] = None,
-    search: Annotated[str | None, Query(description="Busca textual por recurso, autor, IP ou ação")] = None,
+    search: Annotated[
+        str | None, Query(description="Busca textual por recurso, autor, IP ou ação")
+    ] = None,
     role: Annotated[str | None, Query(description="Filtro por papel RBAC")] = None,
     action: Annotated[str | None, Query(description="Filtro por ação")] = None,
 ) -> AuditListResponse:

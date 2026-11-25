@@ -36,4 +36,3 @@ async def get_sla_service(
 SlaServiceDep = Annotated[SlaService, Depends(get_sla_service)]
 
 __all__ = ["SlaServiceDep", "get_glpi_client", "get_sla_service"]
-

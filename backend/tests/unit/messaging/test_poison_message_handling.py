@@ -43,8 +43,14 @@ def test_exception_classification_predicates() -> None:
     req = httpx.Request("POST", "http://test")
     resp_400 = httpx.Response(status_code=400, request=req)
     resp_422 = httpx.Response(status_code=422, request=req)
-    assert is_poison_error(httpx.HTTPStatusError("Bad request", request=req, response=resp_400)) is True
-    assert is_poison_error(httpx.HTTPStatusError("Unprocessable", request=req, response=resp_422)) is True
+    assert (
+        is_poison_error(httpx.HTTPStatusError("Bad request", request=req, response=resp_400))
+        is True
+    )
+    assert (
+        is_poison_error(httpx.HTTPStatusError("Unprocessable", request=req, response=resp_422))
+        is True
+    )
 
     # 2. Transient errors
     assert is_transient_error(TransientMessageError("Temporary glitch")) is True
@@ -60,11 +66,29 @@ def test_exception_classification_predicates() -> None:
     # HTTP 429 e 5xx
     resp_429 = httpx.Response(status_code=429, request=req)
     resp_503 = httpx.Response(status_code=503, request=req)
-    assert is_transient_error(httpx.HTTPStatusError("Too Many Requests", request=req, response=resp_429)) is True
-    assert is_poison_error(httpx.HTTPStatusError("Too Many Requests", request=req, response=resp_429)) is False
+    assert (
+        is_transient_error(
+            httpx.HTTPStatusError("Too Many Requests", request=req, response=resp_429)
+        )
+        is True
+    )
+    assert (
+        is_poison_error(httpx.HTTPStatusError("Too Many Requests", request=req, response=resp_429))
+        is False
+    )
 
-    assert is_transient_error(httpx.HTTPStatusError("Service Unavailable", request=req, response=resp_503)) is True
-    assert is_poison_error(httpx.HTTPStatusError("Service Unavailable", request=req, response=resp_503)) is False
+    assert (
+        is_transient_error(
+            httpx.HTTPStatusError("Service Unavailable", request=req, response=resp_503)
+        )
+        is True
+    )
+    assert (
+        is_poison_error(
+            httpx.HTTPStatusError("Service Unavailable", request=req, response=resp_503)
+        )
+        is False
+    )
 
 
 def test_base_message_processing_error_details() -> None:

@@ -15,18 +15,20 @@ from uuid import UUID
 # Enums de Domínio
 # ---------------------------------------------------------------------------
 
-VALID_NODE_TYPES = frozenset({
-    "device",
-    "service",
-    "external",
-    "cluster",
-    "router",
-    "switch",
-    "server",
-    "database",
-    "workload",
-    "container",
-})
+VALID_NODE_TYPES = frozenset(
+    {
+        "device",
+        "service",
+        "external",
+        "cluster",
+        "router",
+        "switch",
+        "server",
+        "database",
+        "workload",
+        "container",
+    }
+)
 VALID_LINK_TYPES = frozenset({"fiber", "ethernet", "vpn", "logical", "wireless"})
 
 

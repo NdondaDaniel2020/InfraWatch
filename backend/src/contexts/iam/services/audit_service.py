@@ -69,9 +69,7 @@ class AuditService:
             (False, [erros]) caso qualquer registro tenha sofrido adulteração, remoção ou reordenação.
         """
         audit_records = (
-            records
-            if records is not None
-            else await self.repository.list_all_chronological()
+            records if records is not None else await self.repository.list_all_chronological()
         )
         if not audit_records:
             return True, []
@@ -118,7 +116,9 @@ class AuditService:
         # Se organization_id for fornecido e houver erros na cadeia global,
         # sanitizamos as mensagens para não expor IDs/dados de outras organizações
         if organization_id is not None and errors:
-            org_records_ids = {str(r.id) for r in audit_records if r.organization_id == organization_id}
+            org_records_ids = {
+                str(r.id) for r in audit_records if r.organization_id == organization_id
+            }
             sanitized_errors: list[str] = []
             for err in errors:
                 if any(rec_id in err for rec_id in org_records_ids):

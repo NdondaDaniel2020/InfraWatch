@@ -83,7 +83,9 @@ class IntegrationWorker:
             cfg = await self._dynamic_provider.get_glpi_config()
             if cfg.get("enabled") and cfg.get("configured"):
                 if self._glpi_consumer is None:
-                    logger.info("Instanciando GlpiTicketConsumer dinamicamente com parâmetros ativos...")
+                    logger.info(
+                        "Instanciando GlpiTicketConsumer dinamicamente com parâmetros ativos..."
+                    )
                     self._glpi_consumer = GlpiTicketConsumer(
                         event_bus=self._event_bus,
                         glpi_base_url=cfg["base_url"],
@@ -130,7 +132,9 @@ class IntegrationWorker:
                             and not self._stop_event.is_set()
                             and (self._glpi_task is None or self._glpi_task.done())
                         ):
-                            logger.info("Iniciando loop do GlpiTicketConsumer após ativação dinâmica...")
+                            logger.info(
+                                "Iniciando loop do GlpiTicketConsumer após ativação dinâmica..."
+                            )
                             self._glpi_task = asyncio.create_task(
                                 self._glpi_consumer.consume_loop(self._stop_event),
                                 name="glpi-ticket-consumer-loop",
@@ -141,7 +145,9 @@ class IntegrationWorker:
             except asyncio.CancelledError:
                 break
             except Exception:
-                logger.warning("Falha temporária ao ler stream de configurações do sistema; aguardando...")
+                logger.warning(
+                    "Falha temporária ao ler stream de configurações do sistema; aguardando..."
+                )
                 await asyncio.sleep(2.0)
 
     def stop(self) -> None:

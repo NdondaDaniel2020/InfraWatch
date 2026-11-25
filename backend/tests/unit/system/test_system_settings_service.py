@@ -8,10 +8,6 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.contexts.system.domain.events import (
-    SystemSettingResetEvent,
-    SystemSettingUpdatedEvent,
-)
 from src.contexts.system.schemas.settings import (
     GlpiSettingsUpdateRequest,
     GlpiTestResponse,
@@ -180,7 +176,10 @@ async def test_update_glpi_settings_preserves_existing_secrets(
     res = await service.update_glpi_settings(req)
     assert res.success is True
 
-    saved_keys = {call.kwargs["key"]: call.kwargs["value"] for call in service.repository.save_setting.await_args_list}
+    saved_keys = {
+        call.kwargs["key"]: call.kwargs["value"]
+        for call in service.repository.save_setting.await_args_list
+    }
     assert saved_keys["glpi.app_token"] == "existing_app_secret"
     assert saved_keys["glpi.user_token"] == "existing_user_secret"
 

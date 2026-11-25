@@ -80,7 +80,11 @@ class DynamicSettingsProvider:
 
         has_override = bool(overrides)
         enabled_str = overrides.get("glpi.enabled")
-        enabled = (enabled_str.lower() in ("true", "1", "yes")) if enabled_str is not None else bool(s.GLPI_ENABLED)
+        enabled = (
+            (enabled_str.lower() in ("true", "1", "yes"))
+            if enabled_str is not None
+            else bool(s.GLPI_ENABLED)
+        )
 
         base_url = overrides.get("glpi.base_url") or s.GLPI_BASE_URL
         app_token = overrides.get("glpi.app_token") or s.GLPI_APP_TOKEN
@@ -106,7 +110,11 @@ class DynamicSettingsProvider:
 
         has_override = bool(overrides)
         enabled_str = overrides.get("zabbix.enabled")
-        enabled = (enabled_str.lower() in ("true", "1", "yes")) if enabled_str is not None else bool(s.ZABBIX_ENABLED)
+        enabled = (
+            (enabled_str.lower() in ("true", "1", "yes"))
+            if enabled_str is not None
+            else bool(s.ZABBIX_ENABLED)
+        )
 
         api_url = overrides.get("zabbix.api_url") or s.ZABBIX_API_URL
         api_token = overrides.get("zabbix.api_token") or s.ZABBIX_API_TOKEN
@@ -157,11 +165,17 @@ class DynamicSettingsProvider:
 
         has_override = bool(overrides)
         enabled_str = overrides.get("whatsapp.enabled")
-        enabled = (enabled_str.lower() in ("true", "1", "yes")) if enabled_str is not None else bool(s.WHATSAPP_ENABLED)
+        enabled = (
+            (enabled_str.lower() in ("true", "1", "yes"))
+            if enabled_str is not None
+            else bool(s.WHATSAPP_ENABLED)
+        )
 
         gateway_url = overrides.get("whatsapp.gateway_url") or s.WHATSAPP_GATEWAY_URL
         api_token = overrides.get("whatsapp.api_token") or s.WHATSAPP_API_TOKEN
-        default_recipient = overrides.get("whatsapp.default_recipient") or s.WHATSAPP_DEFAULT_RECIPIENT
+        default_recipient = (
+            overrides.get("whatsapp.default_recipient") or s.WHATSAPP_DEFAULT_RECIPIENT
+        )
 
         return {
             "enabled": enabled,
@@ -217,7 +231,9 @@ class DynamicSettingsProvider:
         has_override = bool(overrides)
         enabled_str = overrides.get("webhook.enabled")
         url = overrides.get("webhook.url") or s.DEFAULT_WEBHOOK_URL
-        enabled = (enabled_str.lower() in ("true", "1", "yes")) if enabled_str is not None else bool(url)
+        enabled = (
+            (enabled_str.lower() in ("true", "1", "yes")) if enabled_str is not None else bool(url)
+        )
 
         return {
             "enabled": enabled,

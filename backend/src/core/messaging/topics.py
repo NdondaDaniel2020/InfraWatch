@@ -79,4 +79,3 @@ def get_topic_maxlen(topic: str, default_maxlen: int | None = None) -> int:
     from src.core.config import get_settings
 
     return default_maxlen if default_maxlen is not None else get_settings().REDIS_STREAM_MAXLEN
-

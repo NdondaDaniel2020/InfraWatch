@@ -42,9 +42,7 @@ async def test_redis_streams_get_delivery_count_dict_entry() -> None:
 @pytest.mark.asyncio
 async def test_redis_streams_get_delivery_count_tuple_entry() -> None:
     mock_redis = AsyncMock()
-    mock_redis.xpending_range.return_value = [
-        ("1000-2", "w-1", 60000, 3)
-    ]
+    mock_redis.xpending_range.return_value = [("1000-2", "w-1", 60000, 3)]
 
     bus = RedisStreamsEventBus(redis_client=mock_redis)
     count = await bus.get_delivery_count("stream:test", "cg:test", "1000-2")

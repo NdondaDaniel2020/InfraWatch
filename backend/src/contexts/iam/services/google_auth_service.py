@@ -98,9 +98,7 @@ class GoogleIdentityProvider:
         if self._owns_client:
             await self._client.aclose()
 
-    async def exchange_code_for_id_token(
-        self, code: str, redirect_uri: str | None = None
-    ) -> str:
+    async def exchange_code_for_id_token(self, code: str, redirect_uri: str | None = None) -> str:
         """Envia o código de autorização para o endpoint de tokens do Google."""
         settings = get_settings()
         data = {

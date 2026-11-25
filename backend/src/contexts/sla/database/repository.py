@@ -153,14 +153,18 @@ class MaintenanceWindowRepository:
             MaintenanceWindowModel.end_time >= now,
         )
         if organization_id:
-            stmt_active = stmt_active.where(MaintenanceWindowModel.organization_id == organization_id)
+            stmt_active = stmt_active.where(
+                MaintenanceWindowModel.organization_id == organization_id
+            )
         active_now = (await self._session.execute(stmt_active)).scalar_one() or 0
 
         stmt_scheduled = select(func.count(MaintenanceWindowModel.id)).where(
             MaintenanceWindowModel.start_time > now,
         )
         if organization_id:
-            stmt_scheduled = stmt_scheduled.where(MaintenanceWindowModel.organization_id == organization_id)
+            stmt_scheduled = stmt_scheduled.where(
+                MaintenanceWindowModel.organization_id == organization_id
+            )
         scheduled = (await self._session.execute(stmt_scheduled)).scalar_one() or 0
 
         stmt_exempted = select(MaintenanceWindowModel).where(
@@ -168,11 +172,17 @@ class MaintenanceWindowRepository:
             MaintenanceWindowModel.start_time >= start_of_month,
         )
         if organization_id:
-            stmt_exempted = stmt_exempted.where(MaintenanceWindowModel.organization_id == organization_id)
+            stmt_exempted = stmt_exempted.where(
+                MaintenanceWindowModel.organization_id == organization_id
+            )
         res_exempted = await self._session.execute(stmt_exempted)
         approved_models = list(res_exempted.scalars().all())
 
-        return int(active_now), int(scheduled), [_to_domain_safe(m, organization_id) for m in approved_models]
+        return (
+            int(active_now),
+            int(scheduled),
+            [_to_domain_safe(m, organization_id) for m in approved_models],
+        )
 
     async def find_for_sla_period(
         self,
@@ -191,10 +201,6 @@ class MaintenanceWindowRepository:
         if device_ids:
             org_mw_filter.append(MaintenanceWindowModel.device_id.in_(device_ids))
 
-        mw_stmt = (
-            select(MaintenanceWindowModel)
-            .where(*mw_conditions)
-            .where(or_(*org_mw_filter))
-        )
+        mw_stmt = select(MaintenanceWindowModel).where(*mw_conditions).where(or_(*org_mw_filter))
         mw_res = await self._session.execute(mw_stmt)
         return [_to_domain_safe(m, organization_id) for m in mw_res.scalars().all()]

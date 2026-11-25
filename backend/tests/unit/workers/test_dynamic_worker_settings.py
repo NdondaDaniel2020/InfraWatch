@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
 
 import pytest
 
-from src.contexts.alerting.consumers.glpi_ticket_consumer import GlpiTicketConsumer
 from src.contexts.system.services.dynamic_settings_provider import DynamicSettingsProvider
-from src.integrations.zabbix.client import ZabbixClient
 from src.workers.daemons.integration_worker import IntegrationWorker
 from src.workers.daemons.zabbix_sync_worker import ZabbixSyncWorker
 

@@ -89,7 +89,10 @@ class Device(Entity):
 
     @ip_address.setter
     def ip_address(self, value: str) -> None:
-        if self._category == DeviceCategory.CONTAINER or getattr(self, "protocol", "").lower() == "docker":
+        if (
+            self._category == DeviceCategory.CONTAINER
+            or getattr(self, "protocol", "").lower() == "docker"
+        ):
             self._ip_address = HostAddress(value)
         else:
             try:

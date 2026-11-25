@@ -35,7 +35,13 @@ class EventPublisher(Protocol):
 
 PublishCallback = Callable[[str, dict[str, Any]], Awaitable[Any]]
 
-__all__ = ["EVENT_STREAM_MAPPING", "EventPublisher", "OutboxRelayWorker", "PublishCallback", "StreamTopics"]
+__all__ = [
+    "EVENT_STREAM_MAPPING",
+    "EventPublisher",
+    "OutboxRelayWorker",
+    "PublishCallback",
+    "StreamTopics",
+]
 
 
 class OutboxRelayWorker:

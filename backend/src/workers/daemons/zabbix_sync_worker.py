@@ -556,7 +556,11 @@ class ZabbixSyncWorker:
         """
         try:
             client = await self.get_zabbix_client()
-            resolved_snmp = snmp_config or (thresholds or {}).get("snmp_config") or (thresholds or {}).get("snmp")
+            resolved_snmp = (
+                snmp_config
+                or (thresholds or {}).get("snmp_config")
+                or (thresholds or {}).get("snmp")
+            )
             interface_details = build_zabbix_snmp_interface_details(
                 snmp_config=resolved_snmp,
                 ip_address=ip_address,

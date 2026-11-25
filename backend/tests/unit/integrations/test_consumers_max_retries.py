@@ -97,7 +97,9 @@ async def test_glpi_ticket_consumer_retries_and_dlq(idempotency_guard) -> None:
                 delivery_count = await bus.get_delivery_count(topic, group, msg_id)
                 assert delivery_count == attempt
                 if delivery_count >= consumer.max_retries:
-                    await bus.send_to_dlq(topic, group, msg_id, msg_payload, str(exc), delivery_count)
+                    await bus.send_to_dlq(
+                        topic, group, msg_id, msg_payload, str(exc), delivery_count
+                    )
 
             # Permanece no PEL
             assert msg_id in bus._pel[topic][group]
@@ -136,7 +138,9 @@ async def test_glpi_ticket_consumer_retries_and_dlq(idempotency_guard) -> None:
 async def test_alert_notification_consumer_retries_and_dlq(idempotency_guard) -> None:
     bus = InMemoryEventBus()
     mock_dispatcher = AsyncMock()
-    mock_dispatcher.dispatch_by_severity.side_effect = ConnectionError("Telegram webhook unreachable")
+    mock_dispatcher.dispatch_by_severity.side_effect = ConnectionError(
+        "Telegram webhook unreachable"
+    )
 
     consumer = AlertNotificationConsumer(
         event_bus=bus,  # type: ignore[arg-type]

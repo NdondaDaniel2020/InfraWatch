@@ -84,7 +84,9 @@ class SmtpNotificationChannel:
         self.smtp_host = effective_host if effective_host is not None else settings.SMTP_HOST
         self.smtp_port = effective_port if effective_port is not None else settings.SMTP_PORT
         self.smtp_user = effective_user if effective_user is not None else settings.SMTP_USER
-        self.smtp_password = effective_password if effective_password is not None else settings.SMTP_PASSWORD
+        self.smtp_password = (
+            effective_password if effective_password is not None else settings.SMTP_PASSWORD
+        )
         self.smtp_from = effective_from if effective_from is not None else settings.SMTP_FROM
         self.smtp_tls = effective_tls if effective_tls is not None else settings.SMTP_TLS
         self.default_recipient = (
@@ -92,11 +94,15 @@ class SmtpNotificationChannel:
             if default_recipient is not None
             else (settings.SMTP_DEFAULT_RECIPIENT or None)
         )
-        self.enabled = enabled if enabled is not None else bool(self.smtp_host and self.smtp_host.strip())
+        self.enabled = (
+            enabled if enabled is not None else bool(self.smtp_host and self.smtp_host.strip())
+        )
         self.timeout = timeout_seconds
         self._sender_func = sender_func or aiosmtplib.send
 
-    async def _resolve_config(self) -> tuple[bool, str, int, bool, str, str | None, str | None, str | None]:
+    async def _resolve_config(
+        self,
+    ) -> tuple[bool, str, int, bool, str, str | None, str | None, str | None]:
         """Resolve credenciais ativas via DynamicSettingsProvider ou fallback local."""
         if (
             self._explicit_host is not None
@@ -186,7 +192,16 @@ class SmtpNotificationChannel:
 
     async def send(self, alert: AlertMessage, recipient: str | None = None) -> bool:
         """Envia e-mail formatado via SMTP assíncrono."""
-        enabled, host, port, tls, from_addr, user, password, default_recipient = await self._resolve_config()
+        (
+            enabled,
+            host,
+            port,
+            tls,
+            from_addr,
+            user,
+            password,
+            default_recipient,
+        ) = await self._resolve_config()
         if not enabled:
             logger.info("Canal SMTP desabilitado. Envio ignorado.")
             return False

@@ -173,7 +173,9 @@ async def test_audit_service_chaining_and_integrity_verification(
     assert errors == []
 
     # 4.1 Verificação via verify_integrity_report
-    valid_rep, viol_rep, count_rep, last_hash = await service.verify_integrity_report(organization_id=org_id)
+    valid_rep, viol_rep, count_rep, last_hash = await service.verify_integrity_report(
+        organization_id=org_id
+    )
     assert valid_rep is True
     assert viol_rep == []
     assert count_rep == 3
@@ -287,9 +289,10 @@ async def test_audit_service_multi_tenant_interleaved_chain(
     assert last_b == r5.hash
 
     # Verificação global (Super Admin): deve ser íntegra, com 5 registros no total e último hash sendo r5
-    valid_all, errs_all, count_all, last_all = await service.verify_integrity_report(organization_id=None)
+    valid_all, errs_all, count_all, last_all = await service.verify_integrity_report(
+        organization_id=None
+    )
     assert valid_all is True
     assert errs_all == []
     assert count_all == 5
     assert last_all == r5.hash
-

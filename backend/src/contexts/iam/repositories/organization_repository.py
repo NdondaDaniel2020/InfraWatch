@@ -108,7 +108,7 @@ class OrganizationRepository:
         if isinstance(val, str):
             return val
         if hasattr(val, "name"):
-            name_attr = getattr(val, "name")
+            name_attr = val.name
             if isinstance(name_attr, str):
                 return name_attr
         return None

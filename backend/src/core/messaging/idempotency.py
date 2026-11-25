@@ -69,7 +69,9 @@ class IdempotencyGuard:
         try:
             event_uuid = self._to_uuid(event_id)
         except (ValueError, AttributeError):
-            logger.warning("Identificador de evento inválido para checagem de idempotência: %s", event_id)
+            logger.warning(
+                "Identificador de evento inválido para checagem de idempotência: %s", event_id
+            )
             return False
 
         cache_key = self._cache_key(consumer_name, event_uuid)
@@ -82,7 +84,10 @@ class IdempotencyGuard:
                     logger.debug("Idempotency HIT no cache Redis para chave %s", cache_key)
                     return True
             except Exception:
-                logger.warning("Falha ao consultar cache Redis de idempotência; usando fallback de banco", exc_info=True)
+                logger.warning(
+                    "Falha ao consultar cache Redis de idempotência; usando fallback de banco",
+                    exc_info=True,
+                )
 
         # 2. Checagem definitiva no PostgreSQL
         if session is not None:
@@ -97,7 +102,9 @@ class IdempotencyGuard:
             try:
                 await self._redis.set(cache_key, "1", ex=self._ttl_seconds)
             except Exception:  # noqa: BLE001 - Falha de cache não impede o fluxo
-                logger.warning("Falha ao popular cache Redis de idempotência para chave %s", cache_key)
+                logger.warning(
+                    "Falha ao popular cache Redis de idempotência para chave %s", cache_key
+                )
 
         return found
 
@@ -124,7 +131,9 @@ class IdempotencyGuard:
         try:
             event_uuid = self._to_uuid(event_id)
         except (ValueError, AttributeError):
-            logger.warning("Identificador de evento inválido para registro de idempotência: %s", event_id)
+            logger.warning(
+                "Identificador de evento inválido para registro de idempotência: %s", event_id
+            )
             return
 
         cache_key = self._cache_key(consumer_name, event_uuid)
@@ -156,7 +165,9 @@ class IdempotencyGuard:
             try:
                 await self._redis.set(cache_key, "1", ex=self._ttl_seconds)
             except Exception:  # noqa: BLE001 - Falha de cache não anula a gravação no banco
-                logger.warning("Falha ao registrar idempotência no cache Redis para chave %s", cache_key)
+                logger.warning(
+                    "Falha ao registrar idempotência no cache Redis para chave %s", cache_key
+                )
 
     async def purge_processed_events(
         self,
@@ -178,7 +189,6 @@ class IdempotencyGuard:
         async with session_factory() as db_session, db_session.begin():
             result = await db_session.execute(stmt)
             return getattr(result, "rowcount", 0) or 0
-
 
 
 _default_guard: IdempotencyGuard | None = None

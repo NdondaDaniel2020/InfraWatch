@@ -104,7 +104,6 @@ async def get_backup_storage(
     return await service.get_storage_status()
 
 
-
 @router.get(
     "/gdrive/status",
     response_model=GDriveStatusResponse,
@@ -156,7 +155,6 @@ async def handle_gdrive_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-
 
 
 __all__ = [

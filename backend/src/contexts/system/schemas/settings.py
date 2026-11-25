@@ -130,24 +130,42 @@ class InfraTestResponse(BaseModel):
 class GlpiSettingsUpdateRequest(BaseModel):
     """Payload para atualização persistente de parâmetros do GLPI ITSM."""
 
-    endpoint: str = Field(description="URL base da API REST do GLPI (ex: https://glpi.empresa.ao/apirest.php)")
+    endpoint: str = Field(
+        description="URL base da API REST do GLPI (ex: https://glpi.empresa.ao/apirest.php)"
+    )
     enabled: bool = Field(default=True, description="Habilitar integração com GLPI")
-    app_token: str | None = Field(default=None, description="App-Token do GLPI (omitir para preservar atual)")
-    user_token: str | None = Field(default=None, description="User-Token do GLPI (omitir para preservar atual)")
-    timeout_seconds: float = Field(default=10.0, ge=1.0, le=60.0, description="Timeout de requisição em segundos")
-    validate_connectivity: bool = Field(default=True, description="Executa teste prévio de conexão antes de persistir")
+    app_token: str | None = Field(
+        default=None, description="App-Token do GLPI (omitir para preservar atual)"
+    )
+    user_token: str | None = Field(
+        default=None, description="User-Token do GLPI (omitir para preservar atual)"
+    )
+    timeout_seconds: float = Field(
+        default=10.0, ge=1.0, le=60.0, description="Timeout de requisição em segundos"
+    )
+    validate_connectivity: bool = Field(
+        default=True, description="Executa teste prévio de conexão antes de persistir"
+    )
 
 
 class ZabbixSettingsUpdateRequest(BaseModel):
     """Payload para atualização persistente de parâmetros do Zabbix Server."""
 
-    endpoint: str = Field(description="URL da API JSON-RPC do Zabbix (ex: https://zabbix.empresa.ao/api_jsonrpc.php)")
+    endpoint: str = Field(
+        description="URL da API JSON-RPC do Zabbix (ex: https://zabbix.empresa.ao/api_jsonrpc.php)"
+    )
     enabled: bool = Field(default=True, description="Habilitar sincronização com Zabbix")
     api_token: str | None = Field(default=None, description="API Token permanente do Zabbix")
     username: str | None = Field(default=None, description="Usuário de serviço Zabbix")
-    password: str | None = Field(default=None, description="Senha de serviço Zabbix (omitir para preservar atual)")
-    timeout_seconds: float = Field(default=10.0, ge=1.0, le=60.0, description="Timeout de requisição em segundos")
-    validate_connectivity: bool = Field(default=True, description="Executa teste prévio de conexão antes de persistir")
+    password: str | None = Field(
+        default=None, description="Senha de serviço Zabbix (omitir para preservar atual)"
+    )
+    timeout_seconds: float = Field(
+        default=10.0, ge=1.0, le=60.0, description="Timeout de requisição em segundos"
+    )
+    validate_connectivity: bool = Field(
+        default=True, description="Executa teste prévio de conexão antes de persistir"
+    )
 
 
 class WhatsappSettingsUpdateRequest(BaseModel):
@@ -157,7 +175,9 @@ class WhatsappSettingsUpdateRequest(BaseModel):
     enabled: bool = Field(default=True, description="Habilitar envio via WhatsApp")
     api_token: str | None = Field(default=None, description="Token de autenticação da instância")
     default_recipient: str | None = Field(default=None, description="Número de telefone padrão")
-    validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
+    validate_connectivity: bool = Field(
+        default=False, description="Validar conectividade antes de salvar"
+    )
 
 
 class SmtpSettingsUpdateRequest(BaseModel):
@@ -168,27 +188,39 @@ class SmtpSettingsUpdateRequest(BaseModel):
     tls: bool = Field(default=True, description="Usar TLS")
     from_address: str = Field(description="Endereço de e-mail remetente")
     user: str | None = Field(default=None, description="Usuário SMTP")
-    password: str | None = Field(default=None, description="Senha SMTP (omitir para preservar atual)")
+    password: str | None = Field(
+        default=None, description="Senha SMTP (omitir para preservar atual)"
+    )
     default_recipient: str | None = Field(default=None, description="Destinatário de alerta padrão")
     enabled: bool = Field(default=True, description="Habilitar envio via SMTP")
-    validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
+    validate_connectivity: bool = Field(
+        default=False, description="Validar conectividade antes de salvar"
+    )
 
 
 class TelegramSettingsUpdateRequest(BaseModel):
     """Payload para atualização persistente de parâmetros do Telegram Bot."""
 
-    bot_token: str | None = Field(default=None, description="Token do Telegram Bot (omitir para preservar atual)")
+    bot_token: str | None = Field(
+        default=None, description="Token do Telegram Bot (omitir para preservar atual)"
+    )
     default_chat_id: str | None = Field(default=None, description="Chat ID padrão de alertas")
     enabled: bool = Field(default=True, description="Habilitar envio via Telegram")
-    validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
+    validate_connectivity: bool = Field(
+        default=False, description="Validar conectividade antes de salvar"
+    )
 
 
 class WebhookSettingsUpdateRequest(BaseModel):
     """Payload para atualização persistente de webhook padrão."""
 
-    url: str | None = Field(default=None, description="URL do webhook de destino (omitir para preservar atual)")
+    url: str | None = Field(
+        default=None, description="URL do webhook de destino (omitir para preservar atual)"
+    )
     enabled: bool = Field(default=True, description="Habilitar webhook padrão")
-    validate_connectivity: bool = Field(default=False, description="Validar conectividade antes de salvar")
+    validate_connectivity: bool = Field(
+        default=False, description="Validar conectividade antes de salvar"
+    )
 
 
 class IntegrationUpdateResponse(BaseModel):
@@ -200,4 +232,6 @@ class IntegrationUpdateResponse(BaseModel):
     source: Literal["database", "environment"] = Field(
         default="database", description="Nova origem ativa da configuração"
     )
-    details: dict[str, Any] = Field(default_factory=dict, description="Metadados da configuração salva")
+    details: dict[str, Any] = Field(
+        default_factory=dict, description="Metadados da configuração salva"
+    )

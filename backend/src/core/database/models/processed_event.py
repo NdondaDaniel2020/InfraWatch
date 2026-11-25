@@ -26,6 +26,4 @@ class ProcessedEventModel(Base):
         default=lambda: datetime.now(UTC),
     )
 
-    __table_args__ = (
-        Index("idx_processed_events_processed_at", "processed_at"),
-    )
+    __table_args__ = (Index("idx_processed_events_processed_at", "processed_at"),)

@@ -147,7 +147,9 @@ class AlertNotificationConsumer(EventHandler):
     async def handle(self, topic: str, event_data: dict[str, Any]) -> None:
         """Implementação do protocolo EventHandler para eventos diretos."""
         event_id = event_data.get("event_id") or event_data.get("id")
-        if event_id and await self._idempotency_guard.is_processed(event_id, "AlertNotificationConsumer"):
+        if event_id and await self._idempotency_guard.is_processed(
+            event_id, "AlertNotificationConsumer"
+        ):
             logger.warning(
                 "Evento de alerta %s já processado pelo AlertNotificationConsumer (descarte idempotente)",
                 event_id,

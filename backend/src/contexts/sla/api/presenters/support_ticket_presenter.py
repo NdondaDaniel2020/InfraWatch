@@ -38,7 +38,7 @@ def format_support_ticket_html(
         f"{safe_description}"
         "</div>"
         '<p style="font-size: 11px; color: #64748b; margin-top: 12px;">'
-        f'Protocolo de Atendimento InfraWatch: <strong>{protocol}</strong> | Registrado em {created_at.strftime("%d/%m/%Y %H:%M:%S UTC")}'
+        f"Protocolo de Atendimento InfraWatch: <strong>{protocol}</strong> | Registrado em {created_at.strftime('%d/%m/%Y %H:%M:%S UTC')}"
         "</p>"
         "</div>"
     )

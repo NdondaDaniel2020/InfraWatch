@@ -140,7 +140,9 @@ async def test_iam_email_consumer_deduplicates_redelivered_events(idempotency_gu
 
 
 @pytest.mark.asyncio
-async def test_alert_notification_consumer_deduplicates_redelivered_events(idempotency_guard) -> None:
+async def test_alert_notification_consumer_deduplicates_redelivered_events(
+    idempotency_guard,
+) -> None:
     event_bus = InMemoryEventBus()
     mock_dispatcher = AsyncMock()
     mock_dispatcher.dispatch_by_severity.return_value = {"telegram": True, "webhook": True}

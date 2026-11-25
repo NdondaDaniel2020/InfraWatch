@@ -38,11 +38,17 @@ class WebhookChannel:
         self._explicit_url = effective_url
         self._explicit_enabled = enabled
         settings = get_settings()
-        self.webhook_url = effective_url if effective_url is not None else settings.DEFAULT_WEBHOOK_URL
+        self.webhook_url = (
+            effective_url if effective_url is not None else settings.DEFAULT_WEBHOOK_URL
+        )
         self.enabled = (
             enabled
             if enabled is not None
-            else (bool(effective_url and effective_url.strip()) if effective_url is not None else bool(self.webhook_url and self.webhook_url.strip()))
+            else (
+                bool(effective_url and effective_url.strip())
+                if effective_url is not None
+                else bool(self.webhook_url and self.webhook_url.strip())
+            )
         )
         self.timeout = timeout_seconds
         self._custom_client = client

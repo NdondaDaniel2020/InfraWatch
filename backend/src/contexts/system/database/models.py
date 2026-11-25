@@ -32,9 +32,7 @@ class SystemSettingModel(Base):
         nullable=True,
     )
 
-    __table_args__ = (
-        Index("idx_system_settings_category", "category"),
-    )
+    __table_args__ = (Index("idx_system_settings_category", "category"),)
 
     def __repr__(self) -> str:
         return f"<SystemSettingModel key={self.key!r} category={self.category!r} is_secret={self.is_secret}>"

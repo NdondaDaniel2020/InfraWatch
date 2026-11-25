@@ -74,7 +74,9 @@ def decrypt_secret(payload: str, key: str | None = None) -> str:
 
     expected_tag = hmac.new(mac_key, nonce + ciphertext, hashlib.sha256).digest()
     if not hmac.compare_digest(tag, expected_tag):
-        raise ValueError("Falha de integridade criptográfica: segredo corrompido ou chave incorreta")
+        raise ValueError(
+            "Falha de integridade criptográfica: segredo corrompido ou chave incorreta"
+        )
 
     keystream = hashlib.shake_256(enc_key + nonce).digest(len(ciphertext))
     plain_bytes = bytes(c ^ k for c, k in zip(ciphertext, keystream))

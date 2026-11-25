@@ -174,9 +174,7 @@ class TokenCleanupWorker:
                     logger.exception("Erro durante a execução do expurgo de tokens")
 
                 try:
-                    await asyncio.wait_for(
-                        self._stop_event.wait(), timeout=self.interval_seconds
-                    )
+                    await asyncio.wait_for(self._stop_event.wait(), timeout=self.interval_seconds)
                     if self._stop_event.is_set():
                         break
                 except TimeoutError:

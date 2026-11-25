@@ -54,7 +54,12 @@ class CreateSupportTicketRequest(BaseModel):
     """Payload para abertura de chamado de suporte técnico pelo cliente."""
 
     title: str = Field(..., min_length=3, max_length=200, description="Título do chamado")
-    description: str = Field(..., min_length=5, max_length=2000, description="Descrição detalhada do incidente ou dúvida")
-    severity: str = Field(default="MEDIUM", description="Nível de severidade: LOW, MEDIUM, HIGH, CRITICAL")
-    device_id: UUID | None = Field(default=None, description="Identificador do dispositivo ou serviço afetado")
-
+    description: str = Field(
+        ..., min_length=5, max_length=2000, description="Descrição detalhada do incidente ou dúvida"
+    )
+    severity: str = Field(
+        default="MEDIUM", description="Nível de severidade: LOW, MEDIUM, HIGH, CRITICAL"
+    )
+    device_id: UUID | None = Field(
+        default=None, description="Identificador do dispositivo ou serviço afetado"
+    )

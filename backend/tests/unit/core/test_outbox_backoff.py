@@ -293,4 +293,3 @@ async def test_purge_processed_events_outbox(
         remaining = await OutboxRepository.fetch_pending_events(session, limit=10)
         assert len(remaining) == 1
         assert remaining[0].id == e_pending_old.id
-

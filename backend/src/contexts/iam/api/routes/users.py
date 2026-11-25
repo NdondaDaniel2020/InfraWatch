@@ -134,7 +134,7 @@ async def revoke_all_sessions(
     x_refresh_token: str | None = Header(default=None, alias="X-Refresh-Token"),
 ) -> SessionRevokeResponse:
     """Invalida as sessões ativas do usuário conectado.
-    
+
     Se o cabeçalho X-Refresh-Token for informado, desconecta todos os outros dispositivos
     e mantém a sessão atual ativa.
     """
@@ -142,7 +142,9 @@ async def revoke_all_sessions(
     current_hash = hash_token(x_refresh_token) if x_refresh_token else None
 
     if current_hash:
-        count = await session_service.revoke_other_sessions(user_uuid, current_token_hash=current_hash)
+        count = await session_service.revoke_other_sessions(
+            user_uuid, current_token_hash=current_hash
+        )
         msg = "Outras sessões ativas foram desconectadas com sucesso."
     else:
         count = await session_service.revoke_all_sessions(user_uuid)
@@ -254,7 +256,10 @@ async def create_user(
 ) -> UserPublicResponse:
     """Cria diretamente uma conta de usuário via painel administrativo."""
     if not current_user.is_super_admin:
-        if not current_user.organization_id or str(body.organization_id) != current_user.organization_id:
+        if (
+            not current_user.organization_id
+            or str(body.organization_id) != current_user.organization_id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="ORG_ADMIN só pode cadastrar usuários dentro de sua própria organização.",
@@ -364,7 +369,8 @@ async def activate_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
     if not current_user.is_global_operator and (
-        target_user.organization_id is None or str(target_user.organization_id) != current_user.organization_id
+        target_user.organization_id is None
+        or str(target_user.organization_id) != current_user.organization_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -407,7 +413,8 @@ async def deactivate_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from None
 
     if not current_user.is_global_operator and (
-        target_user.organization_id is None or str(target_user.organization_id) != current_user.organization_id
+        target_user.organization_id is None
+        or str(target_user.organization_id) != current_user.organization_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
