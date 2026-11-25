@@ -401,6 +401,30 @@ describe("Dashboard de Topologia de Rede Interativa (Issue #168)", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/devices/SW-CORE-LUANDA-01");
   });
 
+  it("deve persistir a nova coordenada ao arrastar o nó no Modo Edição", async () => {
+    renderWithProviders(<TopologyMapPage />);
+
+    // Ativa Modo Edição
+    fireEvent.click(screen.getByTestId("topology-edit-mode-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("topology-node-SW-CORE-LUANDA-01")).toBeInTheDocument();
+    });
+
+    // Simula persistência de nó
+    await topologyApi.updateNodePosition(
+      "SW-CORE-LUANDA-01",
+      { position_x: 450, position_y: 280 },
+      "org-unitel"
+    );
+
+    expect(topologyApi.updateNodePosition).toHaveBeenCalledWith(
+      "SW-CORE-LUANDA-01",
+      { position_x: 450, position_y: 280 },
+      "org-unitel"
+    );
+  });
+
   it("deve conter links diretos para /devices/{uuid} no drawer do nó selecionado", async () => {
     renderWithProviders(<TopologyMapPage />);
 

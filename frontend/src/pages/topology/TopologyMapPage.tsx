@@ -243,7 +243,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
 
   const handleNodeDragStop = useCallback(
     async (_event: unknown, node: Node) => {
-      if (!effectiveOrgId) return;
+      if (!isEditMode || !effectiveOrgId) return;
       try {
         await topologyApi.updateNodePosition(
           node.id,
@@ -253,11 +253,14 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           },
           effectiveOrgId
         );
+        toast.success("Posição do nó atualizada no canvas.", { duration: 1500 });
       } catch (err) {
-        console.error("Falha ao salvar posição do nó no canvas:", err);
+        toast.error(
+          err instanceof Error ? err.message : "Falha ao salvar posição do nó no canvas."
+        );
       }
     },
-    [effectiveOrgId]
+    [effectiveOrgId, isEditMode]
   );
 
   // Mapeia os dados dos nós para o formato do React Flow
