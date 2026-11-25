@@ -19,7 +19,7 @@ export default defineConfig({
     host: true,
   },
   build: {
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -29,6 +29,18 @@ export default defineConfig({
           "vendor-charts": ["recharts"],
           "vendor-flow": ["@xyflow/react"],
           "vendor-pdf": ["jspdf", "jspdf-autotable"],
+          "vendor-forms": ["react-hook-form", "@hookform/resolvers", "zod"],
+          "vendor-ui": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-select",
+            "@radix-ui/react-switch",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-tooltip",
+            "clsx",
+            "tailwind-merge",
+            "sonner",
+          ],
         },
       },
     },
