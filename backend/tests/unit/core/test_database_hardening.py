@@ -191,3 +191,60 @@ async def test_constraint_organization_sla_target_out_of_range(memory_db_session
     with pytest.raises(IntegrityError):
         await memory_db_session.commit()
     await memory_db_session.rollback()
+
+
+def test_migration_019_tables_coverage():
+    """Valida que a migração 019 mapeia todas as tabelas e não há sobreposição de políticas."""
+    import importlib.util
+    from pathlib import Path
+
+    migration_file = Path(__file__).parents[3] / "alembic" / "versions" / "019_enable_force_rls_and_revoke_public.py"
+    spec = importlib.util.spec_from_file_location("mig_019", migration_file)
+    assert spec is not None and spec.loader is not None
+    mig_019 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig_019)
+
+    data_tables = set(mig_019.DATA_TABLES)
+    tenant_tables = set(mig_019.TENANT_TABLES)
+    system_tables = set(mig_019.SYSTEM_TABLES)
+
+    # Verifica que não há intersecção entre tabelas tenant e system
+    assert tenant_tables.isdisjoint(system_tables)
+
+    # Verifica cobertura total das 16 tabelas de dados
+    expected_tables = tenant_tables | system_tables | {"organizations"}
+    assert expected_tables == data_tables
+    assert len(data_tables) == 16
+
+
+def test_migration_019_sqlite_safe():
+    """Garante que upgrade() e downgrade() executam sem exceção em SQLite."""
+    import importlib.util
+    from pathlib import Path
+
+    migration_file = Path(__file__).parents[3] / "alembic" / "versions" / "019_enable_force_rls_and_revoke_public.py"
+    spec = importlib.util.spec_from_file_location("mig_019", migration_file)
+    mig_019 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig_019)
+
+    with patch.object(mig_019, "_is_sqlite", return_value=True):
+        # Não deve lançar exceção
+        mig_019.upgrade()
+        mig_019.downgrade()
+
+
+def test_audit_database_hardening_script_content():
+    """Valida a presença e os checks essenciais no script de auditoria SQL."""
+    from pathlib import Path
+
+    script_path = Path(__file__).parents[3] / "scripts" / "audit_database_hardening.sql"
+    assert script_path.exists()
+    content = script_path.read_text(encoding="utf-8")
+
+    assert "relrowsecurity" in content
+    assert "relforcerowsecurity" in content
+    assert "has_schema_privilege('public', 'public', 'CREATE')" in content
+    assert "SHOW statement_timeout" in content
+    assert "search_path=" in content
+    assert "chk_metric_packet_loss" in content
+

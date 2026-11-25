@@ -33,11 +33,55 @@ def upgrade() -> None:
     if _is_sqlite():
         return
 
-    op.create_check_constraint(
-        "chk_metric_packet_loss",
-        "metrics",
-        "packet_loss >= 0.0 AND packet_loss <= 100.0",
-    )
+    # 1. Saneamento preventivo de dados legados inconsistentes antes de impor as constraints
+    op.execute("""
+        UPDATE maintenance_windows 
+        SET end_time = start_time + INTERVAL '2 hours' 
+        WHERE end_time < start_time;
+    """)
+    op.execute("""
+        UPDATE devices 
+        SET interval_seconds = 60 
+        WHERE interval_seconds < 5 OR interval_seconds > 86400;
+    """)
+    op.execute("""
+        UPDATE incidents 
+        SET resolved_at = started_at 
+        WHERE resolved_at IS NOT NULL AND resolved_at < started_at;
+    """)
+    op.execute("""
+        UPDATE organizations 
+        SET sla_target_default = 99.50 
+        WHERE sla_target_default < 50.00 OR sla_target_default > 100.00;
+    """)
+
+    # 2. No TimescaleDB, se compressão estiver ativa na hypertable metrics, desativa temporariamente para adicionar a constraint
+    op.execute("""
+        DO $$
+        DECLARE
+            v_compressed boolean := false;
+        BEGIN
+            UPDATE metrics SET packet_loss = 0.0 WHERE packet_loss < 0.0;
+            UPDATE metrics SET packet_loss = 100.0 WHERE packet_loss > 100.0;
+
+            IF EXISTS (
+                SELECT 1 FROM pg_extension WHERE extname = 'timescaledb'
+            ) AND EXISTS (
+                SELECT 1 FROM timescaledb_information.hypertables 
+                WHERE hypertable_name = 'metrics' AND compression_enabled = true
+            ) THEN
+                v_compressed := true;
+                ALTER TABLE metrics SET (timescaledb.compress = false);
+            END IF;
+
+            ALTER TABLE metrics ADD CONSTRAINT chk_metric_packet_loss CHECK (packet_loss >= 0.0 AND packet_loss <= 100.0);
+
+            IF v_compressed THEN
+                ALTER TABLE metrics SET (timescaledb.compress = true);
+            END IF;
+        END $$;
+    """)
+
     op.create_check_constraint(
         "chk_device_interval_seconds",
         "devices",
@@ -68,4 +112,26 @@ def downgrade() -> None:
     op.drop_constraint("chk_incident_dates_coherent", "incidents", type_="check")
     op.drop_constraint("chk_maint_valid_window", "maintenance_windows", type_="check")
     op.drop_constraint("chk_device_interval_seconds", "devices", type_="check")
-    op.drop_constraint("chk_metric_packet_loss", "metrics", type_="check")
+
+    op.execute("""
+        DO $$
+        DECLARE
+            v_compressed boolean := false;
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_extension WHERE extname = 'timescaledb'
+            ) AND EXISTS (
+                SELECT 1 FROM timescaledb_information.hypertables 
+                WHERE hypertable_name = 'metrics' AND compression_enabled = true
+            ) THEN
+                v_compressed := true;
+                ALTER TABLE metrics SET (timescaledb.compress = false);
+            END IF;
+
+            ALTER TABLE metrics DROP CONSTRAINT IF EXISTS chk_metric_packet_loss;
+
+            IF v_compressed THEN
+                ALTER TABLE metrics SET (timescaledb.compress = true);
+            END IF;
+        END $$;
+    """)
