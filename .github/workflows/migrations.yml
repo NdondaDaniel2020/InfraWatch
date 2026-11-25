@@ -1,0 +1,73 @@
+name: Migrations
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: migrations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migrations:
+    name: Migration checks & Hardening
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      ENVIRONMENT: test
+      DATABASE_URL: postgresql+asyncpg://infrawatch_user:infrawatch_secure_password_2026@localhost:5432/infrawatch_test_db
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: test-secret-key-32-characters-minimum-length-for-hmac
+      REFRESH_SECRET_KEY: test-refresh-secret-key-32-characters-minimum
+
+    services:
+      postgres:
+        image: timescale/timescaledb:2.16.1-pg16
+        env:
+          POSTGRES_USER: infrawatch_user
+          POSTGRES_PASSWORD: infrawatch_secure_password_2026
+          POSTGRES_DB: infrawatch_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U infrawatch_user -d infrawatch_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Cache dependencies
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Sync dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Verify single migration head
+        run: uv run alembic heads
+
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Verify Hardening Audit Script against Postgres
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          PGPASSWORD=infrawatch_secure_password_2026 psql -h localhost -U infrawatch_user -d infrawatch_test_db < scripts/audit_database_hardening.sql
+
+      - name: Rollback to previous revision and re-apply
+        run: |
+          uv run alembic downgrade -1
+          uv run alembic upgrade head
