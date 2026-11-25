@@ -32,7 +32,7 @@ jobs:
           cache-dependency-glob: backend/uv.lock
 
       - name: Sync dependencies
-        run: uv sync --frozen --group dev
+        run: uv sync --frozen --all-extras --group dev
 
       - name: Run Ruff format check
         run: uv run ruff format --check .
