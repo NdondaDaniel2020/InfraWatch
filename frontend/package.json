@@ -8,7 +8,8 @@
     "build": "node ./node_modules/typescript/bin/tsc && node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "test": "node ./node_modules/vitest/vitest.mjs run",
-    "test:watch": "node ./node_modules/vitest/vitest.mjs"
+    "test:watch": "node ./node_modules/vitest/vitest.mjs",
+    "test:e2e": "node ./node_modules/@playwright/test/cli.js test"
   },
   "dependencies": {
     "@hookform/resolvers": "3.10.0",
@@ -41,6 +42,7 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.1",
     "@tailwindcss/container-queries": "0.1.1",
     "@tailwindcss/forms": "0.5.11",
     "@testing-library/jest-dom": "^6.6.3",

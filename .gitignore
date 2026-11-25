@@ -92,6 +92,9 @@ subject
 .agents
 .agents/
 */pla*
+!frontend/playwright.config.ts
+frontend/test-results/
+frontend/playwright-report/
 whatsapp_qr_code.png
 
 # Containerlab runtime
