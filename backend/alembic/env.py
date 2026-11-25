@@ -3,11 +3,36 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import pool
+import sqlalchemy as sa
+from alembic.ddl.impl import DefaultImpl
+from sqlalchemy import Column, MetaData, PrimaryKeyConstraint, String, Table, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
+
+
+# Customizar a tabela de versão do Alembic para suportar revision IDs > 32 caracteres
+def _custom_version_table_impl(
+    self,
+    *,
+    version_table: str,
+    version_table_schema: str | None,
+    version_table_pk: bool,
+    **kw,
+) -> Table:
+    vt = Table(
+        version_table,
+        MetaData(),
+        Column("version_num", String(128), nullable=False),
+        schema=version_table_schema,
+    )
+    if version_table_pk:
+        vt.append_constraint(PrimaryKeyConstraint("version_num", name=f"{version_table}_pkc"))
+    return vt
+
+
+DefaultImpl.version_table_impl = _custom_version_table_impl
 
 # Garantir que a raiz de backend esteja no sys.path para resolução de src.*
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -56,6 +81,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        version_table_column_type=sa.String(128),
     )
 
     with context.begin_transaction():
@@ -63,7 +89,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_table_column_type=sa.String(128),
+    )
 
     with context.begin_transaction():
         context.run_migrations()
