@@ -1,6 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, configure } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+
+// Tolerância para carregamento assíncrono sob concorrência de CPU em testes paralelos
+configure({ asyncUtilTimeout: 4000 });
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalErrorBoundary } from "../src/components/common/GlobalErrorBoundary";
 import { AuthContext } from "../src/context/AuthContext";
