@@ -2,6 +2,8 @@ import { apiClient } from "./apiClient";
 import { clientPortalApi } from "./clientPortalApi";
 import type {
   MaintenanceWindow,
+  MaintenanceWindowDTO,
+  MaintenanceWindowListResponse,
   CreateMaintenanceInput,
   MaintenanceFilters,
   MaintenanceKpiSummary,
@@ -10,6 +12,7 @@ import type {
   SlaExportFormat,
   SlaReportingPeriod,
   OrganizationDailySlaData,
+  DeviceSlaReport,
 } from "../types/sla";
 import type {
   ClientSlaSummary,
@@ -81,13 +84,13 @@ export const slaApi = {
       params.append("period", filters.period);
     }
     const query = params.toString() ? `?${params.toString()}` : "";
-    const res = await apiClient.get<any>(`${BASE_PATH_MAINT}${query}`);
+    const res = await apiClient.get<MaintenanceWindowListResponse | MaintenanceWindowDTO[]>(`${BASE_PATH_MAINT}${query}`);
 
     if (Array.isArray(res)) {
-      return res;
+      return res as unknown as MaintenanceWindow[];
     }
     if (res && Array.isArray(res.items)) {
-      return res.items.map((item: any): MaintenanceWindow => {
+      return res.items.map((item: MaintenanceWindowDTO): MaintenanceWindow => {
         const start = item.start_time ? new Date(item.start_time).getTime() : 0;
         const end = item.end_time ? new Date(item.end_time).getTime() : 0;
         const calculatedDuration =
@@ -124,7 +127,7 @@ export const slaApi = {
   },
 
   async getMaintenanceKpiSummary(): Promise<MaintenanceKpiSummary> {
-    const res = await apiClient.get<any>(`${BASE_PATH_MAINT}/kpis`);
+    const res = await apiClient.get<Record<string, unknown>>(`${BASE_PATH_MAINT}/kpis`);
     if (!res) {
       throw new Error("Resposta inválida do backend para KPIs de manutenção.");
     }
@@ -133,17 +136,17 @@ export const slaApi = {
       throw new Error("Resposta inválida do backend para KPIs de manutenção.");
     }
     return {
-      activeNowCount: res.active_now_count ?? res.activeNowCount ?? 0,
-      scheduledCount: res.scheduled_count ?? res.scheduledCount ?? 0,
+      activeNowCount: Number(res.active_now_count ?? res.activeNowCount ?? 0),
+      scheduledCount: Number(res.scheduled_count ?? res.scheduledCount ?? 0),
       exemptedHoursMonth: exempted,
-      contractualLimitHours: res.contractual_limit_hours ?? res.contractualLimitHours ?? 8,
+      contractualLimitHours: Number(res.contractual_limit_hours ?? res.contractualLimitHours ?? 8),
     };
   },
 
   async createMaintenanceWindow(
     data: CreateMaintenanceInput
-  ): Promise<any> {
-    const payload: Record<string, any> = {
+  ): Promise<Record<string, unknown>> {
+    const payload: Record<string, unknown> = {
       description: data.title ? `${data.title} — ${data.description}` : data.description,
       start_time: data.startTimeUtc,
       end_time: data.endTimeUtc,
@@ -232,8 +235,8 @@ export const slaApi = {
     );
   },
 
-  async getDeviceSla(deviceId: string): Promise<any> {
-    return apiClient.get(`${BASE_PATH_SLA}/devices/${encodeURIComponent(deviceId)}`);
+  async getDeviceSla(deviceId: string): Promise<DeviceSlaReport> {
+    return apiClient.get<DeviceSlaReport>(`${BASE_PATH_SLA}/devices/${encodeURIComponent(deviceId)}`);
   },
 
   async getDailySla(

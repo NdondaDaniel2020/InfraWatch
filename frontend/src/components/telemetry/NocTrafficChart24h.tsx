@@ -14,7 +14,7 @@ import type { TrafficChartPoint } from "../../types/telemetry";
 
 interface CustomTooltipProps {
   active?: boolean;
-  payload?: any[];
+  payload?: Array<{ payload: TrafficChartPoint; value?: number; name?: string }>;
   label?: string;
 }
 

@@ -216,8 +216,9 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({
       await incidentsApi.resolveIncident(incidentId, payload);
       showToast(`Incidente ${incidentId} resolvido com sucesso! GLPI atualizado.`);
       setResolveIncidentItem(null);
-    } catch (err: any) {
-      showToast(err.message || "Erro ao resolver incidente.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao resolver incidente.";
+      showToast(msg);
     } finally {
       setIsSubmittingResolve(false);
     }

@@ -208,8 +208,8 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
         setTestConnStatus("error");
         toast.error(response.message);
       }
-    } catch (err: any) {
-      const errMsg = err?.message || "Falha na comunicação com o serviço de sonda";
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Falha na comunicação com o serviço de sonda";
       setTestConnStatus("error");
       setTestConnMessage(`Erro: ${errMsg}`);
       toast.error(errMsg);
@@ -718,7 +718,7 @@ export const DeviceFormModal: React.FC<DeviceFormModalProps> = ({
                       value={intervalSeconds === undefined || Number.isNaN(intervalSeconds) ? "" : intervalSeconds}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, "");
-                        setValue("intervalSeconds", val === "" ? (0 as any) : Number(val), { shouldValidate: true });
+                        setValue("intervalSeconds", val === "" ? 0 : Number(val), { shouldValidate: true });
                       }}
                       className="w-8 bg-transparent text-right focus:outline-none focus:ring-0 p-0 font-mono text-emerald-400 font-bold cursor-text selection:bg-emerald-500/30"
                     />

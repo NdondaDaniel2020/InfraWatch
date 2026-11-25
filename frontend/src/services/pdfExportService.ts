@@ -810,7 +810,7 @@ export const pdfExportService = {
 
     let tableHead: string[][];
     let tableBody: string[][];
-    let columnStyles: Record<number, any>;
+    let columnStyles: Record<number, Record<string, unknown>>;
 
     if (isDevicesMode) {
       tableHead = [

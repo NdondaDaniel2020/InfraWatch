@@ -79,22 +79,23 @@ export const TopologyInspectorDrawer: React.FC<TopologyInspectorDrawerProps> = (
     activeQueryClient
   );
 
+  const rawDetail = deviceDetail as unknown as Record<string, unknown> | null | undefined;
   const displayModel =
-    device?.model || (deviceDetail as any)?.model || device?.label;
+    device?.model || (rawDetail?.model as string) || device?.label;
   const displaySerial =
     device?.serialNumber ||
-    (deviceDetail as any)?.serialNumber ||
-    (deviceDetail as any)?.serial_number ||
+    (rawDetail?.serialNumber as string) ||
+    (rawDetail?.serial_number as string) ||
     "N/D";
   const displayFirmware =
     device?.firmware ||
-    (deviceDetail as any)?.firmwareVersion ||
-    (deviceDetail as any)?.firmware ||
+    (rawDetail?.firmwareVersion as string) ||
+    (rawDetail?.firmware as string) ||
     "N/D";
   const displayTemp =
-    device?.temperature || (deviceDetail as any)?.temperature || "N/D";
+    device?.temperature || (rawDetail?.temperature as string) || "N/D";
   const displayUptime =
-    device?.uptime || (deviceDetail as any)?.uptimeDisplay || "—";
+    device?.uptime || (rawDetail?.uptimeDisplay as string) || "—";
 
   if (!isOpen || !device) return null;
 

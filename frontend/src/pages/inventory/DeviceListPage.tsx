@@ -133,18 +133,19 @@ const DeviceRow: React.FC<{
   onResume,
   onMaintenance,
 }) => {
-  const rawStatus = String(device.healthStatus || (device as any).status || ((device as any).is_paused ? "PAUSED" : "UP")).toUpperCase();
+  const rawDev = device as unknown as Record<string, unknown>;
+  const rawStatus = String(device.healthStatus || rawDev.status || (rawDev.is_paused ? "PAUSED" : "UP")).toUpperCase();
   const statusKey: DeviceHealthStatus =
     rawStatus === "DOWN" ? "DOWN" :
     rawStatus === "DEG" || rawStatus === "DEGRADED" ? "DEG" :
     rawStatus === "MAINT" || rawStatus === "MAINTENANCE" ? "MAINT" :
-    rawStatus === "PAUSED" || (device as any).is_paused ? "PAUSED" : "UP";
+    rawStatus === "PAUSED" || rawDev.is_paused ? "PAUSED" : "UP";
 
   const status = statusConfig[statusKey] || statusConfig.UP;
   const protocolKey = String(device.protocol || "ICMP").toUpperCase() as ProberProtocol;
   const protocolIcon = protocolIcons[protocolKey] || "❓";
-  const ipDisplay = device.ipAddress || (device as any).ip_address || "—";
-  const hostnameDisplay = device.hostname || (device as any).name || ipDisplay;
+  const ipDisplay = device.ipAddress || (rawDev.ip_address as string) || "—";
+  const hostnameDisplay = device.hostname || (rawDev.name as string) || ipDisplay;
 
   return (
     <tr className="border-b border-obsidian-800/60 hover:bg-obsidian-850/50 transition-colors font-sans text-xs">
@@ -373,10 +374,11 @@ export const DeviceListPage: React.FC = () => {
     let maint = 0;
 
     for (const d of devices) {
-      const st = String(d.healthStatus || (d as any).status || ((d as any).is_paused ? "PAUSED" : "UP")).toUpperCase();
+      const rawD = d as unknown as Record<string, unknown>;
+      const st = String(d.healthStatus || rawD.status || (rawD.is_paused ? "PAUSED" : "UP")).toUpperCase();
       if (st === "DOWN") down++;
       else if (st === "DEG" || st === "DEGRADED") deg++;
-      else if (st === "MAINT" || st === "MAINTENANCE" || (d as any).is_paused) maint++;
+      else if (st === "MAINT" || st === "MAINTENANCE" || rawD.is_paused) maint++;
       else up++;
     }
 

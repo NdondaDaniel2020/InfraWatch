@@ -45,14 +45,18 @@ function formatDuration(startedAt?: string, endedAt?: string | null): string {
   return `${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}s`;
 }
 
-export function dtoToIncidentItem(dto: any): IncidentItem {
-  const idStr = String(dto.id);
-  const sevLower = (dto.severity || "degraded").toLowerCase() as IncidentSeverity;
-  const statusUpper = (dto.status || "TRIGGERED").toUpperCase() as IncidentStatus;
-  const startedAt = dto.started_at
-    ? new Date(dto.started_at).toISOString()
+export function dtoToIncidentItem(dto: IncidentDTO | Record<string, unknown>): IncidentItem {
+  const d = dto as Record<string, unknown>;
+  const idStr = String(d.id ?? "");
+  const sevLower = String(d.severity || "degraded").toLowerCase() as IncidentSeverity;
+  const statusUpper = String(d.status || "TRIGGERED").toUpperCase() as IncidentStatus;
+  const startedAt = d.started_at
+    ? new Date(String(d.started_at)).toISOString()
     : new Date().toISOString();
-  const durationStr = formatDuration(dto.started_at, dto.resolved_at);
+  const durationStr = formatDuration(
+    typeof d.started_at === "string" ? d.started_at : undefined,
+    typeof d.resolved_at === "string" ? d.resolved_at : undefined
+  );
 
   let priorityLabel = "P2 DEGRADADO";
   if (sevLower === "critical") {
@@ -62,11 +66,11 @@ export function dtoToIncidentItem(dto: any): IncidentItem {
   }
 
   const opName =
-    dto.acknowledged_by ||
-    (dto.operator_id ? `Operador #${String(dto.operator_id).slice(0, 6)}` : null);
+    (d.acknowledged_by as string | undefined) ||
+    (d.operator_id ? `Operador #${String(d.operator_id).slice(0, 6)}` : null);
   const assignedOp = opName
     ? {
-        id: String(dto.operator_id || "op"),
+        id: String(d.operator_id || "op"),
         name: opName,
         initials:
           opName
@@ -79,24 +83,24 @@ export function dtoToIncidentItem(dto: any): IncidentItem {
       }
     : null;
 
-  const glpiId = typeof dto.glpi_ticket_id === "number" ? dto.glpi_ticket_id : null;
+  const glpiId = typeof d.glpi_ticket_id === "number" ? d.glpi_ticket_id : null;
 
   return {
     id: idStr,
-    code: dto.code || `INC-${idStr.slice(0, 8).toUpperCase()}`,
-    title: dto.title || "Incidente Operacional",
+    code: (d.code as string) || `INC-${idStr.slice(0, 8).toUpperCase()}`,
+    title: (d.title as string) || "Incidente Operacional",
     target_device: {
       name:
-        dto.device_name ||
-        (dto.device_id
-          ? `DEV-${String(dto.device_id).slice(0, 8).toUpperCase()}`
+        (d.device_name as string) ||
+        (d.device_id
+          ? `DEV-${String(d.device_id).slice(0, 8).toUpperCase()}`
           : "Dispositivo N/D"),
-      ip: dto.device_ip || "N/D",
-      model: dto.device_model || "N/D",
-      location: dto.device_location,
+      ip: (d.device_ip as string) || "N/D",
+      model: (d.device_model as string) || "N/D",
+      location: d.device_location as string | undefined,
     },
-    organization_name: dto.organization_name || "Organização",
-    organization_domain: dto.organization_domain,
+    organization_name: (d.organization_name as string) || "Organização",
+    organization_domain: d.organization_domain as string | undefined,
     severity: sevLower,
     status: statusUpper,
     started_at: startedAt,
@@ -104,15 +108,15 @@ export function dtoToIncidentItem(dto: any): IncidentItem {
     sla_remaining_str: statusUpper === "RESOLVED" ? "Encerrado" : "Monitoramento Ativo",
     glpi_ticket_id: glpiId,
     glpi_url:
-      dto.glpi_url ||
+      (d.glpi_url as string) ||
       (glpiId ? getGlpiTicketUrl(glpiId) : undefined),
     priority_label: priorityLabel,
     assigned_operator: assignedOp,
-    root_cause: dto.root_cause || undefined,
-    corrective_action: dto.corrective_action || undefined,
-    failure_category: dto.failure_category,
-    is_sla_exempt: dto.is_sla_exempt ?? false,
-    timeline: Array.isArray(dto.timeline) ? dto.timeline : [],
+    root_cause: (d.root_cause as string) || undefined,
+    corrective_action: (d.corrective_action as string) || undefined,
+    failure_category: d.failure_category as FailureCategory | undefined,
+    is_sla_exempt: Boolean(d.is_sla_exempt ?? false),
+    timeline: Array.isArray(d.timeline) ? (d.timeline as IncidentTimelineEvent[]) : [],
   };
 }
 

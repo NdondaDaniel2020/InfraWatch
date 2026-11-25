@@ -18,45 +18,47 @@ import type {
 
 const BASE_PATH = "/api/v1/devices";
 
-export function normalizeDeviceListItem(raw: any): DeviceListItem {
-  const rawStatus = String(raw?.healthStatus || raw?.status || (raw?.is_paused ? "PAUSED" : "UP")).toUpperCase();
+export function normalizeDeviceListItem(raw: unknown): DeviceListItem {
+  const item = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const rawStatus = String(item.healthStatus || item.status || (item.is_paused ? "PAUSED" : "UP")).toUpperCase();
   let healthStatus: DeviceHealthStatus = "UP";
   if (rawStatus === "DOWN") healthStatus = "DOWN";
   else if (rawStatus === "DEG" || rawStatus === "DEGRADED") healthStatus = "DEG";
   else if (rawStatus === "MAINT" || rawStatus === "MAINTENANCE") healthStatus = "MAINT";
-  else if (rawStatus === "PAUSED" || raw?.is_paused) healthStatus = "PAUSED";
+  else if (rawStatus === "PAUSED" || item.is_paused) healthStatus = "PAUSED";
   else healthStatus = "UP";
 
-  const rawProtocol = String(raw?.protocol || "ICMP").toUpperCase() as ProberProtocol;
-  const rawCategory = String(raw?.category || "OTHER").toUpperCase() as DeviceCategory;
+  const rawProtocol = String(item.protocol || "ICMP").toUpperCase() as ProberProtocol;
+  const rawCategory = String(item.category || "OTHER").toUpperCase() as DeviceCategory;
 
   return {
-    id: raw?.id || "",
-    name: raw?.name || "Sem Nome",
-    hostname: raw?.hostname || raw?.name || raw?.ip_address || "—",
-    ipAddress: raw?.ipAddress || raw?.ip_address || "—",
-    port: raw?.port,
+    id: String(item.id || ""),
+    name: String(item.name || "Sem Nome"),
+    hostname: String(item.hostname || item.name || item.ip_address || "—"),
+    ipAddress: String(item.ipAddress || item.ip_address || "—"),
+    port: typeof item.port === "number" ? item.port : undefined,
     protocol: rawProtocol,
     category: rawCategory,
     healthStatus,
-    intervalSeconds: raw?.intervalSeconds || raw?.interval_seconds || 60,
-    lastCheckAt: raw?.lastCheckAt || raw?.last_check_at,
-    nextCheckAt: raw?.nextCheckAt || raw?.next_check_at,
-    createdAt: raw?.createdAt || raw?.created_at || "",
-    updatedAt: raw?.updatedAt || raw?.updated_at || "",
+    intervalSeconds: Number(item.intervalSeconds || item.interval_seconds || 60),
+    lastCheckAt: typeof item.lastCheckAt === "string" ? item.lastCheckAt : typeof item.last_check_at === "string" ? item.last_check_at : undefined,
+    nextCheckAt: typeof item.nextCheckAt === "string" ? item.nextCheckAt : typeof item.next_check_at === "string" ? item.next_check_at : undefined,
+    createdAt: String(item.createdAt || item.created_at || ""),
+    updatedAt: String(item.updatedAt || item.updated_at || ""),
   };
 }
 
-function normalizePaginatedDevices(res: any): PaginatedResponse<DeviceListItem> {
-  const rawItems = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
-  const pageSize = res?.pageSize ?? res?.page_size ?? 10;
-  const total = res?.total ?? rawItems.length;
-  const totalPages = res?.totalPages ?? res?.total_pages ?? Math.max(1, Math.ceil(total / (pageSize || 1)));
+function normalizePaginatedDevices(res: unknown): PaginatedResponse<DeviceListItem> {
+  const data = (res && typeof res === "object" ? res : {}) as Record<string, unknown>;
+  const rawItems = Array.isArray(data.items) ? data.items : Array.isArray(res) ? (res as unknown[]) : [];
+  const pageSize = Number(data.pageSize ?? data.page_size ?? 10);
+  const total = Number(data.total ?? rawItems.length);
+  const totalPages = Number(data.totalPages ?? data.total_pages ?? Math.max(1, Math.ceil(total / (pageSize || 1))));
 
   return {
     items: rawItems.map(normalizeDeviceListItem),
     total,
-    page: res?.page ?? 1,
+    page: Number(data.page ?? 1),
     pageSize,
     totalPages,
   };
@@ -85,7 +87,7 @@ export const devicesApi = {
       sort_by: filters.sortBy,
       sort_order: filters.sortOrder,
     });
-    const res = await apiClient.get<any>(`${BASE_PATH}/?${query}`);
+    const res = await apiClient.get<Record<string, unknown>>(`${BASE_PATH}/?${query}`);
     return normalizePaginatedDevices(res);
   },
 
@@ -98,7 +100,7 @@ export const devicesApi = {
       health_status: filters.healthStatus,
       protocol: filters.protocol,
     });
-    const res = await apiClient.get<any>(`${BASE_PATH}/search?${queryString}`);
+    const res = await apiClient.get<Record<string, unknown>>(`${BASE_PATH}/search?${queryString}`);
     return normalizePaginatedDevices(res);
   },
 
