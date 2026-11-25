@@ -1,0 +1,80 @@
+name: Coverage
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: Coverage gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      ENVIRONMENT: test
+      DATABASE_URL: postgresql+asyncpg://infrawatch_user:infrawatch_secure_password_2026@localhost:5432/infrawatch_test_db
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: test-secret-key-32-characters-minimum-length-for-hmac
+      REFRESH_SECRET_KEY: test-refresh-secret-key-32-characters-minimum
+
+    services:
+      postgres:
+        image: timescale/timescaledb:2.16.1-pg16
+        env:
+          POSTGRES_USER: infrawatch_user
+          POSTGRES_PASSWORD: infrawatch_secure_password_2026
+          POSTGRES_DB: infrawatch_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U infrawatch_user -d infrawatch_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Cache dependencies
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Sync dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Apply migrations against Postgres
+        run: uv run alembic upgrade head
+
+      - name: Run tests with coverage
+        run: uv run pytest tests/unit/ --cov=src --cov-report=term --cov-report=html --cov-fail-under=70
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/htmlcov/
+          retention-days: 30
