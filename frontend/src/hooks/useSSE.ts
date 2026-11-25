@@ -294,7 +294,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     // Determina se deve usar Fetch com ReadableStream (ADR-033) ou EventSource legado
     const isMockEventSource =
       typeof window.EventSource !== "undefined" &&
-      (window.EventSource.name === "MockEventSource" || (window.EventSource as any).isMock);
+      (window.EventSource.name === "MockEventSource" || Boolean((window.EventSource as unknown as { isMock?: boolean }).isMock));
 
     const useFetchStream =
       transport === "fetch" ||
@@ -367,19 +367,21 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
             if (!isManuallyClosedRef.current && !controller.signal.aborted) {
               scheduleReconnect();
             }
-          } catch (readErr: any) {
+          } catch (readErr: unknown) {
             if (controller.signal.aborted || isManuallyClosedRef.current) {
               return;
             }
-            optionsRef.current.onError?.(readErr);
+            const err = readErr instanceof Error ? readErr : new Error(String(readErr));
+            optionsRef.current.onError?.(err);
             scheduleReconnect();
           }
         })
-        .catch((fetchErr: any) => {
+        .catch((fetchErr: unknown) => {
           if (controller.signal.aborted || isManuallyClosedRef.current) {
             return;
           }
-          optionsRef.current.onError?.(fetchErr);
+          const err = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
+          optionsRef.current.onError?.(err);
           scheduleReconnect();
         });
 

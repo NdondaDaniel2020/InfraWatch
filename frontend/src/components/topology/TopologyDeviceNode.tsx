@@ -16,9 +16,10 @@ import { TopologyDeviceData } from "../../types/topology";
 export const TopologyDeviceNode = memo(({ id, data, selected }: NodeProps) => {
   const navigate = useNavigate();
   const device = data as unknown as TopologyDeviceData;
-  const onNodeSelect = (data as any)?.onSelect;
-  const isEditMode = Boolean((data as any)?.isEditMode);
-  const onDeleteNode = (data as any)?.onDeleteNode;
+  const rawData = data as unknown as Record<string, unknown>;
+  const onNodeSelect = rawData?.onSelect as ((id: string) => void) | undefined;
+  const isEditMode = Boolean(rawData?.isEditMode);
+  const onDeleteNode = rawData?.onDeleteNode as ((node: unknown) => void) | undefined;
   const targetDeviceId = device.deviceId || device.id || id;
 
   const getBorderAndBgStyles = () => {

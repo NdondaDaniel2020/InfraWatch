@@ -10,21 +10,12 @@ import {
   Eye,
   Plus,
 } from "lucide-react";
+import type {
+  TopologyCategoryCounts,
+  OrganizationOption,
+} from "../../types/topology";
 
-export type TopologyStateSimulation = "nominal" | "skeleton" | "empty" | "error";
-
-export interface TopologyCategoryCounts {
-  all: number;
-  router: number;
-  switch: number;
-  workload: number;
-}
-
-export interface OrganizationOption {
-  id: string;
-  name: string;
-  slug?: string;
-}
+export type { TopologyStateSimulation, TopologyCategoryCounts, OrganizationOption } from "../../types/topology";
 
 interface TopologyToolbarProps {
   categoryFilter: string;

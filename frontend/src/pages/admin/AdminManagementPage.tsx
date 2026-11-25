@@ -774,7 +774,15 @@ export const AdminManagementPage: React.FC = () => {
                   <label className="text-slate-300 font-medium block mb-1">Papel RBAC *</label>
                   <select
                     value={newUserRole}
-                    onChange={(e) => setNewUserRole(e.target.value as any)}
+                    onChange={(e) =>
+                      setNewUserRole(
+                        e.target.value as
+                          | "SUPER_ADMIN"
+                          | "NOC_OPERATOR"
+                          | "ORG_ADMIN"
+                          | "CLIENT_VIEWER"
+                      )
+                    }
                     className="w-full bg-obsidian-950 border border-obsidian-800 rounded-lg p-2 text-white font-mono text-xs"
                   >
                     <option value="CLIENT_VIEWER">CLIENT_VIEWER</option>
@@ -898,7 +906,14 @@ export const AdminManagementPage: React.FC = () => {
                   <label className="text-slate-300 font-medium block mb-1">Nível de Serviço (Tier)</label>
                   <select
                     value={newOrgTier}
-                    onChange={(e) => setNewOrgTier(e.target.value as any)}
+                    onChange={(e) =>
+                      setNewOrgTier(
+                        e.target.value as
+                          | "STANDARD"
+                          | "PROFESSIONAL"
+                          | "ENTERPRISE_GOLD"
+                      )
+                    }
                     className="w-full bg-obsidian-950 border border-obsidian-800 rounded-lg p-2 text-white font-mono text-xs"
                   >
                     <option value="STANDARD">STANDARD</option>

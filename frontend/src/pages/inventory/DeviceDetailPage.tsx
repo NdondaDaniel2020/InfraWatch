@@ -601,7 +601,7 @@ export const DeviceDetailPage: React.FC = () => {
                           <span>Duração: {incident.duration_str}</span>
                           {incident.glpi_ticket_id ? (
                             <a
-                              href={getGlpiTicketUrl(incident.glpi_ticket_id, (incident as any).glpi_url)}
+                              href={getGlpiTicketUrl(incident.glpi_ticket_id, incident.glpi_url ?? (incident as unknown as Record<string, string>).glpi_url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-sky-400 hover:underline flex items-center gap-1"

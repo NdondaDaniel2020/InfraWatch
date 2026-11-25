@@ -120,3 +120,19 @@ export interface TopologyGraphResponse {
   totalEdges: number;
   cluster: string | null;
 }
+
+export type TopologyStateSimulation = "nominal" | "skeleton" | "empty" | "error";
+
+export interface TopologyCategoryCounts {
+  all: number;
+  router: number;
+  switch: number;
+  workload: number;
+}
+
+export interface OrganizationOption {
+  id: string;
+  name: string;
+  slug?: string;
+}
+

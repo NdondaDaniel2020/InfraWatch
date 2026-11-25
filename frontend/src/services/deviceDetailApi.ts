@@ -27,22 +27,23 @@ interface MonitoredDeviceDetailResponse {
   recent_metrics?: TelemetryPointItem[];
 }
 
-export function normalizeDeviceDetail(raw: any): DeviceDetail {
-  if (!raw) return raw;
+export function normalizeDeviceDetail(raw: unknown): DeviceDetail {
+  if (!raw || typeof raw !== "object") return raw as DeviceDetail;
+  const data = raw as Record<string, unknown>;
 
-  const rawStatus = String(raw?.healthStatus || raw?.status || (raw?.is_paused ? "PAUSED" : "UP")).toUpperCase();
+  const rawStatus = String(data.healthStatus || data.status || (data.is_paused ? "PAUSED" : "UP")).toUpperCase();
   let healthStatus: "UP" | "DOWN" | "DEG" | "MAINT" | "PAUSED" = "UP";
   if (rawStatus === "DOWN") healthStatus = "DOWN";
   else if (rawStatus === "DEG" || rawStatus === "DEGRADED") healthStatus = "DEG";
   else if (rawStatus === "MAINT" || rawStatus === "MAINTENANCE") healthStatus = "MAINT";
-  else if (rawStatus === "PAUSED" || raw?.is_paused) healthStatus = "PAUSED";
+  else if (rawStatus === "PAUSED" || data.is_paused) healthStatus = "PAUSED";
   else healthStatus = "UP";
 
-  const category = String(raw?.category || "SERVER").toUpperCase();
-  const protocol = String(raw?.protocol || "ICMP").toUpperCase();
-  const ipAddress = raw?.ipAddress || raw?.ip_address || "—";
-  const name = raw?.name || "Sem Nome";
-  const hostname = raw?.hostname || name;
+  const category = String(data.category || "SERVER").toUpperCase();
+  const protocol = String(data.protocol || "ICMP").toUpperCase();
+  const ipAddress = (data.ipAddress as string) || (data.ip_address as string) || "—";
+  const name = (data.name as string) || "Sem Nome";
+  const hostname = (data.hostname as string) || name;
 
   // Derivação de atributos de hardware / identificação contextual
   let defaultVendor = "InfraWatch Node";
@@ -61,10 +62,10 @@ export function normalizeDeviceDetail(raw: any): DeviceDetail {
     defaultModel = `${name} Instance`;
   }
 
-  const vendor = raw?.vendor || defaultVendor;
-  const model = raw?.model || defaultModel;
+  const vendor = (data.vendor as string) || defaultVendor;
+  const model = (data.model as string) || defaultModel;
   const macAddress =
-    raw?.macAddress ||
+    (data.macAddress as string) ||
     (ipAddress !== "—" && ipAddress.includes(".")
       ? `02:42:${ipAddress
           .split(".")
@@ -73,14 +74,14 @@ export function normalizeDeviceDetail(raw: any): DeviceDetail {
           .join(":")}:00:01`
       : "—");
   const firmwareVersion =
-    raw?.firmwareVersion ||
+    (data.firmwareVersion as string) ||
     (category === "SWITCH" ? "V200R019C00SPC800" : "v2.4 (InfraWatch Agent)");
-  const location = raw?.location || "DC Luanda (AO)";
+  const location = (data.location as string) || "DC Luanda (AO)";
   const rack =
-    raw?.rack || (category === "SWITCH" || category === "ROUTER" ? "Rack B-04" : "Rack Virtual");
-  const uptimeSeconds = raw?.uptimeSeconds || (healthStatus === "UP" ? 86400 * 14 : 0);
+    (data.rack as string) || (category === "SWITCH" || category === "ROUTER" ? "Rack B-04" : "Rack Virtual");
+  const uptimeSeconds = (data.uptimeSeconds as number) || (healthStatus === "UP" ? 86400 * 14 : 0);
   const uptimeDisplay =
-    raw?.uptimeDisplay ||
+    (data.uptimeDisplay as string) ||
     (healthStatus === "UP"
       ? "99.9% Nominal"
       : healthStatus === "MAINT"
@@ -88,16 +89,16 @@ export function normalizeDeviceDetail(raw: any): DeviceDetail {
       : "Offline");
 
   const lastCheckAt =
-    raw?.lastCheckAt || raw?.last_check_at || raw?.updated_at || new Date().toISOString();
+    (data.lastCheckAt as string) || (data.last_check_at as string) || (data.updated_at as string) || new Date().toISOString();
   const nextCheckAt =
-    raw?.nextCheckAt ||
-    raw?.next_check_at ||
-    new Date(Date.now() + (raw?.interval_seconds || 60) * 1000).toISOString();
-  const createdAt = raw?.createdAt || raw?.created_at || new Date().toISOString();
-  const updatedAt = raw?.updatedAt || raw?.updated_at || new Date().toISOString();
+    (data.nextCheckAt as string) ||
+    (data.next_check_at as string) ||
+    new Date(Date.now() + (Number(data.interval_seconds) || 60) * 1000).toISOString();
+  const createdAt = (data.createdAt as string) || (data.created_at as string) || new Date().toISOString();
+  const updatedAt = (data.updatedAt as string) || (data.updated_at as string) || new Date().toISOString();
 
   return {
-    id: raw?.id || "",
+    id: (data.id as string) || "",
     name,
     hostname,
     ipAddress,
@@ -107,15 +108,15 @@ export function normalizeDeviceDetail(raw: any): DeviceDetail {
     firmwareVersion,
     protocol,
     category,
-    port: raw?.port,
-    intervalSeconds: raw?.intervalSeconds || raw?.interval_seconds || 60,
+    port: data.port as number | undefined,
+    intervalSeconds: Number(data.intervalSeconds || data.interval_seconds || 60),
     healthStatus,
     uptimeSeconds,
     uptimeDisplay,
     location,
     rack,
-    description: raw?.description,
-    tags: Array.isArray(raw?.tags) ? raw.tags : [category, protocol],
+    description: data.description as string | undefined,
+    tags: Array.isArray(data.tags) ? (data.tags as string[]) : [category, protocol],
     lastCheckAt,
     nextCheckAt,
     createdAt,
@@ -125,7 +126,7 @@ export function normalizeDeviceDetail(raw: any): DeviceDetail {
 
 export const deviceDetailApi = {
   async getDeviceDetail(id: string): Promise<DeviceDetail> {
-    const raw = await apiClient.get<any>(`${BASE_PATH}/${id}`);
+    const raw = await apiClient.get<Record<string, unknown>>(`${BASE_PATH}/${id}`);
     return normalizeDeviceDetail(raw);
   },
 
@@ -211,7 +212,48 @@ export const deviceDetailApi = {
   },
 
   async triggerManualProbe(id: string): Promise<ManualProbeResult> {
-    const res = await apiClient.post<any>(`${BASE_PATH}/${id}/probe`, {});
+    interface RawProbeResponse {
+      success?: boolean;
+      rttMs?: number;
+      rtt_ms?: number;
+      packetLossPct?: number;
+      packet_loss_pct?: number;
+      packetsSent?: number;
+      packets_sent?: number;
+      packetsReceived?: number;
+      packets_received?: number;
+      timestamp?: string;
+      status?: string;
+      message?: string;
+      protocol?: string;
+      targetIp?: string;
+      target_ip?: string;
+      zabbixStatus?: {
+        hostId?: string;
+        host_id?: string;
+        hostName?: string;
+        host_name?: string;
+        status?: string;
+        snmpAvailable?: boolean;
+        snmp_available?: boolean;
+        agentAvailable?: boolean;
+        agent_available?: boolean;
+        message?: string;
+      };
+      zabbix_status?: {
+        hostId?: string;
+        host_id?: string;
+        hostName?: string;
+        host_name?: string;
+        status?: string;
+        snmpAvailable?: boolean;
+        snmp_available?: boolean;
+        agentAvailable?: boolean;
+        agent_available?: boolean;
+        message?: string;
+      };
+    }
+    const res = await apiClient.post<RawProbeResponse>(`${BASE_PATH}/${id}/probe`, {});
     const zbxRaw = res?.zabbixStatus || res?.zabbix_status;
     return {
       success: res?.success ?? true,
@@ -226,9 +268,11 @@ export const deviceDetailApi = {
       targetIp: res?.targetIp || res?.target_ip,
       zabbixStatus: zbxRaw
         ? {
-            hostId: zbxRaw.hostId || zbxRaw.host_id,
+            hostId: String(zbxRaw.hostId || zbxRaw.host_id || id),
             hostName: zbxRaw.hostName || zbxRaw.host_name,
-            status: zbxRaw.status,
+            status: (zbxRaw.status === "UP" || zbxRaw.status === "DOWN" || zbxRaw.status === "ERROR"
+              ? zbxRaw.status
+              : "UNKNOWN") as "UP" | "DOWN" | "UNKNOWN" | "ERROR",
             snmpAvailable: zbxRaw.snmpAvailable ?? zbxRaw.snmp_available,
             agentAvailable: zbxRaw.agentAvailable ?? zbxRaw.agent_available,
             message: zbxRaw.message,

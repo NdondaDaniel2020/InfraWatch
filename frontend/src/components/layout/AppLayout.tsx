@@ -5,7 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { GlobalSearchModal } from "../common/GlobalSearchModal";
 import { useQuery, QueryClientContext } from "@tanstack/react-query";
 import { queryClient as defaultQueryClient } from "../../services/queryClient";
-import { apiClient } from "../../services/apiClient";
+import { telemetryApi } from "../../services/telemetryApi";
 import type { MonitoredDevice } from "../../types/telemetry";
 
 export interface AppLayoutProps {
@@ -29,8 +29,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     queryKey: ["devices"],
     queryFn: async () => {
       try {
-        const res = await apiClient.get<{ devices?: MonitoredDevice[] }>("/api/v1/telemetry/overview");
-        return res?.devices || [];
+        return await telemetryApi.getOverview();
       } catch {
         return [];
       }

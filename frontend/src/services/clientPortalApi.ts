@@ -26,7 +26,7 @@ function normalizeStatus(value?: string | null): "UP" | "DEG" | "DOWN" {
   return "UP";
 }
 
-function normalizeSummary(data: any): ClientSlaSummary {
+function normalizeSummary(data: Record<string, unknown>): ClientSlaSummary {
   return {
     tenantId: String(data.tenant_id ?? data.tenantId ?? ""),
     tenantName: String(data.tenant_name ?? data.tenantName ?? "Organização"),
@@ -102,7 +102,7 @@ export const clientPortalApi = {
     const url = organizationId
       ? `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/summary`
       : "/api/v1/sla/summary";
-    const res = await apiClient.get<any>(url);
+    const res = await apiClient.get<Record<string, unknown>>(url);
     return normalizeSummary(res);
   },
 
@@ -155,13 +155,13 @@ export const clientPortalApi = {
     }
 
     const url = `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/history?months=${months}`;
-    const res = await apiClient.get<any>(url);
+    const res = await apiClient.get<{ items: Record<string, unknown>[] }>(url);
 
     if (!res || !Array.isArray(res.items)) {
       throw new Error("Resposta inválida do backend para o histórico de SLA.");
     }
 
-    return res.items.map((item: any): SlaMonthlyHistoryItem => ({
+    return res.items.map((item: Record<string, unknown>): SlaMonthlyHistoryItem => ({
       cycleLabel: String(item.cycle_label ?? item.cycleLabel ?? ""),
       month: String(item.month ?? ""),
       uptimePct: requireNumber(item.uptime_pct ?? item.uptimePct, "uptime_pct"),
@@ -201,7 +201,7 @@ export const clientPortalApi = {
     const url = `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/report${
       query ? `?${query}` : ""
     }`;
-    const res = await apiClient.get<any>(url);
+    const res = await apiClient.get<Record<string, unknown>>(url);
 
     if (!res || (!res.organization_id && !res.organizationId)) {
       throw new Error("Resposta inválida do backend para o relatório de SLA.");
@@ -250,10 +250,10 @@ export const clientPortalApi = {
         "exempted_downtime_minutes"
       ),
       devices: Array.isArray(res.devices)
-        ? res.devices.map((d: any) => ({
+        ? (res.devices as Record<string, unknown>[]).map((d: Record<string, unknown>) => ({
             deviceId: String(d.device_id ?? d.deviceId),
             deviceName: String(d.device_name ?? d.deviceName ?? ""),
-            ipAddress: d.ip_address ?? d.ipAddress ?? null,
+            ipAddress: d.ip_address != null ? String(d.ip_address) : d.ipAddress != null ? String(d.ipAddress) : null,
             category: String(d.category ?? "—"),
             uptimeGrossPct: requireNumber(
               d.uptime_gross_pct ?? d.uptimeGrossPct,
@@ -386,7 +386,7 @@ export const clientPortalApi = {
       ? `/api/v1/sla/organizations/${encodeURIComponent(organizationId)}/daily-availability${query}`
       : `/api/v1/sla/daily-availability${query}`;
 
-    const res = await apiClient.get<any>(url);
+    const res = await apiClient.get<{ days?: Record<string, unknown>[]; [key: string]: unknown }>(url);
     if (!res || !Array.isArray(res.days)) {
       throw new Error("Resposta inválida do backend para a disponibilidade diária de SLA.");
     }
@@ -400,7 +400,7 @@ export const clientPortalApi = {
       targetPct: Number(res.target_pct ?? res.targetPct ?? 99.5),
       totalDays: Number(res.total_days ?? res.totalDays ?? res.days.length),
       currentDay: Number(res.current_day ?? res.currentDay ?? new Date().getDate()),
-      days: res.days.map((d: any): DailySlaPoint => ({
+      days: res.days.map((d: Record<string, unknown>): DailySlaPoint => ({
         day: String(d.day),
         date: String(d.date),
         uptimePct:
@@ -409,10 +409,10 @@ export const clientPortalApi = {
             : typeof d.uptimePct === "number"
             ? d.uptimePct
             : null,
-        type: d.type,
+        type: (d.type as "nominal" | "maint" | "incident" | "today" | "future") || "nominal",
         note: String(d.note ?? ""),
-        incidentsCount: d.incidents_count ?? d.incidentsCount,
-        maintenanceCount: d.maintenance_count ?? d.maintenanceCount,
+        incidentsCount: typeof d.incidents_count === "number" ? d.incidents_count : typeof d.incidentsCount === "number" ? d.incidentsCount : undefined,
+        maintenanceCount: typeof d.maintenance_count === "number" ? d.maintenance_count : typeof d.maintenanceCount === "number" ? d.maintenanceCount : undefined,
       })),
     };
   },

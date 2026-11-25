@@ -7,7 +7,7 @@ const fallbackQueryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
 import type { MonitoredDevice } from "../../types/telemetry";
-import { apiClient } from "../../services/apiClient";
+import { slaApi } from "../../services/slaApi";
 import { deviceDetailApi } from "../../services/deviceDetailApi";
 import { Sparkline } from "./Sparkline";
 import { UptimeHistory90d } from "./UptimeHistory90d";
@@ -58,7 +58,7 @@ export const DeviceDetailDrawer: React.FC<DeviceDetailDrawerProps> = ({
       queryFn: async () => {
         try {
           if (!device?.device_id) return null;
-          return await apiClient.get<any>(`/api/v1/sla/devices/${device.device_id}`);
+          return await slaApi.getDeviceSla(device.device_id);
         } catch {
           return null;
         }

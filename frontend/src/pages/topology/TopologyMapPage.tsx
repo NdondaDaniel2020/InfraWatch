@@ -13,20 +13,18 @@ import {
   NodeTypes,
   EdgeTypes,
   Connection,
+  ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
 import { Network, CloudOff } from "lucide-react";
 import { TopologyDeviceNode } from "../../components/topology/TopologyDeviceNode";
 import { TopologyEdge } from "../../components/topology/TopologyEdge";
-import {
-  TopologyToolbar,
-  TopologyStateSimulation,
-} from "../../components/topology/TopologyToolbar";
+import { TopologyToolbar } from "../../components/topology/TopologyToolbar";
 import { TopologyInspectorDrawer } from "../../components/topology/TopologyInspectorDrawer";
 import { AddNodeModal } from "../../components/topology/AddNodeModal";
 import { EdgeConfigModal, EdgeConfigModalData } from "../../components/topology/EdgeConfigModal";
-import { TopologyDeviceData } from "../../types/topology";
+import { TopologyDeviceData, TopologyStateSimulation } from "../../types/topology";
 import { topologyApi } from "../../services/topologyApi";
 import { deviceDetailApi } from "../../services/deviceDetailApi";
 import { useAuth } from "../../context/AuthContext";
@@ -34,11 +32,11 @@ import { adminApi } from "../../services/adminApi";
 
 // Definição de Tipos Customizados para o React Flow
 const nodeTypes: NodeTypes = {
-  deviceNode: TopologyDeviceNode as any,
+  deviceNode: TopologyDeviceNode,
 };
 
 const edgeTypes: EdgeTypes = {
-  topologyEdge: TopologyEdge as any,
+  topologyEdge: TopologyEdge,
 };
 
 // Posições canônicas de layout dos nós (baseado no mockup 16)
@@ -101,7 +99,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isPinging, setIsPinging] = useState(false);
   const [probeResults, setProbeResults] = useState<
     Record<string, { rttMs: number; packetLossPct: number; status: string; timestamp: string }>
@@ -219,9 +217,9 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   );
 
   const handleEdgeClick = useCallback(
-    (_: any, edge: Edge) => {
+    (_event: React.MouseEvent, edge: Edge) => {
       if (!isEditMode) return;
-      const edgeData = edge.data as any;
+      const edgeData = edge.data as Record<string, unknown> | undefined;
       const srcNode = rawNodes.find((n) => n.id === edge.source);
       const dstNode = rawNodes.find((n) => n.id === edge.target);
       setEdgeModalConfig({
@@ -233,10 +231,10 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           target_node_id: edge.target,
           source_label: srcNode?.label,
           target_label: dstNode?.label,
-          link_type: edgeData?.linkType || "fiber",
-          bandwidth_gbps: edgeData?.bandwidthGbps || 10,
-          port_src: edgeData?.portSrc,
-          port_dst: edgeData?.portDst,
+          link_type: (edgeData?.linkType as string) || "fiber",
+          bandwidth_gbps: (edgeData?.bandwidthGbps as number) || 10,
+          port_src: edgeData?.portSrc as string | undefined,
+          port_dst: edgeData?.portDst as string | undefined,
         },
       });
     },
@@ -244,7 +242,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
   );
 
   const handleNodeDragStop = useCallback(
-    async (_: any, node: Node) => {
+    async (_event: unknown, node: Node) => {
       if (!effectiveOrgId) return;
       try {
         await topologyApi.updateNodePosition(
@@ -287,7 +285,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           setIsInspectorOpen(true);
         },
         onDeleteNode: handleDeleteNode,
-      } as any,
+      } as Record<string, unknown>,
       selected: dev.id === (selectedDeviceId || rawNodes[0]?.id),
     }));
   }, [rawNodes, selectedDeviceId, isEditMode, handleDeleteNode]);
@@ -322,7 +320,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
             },
           });
         },
-      } as any,
+      } as Record<string, unknown>,
       animated: edge.status !== "broken",
     }));
   }, [rawEdges, isEditMode, rawNodes]);
@@ -496,7 +494,8 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
         // Atualiza em tempo real o nó no canvas do React Flow
         setNodes((nds) =>
           nds.map((n) => {
-            if (n.id === deviceId || (n.data as any)?.deviceId === targetInventoryId) {
+            const rawNodeData = n.data as Record<string, unknown> | undefined;
+            if (n.id === deviceId || rawNodeData?.deviceId === targetInventoryId) {
               const prevData = n.data as unknown as TopologyDeviceData;
               const newStatus =
                 probeResult!.status === "DOWN"
@@ -518,7 +517,7 @@ export const TopologyMapPage: React.FC<TopologyMapPageProps> = ({
           })
         );
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : `Falha no Ping para ${targetName}`);
     } finally {
       setIsPinging(false);

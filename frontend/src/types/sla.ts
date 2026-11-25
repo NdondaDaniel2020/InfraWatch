@@ -15,8 +15,11 @@ export interface MaintenanceWindowDTO {
   device_id?: string;
   device_name?: string;
   client_name?: string;
+  client_category?: string;
   start_time?: string;
   end_time?: string;
+  duration_minutes?: number;
+  alarm_suppression?: boolean;
   is_approved?: boolean;
   status?: string;
 }
@@ -152,6 +155,27 @@ export interface OrganizationDailySlaData {
   totalDays: number;
   currentDay: number;
   days: DailySlaPoint[];
+}
+
+export interface DeviceSlaReport {
+  device_id: string | null;
+  start_period?: string;
+  end_period?: string;
+  total_period_hours?: number;
+  unplanned_downtime_minutes?: number;
+  exempted_downtime_minutes?: number;
+  uptime_percentage?: number;
+  uptimePercentage?: number;
+  availability_pct?: number;
+  sla_target?: number;
+  slaTarget?: number;
+  sla_met?: boolean;
+  mttr_minutes?: number;
+  mttrMinutes?: number;
+  mtbf_hours?: number;
+  mtbfHours?: number;
+  incidents_count?: number;
+  exempted_incidents_count?: number;
 }
 
 

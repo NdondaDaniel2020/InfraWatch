@@ -14,17 +14,22 @@ import {
 } from "lucide-react";
 
 import { useTelemetry } from "../../context/TelemetryContext";
-import { apiClient } from "../../services/apiClient";
+import { adminApi } from "../../services/adminApi";
+import type { AdminOrganization } from "../../types/admin";
 import { backupApi } from "../../services/backupApi";
+import { clientPortalApi } from "../../services/clientPortalApi";
 import { deviceDetailApi } from "../../services/deviceDetailApi";
 import { devicesApi } from "../../services/devicesApi";
+import { incidentsApi } from "../../services/incidentsApi";
+import { slaApi } from "../../services/slaApi";
+import { telemetryApi, normalizeMonitoredDevice } from "../../services/telemetryApi";
+import { topologyApi } from "../../services/topologyApi";
 import { MaintenanceModal } from "../../components/inventory/MaintenanceModal";
 import type {
   DashboardViewMode,
   DeviceSeverity,
   DeviceStatus,
   IncidentItem,
-  IncidentSeverity,
   MonitoredDevice,
   SeverityFilterType,
   TrafficChartPoint,
@@ -55,84 +60,6 @@ export interface NocDashboardPageProps {
   initialIncidents?: IncidentItem[];
   initialTrafficData?: TrafficChartPoint[];
 }
-
-const mapRawToMonitoredDevice = (item: any): MonitoredDevice => {
-  const statusStr = String(item.status || item.healthStatus || (item.is_paused ? "MAINT" : "UP")).toUpperCase();
-  const status: DeviceStatus =
-    statusStr === "DOWN"
-      ? "DOWN"
-      : statusStr === "DEG" || statusStr === "DEGRADED"
-        ? "DEG"
-        : statusStr === "MAINT" || statusStr === "MAINTENANCE" || item.is_paused
-          ? "MAINT"
-          : "UP";
-
-  const severity: DeviceSeverity =
-    status === "DOWN"
-      ? "critical"
-      : status === "DEG"
-        ? "degraded"
-        : status === "MAINT"
-          ? "maint"
-          : "healthy";
-
-  const protocol = String(item.protocol || "ICMP").toUpperCase();
-  const category = String(item.category || "SERVER").toUpperCase() as any;
-  const lastLatency = typeof item.last_latency_ms === "number" ? item.last_latency_ms : null;
-  const loss =
-    typeof item.last_packet_loss === "number"
-      ? item.last_packet_loss
-      : status === "DOWN"
-        ? 100
-        : 0;
-
-  let recentMetrics: number[] = [];
-  if (Array.isArray(item.recent_metrics) && item.recent_metrics.length > 0) {
-    recentMetrics = item.recent_metrics.map((m: any) =>
-      typeof m === "number" ? m : m.latency_ms
-    );
-  } else if (lastLatency != null && lastLatency > 0) {
-    recentMetrics = [lastLatency];
-  }
-
-  // Calcula tempo real decorrido se o ativo estiver DOWN e possuir last_monitored_at
-  let realDowntime: string | undefined = item.downtime_duration;
-  if (!realDowntime && status === "DOWN" && item.last_monitored_at) {
-    const diffMs = Date.now() - new Date(item.last_monitored_at).getTime();
-    if (!isNaN(diffMs) && diffMs > 0) {
-      const totalSec = Math.floor(diffMs / 1000);
-      const h = Math.floor(totalSec / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      const s = totalSec % 60;
-      realDowntime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-    }
-  }
-
-  return {
-    device_id: String(item.device_id || item.id || "dev-unknown"),
-    name: item.name || "Ativo",
-    hostname: item.hostname || item.ip_address || item.name,
-    ip_address: item.ip_address || item.ipAddress || "—",
-    port: item.port,
-    protocol,
-    category,
-    status,
-    severity,
-    tenant_id: item.organization_id || item.tenant_id || "unitel",
-    tenant_name: item.datacenter_region || item.tenant_name || "Cluster Central",
-    model_description:
-      item.model_description || `${category} • ${item.datacenter_region || "Cluster Central"}`,
-    last_latency_ms: lastLatency,
-    last_packet_loss: loss,
-    recent_latency: recentMetrics,
-    last_monitored_at: item.last_monitored_at || item.lastCheckAt,
-    root_cause:
-      item.root_cause || (status === "DOWN" ? "Sonda inalcançável (loss 100%)" : undefined),
-    uptime_duration: item.uptime_duration || (status === "UP" ? "99.9% Nominal" : undefined),
-    downtime_duration: realDowntime,
-    ticket_id: item.ticket_id || item.ticketId || undefined,
-  };
-};
 
 export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
   initialViewState = "nominal",
@@ -168,16 +95,14 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
   const queryContext = React.useContext(QueryClientContext);
   const activeQueryClient = queryContext || fallbackQueryClient;
 
-  // 1. Ingestão e Hydrate de Dispositivos Monitorados (/api/v1/events/telemetry com fallback resiliente)
+  // 1. Ingestão e Hydrate de Dispositivos Monitorados (telemetryApi com fallback resiliente)
   const { data: telemetryData, refetch: refetchTelemetry, isFetching } = useQuery(
     {
       queryKey: ["telemetry-monitored-devices"],
       queryFn: async () => {
         try {
-          const resp = await apiClient.get<any>("/api/v1/events/telemetry");
-          const rawItems = Array.isArray(resp?.items) ? resp.items : Array.isArray(resp) ? resp : [];
-          if (rawItems.length > 0) {
-            const mapped = rawItems.map(mapRawToMonitoredDevice);
+          const mapped = await telemetryApi.getEventsTelemetry();
+          if (mapped.length > 0) {
             try {
               localStorage.setItem("infrawatch_cached_telemetry_devices", JSON.stringify(mapped));
             } catch {}
@@ -199,10 +124,10 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
         } catch {}
 
         // Tenta recuperar do cache de inventário (/devices) caso tenha sido visitado
-        const inventoryCache = activeQueryClient.getQueryData<any>(["devices"]);
+        const inventoryCache = activeQueryClient.getQueryData<{ items?: unknown[] }>(["devices"]);
         const invItems = Array.isArray(inventoryCache?.items) ? inventoryCache.items : [];
         if (invItems.length > 0) {
-          return invItems.map(mapRawToMonitoredDevice);
+          return invItems.map((item) => normalizeMonitoredDevice(item as Record<string, unknown>));
         }
 
         return initialDevices || [];
@@ -213,14 +138,14 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     activeQueryClient
   );
 
-  // 2. Consulta de Organizações Reais (/api/v1/organizations)
+  // 2. Consulta de Organizações Reais (adminApi.listOrganizations)
   const { data: backendOrgs } = useQuery(
     {
       queryKey: ["noc-organizations-list"],
       queryFn: async () => {
         try {
-          const res = await apiClient.get<any>("/api/v1/organizations");
-          return Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+          const res = await adminApi.listOrganizations({ page: 1, size: 50 });
+          return res.items;
         } catch {
           return [];
         }
@@ -230,48 +155,18 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     activeQueryClient
   );
 
-  // 3. Consulta de Incidentes em Tempo Real (/api/v1/incidents)
+  // 3. Consulta de Incidentes em Tempo Real (incidentsApi.listIncidents)
   const { data: backendIncidents } = useQuery(
     {
       queryKey: ["noc-incidents-feed"],
       queryFn: async () => {
         try {
-          const res = await apiClient.get<any>("/api/v1/incidents?page=1&size=10");
-          const list = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
-          if (list.length > 0) {
-            const mapped: IncidentItem[] = list.map((dto: any) => {
-              const sev = String(dto.severity || "warning").toLowerCase();
-              const isCrit = sev === "critical" || dto.status === "DOWN";
-              const isDeg = sev === "warning" || sev === "degraded";
-              const severity: IncidentSeverity = isCrit ? "critical" : isDeg ? "warning" : "info";
-              const duration = dto.downtime_minutes ? `${dto.downtime_minutes}m` : "Recente";
-              return {
-                id: String(dto.id),
-                ticketId: String(dto.glpi_ticket_id || dto.code || String(dto.id).slice(0, 8)),
-                priorityLabel: isCrit ? "P1 CRÍTICO" : isDeg ? "P2 ALERTA" : "P3 NOMINAL",
-                severity,
-                title: dto.title || "Incidente Operacional",
-                timeAgo: `Há ${duration}`,
-                description:
-                  dto.root_cause ||
-                  (dto.device_name
-                    ? `Falha detectada no ativo ${dto.device_name}`
-                    : "Alerta de indisponibilidade detectado pelas sondas"),
-                slaOrStatusText:
-                  dto.status === "RESOLVED"
-                    ? "RESOLVIDO"
-                    : dto.status === "ACKNOWLEDGED"
-                      ? "RECONHECIDO (NOC)"
-                      : "SLA Restante: 00:28:40",
-                actionType: "ack_resolve",
-                operatorName: dto.operator_name || "Operador NOC",
-                downtimeMinutes: typeof dto.downtime_minutes === "number" ? dto.downtime_minutes : undefined,
-              };
-            });
+          const items = await incidentsApi.listIncidents();
+          if (items && items.length > 0) {
             try {
-              localStorage.setItem("infrawatch_cached_noc_incidents", JSON.stringify(mapped));
+              localStorage.setItem("infrawatch_cached_noc_incidents", JSON.stringify(items));
             } catch {}
-            return mapped;
+            return items;
           }
         } catch {}
 
@@ -291,13 +186,13 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     activeQueryClient
   );
 
-  // 4. Consulta de Grafo de Topologia (/api/v1/topology/graph)
+  // 4. Consulta de Grafo de Topologia (topologyApi.getTopologyGraph)
   const { data: topologyGraph } = useQuery(
     {
       queryKey: ["noc-topology-graph-preview"],
       queryFn: async () => {
         try {
-          return await apiClient.get<any>("/api/v1/topology/graph");
+          return await topologyApi.getTopologyGraph();
         } catch {
           return null;
         }
@@ -307,18 +202,15 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     activeQueryClient
   );
 
-  // 5. Consulta de Resumo de SLA Contratual (/api/v1/sla/summary)
+  // 5. Consulta de Resumo de SLA Contratual (clientPortalApi.getSlaSummary)
   const { data: slaSummary } = useQuery(
     {
       queryKey: ["noc-sla-summary", tenantFilter],
       queryFn: async () => {
         try {
-          let endpoint = "/api/v1/sla/summary";
-          if (tenantFilter !== "all" && tenantFilter.includes("-")) {
-            endpoint = `/api/v1/sla/organizations/${tenantFilter}/summary`;
-          }
-          const res = await apiClient.get<any>(endpoint);
-          if (res && typeof res.uptime_current_month_pct === "number") {
+          const orgId = tenantFilter !== "all" && tenantFilter.includes("-") ? tenantFilter : null;
+          const res = await clientPortalApi.getSlaSummary(orgId);
+          if (res && (typeof res.uptimeCurrentMonthPct === "number" || typeof (res as unknown as Record<string, unknown>).uptime_current_month_pct === "number")) {
             try {
               localStorage.setItem("infrawatch_cached_sla_summary", JSON.stringify(res));
             } catch {}
@@ -374,18 +266,14 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     activeQueryClient
   );
 
-  // 8. Consulta de Janelas de Manutenção Aprovadas (/api/v1/sla/maintenance-windows)
+  // 8. Consulta de Janelas de Manutenção Aprovadas (slaApi.listMaintenanceWindows)
   const { data: maintenanceWindows } = useQuery(
     {
       queryKey: ["noc-maintenance-windows", tenantFilter],
       queryFn: async () => {
         try {
-          let url = "/api/v1/sla/maintenance-windows?limit=10";
-          if (tenantFilter !== "all" && tenantFilter.includes("-")) {
-            url += `&organization_id=${tenantFilter}`;
-          }
-          const res = await apiClient.get<any>(url);
-          return Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+          const clientFilter = tenantFilter !== "all" && tenantFilter.includes("-") ? tenantFilter : undefined;
+          return await slaApi.listMaintenanceWindows({ client: clientFilter });
         } catch {
           return [];
         }
@@ -505,8 +393,11 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     if (initialDevices && !slaSummary) {
       return 99.98;
     }
-    if (slaSummary?.uptime_current_month_pct != null) {
-      return slaSummary.uptime_current_month_pct;
+    const currentMonthPct =
+      slaSummary?.uptimeCurrentMonthPct ??
+      (slaSummary as unknown as Record<string, number>)?.uptime_current_month_pct;
+    if (currentMonthPct != null) {
+      return currentMonthPct;
     }
     if (stats.total > 0) {
       const operational = stats.up + stats.deg * 0.5;
@@ -515,28 +406,38 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
     return 99.98;
   }, [slaSummary, stats, initialDevices]);
 
-  const slaTargetPct = slaSummary?.sla_target_pct ?? 99.50;
+  const slaTargetPct =
+    slaSummary?.slaTargetPct ??
+    (slaSummary as unknown as Record<string, number>)?.sla_target_pct ??
+    99.5;
 
   // 2. Cálculo do MTTR Médio (Mês) a partir de incidentes reais ou resumo de SLA
   const { mttrFormatted, mttrDiff } = useMemo(() => {
     if (initialDevices && !slaSummary && (!backendIncidents || backendIncidents.length === 0)) {
       return { mttrFormatted: "18m 42s", mttrDiff: "-04m 12s" };
     }
-    if (slaSummary?.mttr_minutes_avg != null && slaSummary.mttr_minutes_avg > 0 && slaSummary.mttr_minutes_avg < 1440) {
-      const mins = Math.floor(slaSummary.mttr_minutes_avg);
-      const secs = Math.round((slaSummary.mttr_minutes_avg - mins) * 60);
+    const mttrAvg =
+      slaSummary?.mttrMinutesAvg ??
+      (slaSummary as unknown as Record<string, number>)?.mttr_minutes_avg;
+    if (mttrAvg != null && mttrAvg > 0 && mttrAvg < 1440) {
+      const mins = Math.floor(mttrAvg);
+      const secs = Math.round((mttrAvg - mins) * 60);
       const formatted = `${mins}m ${String(secs).padStart(2, "0")}s`;
-      const diffMins = Math.round(30 - slaSummary.mttr_minutes_avg);
+      const diffMins = Math.round(30 - mttrAvg);
       const diffStr = `${diffMins >= 0 ? "-" : "+"}${String(Math.abs(diffMins)).padStart(2, "0")}m 00s`;
       return { mttrFormatted: formatted, mttrDiff: diffStr };
     }
 
-    const resolvedOrTracked = (backendIncidents || []).filter(
-      (inc: any) => inc.status === "RESOLVED" || inc.downtime_minutes != null || inc.downtimeMinutes != null
-    );
+    const resolvedOrTracked = (backendIncidents || []).filter((inc) => {
+      const rawInc = inc as unknown as Record<string, unknown>;
+      return inc.status === "RESOLVED" || rawInc.downtime_minutes != null || rawInc.downtimeMinutes != null;
+    });
     const downtimes: number[] = resolvedOrTracked
-      .map((inc: any) => inc.downtime_minutes ?? inc.downtimeMinutes)
-      .filter((d: any): d is number => typeof d === "number" && d > 0);
+      .map((inc) => {
+        const rawInc = inc as unknown as Record<string, unknown>;
+        return rawInc.downtime_minutes ?? rawInc.downtimeMinutes;
+      })
+      .filter((d: unknown): d is number => typeof d === "number" && d > 0);
 
     if (downtimes.length > 0) {
       const avgMinutes = downtimes.reduce((a, b) => a + b, 0) / downtimes.length;
@@ -602,19 +503,31 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
 
   // 5. Cálculo Dinâmico da Próxima Janela Técnica
   const nextWindowText = useMemo(() => {
-    if (slaSummary?.next_maintenance_window) {
-      return slaSummary.next_maintenance_window;
+    const rawSummary = slaSummary as unknown as Record<string, string> | null;
+    if (slaSummary?.nextMaintenanceWindow || rawSummary?.next_maintenance_window) {
+      return slaSummary?.nextMaintenanceWindow ?? rawSummary?.next_maintenance_window ?? "Nenhuma programada";
     }
 
     if (maintenanceWindows && maintenanceWindows.length > 0) {
       const now = new Date();
       const futureWindows = maintenanceWindows
-        .filter((w: any) => new Date(w.end_time || w.start_time) >= now)
-        .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+        .filter((w) => {
+          const rawW = w as unknown as Record<string, string>;
+          const endStr = w.endTimeUtc || rawW.end_time || w.startTimeUtc || rawW.start_time;
+          return new Date(endStr) >= now;
+        })
+        .sort((a, b) => {
+          const rawA = a as unknown as Record<string, string>;
+          const rawB = b as unknown as Record<string, string>;
+          const startA = new Date(a.startTimeUtc || rawA.start_time).getTime();
+          const startB = new Date(b.startTimeUtc || rawB.start_time).getTime();
+          return startA - startB;
+        });
 
       if (futureWindows.length > 0) {
         const next = futureWindows[0];
-        const start = new Date(next.start_time);
+        const rawNext = next as unknown as Record<string, string>;
+        const start = new Date(next.startTimeUtc || rawNext.start_time);
         const isToday =
           start.getUTCFullYear() === now.getUTCFullYear() &&
           start.getUTCMonth() === now.getUTCMonth() &&
@@ -690,8 +603,9 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
 
       await refetchTelemetry();
       activeQueryClient.invalidateQueries({ queryKey: ["telemetry-monitored-devices"] });
-    } catch (err: any) {
-      showToast(`Erro ao disparar sonda para ${device.name}: ${err?.message || "Timeout"}`, "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Timeout";
+      showToast(`Erro ao disparar sonda para ${device.name}: ${msg}`, "error");
     } finally {
       setIsPingingId(null);
     }
@@ -708,8 +622,9 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
         showToast(`Ativo ${device.name} retirado da janela de manutenção. Monitoramento reativado.`, "success");
         await refetchTelemetry();
         activeQueryClient.invalidateQueries({ queryKey: ["telemetry-monitored-devices"] });
-      } catch (err: any) {
-        showToast(`Erro ao reativar ativo: ${err?.message || "Falha na requisição"}`, "error");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Falha na requisição";
+        showToast(`Erro ao reativar ativo: ${msg}`, "error");
       } finally {
         setIsMaintenanceLoading(false);
       }
@@ -733,8 +648,9 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
       await refetchTelemetry();
       activeQueryClient.invalidateQueries({ queryKey: ["telemetry-monitored-devices"] });
       activeQueryClient.invalidateQueries({ queryKey: ["noc-maintenance-windows"] });
-    } catch (err: any) {
-      showToast(`Erro ao agendar manutenção: ${err?.message || "Falha na requisição"}`, "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Falha na requisição";
+      showToast(`Erro ao agendar manutenção: ${msg}`, "error");
     } finally {
       setIsMaintenanceLoading(false);
     }
@@ -853,7 +769,7 @@ export const NocDashboardPage: React.FC<NocDashboardPageProps> = ({
               <option value="bancosol">Banco Sol Core (1 DEG)</option>
               <option value="sonangol">Sonangol Logistics (100% UP)</option>
               {backendOrgs &&
-                backendOrgs.map((org: any) => {
+                backendOrgs.map((org: AdminOrganization) => {
                   const slug = String(org.slug || "");
                   if (slug === "unitel" || slug === "bancosol" || slug === "sonangol") return null;
                   const count = devices.filter(
