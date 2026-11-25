@@ -10,8 +10,12 @@ from uuid import UUID
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from src.contexts.iam.api.dependencies import CurrentUserDep, require_roles
-from src.contexts.iam.domain.enums import UserRole
+from src.contexts.iam.api.dependencies import (
+    AuditServiceDep,
+    CurrentUserDep,
+    require_roles,
+)
+from src.contexts.iam.domain.enums import AuditAction, UserRole
 from src.contexts.sla.api.dependencies import SlaServiceDep
 from src.contexts.sla.api.presenters.csv_presenter import SlaCsvPresenter
 from src.contexts.sla.api.presenters.support_ticket_presenter import format_support_ticket_html
@@ -96,6 +100,7 @@ async def export_device_sla(
     device_id: UUID,
     user: CurrentUserDep,
     service: SlaServiceDep,
+    audit_service: AuditServiceDep,
     format: Annotated[str, Query(description="Formato de exportação: csv ou json")] = "csv",
     start_period: Annotated[datetime | None, Query(description="Início do período (UTC)")] = None,
     end_period: Annotated[datetime | None, Query(description="Fim do período (UTC)")] = None,
@@ -134,6 +139,21 @@ async def export_device_sla(
             detail="Acesso não autorizado aos dados de SLA deste dispositivo.",
         )
 
+    await audit_service.record_action(
+        action=AuditAction.SLA_REPORT_DOWNLOADED,
+        resource_type="device_sla_report",
+        resource_id=str(device_id),
+        actor_user_id=UUID(user.id) if user.id else None,
+        organization_id=device.organization_id,
+        details={
+            "format": format,
+            "target": target,
+            "start_period": start_period.isoformat() if start_period else None,
+            "end_period": end_period.isoformat() if end_period else None,
+        },
+    )
+    await audit_service.session.commit()
+
     if format.lower() == "json":
         return Response(
             content=report.model_dump_json(),
@@ -158,6 +178,7 @@ async def export_organization_sla(
     organization_id: UUID,
     user: CurrentUserDep,
     service: SlaServiceDep,
+    audit_service: AuditServiceDep,
     start_period: Annotated[datetime | None, Query(description="Início do período (UTC)")] = None,
     end_period: Annotated[datetime | None, Query(description="Fim do período (UTC)")] = None,
     target: Annotated[
@@ -185,6 +206,22 @@ async def export_organization_sla(
         )
         csv_data = SlaCsvPresenter.format_multiple_devices(reports)
         filename = f"sla_organization_{organization_id}.csv"
+
+        await audit_service.record_action(
+            action=AuditAction.SLA_REPORT_DOWNLOADED,
+            resource_type="organization_sla_report_csv",
+            resource_id=str(organization_id),
+            actor_user_id=UUID(user.id) if user.id else None,
+            organization_id=organization_id,
+            details={
+                "format": "csv",
+                "target": target,
+                "start_period": start_period.isoformat() if start_period else None,
+                "end_period": end_period.isoformat() if end_period else None,
+            },
+        )
+        await audit_service.session.commit()
+
         return Response(
             content=csv_data,
             media_type="text/csv",
@@ -315,7 +352,6 @@ async def get_organization_daily_sla(
         ) from err
 
 
-
 @router.get(
     "/organizations/{organization_id}/history",
     response_model=OrganizationSlaHistoryResponse,
@@ -351,6 +387,7 @@ async def get_organization_sla_report_details(
     organization_id: UUID,
     user: CurrentUserDep,
     service: SlaServiceDep,
+    audit_service: AuditServiceDep,
     start_period: Annotated[datetime | None, Query(description="Início do período")] = None,
     end_period: Annotated[datetime | None, Query(description="Fim do período")] = None,
     target: Annotated[float, Query(ge=0.0, le=100.0, description="Meta SLA (%)")] = 99.50,
@@ -367,12 +404,28 @@ async def get_organization_sla_report_details(
             detail="Acesso não autorizado aos dados desta organização.",
         )
 
-    return await service.get_organization_sla_report_details(
+    report_details = await service.get_organization_sla_report_details(
         organization_id=organization_id,
         start_period=start_period,
         end_period=end_period,
         target=target,
     )
+
+    await audit_service.record_action(
+        action=AuditAction.SLA_REPORT_DOWNLOADED,
+        resource_type="organization_sla_report_details",
+        resource_id=str(organization_id),
+        actor_user_id=UUID(user.id) if user.id else None,
+        organization_id=organization_id,
+        details={
+            "target": target,
+            "start_period": start_period.isoformat() if start_period else None,
+            "end_period": end_period.isoformat() if end_period else None,
+        },
+    )
+    await audit_service.session.commit()
+
+    return report_details
 
 
 @router.post(
@@ -417,4 +470,3 @@ async def create_client_support_ticket(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Serviço de abertura de chamados do GLPI temporariamente indisponível.",
         ) from err
-

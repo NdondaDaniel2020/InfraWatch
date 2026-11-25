@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.contexts.alerting.domain.incident import (
@@ -86,6 +86,10 @@ class IncidentModel(Base):
     __table_args__ = (
         Index("ix_incidents_status_started_at", "status", "started_at"),
         Index("ix_incidents_device_status", "device_id", "status"),
+        CheckConstraint(
+            "resolved_at IS NULL OR resolved_at >= started_at",
+            name="chk_incident_dates_coherent",
+        ),
     )
 
     def to_domain(self) -> Incident:

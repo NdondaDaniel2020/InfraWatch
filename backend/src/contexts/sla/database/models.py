@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Text, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.contexts.sla.domain.models import MaintenanceWindow
@@ -73,6 +73,7 @@ class MaintenanceWindowModel(Base):
             "start_time",
             "end_time",
         ),
+        CheckConstraint("end_time >= start_time", name="chk_maint_valid_window"),
     )
 
     def to_domain(self) -> MaintenanceWindow:

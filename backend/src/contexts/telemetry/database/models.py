@@ -10,7 +10,7 @@ Este modelo serve para consultas ORM, inserções em lote e type-hints.
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, Index, Integer, String, Uuid, text
+from sqlalchemy import CheckConstraint, DateTime, Float, Index, Integer, String, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.database.base_model import Base
@@ -48,6 +48,10 @@ class MetricModel(Base):
     __table_args__ = (
         Index("ix_metrics_device_timestamp", "device_id", "timestamp"),
         Index("ix_metrics_org_timestamp", "organization_id", "timestamp"),
+        CheckConstraint(
+            "packet_loss >= 0.0 AND packet_loss <= 100.0",
+            name="chk_metric_packet_loss",
+        ),
         # O particionamento é declarado na migração SQL pura, não aqui.
         # O SQLAlchemy precisa de pelo menos uma PK. Usamos (id, timestamp) composta
         # porque partições PostgreSQL exigem a coluna de partição na PK.
