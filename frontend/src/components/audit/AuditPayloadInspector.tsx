@@ -169,7 +169,7 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
           Nenhum evento selecionado
         </h3>
         <p className="text-xs text-slate-500 mt-1 max-w-xs">
-          Selecione uma linha ou clique em &quot;[Ver Diff]&quot; na tabela para inspecionar os detalhes
+          Selecione uma linha ou clique em &quot;[Ver Comparativo]&quot; na tabela para inspecionar os detalhes
           forenses e o delta de estado JSONB.
         </p>
       </aside>
@@ -183,7 +183,7 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
   const handleCopyJson = () => {
     navigator.clipboard.writeText(JSON.stringify(log.details || {}, null, 2));
     setCopiedJson(true);
-    toast.success("Payload JSONB copiado para a área de transferência!");
+    toast.success("Dados JSONB copiados para a área de transferência!");
     setTimeout(() => setCopiedJson(false), 2000);
   };
 
@@ -246,7 +246,7 @@ export const AuditPayloadInspector: React.FC<AuditPayloadInspectorProps> = ({ lo
             <GitCompare size={20} className="text-sky-400 shrink-0" />
             <div>
               <h3 className="font-display text-sm font-bold text-white">
-                Diff de Estado JSONB — Evento #{log.id}
+                Comparativo de Estado JSONB — Evento #{log.id}
               </h3>
               <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 font-mono">
                 <span className="tabular-nums">

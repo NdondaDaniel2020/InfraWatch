@@ -155,14 +155,14 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
         <table className="w-full text-left border-collapse font-mono tabular-nums text-xs">
           <thead>
             <tr className="border-b border-obsidian-800 bg-obsidian-950/40 text-[10px] text-slate-400 uppercase tracking-wider">
-              <th className="py-2.5 px-2.5 whitespace-nowrap">Timestamp (WAT)</th>
+              <th className="py-2.5 px-2.5 whitespace-nowrap">Data/Hora (WAT)</th>
               <th className="py-2.5 px-2 whitespace-nowrap">Autor</th>
               <th className="py-2.5 px-1.5 whitespace-nowrap">Papel</th>
               <th className="py-2.5 px-2 whitespace-nowrap">IP Origem</th>
               <th className="py-2.5 px-2 whitespace-nowrap">Ação</th>
               <th className="py-2.5 px-2 whitespace-nowrap">Recurso</th>
-              <th className="py-2.5 px-1.5 text-center whitespace-nowrap">Status</th>
-              <th className="py-2.5 px-2.5 text-right whitespace-nowrap">Diff</th>
+              <th className="py-2.5 px-1.5 text-center whitespace-nowrap">Estado</th>
+              <th className="py-2.5 px-2.5 text-right whitespace-nowrap">Comparativo</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-obsidian-800/60">
@@ -301,7 +301,7 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
                             : "bg-obsidian-950 border border-obsidian-800 text-slate-300 hover:text-white"
                         }`}
                       >
-                        [Ver Diff]
+                        [Ver Comparativo]
                       </button>
                     </td>
                   </tr>

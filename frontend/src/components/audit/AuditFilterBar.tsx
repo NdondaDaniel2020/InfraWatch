@@ -81,7 +81,7 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
         >
           {isGlobalAdmin ? (
             <>
-              <option value="ALL">Todas as Ações (CREATE, UPDATE, DELETE, ACK, EXEMPTION)</option>
+              <option value="ALL">Todas as Ações (Criar, Atualizar, Excluir, Reconhecer, Isenção)</option>
               <option value="DEVICE_PAUSED">DEVICE_PAUSED</option>
               <option value="INCIDENT_ACK">INCIDENT_ACK</option>
               <option value="GLPI_SYNC">GLPI_SYNC</option>
@@ -122,7 +122,7 @@ export const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
               isLiveStream ? "bg-emerald-400 animate-pulse" : "bg-slate-600"
             }`}
           />
-          <span>LIVE STREAM: {isLiveStream ? "ON" : "PAUSED"}</span>
+          <span>TRANSMISSÃO AO VIVO: {isLiveStream ? "ATIVA" : "PAUSADA"}</span>
         </button>
 
         <button

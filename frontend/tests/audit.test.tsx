@@ -170,7 +170,7 @@ describe("Trilha de Auditoria Forense & Governança Administrativa (Issue #226)"
 
       await waitFor(() => {
         expect(
-          screen.getByText("Diff de Estado JSONB — Evento #evt-98103")
+          screen.getByText("Comparativo de Estado JSONB — Evento #evt-98103")
         ).toBeInTheDocument();
       });
     });
