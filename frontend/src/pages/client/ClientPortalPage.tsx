@@ -91,7 +91,7 @@ export const ClientPortalPage: React.FC = () => {
   const allServicesNominal =
     services.length > 0 && downCount === 0 && degradedCount === 0;
   const telemetryLabel = allServicesNominal
-    ? "100% Nominal"
+    ? "100% Operacional"
     : downCount > 0
     ? `${downCount} serviço(s) em falha`
     : `${degradedCount} serviço(s) degradado(s)`;
