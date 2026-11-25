@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import { NotificationCenter } from "../src/components/notifications/NotificationCenter";
 import { Header } from "../src/components/layout/Header";

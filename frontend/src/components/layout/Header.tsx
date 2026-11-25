@@ -89,7 +89,9 @@ export const Header: React.FC<HeaderProps> = ({
         (payload.title as string) || "Novo Comunicado Técnico",
         (payload.message as string) || "Atualização operacional registrada no NOC.",
         payload.type === "maintenance" ? "maintenance" : "advisory",
-        payload.severity === "warning" ? "warning" : "info",
+        payload.severity === "CRITICAL" || payload.severity === "DEGRADED"
+          ? "warning"
+          : "info",
         (payload.id as string) || (payload.notification_id as string)
       );
     });
