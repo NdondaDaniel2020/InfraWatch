@@ -51,7 +51,7 @@ function createAuthMock(
 
 describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
   describe("1. Guards de Autenticação", () => {
-    it("deve redirecionar usuário não autenticado para /login ao tentar acessar rota privada", () => {
+    it("deve redirecionar usuário não autenticado para /login ao tentar acessar rota privada", async () => {
       const authMock = createAuthMock({}, "NOC_OPERATOR", false);
 
       render(
@@ -65,30 +65,35 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
       );
 
       // Deve estar na tela de login
-      expect(screen.getByTestId("login-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("login-page")).toBeInTheDocument();
       expect(screen.queryByTestId("noc-dashboard-page")).not.toBeInTheDocument();
     });
 
-    it("deve permitir acesso à rota privada quando usuário estiver autenticado", () => {
+    it("deve permitir acesso à rota privada quando usuário estiver autenticado", async () => {
       const authMock = createAuthMock({}, "NOC_OPERATOR", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
 
       render(
-        <MemoryRouter initialEntries={["/noc"]}>
-          <AuthContext.Provider value={authMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/noc"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
       );
 
-      expect(screen.getByTestId("noc-dashboard-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("noc-dashboard-page")).toBeInTheDocument();
       expect(screen.queryByTestId("login-page")).not.toBeInTheDocument();
     });
   });
 
   describe("2. Controle de Acesso Baseado em Papéis (RBAC)", () => {
-    it("deve redirecionar CLIENT_VIEWER para /portal ao tentar acessar rota operacional do NOC", () => {
+    it("deve redirecionar CLIENT_VIEWER para /portal ao tentar acessar rota operacional do NOC", async () => {
       const authMock = createAuthMock({}, "CLIENT_VIEWER", true);
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -107,11 +112,11 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
       );
 
       // Deve ser redirecionado para o Portal do Cliente
-      expect(screen.getByTestId("client-portal-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("client-portal-page")).toBeInTheDocument();
       expect(screen.queryByTestId("noc-dashboard-page")).not.toBeInTheDocument();
     });
 
-    it("deve redirecionar para 403 quando NOC_OPERATOR tentar acessar rota exclusiva de SUPER_ADMIN (/audit)", () => {
+    it("deve redirecionar para 403 quando NOC_OPERATOR tentar acessar rota exclusiva de SUPER_ADMIN (/audit)", async () => {
       const authMock = createAuthMock({}, "NOC_OPERATOR", true);
 
       render(
@@ -124,11 +129,11 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
         </MemoryRouter>
       );
 
-      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
-      expect(screen.getByText(/Acesso Não Autorizado \(403\)/i)).toBeInTheDocument();
+      expect(await screen.findByTestId("access-denied-page")).toBeInTheDocument();
+      expect(await screen.findByText(/Acesso Não Autorizado \(403\)/i)).toBeInTheDocument();
     });
 
-    it("deve permitir que SUPER_ADMIN acesse rotas administrativas (/audit e /security)", () => {
+    it("deve permitir que SUPER_ADMIN acesse rotas administrativas (/audit e /security)", async () => {
       const authMock = createAuthMock({}, "SUPER_ADMIN", true);
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -146,10 +151,10 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
         </QueryClientProvider>
       );
 
-      expect(screen.getByTestId("audit-logs-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("audit-logs-page")).toBeInTheDocument();
     });
 
-    it("deve permitir que ORG_ADMIN acesse /devices, /maintenance, /incidents, /audit e /admin/management, mas bloquear /noc, /topology e /dr", () => {
+    it("deve permitir que ORG_ADMIN acesse /devices, /maintenance, /incidents, /audit e /admin/management, mas bloquear /noc, /topology e /dr", async () => {
       const authMock = createAuthMock({}, "ORG_ADMIN", true);
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -167,7 +172,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("devices-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("devices-page")).toBeInTheDocument();
       unmountDevices();
 
       // 2. Acesso permitido a /maintenance
@@ -182,7 +187,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("maintenance-windows-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("maintenance-windows-page")).toBeInTheDocument();
       unmountMaint();
 
       // 3. Acesso permitido a /incidents
@@ -197,7 +202,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("incidents-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("incidents-page")).toBeInTheDocument();
       unmountIncidents();
 
       // 4. Acesso permitido a /audit
@@ -212,7 +217,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("audit-logs-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("audit-logs-page")).toBeInTheDocument();
       unmountAudit();
 
       // 5. Acesso permitido a /admin/management
@@ -227,7 +232,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("admin-management-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("admin-management-page")).toBeInTheDocument();
       unmountMgmt();
 
       // 6. Acesso bloqueado (403) a /noc
@@ -242,7 +247,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("access-denied-page")).toBeInTheDocument();
       unmountNoc();
 
       // 7. Acesso bloqueado (403) a /topology
@@ -257,7 +262,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("access-denied-page")).toBeInTheDocument();
       unmountTopology();
 
       // 8. Acesso bloqueado (403) a /dr
@@ -272,10 +277,10 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("access-denied-page")).toBeInTheDocument();
     });
 
-    it("deve permitir que NOC_OPERATOR acesse /incidents, /noc, /topology e /devices, mas bloquear /audit e /admin/management", () => {
+    it("deve permitir que NOC_OPERATOR acesse /incidents, /noc, /topology e /devices, mas bloquear /audit e /admin/management", async () => {
       const authMock = createAuthMock({}, "NOC_OPERATOR", true);
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -293,7 +298,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("incidents-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("incidents-page")).toBeInTheDocument();
       unmountIncidents();
 
       // 2. Acesso permitido a /noc
@@ -308,7 +313,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("noc-dashboard-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("noc-dashboard-page")).toBeInTheDocument();
       unmountNoc();
 
       // 3. Acesso permitido a /topology
@@ -323,7 +328,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("topology-map-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("topology-map-page")).toBeInTheDocument();
       unmountTopology();
 
       // 4. Acesso bloqueado (403) a /audit
@@ -338,7 +343,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("access-denied-page")).toBeInTheDocument();
       unmountAudit();
 
       // 5. Acesso bloqueado (403) a /admin/management
@@ -353,7 +358,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("access-denied-page")).toBeInTheDocument();
       unmountMgmt();
 
       // 6. Acesso bloqueado (403) a /security
@@ -368,10 +373,10 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("access-denied-page")).toBeInTheDocument();
     });
 
-    it("deve bloquear ORG_ADMIN de acessar /security com 403", () => {
+    it("deve bloquear ORG_ADMIN de acessar /security com 403", async () => {
       const authMock = createAuthMock({}, "ORG_ADMIN", true);
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -388,12 +393,12 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-      expect(screen.getByTestId("access-denied-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("access-denied-page")).toBeInTheDocument();
     });
   });
 
   describe("3. Shell da Aplicação (AppLayout, Header e Sidebar)", () => {
-    it("deve renderizar Header e Sidebar estruturais mantendo o conteúdo da rota", () => {
+    it("deve renderizar Header e Sidebar estruturais mantendo o conteúdo da rota", async () => {
       const authMock = createAuthMock({}, "NOC_OPERATOR", true);
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -411,30 +416,36 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
         </QueryClientProvider>
       );
 
+      expect(await screen.findByTestId("devices-page")).toBeInTheDocument();
       expect(screen.getByTestId("app-header")).toBeInTheDocument();
       expect(screen.getByTestId("app-sidebar")).toBeInTheDocument();
-      expect(screen.getByTestId("devices-page")).toBeInTheDocument();
     });
 
     it("deve exibir relógio UTC ativo no Header", async () => {
       const authMock = createAuthMock({}, "NOC_OPERATOR", true);
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
 
       render(
-        <MemoryRouter initialEntries={["/noc"]}>
-          <AuthContext.Provider value={authMock}>
-            <TelemetryProvider enabled={false}>
-              <AppRoutes />
-            </TelemetryProvider>
-          </AuthContext.Provider>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/noc"]}>
+            <AuthContext.Provider value={authMock}>
+              <TelemetryProvider enabled={false}>
+                <AppRoutes />
+              </TelemetryProvider>
+            </AuthContext.Provider>
+          </MemoryRouter>
+        </QueryClientProvider>
       );
 
-      const utcClock = screen.getByTestId("utc-clock");
+      expect(await screen.findByTestId("app-header")).toBeInTheDocument();
+      const utcClock = await screen.findByTestId("utc-clock");
       expect(utcClock).toBeInTheDocument();
       expect(utcClock.textContent).toMatch(/UTC/i);
     });
 
-    it("deve filtrar itens de menu da Sidebar conforme os papéis permitidos", () => {
+    it("deve filtrar itens de menu da Sidebar conforme os papéis permitidos", async () => {
       // Para CLIENT_VIEWER: apenas SLA e Portal do Cliente devem estar visíveis
       const authMock = createAuthMock({}, "CLIENT_VIEWER", true);
       const queryClient = new QueryClient({
@@ -453,14 +464,14 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
         </QueryClientProvider>
       );
 
-      expect(screen.getByText("Portal do Cliente")).toBeInTheDocument();
+      expect(await screen.findByText("Portal do Cliente")).toBeInTheDocument();
       expect(screen.getByText("Relatórios SLA")).toBeInTheDocument();
       expect(screen.queryByText("Cockpit NOC")).not.toBeInTheDocument();
       expect(screen.queryByText("Trilha de Auditoria")).not.toBeInTheDocument();
       expect(screen.queryByText("Backup & DR")).not.toBeInTheDocument();
     });
 
-    it("deve ocultar relógio UTC, badge SSE LIVE, Modo TV e status-ticker para CLIENT_VIEWER e ORG_ADMIN", () => {
+    it("deve ocultar relógio UTC, badge SSE LIVE, Modo TV e status-ticker para CLIENT_VIEWER e ORG_ADMIN", async () => {
       // 1. Validar para CLIENT_VIEWER
       const clientAuthMock = createAuthMock({}, "CLIENT_VIEWER", true);
       const queryClient = new QueryClient({
@@ -478,6 +489,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
         </QueryClientProvider>
       );
 
+      expect(await screen.findByTestId("app-header")).toBeInTheDocument();
       expect(screen.queryByTestId("utc-clock")).not.toBeInTheDocument();
       expect(screen.queryByTestId("sse-live-badge")).not.toBeInTheDocument();
       expect(screen.queryByTestId("tv-mode-link")).not.toBeInTheDocument();
@@ -498,6 +510,7 @@ describe("Roteamento React Router e RBAC Guards (Issue #215)", () => {
         </QueryClientProvider>
       );
 
+      expect(await screen.findByTestId("app-header")).toBeInTheDocument();
       expect(screen.queryByTestId("utc-clock")).not.toBeInTheDocument();
       expect(screen.queryByTestId("sse-live-badge")).not.toBeInTheDocument();
       expect(screen.queryByTestId("tv-mode-link")).not.toBeInTheDocument();
