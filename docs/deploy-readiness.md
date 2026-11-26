@@ -37,8 +37,8 @@ Documento de verificação obrigatória para aprovação de deploy em Staging e 
 - [ ] **Type Check** (`type-check.yml`): Mypy 0 erros + TypeScript `npx tsc --noEmit` 0 erros.
 - [ ] **Format** (`format.yml`): Ruff format check aprovado.
 - [ ] **Lint** (`lint.yml`): Ruff check 0 erros + validação de tipos TypeScript e bundle Vite.
-- [ ] **Tests** (`tests.yml`): 823 testes backend + 343 testes frontend aprovados com zero regressões.
-- [ ] **Coverage** (`coverage.yml`): Cobertura de código testada com piso mínimo de 70% (meta progressiva: 85%).
+- [ ] **Tests** (`tests.yml`): 862 testes backend + 343 testes frontend aprovados com zero regressões.
+- [ ] **Coverage** (`coverage.yml`): Cobertura de código testada com piso mínimo de 85% (cobertura atual: 85.11%).
 - [ ] **Migrations** (`migrations.yml`): Head único, rollback/re-apply e auditoria de hardening aprovados contra container TimescaleDB real.
 - [ ] **Smoke Test** (`smoke.yml`): Inicialização FastAPI e endpoints de saúde validados.
 - [ ] **Docker Build** (`docker-build.yml`): Compilação dry-run dos Dockerfiles (API, Worker, Backup, Front) e validação Compose.
