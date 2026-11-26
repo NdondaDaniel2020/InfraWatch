@@ -1,0 +1,87 @@
+name: Docker Build
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose*.yml'
+      - '.github/workflows/docker-build.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose*.yml'
+      - '.github/workflows/docker-build.yml'
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-build:
+    name: Validate Dockerfile (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: API
+            context: ./backend
+            file: ./backend/Dockerfile.api
+          - name: Worker
+            context: ./backend
+            file: ./backend/Dockerfile.worker
+          - name: Backup
+            context: ./backend
+            file: ./backend/Dockerfile.backup
+          - name: Frontend
+            context: ./frontend
+            file: ./frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.name }} image (dry-run)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  compose-validation:
+    name: Validate Docker Compose Configurations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create mock env and secrets for compose config validation
+        run: |
+          mkdir -p secrets
+          touch secrets/postgres_password.txt secrets/redis_password.txt
+          touch secrets/secret_key.txt secrets/refresh_secret_key.txt
+          touch secrets/oauth_state_secret.txt secrets/mfa_pending_secret.txt
+          touch secrets/admin_password.txt secrets/admin_email.txt
+          touch secrets/zabbix_password.txt secrets/zabbix_api_token.txt
+          touch secrets/zabbix_webhook_secret.txt secrets/glpi_app_token.txt
+          touch secrets/glpi_user_token.txt secrets/whatsapp_token.txt
+          touch secrets/smtp_password.txt secrets/telegram_bot_token.txt
+          touch secrets/telegram_chat_id.txt secrets/default_webhook_url.txt
+          touch secrets/google_client_id.txt secrets/google_client_secret.txt
+          touch secrets/rclone_config.txt secrets/prometheus_metrics_user.txt
+          touch secrets/prometheus_metrics_pass.txt
+          cp .env.backend.example .env 2>/dev/null || touch .env
+
+      - name: Validate main docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Validate test-monitoramento compose files
+        run: |
+          docker compose -f test-monitoramento/docker-compose.glpi.yml config --quiet
+          docker compose -f test-monitoramento/docker-compose.zabbix.yml config --quiet
