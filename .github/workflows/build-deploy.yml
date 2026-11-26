@@ -1,10 +1,10 @@
-name: Build and Deploy
+name: Build and Publish Images
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment'
+        description: 'Target environment tag/context'
         type: choice
         options:
           - staging
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build Docker images
+    name: Build and Push Docker images to GHCR
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -80,6 +80,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Extract metadata (Backup)
+        id: meta-backup
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-backup
+          tags: |
+            type=sha
+            type=ref,event=branch
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
+
+      - name: Build and push Backup image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.backup
+          push: true
+          tags: ${{ steps.meta-backup.outputs.tags }}
+          labels: ${{ steps.meta-backup.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Extract metadata (Frontend)
         id: meta-frontend
         uses: docker/metadata-action@v5
@@ -100,76 +121,3 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  deploy:
-    name: Deploy to ${{ github.event.inputs.environment }}
-    needs: build
-    runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
-    steps:
-      - name: Deploy execution placeholder
-        run: |
-          echo "Deploying to ${{ github.event.inputs.environment }}"
-          echo "Triggering GitOps / Kubernetes / Docker Compose deployment..."
-
-  readiness:
-    name: Generate deploy readiness doc
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Generate deploy-readiness.md
-        run: |
-          cat > docs/deploy-readiness.md <<'EOF'
-          # InfraWatch Deploy Readiness Checklist
-
-          ## Infrastructure
-          - [ ] PostgreSQL 16 com TimescaleDB 2.16+ provisionado
-          - [ ] Redis 7+ provisionado (com senha e appendonly ativado)
-          - [ ] Docker Socket Proxy (somente GET / leitura restrita)
-          - [ ] Nginx Gateway com certificados SSL/TLS provisionados
-
-          ## Environment Variables
-          - [ ] `ENVIRONMENT=production`
-          - [ ] `DATABASE_URL=postgresql+asyncpg://...`
-          - [ ] `REDIS_URL=redis://...`
-          - [ ] `SECRET_KEY` (chave forte de no mínimo 32 bytes para HMAC)
-          - [ ] `REFRESH_SECRET_KEY` (chave forte para refresh tokens)
-          - [ ] `CORS_ALLOWED_ORIGINS` (origens autorizadas explícitas)
-          - [ ] `APP_BASE_URL` (URL pública HTTPS)
-          - [ ] Notificações e Webhooks: SMTP, Telegram, WhatsApp, GLPI e Zabbix tokens
-
-          ## Database & Hardening
-          - [ ] `alembic upgrade head` executado com sucesso
-          - [ ] Script de auditoria `backend/scripts/audit_database_hardening.sql` executado com 100% de sucesso
-          - [ ] FORCE ROW LEVEL SECURITY ativo em todas as 16 tabelas relacionais
-          - [ ] `statement_timeout` configurado para 10s e `lock_timeout` para 5s
-          - [ ] Privilégio CREATE revogado de PUBLIC no schema `public`
-          - [ ] Check constraints ativas em `metrics`, `devices`, `maintenance_windows`, `incidents`, `organizations`
-
-          ## Observability & Health
-          - [ ] Endpoint `/api/live` retorna 200 `{"status": "alive"}`
-          - [ ] Endpoint `/api/health` retorna 200 `{"status": "healthy"}`
-          - [ ] Endpoint `/metrics` protegido por Basic Auth ativo para scraping do Prometheus
-
-          ## CI/CD Gates (todos aprovados no GitHub Actions)
-          - [ ] Type Check (`type-check.yml`): Mypy 0 erros + TypeScript `tsc --noEmit` 0 erros
-          - [ ] Lint (`lint.yml`): Ruff check 0 erros + Frontend bundle check
-          - [ ] Format (`format.yml`): Ruff format check aprovado
-          - [ ] Tests (`tests.yml`): 823 testes backend + 343 testes frontend aprovados
-          - [ ] Migrations (`migrations.yml`): Head único, migração e auditoria de hardening validadas
-          - [ ] Smoke Test (`smoke.yml`): Inicialização FastAPI e endpoints de saúde validados
-          - [ ] Coverage (`coverage.yml`): Cobertura >= 70%
-          EOF
-          echo "Generated docs/deploy-readiness.md"
-
-      - name: Commit readiness doc
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/deploy-readiness.md
-          if ! git diff --cached --quiet; then
-            git commit -m "docs: atualizar deploy-readiness.md"
-            git push
-          else
-            echo "No changes to deploy-readiness.md"
-          fi
