@@ -16,6 +16,18 @@ from src.contexts.iam.services.google_auth_service import (
     ensure_google_login_enabled,
     verify_google_state,
 )
+from src.core.exceptions import GoogleLoginDisabledError
+
+
+def test_ensure_google_login_enabled_disabled() -> None:
+    from src.core.config import get_settings
+
+    settings = get_settings()
+    with (
+        patch.object(settings, "GOOGLE_LOGIN_ENABLED", False),
+        pytest.raises(GoogleLoginDisabledError),
+    ):
+        ensure_google_login_enabled()
 
 
 def test_google_state_and_auth_url() -> None:
@@ -97,7 +109,10 @@ async def test_google_auth_service_authenticate() -> None:
     )
 
     req = GoogleLoginRequest(code="code_abc", state="state_123")
-    with patch("src.contexts.iam.services.google_auth_service.verify_google_state"):
+    with (
+        patch("src.contexts.iam.services.google_auth_service.ensure_google_login_enabled"),
+        patch("src.contexts.iam.services.google_auth_service.verify_google_state"),
+    ):
         user, tokens = await service.authenticate(data=req)
         assert tokens.access_token == "acc123"
         assert existing_user.google_id == "google-sub-123"
@@ -117,7 +132,10 @@ async def test_google_auth_service_authenticate() -> None:
         "email_verified": True,
         "name": "New Google User",
     }
-    with patch("src.contexts.iam.services.google_auth_service.verify_google_state"):
+    with (
+        patch("src.contexts.iam.services.google_auth_service.ensure_google_login_enabled"),
+        patch("src.contexts.iam.services.google_auth_service.verify_google_state"),
+    ):
         user, tokens = await service.authenticate(data=req)
         assert user.id == new_user_mock.id
         service.user_repo.save.assert_called_once()
