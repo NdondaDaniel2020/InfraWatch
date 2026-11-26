@@ -93,7 +93,7 @@ jobs:
       - name: Build and push Backup image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
+          context: .
           file: ./backend/Dockerfile.backup
           push: true
           tags: ${{ steps.meta-backup.outputs.tags }}
