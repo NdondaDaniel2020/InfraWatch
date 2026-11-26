@@ -10,6 +10,7 @@ import yaml
 EXPECTED_WORKFLOWS = [
     "build-deploy.yml",
     "coverage.yml",
+    "docker-build.yml",
     "format.yml",
     "lint.yml",
     "migrations.yml",
@@ -20,7 +21,7 @@ EXPECTED_WORKFLOWS = [
 
 
 def test_all_expected_workflows_exist():
-    """Valida a presença de todos os 8 workflows do GitHub Actions no repositório."""
+    """Valida a presença de todos os 9 workflows do GitHub Actions no repositório."""
     workflows_dir = Path(__file__).parents[4] / ".github" / "workflows"
     assert workflows_dir.is_dir(), f"Diretório não encontrado: {workflows_dir}"
 
