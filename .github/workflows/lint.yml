@@ -38,7 +38,7 @@ jobs:
         run: uv run ruff check .
 
   frontend-build-check:
-    name: Frontend bundle & asset check
+    name: Frontend lint & bundle check
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,6 +55,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run frontend type-check & lint
+        run: npx tsc --noEmit
 
       - name: Verify build bundle
         run: npm run build
