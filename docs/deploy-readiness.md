@@ -43,7 +43,7 @@ Documento de verificação obrigatória para aprovação de deploy em Staging e 
 - [ ] **Migrations** (`migrations.yml`): Head único, rollback/re-apply e auditoria de hardening aprovados contra container TimescaleDB real.
 - [ ] **Smoke Test** (`smoke.yml`): Inicialização FastAPI e endpoints de saúde validados.
 - [ ] **Docker Build** (`docker-build.yml`): Compilação dry-run dos Dockerfiles (API, Worker, Backup, Front) e validação Compose.
-- [ ] **E2E Playwright** (`npm run test:e2e`): Suíte de testes visuais, autenticação e navegação aprovada em stack Docker (`auth-flow.spec.ts` e `noc-navigation.spec.ts`).
+- [x] **E2E Playwright** (`npm run test:e2e`): Suíte de testes visuais, autenticação e navegação aprovada (`auth-flow.spec.ts` e `noc-navigation.spec.ts`).
 - [ ] **Build & Publish** (`build-deploy.yml`): Publicação manual de imagens no GHCR via workflow_dispatch.
 
 ---
