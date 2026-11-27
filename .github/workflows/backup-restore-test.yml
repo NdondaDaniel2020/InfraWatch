@@ -1,0 +1,179 @@
+name: Backup & Restore DR Drill
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/backup.sh'
+      - 'scripts/restore.sh'
+      - 'backend/alembic/**'
+      - '.github/workflows/backup-restore-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/backup.sh'
+      - 'scripts/restore.sh'
+      - 'backend/alembic/**'
+      - '.github/workflows/backup-restore-test.yml'
+  schedule:
+    - cron: '0 3 * * 0' # Semanal aos domingos às 03:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: backup-restore-drill-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dr-drill:
+    name: Backup & Restore Integrity Drill
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: test
+      POSTGRES_DB: infrawatch_db
+      POSTGRES_USER: infrawatch_user
+      POSTGRES_PASSWORD: infrawatch_secure_password_2026
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql+asyncpg://infrawatch_user:infrawatch_secure_password_2026@127.0.0.1:5432/infrawatch_db
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_URL: redis://127.0.0.1:6379/0
+      BACKUP_LOCAL_PATH: /tmp/infrawatch-backups-ci
+      BACKUP_ENCRYPTION_KEY: ci-test-aes256-encryption-key-32chars-min
+      BACKUP_NOTIFICATIONS_ENABLED: "false"
+
+    services:
+      postgres:
+        image: timescale/timescaledb:2.16.1-pg16
+        env:
+          POSTGRES_USER: infrawatch_user
+          POSTGRES_PASSWORD: infrawatch_secure_password_2026
+          POSTGRES_DB: infrawatch_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U infrawatch_user -d infrawatch_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Python 3.12
+        run: uv python install 3.12
+
+      - name: Cache dependencies
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Sync backend dependencies
+        working-directory: backend
+        run: uv sync --frozen --all-extras --group dev
+
+      - name: Install PostgreSQL client & Redis tools
+        run: |
+          sudo systemctl stop postgresql.service || true
+          sudo systemctl disable postgresql.service || true
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client redis-tools openssl
+
+      - name: Wait for PostgreSQL & Redis
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U infrawatch_user -d infrawatch_db && redis-cli -h 127.0.0.1 -p 6379 ping | grep -q PONG; then
+              echo "PostgreSQL and Redis are ready!"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Apply Alembic migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+
+      - name: Seed sample data into TimescaleDB & Redis
+        run: |
+          export PGPASSWORD="${POSTGRES_PASSWORD}"
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<'SQL'
+          INSERT INTO organizations (id, name, slug, is_active, created_at, updated_at)
+          VALUES ('11111111-1111-1111-1111-111111111111', 'DR Drill Org', 'dr-drill-org', true, NOW(), NOW());
+
+          INSERT INTO devices (
+            id, organization_id, name, ip_address, device_type, protocol,
+            status, check_interval_seconds, is_active, created_at, updated_at
+          ) VALUES (
+            '22222222-2222-2222-2222-222222222222',
+            '11111111-1111-1111-1111-111111111111',
+            'dr-router-01', '10.0.0.1', 'ROUTER', 'ICMP',
+            'UP', 30, true, NOW(), NOW()
+          );
+
+          INSERT INTO metrics (
+            time, device_id, organization_id, metric_type, value, unit, status
+          ) VALUES (
+            NOW(), '22222222-2222-2222-2222-222222222222',
+            '11111111-1111-1111-1111-111111111111',
+            'latency', 12.5, 'ms', 'UP'
+          );
+          SQL
+          redis-cli -h 127.0.0.1 -p 6379 SET dr:drill:marker "ok"
+
+      - name: Prepare mock secrets directory & run backup.sh
+        run: |
+          mkdir -p secrets "${BACKUP_LOCAL_PATH}"
+          echo -n "${POSTGRES_PASSWORD}" > secrets/postgres_password.txt
+          echo -n "${BACKUP_ENCRYPTION_KEY}" > secrets/backup_encryption_key.txt
+          chmod 600 secrets/*.txt
+          bash scripts/backup.sh manual
+
+      - name: Verify backup artifacts (.tar.gz, .sha256, .meta.json)
+        run: |
+          BUNDLE=$(ls -1t "${BACKUP_LOCAL_PATH}"/infrawatch_backup_*.tar.gz | head -n 1)
+          test -f "${BUNDLE}"
+          test -f "${BUNDLE}.sha256"
+          test -f "${BUNDLE}.meta.json"
+          echo "Verified artifacts for ${BUNDLE}"
+
+      - name: Run restore.sh in DRY_RUN mode
+        run: |
+          DRY_RUN=1 bash scripts/restore.sh
+
+      - name: Simulate disaster (drop & recreate database)
+        run: |
+          export PGPASSWORD="${POSTGRES_PASSWORD}"
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "${POSTGRES_USER}" -d postgres -c "DROP DATABASE ${POSTGRES_DB};"
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "${POSTGRES_USER}" -d postgres -c "CREATE DATABASE ${POSTGRES_DB} OWNER ${POSTGRES_USER};"
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+
+      - name: Execute real restore.sh
+        run: |
+          bash scripts/restore.sh
+
+      - name: Verify restored data & TimescaleDB hypertable integrity
+        run: |
+          export PGPASSWORD="${POSTGRES_PASSWORD}"
+          ORG_COUNT=$(psql -tAc "SELECT count(*) FROM organizations WHERE slug = 'dr-drill-org';" -h 127.0.0.1 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}")
+          DEV_COUNT=$(psql -tAc "SELECT count(*) FROM devices WHERE name = 'dr-router-01';" -h 127.0.0.1 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}")
+          METRIC_COUNT=$(psql -tAc "SELECT count(*) FROM metrics WHERE metric_type = 'latency';" -h 127.0.0.1 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}")
+          HYPERTABLE_COUNT=$(psql -tAc "SELECT count(*) FROM timescaledb_information.hypertables WHERE hypertable_name = 'metrics';" -h 127.0.0.1 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}")
+
+          echo "Restored counts -> orgs=${ORG_COUNT}, devices=${DEV_COUNT}, metrics=${METRIC_COUNT}, hypertables=${HYPERTABLE_COUNT}"
+          test "${ORG_COUNT}" -eq 1
+          test "${DEV_COUNT}" -eq 1
+          test "${METRIC_COUNT}" -eq 1
+          test "${HYPERTABLE_COUNT}" -eq 1
