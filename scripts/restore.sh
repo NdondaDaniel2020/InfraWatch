@@ -165,9 +165,11 @@ if [ -f "${EXTRACTED_DIR}/secrets.tar.gz.enc" ]; then
             -pass "file:${ENCRYPTION_KEY_PATH}" \
             -in "${EXTRACTED_DIR}/secrets.tar.gz.enc" \
             -out "${RESTORE_TMP_DIR}/secrets.tar.gz"
-        echo "[+] Segredos decriptados com sucesso."
+        tar -tzf "${RESTORE_TMP_DIR}/secrets.tar.gz" > /dev/null
+        echo "[+] Segredos decriptados e arquivo tar validado com sucesso."
     else
-        echo "[!] AVISO: Chave BACKUP_ENCRYPTION_KEY não encontrada. Pulei restauração dos segredos."
+        echo "[!] ERRO: Chave BACKUP_ENCRYPTION_KEY não encontrada para decriptar os segredos."
+        exit 1
     fi
 fi
 
@@ -197,14 +199,24 @@ if [ -n "${DUMP_FILE}" ]; then
         fi
         export PGPASSWORD="${POSTGRES_PASSWORD:-}"
 
-        # Executar pg_restore com limpeza e suporte a hypertables
-        if pg_restore --clean --if-exists --no-owner --no-privileges \
+        # Executar hooks oficiais do TimescaleDB quando a extensão estiver ativa
+        psql -v ON_ERROR_STOP=1 -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c \
+            "DO \$\$ BEGIN IF EXISTS (SELECT 1 FROM pg_extension WHERE extname='timescaledb') THEN PERFORM timescaledb_pre_restore(); END IF; END \$\$;"
+
+        # Executar pg_restore sem silenciar erros (evita falso positivo operacional)
+        PG_RESTORE_LOG="${RESTORE_TMP_DIR}/pg_restore.log"
+        if ! pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error \
             -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-            "${DUMP_FILE}" 2>/dev/null; then
-            echo "[+] TimescaleDB restaurado com sucesso!"
-        else
-            echo "[!] pg_restore finalizado com avisos (comportamento normal se objetos já existiam)."
+            "${DUMP_FILE}" 2>"${PG_RESTORE_LOG}"; then
+            echo "[!] ERRO CRÍTICO: pg_restore falhou durante a restauração do banco!"
+            cat "${PG_RESTORE_LOG}"
+            exit 1
         fi
+
+        psql -v ON_ERROR_STOP=1 -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c \
+            "DO \$\$ BEGIN IF EXISTS (SELECT 1 FROM pg_extension WHERE extname='timescaledb') THEN PERFORM timescaledb_post_restore(); END IF; END \$\$;"
+
+        echo "[+] TimescaleDB restaurado e validado com sucesso!"
     fi
 fi
 
