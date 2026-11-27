@@ -195,16 +195,18 @@ if command -v redis-cli >/dev/null 2>&1; then
         AUTH_PARAM=(-a "${REDIS_PASSWORD}" "--no-auth-warning")
     fi
 
-    # Dispara BGSAVE
-    redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" "${AUTH_PARAM[@]}" bgsave >/dev/null 2>&1 || true
-    sleep 2
-
-    # Tenta copiar o arquivo RDB do volume montado ou salvar via stream
-    if [ -f "/data/dump.rdb" ]; then
-        cp "/data/dump.rdb" "${REDIS_DUMP_FILE}"
+    # Obtém snapshot RDB diretamente via rede (funciona mesmo sem volume /data montado)
+    if redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" "${AUTH_PARAM[@]}" --rdb "${REDIS_DUMP_FILE}" >/dev/null 2>&1; then
+        echo "[+] Snapshot RDB do Redis obtido via stream: $(du -h "${REDIS_DUMP_FILE}" | cut -f1)"
     else
-        # Fallback: salvar metadados do redis
-        redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" "${AUTH_PARAM[@]}" info > "${TEMP_DIR}/redis_info.txt" 2>/dev/null || true
+        # Fallback: dispara BGSAVE e tenta copiar do volume local
+        redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" "${AUTH_PARAM[@]}" bgsave >/dev/null 2>&1 || true
+        sleep 2
+        if [ -f "/data/dump.rdb" ]; then
+            cp "/data/dump.rdb" "${REDIS_DUMP_FILE}"
+        else
+            redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" "${AUTH_PARAM[@]}" info > "${TEMP_DIR}/redis_info.txt" 2>/dev/null || true
+        fi
     fi
 fi
 

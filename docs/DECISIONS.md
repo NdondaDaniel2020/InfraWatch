@@ -45,6 +45,19 @@
 35. [ADR-035: Idempotência Estrita e Deduplicação Persistente em Integrações Externas](#adr-035-idempotência-estrita-e-deduplicação-persistente-em-integrações-externas)
 36. [ADR-036: Governança do Barramento Redis Streams — Teto de Retentativas, Backoff com Jitter, Poda com MAXLEN e DLQ](#adr-036-governança-do-barramento-redis-streams--teto-de-retentativas-backoff-com-jitter-poda-com-maxlen-e-dlq)
 37. [ADR-037: Telemetria Canônica Prometheus e Health Check Profundo para Mensageria](#adr-037-telemetria-canônica-prometheus-e-health-check-profundo-para-mensageria)
+38. [ADR-038: Isolamento Multi-Tenant Declarativo e Prevenção de BOLA via Param Dependencies (`ScopedEntityDep`)](#adr-038-isolamento-multi-tenant-declarativo-e-prevenção-de-bola-via-param-dependencies-scopedentitydep)
+39. [ADR-039: Resiliência de Processos de Background — Ciclo de Vida POSIX e Gestão de Subprocessos Assíncronos](#adr-039-resiliência-de-processos-de-background--ciclo-de-vida-posix-e-gestão-de-subprocessos-assíncronos)
+40. [ADR-040: Ingestão de Telemetria em Lote Assíncrono com Buffer e Pipelining (`MetricsBatchWriter`)](#adr-040-ingestão-de-telemetria-em-lote-assíncrono-com-buffer-e-pipelining-metricsbatchwriter)
+41. [ADR-041: Diagnóstico de Sondas On-Demand Desacoplado via Redis Stream e SSE](#adr-041-diagnóstico-de-sondas-on-demand-desacoplado-via-redis-stream-e-sse)
+42. [ADR-042: Observabilidade com Logs Estruturados em JSON e Correlação de Contexto Assíncrono](#adr-042-observabilidade-com-logs-estruturados-em-json-e-correlação-de-contexto-assíncrono)
+43. [ADR-043: Validação de Segurança Fail-Fast em Produção e Postura Fail-Closed no Rate Limiting](#adr-043-validação-de-segurança-fail-fast-em-produção-e-postura-fail-closed-no-rate-limiting)
+44. [ADR-044: Hardening de Contêineres, Princípio do Menor Privilégio e Isolamento de Rede](#adr-044-hardening-de-contêineres-princípio-do-menor-privilégio-e-isolamento-de-rede)
+45. [ADR-045: Gateway Reverso Nginx Unificado com Entrega de SPA Estática via Volume Compartilhado](#adr-045-gateway-reverso-nginx-unificado-com-entrega-de-spa-estática-via-volume-compartilhado)
+46. [ADR-046: Teste Automatizado de Restauração de Backup (DR Drill em CI) e Validação Estrita do `restore.sh`](#adr-046-teste-automatizado-de-restauração-de-backup-dr-drill-em-ci-e-validação-estrita-do-restoresh)
+47. [ADR-047: Hardening de Infraestrutura — Isolamento de Portas, Limites de Recursos, CSP e Supply Chain Security](#adr-047-hardening-de-infraestrutura--isolamento-de-portas-limites-de-recursos-csp-e-supply-chain-security)
+48. [ADR-048: Qualidade Estrita de Build e Tipagem no Backend (Remoção de Supressões e Bloat de Produção)](#adr-048-qualidade-estrita-de-build-e-tipagem-no-backend-remoção-de-supressões-e-bloat-de-produção)
+49. [ADR-049: Migração do Refresh Token para Cookie `HttpOnly` e Hardening de Runtime no Frontend](#adr-049-migração-do-refresh-token-para-cookie-httponly-e-hardening-de-runtime-no-frontend)
+50. [ADR-050: Portão de Qualidade E2E, Cobertura Frontend e Testes de Carga/Caos](#adr-050-portão-de-qualidade-e2e-cobertura-frontend-e-testes-de-cargacaos)
 
 ---
 
@@ -799,3 +812,77 @@
   - Economia de recursos de hardware e latência mínima na entrega de páginas web.
   - Streaming SSE confiável sem retenção em buffers intermediários.
   - Gestão centralizada e transparente de certificados SSL e políticas de segurança HTTPS.
+
+---
+
+### ADR-046: Teste Automatizado de Restauração de Backup (DR Drill em CI) e Validação Estrita do `restore.sh`
+- **Status:** Aprovado e Implementado
+- **Origem:** Auditoria de confiabilidade de Disaster Recovery (expansão do ADR-032 e `scripts/restore.sh`).
+- **Problema:**
+  1. Um backup não testado por restauração real pode gerar falso positivo operacional: no `scripts/restore.sh`, o comando `pg_restore ... 2>/dev/null` retorna sucesso (`exit 0`) mesmo diante de falhas reais de restauração.
+  2. O TimescaleDB exige o ciclo `timescaledb_pre_restore()` / `timescaledb_post_restore()` para preservar metadados de hypertables e chunks comprimidos.
+  3. O serviço `infrawatch-backup` no `docker-compose.yml` não monta o volume `redis_data` em `/data`, impedindo a cópia e restauração do `dump.rdb` dentro do contêiner isolado.
+  4. Não existe workflow em `.github/workflows/` validando o ciclo completo de backup e restauração.
+- **Decisão:**
+  1. **Workflow de DR Drill em CI (`.github/workflows/backup-restore-test.yml`):** Executar periodicamente e em alterações de `scripts/backup.sh`, `scripts/restore.sh` ou migrações Alembic um job com TimescaleDB e Redis efêmeros que popula dados reais, gera o bundle encriptado e executa o `restore.sh` em um banco limpo, validando contagem de registros e integridade de hypertables.
+  2. **Remoção de Silenciamento no `restore.sh`:** Capturar e falhar explicitamente diante de erros fatais do `pg_restore`, utilizando `SELECT timescaledb_pre_restore();` e `SELECT timescaledb_post_restore();` ao redor da restauração.
+  3. **Integração do Snapshot Redis:** Ajustar o mapeamento/fluxo do snapshot Redis (`dump.rdb`) para que seja efetivamente coletado e restaurável pelo pipeline de DR.
+- **Benefício:** Eliminação de falsos positivos em backups e garantia contínua de que o RTO/RPO documentado funciona na prática.
+
+---
+
+### ADR-047: Hardening de Infraestrutura — Isolamento de Portas, Limites de Recursos, CSP e Supply Chain Security
+- **Status:** Proposto
+- **Origem:** Auditoria de infraestrutura (`docker-compose.yml`, `nginx/nginx.conf`, `.github/workflows/`).
+- **Problema:**
+  1. `postgres` (`5432:5432`) e `redis` (`6379:6379`) publicam portas em `0.0.0.0` no `docker-compose.yml`, expondo serviços internos na interface de rede do host.
+  2. Os contêineres não definem `deploy.resources.limits` (CPU/RAM) nem `cap_drop: [ALL]` / `no-new-privileges:true`.
+  3. O `nginx/nginx.conf` não define `Content-Security-Policy` (CSP) e expõe `/docs`, `/redoc` e `/openapi.json` sem restrição por ambiente de produção.
+  4. Os pipelines de CI/CD não executam scan de vulnerabilidades de dependências/imagens (`trivy`, `pip-audit`, `npm audit`) nem varredura de segredos (`gitleaks`).
+- **Decisão:**
+  1. Restringir portas de `postgres` e `redis` à rede interna `infrawatch-net` (ou bind explícito em `127.0.0.1` quando necessário para dev local).
+  2. Aplicar limites de memória/CPU e `security_opt: [no-new-privileges:true]` + `cap_drop: [ALL]` nos serviços do Compose (mantendo apenas `CAP_NET_RAW` no `probe-worker`).
+  3. Adicionar cabeçalho `Content-Security-Policy` no `nginx/nginx.conf` e desabilitar documentação OpenAPI pública quando `ENVIRONMENT == "production"`.
+  4. Adicionar workflows de segurança de supply chain (`trivy`, `pip-audit`, `npm audit`, `gitleaks`) bloqueando vulnerabilidades críticas em PRs e antes do push na GHCR.
+- **Benefício:** Redução da superfície de ataque de rede, prevenção de OOM em cascata no host e blindagem do pipeline de entrega.
+
+---
+
+### ADR-048: Qualidade Estrita de Build e Tipagem no Backend (Remoção de Supressões e Bloat de Produção)
+- **Status:** Proposto
+- **Origem:** Auditoria do backend (`backend/pyproject.toml`, `backend/src/core/database/session.py`).
+- **Problema:**
+  1. `[tool.mypy]` em `backend/pyproject.toml` suprime `["assignment", "arg-type", "attr-defined", "union-attr"]`, tornando o gate de tipagem em CI (`type-check.yml`) propenso a falsos positivos.
+  2. Ferramentas de desenvolvimento (`pytest`, `pytest-cov`, `mypy`, `ruff`, `coverage`) estão listadas em `dependencies` de produção no `pyproject.toml`, inflando as imagens `Dockerfile.api` e `Dockerfile.worker`.
+  3. O `session.py` ainda não configura `statement_cache_size: 0` e `prepared_statement_cache_size: 0` no `connect_args` do `asyncpg`, condição obrigatória do ADR-034 para operar com PgBouncer em modo `transaction`.
+- **Decisão:**
+  1. Remover gradualmente os códigos suprimidos de `[tool.mypy]` e restringir supressões globais do Ruff (`BLE001`, `S110`) apenas a pontos explicitamente justificados.
+  2. Mover todas as dependências exclusivas de teste/lint/tipagem para `[dependency-groups] dev`, mantendo `dependencies` estritamente enxuto para runtime.
+  3. Adicionar `statement_cache_size: 0` e `prepared_statement_cache_size: 0` em `session.py` e provisionar o serviço `infrawatch-pgbouncer` no `docker-compose.yml` conforme ADR-034.
+- **Benefício:** Imagens Docker menores e mais seguras, checagem estática confiável e compatibilidade imediata com PgBouncer.
+
+---
+
+### ADR-049: Migração do Refresh Token para Cookie `HttpOnly` e Hardening de Runtime no Frontend
+- **Status:** Proposto
+- **Origem:** Auditoria de segurança do frontend (`frontend/src/stores/authStore.ts`, expansão do ADR-033).
+- **Problema:**
+  1. Embora o ADR-033 mantenha o `accessToken` apenas em memória, o `refreshToken` permanece persistido em `localStorage` (`infrawatch_auth` via `zustand/middleware/persist`). Em um cenário de XSS, um script malicioso pode extrair o `refreshToken` e emitir novos `accessToken`s.
+  2. O middleware `devtools(...)` em `authStore.ts` está habilitado incondicionalmente, expondo o estado de sessão no navegador em builds de produção.
+- **Decisão:**
+  1. Migrar a emissão e rotação do `refreshToken` para um Cookie **`HttpOnly; Secure; SameSite=Lax`** gerenciado exclusivamente pelo backend nos endpoints `/api/v1/auth/login`, `/api/v1/auth/refresh` e `/api/v1/auth/logout`, removendo-o completamente do `localStorage` e do estado acessível via JavaScript.
+  2. Condicionar `devtools` do Zustand exclusivamente ao ambiente de desenvolvimento (`enabled: import.meta.env.DEV`).
+- **Benefício:** Eliminação total do vetor de exfiltração de sessão via XSS e maior higiene de runtime em produção.
+
+---
+
+### ADR-050: Portão de Qualidade E2E, Cobertura Frontend e Testes de Carga/Caos
+- **Status:** Proposto
+- **Origem:** Auditoria de qualidade ponta a ponta (`.github/workflows/tests.yml`, `frontend/playwright.config.ts`).
+- **Problema:**
+  1. Os testes E2E em `frontend/e2e/` (Playwright) não são executados em nenhum workflow de CI, e o `coverage.yml` valida cobertura apenas no backend.
+  2. Não há validação automatizada de carga/soak ou injeção de falhas (*chaos testing*) para comprovar o comportamento do `MetricsBatchWriter`, do `OutboxRelayWorker` e de múltiplas conexões SSE simultâneas sob queda de Redis/PostgreSQL ou picos de *thundering herd*.
+- **Decisão:**
+  1. Integrar a execução do Playwright E2E e um gate de cobertura Vitest + orçamento de tamanho de bundle (*bundle budget*) nos workflows de CI do frontend.
+  2. Criar suíte de testes de carga e resiliência (`k6` ou `locust`) para validar periodicamente ingestão em lote, conexões SSE concorrentes e reconexão após falha simulada de Redis/Postgres.
+- **Benefício:** Detecção precoce de regressões visuais/funcionais de ponta a ponta e comprovação empírica de escalabilidade e resiliência.

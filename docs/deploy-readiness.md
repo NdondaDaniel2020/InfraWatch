@@ -25,6 +25,7 @@ Documento de verificação obrigatória para aprovação de deploy em Staging e 
   - [x] **Ponto 2**: `statement_timeout` configurado para 10s e `lock_timeout` para 5s.
   - [x] **Ponto 3**: `search_path = pg_catalog, public` fixado em funções do banco (`notify_outbox_event`, `block_audit_log_mutation`).
   - [x] **Ponto 4**: Check constraints de integridade ativas na camada de persistência (`metrics`, `devices`, `maintenance_windows`, `incidents`, `organizations`).
+  - [ ] **Ponto 5**: Exposição segura de dados via VIEWs sanitizadas no PostgreSQL (`v_users_safe` com mascaramento de e-mails, `v_system_settings_masked` sem segredos em texto puro e concessão estrita de acesso à role `infrawatch_readonly`).
   - [x] **Ponto 6**: Privilégio `CREATE` revogado de `PUBLIC` no schema `public`.
   - [x] **Ponto 8**: Ações de leitura sensível registradas na trilha de auditoria (`SLA_REPORT_DOWNLOADED`, `CREDENTIAL_ACCESSED`).
 
@@ -42,4 +43,5 @@ Documento de verificação obrigatória para aprovação de deploy em Staging e 
 - [ ] **Migrations** (`migrations.yml`): Head único, rollback/re-apply e auditoria de hardening aprovados contra container TimescaleDB real.
 - [ ] **Smoke Test** (`smoke.yml`): Inicialização FastAPI e endpoints de saúde validados.
 - [ ] **Docker Build** (`docker-build.yml`): Compilação dry-run dos Dockerfiles (API, Worker, Backup, Front) e validação Compose.
+- [ ] **E2E Playwright** (`npm run test:e2e`): Suíte de testes visuais, autenticação e navegação aprovada em stack Docker (`auth-flow.spec.ts` e `noc-navigation.spec.ts`).
 - [ ] **Build & Publish** (`build-deploy.yml`): Publicação manual de imagens no GHCR via workflow_dispatch.
