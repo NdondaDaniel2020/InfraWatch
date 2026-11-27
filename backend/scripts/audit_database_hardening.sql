@@ -10,6 +10,9 @@ DECLARE
     v_timeout_val text;
     v_unprotected_funcs integer;
     v_missing_constraints integer;
+    v_missing_views integer;
+    v_insecure_views integer;
+    v_readonly_role_exists integer;
 BEGIN
     RAISE NOTICE '=========================================================';
     RAISE NOTICE 'Iniciando Auditoria de Hardening do Banco de Dados...';
@@ -92,6 +95,47 @@ BEGIN
         RAISE EXCEPTION 'FALHA DE INTEGRIDADE (Item 4): Existem % constraints de validação de persistência ausentes!', v_missing_constraints;
     ELSE
         RAISE NOTICE '✔ [Item 4] Constraints de validação de persistência ativas no Postgres.';
+    END IF;
+
+    -- 6. Ponto 5: Exposição Segura via VIEWs Sanitizadas e Role Read-Only
+    -- 6.1 Verifica existência das views sanitizadas no schema public
+    SELECT count(*) INTO v_missing_views
+    FROM (VALUES ('v_users_safe'), ('v_system_settings_masked')) AS expected(view_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_views v
+        WHERE v.schemaname = 'public' AND v.viewname = expected.view_name
+    );
+
+    IF v_missing_views > 0 THEN
+        RAISE EXCEPTION 'FALHA DE SEGURANÇA (Item 5): Existem % views sanitizadas ausentes no schema public!', v_missing_views;
+    ELSE
+        RAISE NOTICE '✔ [Item 5] Views sanitizadas v_users_safe e v_system_settings_masked presentes.';
+    END IF;
+
+    -- 6.2 Verifica se as views sanitizadas possuem security_barrier ativado
+    SELECT count(*) INTO v_insecure_views
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'v'
+      AND c.relname IN ('v_users_safe', 'v_system_settings_masked')
+      AND (c.reloptions IS NULL OR NOT array_to_string(c.reloptions, ',') LIKE '%security_barrier=true%');
+
+    IF v_insecure_views > 0 THEN
+        RAISE EXCEPTION 'FALHA DE SEGURANÇA (Item 5): Existem % views sanitizadas sem security_barrier ativado!', v_insecure_views;
+    ELSE
+        RAISE NOTICE '✔ [Item 5] security_barrier ativo nas views sanitizadas.';
+    END IF;
+
+    -- 6.3 Verifica se a role infrawatch_readonly existe no catálogo
+    SELECT count(*) INTO v_readonly_role_exists
+    FROM pg_roles
+    WHERE rolname = 'infrawatch_readonly';
+
+    IF v_readonly_role_exists = 0 THEN
+        RAISE EXCEPTION 'FALHA DE SEGURANÇA (Item 5): Role infrawatch_readonly não encontrada no banco de dados!';
+    ELSE
+        RAISE NOTICE '✔ [Item 5] Role infrawatch_readonly verificada com sucesso no catálogo.';
     END IF;
 
     RAISE NOTICE '=========================================================';
