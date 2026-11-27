@@ -257,3 +257,63 @@ def test_audit_database_hardening_script_content():
     assert "SHOW statement_timeout" in content
     assert "search_path=" in content
     assert "chk_metric_packet_loss" in content
+    assert "v_users_safe" in content
+    assert "v_system_settings_masked" in content
+    assert "security_barrier=true" in content
+    assert "infrawatch_readonly" in content
+
+
+def test_migration_020_sqlite_safe():
+    """Garante que upgrade() e downgrade() da migration 020 executam sem exceção em SQLite."""
+    import importlib.util
+    from pathlib import Path
+
+    migration_file = (
+        Path(__file__).parents[3]
+        / "alembic"
+        / "versions"
+        / "020_create_sanitized_views_and_readonly_role.py"
+    )
+    spec = importlib.util.spec_from_file_location("mig_020", migration_file)
+    assert spec is not None and spec.loader is not None
+    mig_020 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig_020)
+
+    with patch.object(mig_020, "_is_sqlite", return_value=True):
+        # Não deve lançar exceção em SQLite
+        mig_020.upgrade()
+        mig_020.downgrade()
+
+
+def test_migration_020_sanitized_views_structure():
+    """Valida que a migration 020 cria as views sanitizadas com segurança sem expor credenciais."""
+    from pathlib import Path
+
+    migration_file = (
+        Path(__file__).parents[3]
+        / "alembic"
+        / "versions"
+        / "020_create_sanitized_views_and_readonly_role.py"
+    )
+    content = migration_file.read_text(encoding="utf-8")
+
+    # Views sanitizadas e role readonly
+    assert "CREATE OR REPLACE VIEW public.v_users_safe" in content
+    assert "CREATE OR REPLACE VIEW public.v_system_settings_masked" in content
+    assert "infrawatch_readonly" in content
+    assert "WITH (security_barrier = true)" in content
+
+    # Garantia de não vazamento de senhas / oauth ids externos na definicao da VIEW
+    view_sql = content.split("CREATE OR REPLACE VIEW public.v_users_safe")[1].split(
+        "FROM public.users;"
+    )[0]
+    assert "hashed_password" not in view_sql
+    assert "google_id" not in view_sql
+
+    # Mascaramento de e-mail e segredos
+    assert "substr(email, 1, 2) || '***@'" in content
+    assert "WHEN is_secret = true THEN '••••••••'" in content
+
+    # Revogação explícita de SELECT nas tabelas base
+    assert "REVOKE SELECT ON public.users FROM infrawatch_readonly;" in content
+    assert "REVOKE SELECT ON public.system_settings FROM infrawatch_readonly;" in content
